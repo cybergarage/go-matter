@@ -18,9 +18,9 @@ package matter
 type VenderId uint16
 
 const (
-	MatterStandardVenderId = 0x0000
-	TestVender01Id         = 0xFFF1
-	TestVender02Id         = 0xFFF2
-	TestVender03Id         = 0xFFF3
-	TestVender04Id         = 0xFFF4
+	MatterStandardVenderId = (VenderId)(0x0000)
+	TestVender01Id         = (VenderId)(0xFFF1)
+	TestVender02Id         = (VenderId)(0xFFF2)
+	TestVender03Id         = (VenderId)(0xFFF3)
+	TestVender04Id         = (VenderId)(0xFFF4)
 )
