@@ -16,3 +16,11 @@ package message
 
 // Counter represents a message counter.
 type Counter uint32
+
+// NewCounter returns a new counter.
+func NewCounter() Counter {
+	// 4.5.1.1. Message Counter Initialization
+	// TODO: All message counters SHALL be initialized with a random value
+	// using the Crypto_DRBG(len = 28) +1 primitive.
+	return 1
+}
