@@ -12,15 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package matter
-
-import (
-	"github.com/cybergarage/go-matter/matter/message"
-)
+package message
 
 // NodeId represents a node ID.
-type NodeId = message.NodeId
-
-const (
-	UnspecifiedNodeId = (NodeId)(0x0000000000000000)
-)
+type NodeId uint64
