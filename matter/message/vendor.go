@@ -12,19 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package matter
-
-import (
-	"github.com/cybergarage/go-matter/matter/message"
-)
+package message
 
 // VendorId represents a vendor ID.
-type VenderId = message.VenderId
-
-const (
-	MatterStandardVenderId = (VenderId)(0x0000)
-	TestVender01Id         = (VenderId)(0xFFF1)
-	TestVender02Id         = (VenderId)(0xFFF2)
-	TestVender03Id         = (VenderId)(0xFFF3)
-	TestVender04Id         = (VenderId)(0xFFF4)
-)
+type VenderId uint16
