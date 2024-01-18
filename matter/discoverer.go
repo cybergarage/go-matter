@@ -14,12 +14,36 @@
 
 package matter
 
+import (
+	"github.com/cybergarage/go-logger/log"
+	"github.com/cybergarage/go-mdns/mdns"
+	"github.com/cybergarage/go-mdns/mdns/protocol"
+)
+
 // Discoverer represents a discoverer for commisionners.
 type Discoverer struct {
+	*mdns.Client
 }
 
 // NewDiscoverer returns a new discoverer.
 func NewDiscoverer() *Discoverer {
-	disc := &Discoverer{}
+	disc := &Discoverer{
+		Client: mdns.NewClient(),
+	}
 	return disc
+}
+
+// MessageReceived is a callback when a message is received.
+func (disc *Discoverer) MessageReceived(msg *protocol.Message) {
+	log.HexInfo(msg.Bytes())
+}
+
+// Start starts this discoverer.
+func (disc *Discoverer) Start() error {
+	return disc.Client.Start()
+}
+
+// Stop stops this discoverer.
+func (disc *Discoverer) Stop() error {
+	return disc.Client.Stop()
 }
