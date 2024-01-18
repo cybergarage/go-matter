@@ -17,6 +17,9 @@ package message
 // ExchangeFlag represents a exchange flag.
 type ExchangeFlag uint8
 
+// ExchangeID represents a exchange ID.
+type ExchangeID uint16
+
 // IsInitiator returns true if the flag is initiator.
 func (flag ExchangeFlag) IsInitiator() bool {
 	return (flag & 0x01) != 0
