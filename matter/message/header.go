@@ -13,3 +13,14 @@
 // limitations under the License.
 
 package message
+
+// Header represents a message header.
+type Header struct {
+	Length            uint16
+	Flag              Flag
+	SessionId         SessionId
+	SecurityFlag      SecurityFlag
+	Counter           Counter
+	SourceNodeId      NodeId
+	DestinationNodeId NodeId
+}
