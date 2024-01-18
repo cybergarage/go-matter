@@ -21,5 +21,17 @@ import (
 )
 
 func TestDiscoverer(t *testing.T) {
-	matter.NewDiscoverer()
+	disc := matter.NewDiscoverer()
+
+	err := disc.Start()
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	err = disc.Stop()
+	if err != nil {
+		t.Error(err)
+		return
+	}
 }
