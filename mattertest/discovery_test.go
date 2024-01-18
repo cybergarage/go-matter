@@ -12,11 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package matter
+package mattertest
 
 import (
 	"testing"
+
+	"github.com/cybergarage/go-matter/matter"
 )
 
-func TestDummy(t *testing.T) {
+func TestDiscoverer(t *testing.T) {
+	matter.NewDiscoverer()
 }
