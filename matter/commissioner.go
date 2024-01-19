@@ -26,3 +26,23 @@ func NewCommissioner() *Commissioner {
 	}
 	return com
 }
+
+// Start starts the commissioner.
+func (com *Commissioner) Start() error {
+	err := com.Discoverer.Start()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Stop stops the commissioner.
+func (com *Commissioner) Stop() error {
+	err := com.Discoverer.Stop()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
