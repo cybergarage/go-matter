@@ -20,6 +20,10 @@ import (
 	"github.com/cybergarage/go-mdns/mdns/protocol"
 )
 
+const (
+	DnsSdDServerType = "_matter._tcp"
+)
+
 // Discoverer represents a discoverer for commisionners.
 type Discoverer struct {
 	*mdns.Client
@@ -46,4 +50,18 @@ func (disc *Discoverer) Start() error {
 // Stop stops this discoverer.
 func (disc *Discoverer) Stop() error {
 	return disc.Client.Stop()
+}
+
+// Search searches commisioners.
+func (disc *Discoverer) Search() error {
+	services := []string{
+		DnsSdDServerType,
+	}
+
+	err := disc.Query(mdns.NewQueryWithServices(services))
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
