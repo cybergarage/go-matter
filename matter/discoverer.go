@@ -53,6 +53,10 @@ func (disc *Discoverer) Stop() error {
 }
 
 // Search searches commisioners.
+// 5.4.3.3. Using Existing IP-bearing Network
+// To discover a commissionable device over an existing IP-bearing network connection,
+// the Commis­ sioner SHALL perform service discovery using DNS-SD as detailed in
+// Section 4.3, “Discovery”, and more specifically in Section 4.3.1, “Commissionable Node Discovery”.
 func (disc *Discoverer) Search() error {
 	services := []string{
 		DnsSdDServerType,
