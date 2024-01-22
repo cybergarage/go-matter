@@ -14,6 +14,7 @@
 
 package message
 
+// 4.4.1.4. Security Flags (8 bits)
 // SecurityFlag represents a message security flag.
 type SecurityFlag uint8
 
