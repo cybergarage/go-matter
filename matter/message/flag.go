@@ -14,6 +14,7 @@
 
 package message
 
+// 4.4.1.2. Message Flags (8 bits)
 // Flag represents a message flag.
 type Flag uint8
 
