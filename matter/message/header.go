@@ -14,6 +14,7 @@
 
 package message
 
+// 4.4.1. Message Header Field Descriptions
 // Header represents a message header.
 type Header struct {
 	Length            uint16
