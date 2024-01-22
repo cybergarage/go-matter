@@ -20,4 +20,6 @@ type Header struct {
 	ExchangeFlag ExchangeFlag
 	Opcode       Opcode
 	ExchangeID   ExchangeID
+	VenderId     VenderId
+	ProtocolId   ProtocolId
 }
