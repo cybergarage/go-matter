@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package message
+package protocol
 
+// 4.4.3.5. Protocol Vendor ID (16 bits)
 // VendorId represents a vendor ID.
 type VenderId uint16
