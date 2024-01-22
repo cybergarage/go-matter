@@ -14,5 +14,6 @@
 
 package message
 
+// 4.4.1.6. Source Node ID (64 bits)
 // NodeId represents a node ID.
 type NodeId uint64
