@@ -12,22 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package matter
-
-import (
-	"github.com/cybergarage/go-matter/matter/message"
-)
+package message
 
 // GroupId represents a group ID.
-type GroupId = message.GroupId
-
-const (
-	UnspecifiedGroupId            GroupId = 0x0000
-	UniversalGroupIdMin           GroupId = 0xFF00
-	UniversalGroupIdMax           GroupId = 0xFFFF
-	UniversalAllNodeGroupId       GroupId = 0xFFFF
-	UniversalAllNonICDNodeGroupId GroupId = 0xFFFE
-	UniversalAllProxyGroupId      GroupId = 0xFFFD
-	ApplicationGroupIDMin         GroupId = 0x0001
-	ApplicationGroupIDMax         GroupId = 0xFEFF
-)
+type GroupId uint16
