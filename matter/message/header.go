@@ -53,7 +53,12 @@ func (header *Header) Length() uint16 {
 	return uint16(header.length[0])<<8 | uint16(header.length[1])
 }
 
+// Read reads a header from the specified reader.
 func (header *Header) Read(reader io.Reader) error {
 	// 4.4.1. Message Header Field Descriptions
+	_, err := reader.Read(header.length)
+	if err != nil {
+		return err
+	}
 	return nil
 }
