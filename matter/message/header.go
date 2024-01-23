@@ -48,7 +48,7 @@ func NewHeader() *Header {
 
 // SetLength sets a length.
 func (header *Header) SetLength(l uint16) {
-	encoding.Uint16ToBytes(l, header.length)
+	encoding.Uint16ToBytes(l, &header.length)
 }
 
 // Length returns a length.
