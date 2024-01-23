@@ -52,7 +52,9 @@ func Uint16ToBytes(v uint16, b [2]byte) {
 
 // Byte2ToUint16 converts specified bytes to a integer.
 func Byte2ToUint16(b [2]byte) uint16 {
-	return uint16(b[0])<<8 | uint16(b[1])
+	return uint16(
+		uint16(b[0])<<8 |
+			uint16(b[1]))
 }
 
 // Uint32ToBytes converts a specified integer to bytes.
@@ -65,11 +67,23 @@ func Uint32ToBytes(v uint32, b [4]byte) {
 
 // BytesToUint32 converts specified bytes to a integer.
 func BytesToUint32(b [4]byte) uint32 {
-	return uint32(b[0])<<24 | uint32(b[1])<<16 | uint32(b[2])<<8 | uint32(b[3])
+	return uint32(
+		uint32(b[0])<<24 |
+			uint32(b[1])<<16 |
+			uint32(b[2])<<8 |
+			uint32(b[3]))
 }
 
 // Uint64ToBytes converts a specified integer to bytes.
 func Uint64ToBytes(v uint64, b [8]byte) {
+	b[0] = byte(v >> 56)
+	b[1] = byte(v >> 48)
+	b[2] = byte(v >> 40)
+	b[3] = byte(v >> 32)
+	b[4] = byte(v >> 24)
+	b[5] = byte(v >> 16)
+	b[6] = byte(v >> 8)
+	b[7] = byte(v & 0xff)
 }
 
 // BytesToUint64 converts specified bytes to a integer.
