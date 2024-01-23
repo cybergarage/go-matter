@@ -25,3 +25,17 @@ type Header struct {
 	SourceNodeId      NodeId
 	DestinationNodeId NodeId
 }
+
+// NewHeader returns a new header.
+func NewHeader() *Header {
+	header := &Header{
+		Length:            0,
+		Flag:              0,
+		SessionId:         0,
+		SecurityFlag:      0,
+		Counter:           0,
+		SourceNodeId:      0,
+		DestinationNodeId: 0,
+	}
+	return header
+}
