@@ -14,10 +14,12 @@
 
 package message
 
+import "io"
+
 // 4.4.1. Message Header Field Descriptions
 // Header represents a message header.
 type Header struct {
-	Length            uint16
+	length            []byte
 	Flag              Flag
 	SessionId         SessionId
 	SecurityFlag      SecurityFlag
@@ -29,7 +31,7 @@ type Header struct {
 // NewHeader returns a new header.
 func NewHeader() *Header {
 	header := &Header{
-		Length:            0,
+		length:            make([]byte, 2),
 		Flag:              0,
 		SessionId:         0,
 		SecurityFlag:      0,
@@ -38,4 +40,20 @@ func NewHeader() *Header {
 		DestinationNodeId: 0,
 	}
 	return header
+}
+
+// SetLength sets a length.
+func (header *Header) SetLength(l uint16) {
+	header.length[0] = byte(l >> 8)
+	header.length[1] = byte(l & 0xff)
+}
+
+// Length returns a length.
+func (header *Header) Length() uint16 {
+	return uint16(header.length[0])<<8 | uint16(header.length[1])
+}
+
+func (header *Header) Read(reader io.Reader) error {
+	// 4.4.1. Message Header Field Descriptions
+	return nil
 }
