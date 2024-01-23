@@ -24,7 +24,7 @@ import (
 // Header represents a message header.
 type Header struct {
 	length            [2]byte
-	Flag              Flag
+	flag              Flag
 	SessionId         SessionId
 	SecurityFlag      SecurityFlag
 	Counter           Counter
@@ -36,7 +36,7 @@ type Header struct {
 func NewHeader() *Header {
 	header := &Header{
 		length:            [2]byte{},
-		Flag:              0,
+		flag:              0,
 		SessionId:         0,
 		SecurityFlag:      0,
 		Counter:           0,
@@ -56,12 +56,30 @@ func (header *Header) Length() uint16 {
 	return encoding.Byte2ToUint16(header.length)
 }
 
+// SetFlag sets a flag.
+func (header *Header) SetFlag(f Flag) {
+	header.flag = f
+}
+
+// Flag returns a flag.
+func (header *Header) Flag() Flag {
+	return header.flag
+}
+
 // Read reads a header from the specified reader.
 func (header *Header) Read(reader io.Reader) error {
+	b := make([]byte, 1)
 	// 4.4.1. Message Header Field Descriptions
+	// Message Length
 	_, err := reader.Read(header.length[:])
 	if err != nil {
 		return err
 	}
+	// Message Flags
+	_, err = reader.Read(b)
+	if err != nil {
+		return err
+	}
+	header.flag = Flag(b[0])
 	return nil
 }
