@@ -14,12 +14,16 @@
 
 package message
 
-import "io"
+import (
+	"io"
+
+	"github.com/cybergarage/go-matter/matter/encoding"
+)
 
 // 4.4.1. Message Header Field Descriptions
 // Header represents a message header.
 type Header struct {
-	length            []byte
+	length            [2]byte
 	Flag              Flag
 	SessionId         SessionId
 	SecurityFlag      SecurityFlag
@@ -31,7 +35,7 @@ type Header struct {
 // NewHeader returns a new header.
 func NewHeader() *Header {
 	header := &Header{
-		length:            make([]byte, 2),
+		length:            [2]byte{},
 		Flag:              0,
 		SessionId:         0,
 		SecurityFlag:      0,
@@ -44,19 +48,18 @@ func NewHeader() *Header {
 
 // SetLength sets a length.
 func (header *Header) SetLength(l uint16) {
-	header.length[0] = byte(l >> 8)
-	header.length[1] = byte(l & 0xff)
+	encoding.Uint16ToBytes(l, header.length)
 }
 
 // Length returns a length.
 func (header *Header) Length() uint16 {
-	return uint16(header.length[0])<<8 | uint16(header.length[1])
+	return encoding.Byte2ToUint16(header.length)
 }
 
 // Read reads a header from the specified reader.
 func (header *Header) Read(reader io.Reader) error {
 	// 4.4.1. Message Header Field Descriptions
-	_, err := reader.Read(header.length)
+	_, err := reader.Read(header.length[:])
 	if err != nil {
 		return err
 	}
