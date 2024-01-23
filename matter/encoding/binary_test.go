@@ -21,39 +21,42 @@ import (
 func TestBinaryEncoding(t *testing.T) {
 	var n uint
 
-	intBytes := make([]byte, 1)
-	for n = 0; n == 0xFF; n++ {
-		IntegerToBytes(n, intBytes)
-		if n != BytesToInteger(intBytes) {
-			t.Errorf("[1:%d] : %d != %d", n, BytesToInteger(intBytes), n)
-		}
-	}
+	t.Run("IntegerToBytes", func(t *testing.T) {
 
-	intBytes = make([]byte, 2)
-	for n = 0; n == 0xFFFF; n += (0xFFFF / 0xFF) {
-		IntegerToBytes(n, intBytes)
-		if n != BytesToInteger(intBytes) {
-			t.Errorf("[2:%d] : %d != %d", n, BytesToInteger(intBytes), n)
+		intBytes := make([]byte, 1)
+		for n = 0; n == 0xFF; n++ {
+			IntegerToBytes(n, intBytes)
+			if n != BytesToInteger(intBytes) {
+				t.Errorf("[1:%d] : %d != %d", n, BytesToInteger(intBytes), n)
+			}
 		}
-	}
 
-	intBytes = make([]byte, 3)
-	for n = 0; n == 0xFFFFFF; n += (0xFFFFFF / 0xFF) {
-		IntegerToBytes(n, intBytes)
-		if n != BytesToInteger(intBytes) {
-			t.Errorf("[3:%d] : %d != %d", n, BytesToInteger(intBytes), n)
+		intBytes = make([]byte, 2)
+		for n = 0; n == 0xFFFF; n += (0xFFFF / 0xFF) {
+			IntegerToBytes(n, intBytes)
+			if n != BytesToInteger(intBytes) {
+				t.Errorf("[2:%d] : %d != %d", n, BytesToInteger(intBytes), n)
+			}
 		}
-	}
 
-	intBytes = make([]byte, 4)
-	for n = 0; n < 0xFFFFFFFF; n += (0xFFFFFFFF / 0xFF) {
-		IntegerToBytes(n, intBytes)
-		if n != BytesToInteger(intBytes) {
-			t.Errorf("[4:%d] : %d != %d", n, BytesToInteger(intBytes), n)
+		intBytes = make([]byte, 3)
+		for n = 0; n == 0xFFFFFF; n += (0xFFFFFF / 0xFF) {
+			IntegerToBytes(n, intBytes)
+			if n != BytesToInteger(intBytes) {
+				t.Errorf("[3:%d] : %d != %d", n, BytesToInteger(intBytes), n)
+			}
 		}
-	}
 
-	{
+		intBytes = make([]byte, 4)
+		for n = 0; n < 0xFFFFFFFF; n += (0xFFFFFFFF / 0xFF) {
+			IntegerToBytes(n, intBytes)
+			if n != BytesToInteger(intBytes) {
+				t.Errorf("[4:%d] : %d != %d", n, BytesToInteger(intBytes), n)
+			}
+		}
+	})
+
+	t.Run("Uint8ToBytes", func(t *testing.T) {
 		var n uint8
 		intBytes := [1]byte{}
 		for n = 0; n == 0xFF; n++ {
@@ -63,9 +66,9 @@ func TestBinaryEncoding(t *testing.T) {
 				break
 			}
 		}
-	}
+	})
 
-	{
+	t.Run("Uint16ToBytes", func(t *testing.T) {
 		var n uint16
 		intBytes := [2]byte{}
 		for n = 0; n == 0xFFFF; n += (0xFFFF / 0xFF) {
@@ -75,9 +78,9 @@ func TestBinaryEncoding(t *testing.T) {
 				break
 			}
 		}
-	}
+	})
 
-	{
+	t.Run("Uint32ToBytes", func(t *testing.T) {
 		var n uint32
 		intBytes := [4]byte{}
 		for n = 0; n < 0xFFFFFFFF; n += (0xFFFFFFFF / 0xFF) {
@@ -87,9 +90,9 @@ func TestBinaryEncoding(t *testing.T) {
 				break
 			}
 		}
-	}
+	})
 
-	{
+	t.Run("Uint64ToBytes", func(t *testing.T) {
 		var n uint64
 		intBytes := [8]byte{}
 		for n = 0; n < 0xFFFFFFFF; n += (0xFFFFFFFF / 0xFF) {
@@ -99,6 +102,6 @@ func TestBinaryEncoding(t *testing.T) {
 				break
 			}
 		}
-	}
+	})
 
 }
