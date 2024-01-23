@@ -35,7 +35,7 @@ func BytesToInteger(b []byte) uint {
 }
 
 // Uint8ToBytes converts a specified integer to bytes.
-func Uint8ToBytes(v uint8, b [1]byte) {
+func Uint8ToBytes(v uint8, b *[1]byte) {
 	b[0] = byte(v)
 }
 
@@ -45,7 +45,7 @@ func BytesToUint8(b [1]byte) uint8 {
 }
 
 // Uint16ToBytes converts a specified integer to bytes.
-func Uint16ToBytes(v uint16, b [2]byte) {
+func Uint16ToBytes(v uint16, b *[2]byte) {
 	b[0] = byte(v >> 8)
 	b[1] = byte(v & 0xff)
 }
@@ -56,7 +56,7 @@ func Byte2ToUint16(b [2]byte) uint16 {
 }
 
 // Uint32ToBytes converts a specified integer to bytes.
-func Uint32ToBytes(v uint32, b [4]byte) {
+func Uint32ToBytes(v uint32, b *[4]byte) {
 	b[0] = byte(v >> 24)
 	b[1] = byte(v >> 16)
 	b[2] = byte(v >> 8)
@@ -69,7 +69,7 @@ func BytesToUint32(b [4]byte) uint32 {
 }
 
 // Uint64ToBytes converts a specified integer to bytes.
-func Uint64ToBytes(v uint64, b [8]byte) {
+func Uint64ToBytes(v uint64, b *[8]byte) {
 	b[0] = byte(v >> 56)
 	b[1] = byte(v >> 48)
 	b[2] = byte(v >> 40)
