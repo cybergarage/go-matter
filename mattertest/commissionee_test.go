@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/cybergarage/go-logger/log"
+	"github.com/cybergarage/go-matter/matter"
 	"github.com/cybergarage/go-mdns/mdns/protocol"
 )
 
@@ -60,8 +61,10 @@ func TestCommissionee(t *testing.T) {
 				return
 			}
 
+			com := matter.NewCommissioneeWithMessage(msg)
+
 			for _, answer := range test.answers {
-				if !msg.Answers.HasResourceRecord(answer.name) {
+				if !com.Answers.HasResourceRecord(answer.name) {
 					t.Errorf("answer (%s) not found", answer.name)
 				}
 			}
