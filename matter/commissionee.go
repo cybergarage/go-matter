@@ -17,26 +17,28 @@ package matter
 import (
 	_ "embed"
 
+	"github.com/cybergarage/go-mdns/mdns"
 	"github.com/cybergarage/go-mdns/mdns/protocol"
 )
 
 // Commissionee represents a commissionee.
 type Commissionee struct {
-	*protocol.Message
-}
-
-// NewCommissionee returns a new commissionee.
-func NewCommissionee() *Commissionee {
-	com := &Commissionee{
-		Message: protocol.NewMessage(),
-	}
-	return com
+	*mdns.Service
 }
 
 // NewCommissioneeWithMessage returns a new commissionee with a mDNS message.
-func NewCommissioneeWithMessage(msg *protocol.Message) *Commissionee {
+func NewCommissioneeWithMessage(msg *protocol.Message) (*Commissionee, error) {
+	service, err := mdns.NewServiceWithMessage(msg)
+	if err != nil {
+		return nil, err
+	}
+	return NewCommissioneeWithService(service), nil
+}
+
+// NewCommissioneeWithService returns a new commissionee with a mDNS service.
+func NewCommissioneeWithService(service *mdns.Service) *Commissionee {
 	com := &Commissionee{
-		Message: msg,
+		Service: service,
 	}
 	return com
 }
