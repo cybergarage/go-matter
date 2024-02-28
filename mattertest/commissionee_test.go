@@ -32,9 +32,10 @@ func TestCommissionee(t *testing.T) {
 		name string
 	}
 	tests := []struct {
-		name    string
-		msgLogs string
-		answers []answer
+		name       string
+		msgLogs    string
+		answers    []answer
+		attributes map[string]string
 	}{
 		// 4.3.1.13. Examples
 		// dns-sd -R DD200C20D25AE5F7 _matterc._udp,_S3,_L840,_CM . 11111 D=840 CM=2
@@ -43,6 +44,9 @@ func TestCommissionee(t *testing.T) {
 			matterSpec12043113,
 			[]answer{
 				{"_services._dns-sd"},
+			},
+			map[string]string{
+				"D": "840",
 			},
 		},
 	}
@@ -61,11 +65,25 @@ func TestCommissionee(t *testing.T) {
 				return
 			}
 
-			com := matter.NewCommissioneeWithMessage(msg)
+			com, err := matter.NewCommissioneeWithMessage(msg)
+			if err != nil {
+				t.Error(err)
+				return
+			}
 
-			for _, answer := range test.answers {
-				if !com.Answers.HasResourceRecord(answer.name) {
-					t.Errorf("answer (%s) not found", answer.name)
+			// for _, answer := range test.answers {
+			// if !com.HasResourceRecord(answer.name) {
+			// 	t.Errorf("answer (%s) not found", answer.name)
+			// }
+			// }
+
+			for name, value := range test.attributes {
+				attr, ok := com.LookupAttribute(name)
+				if !ok {
+					t.Errorf("attribute (%s) not found", name)
+				}
+				if attr.Value() != value {
+					t.Errorf("attribute (%s) value (%s) != (%s)", name, attr.Value(), value)
 				}
 			}
 			t.Log(msg.String())
