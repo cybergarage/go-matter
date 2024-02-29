@@ -39,3 +39,11 @@ const (
 	TxtRecordRotatingDeviceID  = "RI"
 	TxtRecordPairingHint       = "PH"
 )
+
+// Matter Specification Version 1.2
+// 4.3.1.7. TXT key for commissioning mode (CM)
+const (
+	CommissioningModeNone = "0"
+	CommissioningMode1    = "1"
+	CommissioningMode2    = "2"
+)
