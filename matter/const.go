@@ -21,11 +21,11 @@ const (
 // Matter Specification Version 1.2
 // 4.3.1.3. Commissioning Subtypes
 const (
-	DiscriminatorLong  = "_L"
-	DiscriminatorShort = "_S"
-	VendorID           = "_V"
-	DeviceType         = "_T"
-	CommissioningMode  = "_CM"
+	SubtypeDiscriminatorLong  = "_L"
+	SubtypeDiscriminatorShort = "_S"
+	SubtypeVendorID           = "_V"
+	SubtypeDeviceType         = "_T"
+	SubtypeCommissioningMode  = "_CM"
 )
 
 // Matter Specification Version 1.2
