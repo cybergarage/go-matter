@@ -16,6 +16,7 @@ package matter
 
 import (
 	_ "embed"
+	"strings"
 
 	"github.com/cybergarage/go-mdns/mdns"
 	"github.com/cybergarage/go-mdns/mdns/protocol"
@@ -52,16 +53,30 @@ func (com *Commissionee) LookupAttribute(name string) (string, bool) {
 	return attr.Value(), true
 }
 
+// 4.3.1.5. TXT key for discriminator (D)
 // LookupDiscriminator returns a discriminator.
 func (com *Commissionee) LookupDiscriminator() (string, bool) {
 	return com.LookupAttribute(TxtRecordDiscriminator)
 }
 
+// 4.3.1.6. TXT key for Vendor ID and Product ID (VP)
+// LookupVendorProductID returns a vendor and product ID.
+func (com *Commissionee) LookupVendorProductID() (string, string, bool) {
+	vp, ok := com.LookupAttribute(TxtRecordVendorProductID)
+	if !ok || len(vp) == 0 {
+		return "", "", false
+	}
+	vpList := strings.Split(vp, "+")
+	if len(vpList) < 1 {
+		return vpList[0], "", true
+	}
+	return vpList[0], vpList[1], true
+}
+
+// 4.3.1.7. TXT key for commissioning mode (CM)
 // LookupCommissioningMode returns a commissioning mode.
 func (com *Commissionee) LookupCommissioningMode() (string, bool) {
 	cm, ok := com.LookupAttribute(TxtRecordCommissioningMode)
-	// 4.3.1.7. TXT key for commissioning mode (CM)
-	// The absence of key CM SHALL imply a value of 0 (CM=0).
 	if !ok {
 		return CommissioningModeNone, false
 	}
