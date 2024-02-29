@@ -14,6 +14,12 @@
 
 package matter
 
+import (
+	"strconv"
+
+	"github.com/cybergarage/go-safecast/safecast"
+)
+
 // DeviceType represents a device type.
 type DeviceType uint
 
@@ -21,3 +27,16 @@ const (
 	// DeviceTypeUnknown represents an unknown device type.
 	DeviceTypeUnknown DeviceType = 0
 )
+
+// NewDeviceTypeFromString returns a new device type from a string.
+func NewDeviceTypeFromString(s string) (DeviceType, error) {
+	dti, err := strconv.Atoi(s)
+	if err != nil {
+		return DeviceTypeUnknown, err
+	}
+	var dt uint
+	if err := safecast.ToUint(dti, &dt); err != nil {
+		return DeviceTypeUnknown, err
+	}
+	return DeviceType(dt), nil
+}
