@@ -22,7 +22,7 @@ jobs:
       run: sudo snap install golangci-lint
 
     - name: Test
-      run: export CGO_ENABLED=0 make test
+      run: make test
 
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v4.0.1
