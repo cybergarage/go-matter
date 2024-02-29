@@ -42,3 +42,16 @@ func NewCommissioneeWithService(service *mdns.Service) *Commissionee {
 	}
 	return com
 }
+
+func (com *Commissionee) lookupAttribute(name string) (string, bool) {
+	attr, ok := com.LookupAttribute(name)
+	if !ok {
+		return "", false
+	}
+	return attr.Value(), true
+}
+
+// LookupDiscriminator returns a discriminator.
+func (com *Commissionee) LookupDiscriminator() (string, bool) {
+	return com.lookupAttribute(TxtRecordDiscriminator)
+}
