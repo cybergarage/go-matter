@@ -4,5 +4,5 @@ go 1.21
 
 require (
 	github.com/cybergarage/go-logger v1.3.5
-	github.com/cybergarage/go-mdns v0.0.0-20240229105815-1a50a19d7737
+	github.com/cybergarage/go-mdns v0.0.0-20240229152325-97115555b457
 )
