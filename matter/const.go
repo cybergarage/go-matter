@@ -31,13 +31,14 @@ const (
 // Matter Specification Version 1.2
 // 4.3.1.4. TXT Records
 const (
-	TxtRecordDiscriminator     = "D"
-	TxtRecordVendorProductID   = "VP"
-	TxtRecordCommissioningMode = "CM"
-	TxtRecordDeviceType        = "DT"
-	TxtRecordDeviceName        = "DN"
-	TxtRecordRotatingDeviceID  = "RI"
-	TxtRecordPairingHint       = "PH"
+	TxtRecordDiscriminator      = "D"
+	TxtRecordVendorProductID    = "VP"
+	TxtRecordCommissioningMode  = "CM"
+	TxtRecordDeviceType         = "DT"
+	TxtRecordDeviceName         = "DN"
+	TxtRecordRotatingDeviceID   = "RI"
+	TxtRecordPairingHint        = "PH"
+	TxtRecordPairingInstruction = "PI"
 )
 
 // Matter Specification Version 1.2
