@@ -56,3 +56,8 @@ func (com *Commissionee) LookupAttribute(name string) (string, bool) {
 func (com *Commissionee) LookupDiscriminator() (string, bool) {
 	return com.LookupAttribute(TxtRecordDiscriminator)
 }
+
+// LookupCommissioningMode returns a commissioning mode.
+func (com *Commissionee) LookupCommissioningMode() (string, bool) {
+	return com.LookupAttribute(TxtRecordCommissioningMode)
+}
