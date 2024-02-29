@@ -4,3 +4,5 @@ github.com/cybergarage/go-mdns v0.0.0-20240229092513-b53f67c85518 h1:nMjPXiJyRo1
 github.com/cybergarage/go-mdns v0.0.0-20240229092513-b53f67c85518/go.mod h1:xRiFV9LShc5W9ayt4aPTcJ8TR5C84fxk70AAulYbPq0=
 github.com/cybergarage/go-mdns v0.0.0-20240229105815-1a50a19d7737 h1:A7KYq6XRSH9G9+nV1ROkvd6Qe60RhZlGc+YJdqNdMdc=
 github.com/cybergarage/go-mdns v0.0.0-20240229105815-1a50a19d7737/go.mod h1:ZuXTd+ZQTmxZstbxl8mCU4bnRtGM2Wld6BWGf6PT6Lk=
+github.com/cybergarage/go-mdns v0.0.0-20240229152325-97115555b457 h1:hLDB3n4Yh7gsIRaSo3nY0rDGhPB48G8MooZRqlniuq4=
+github.com/cybergarage/go-mdns v0.0.0-20240229152325-97115555b457/go.mod h1:ZuXTd+ZQTmxZstbxl8mCU4bnRtGM2Wld6BWGf6PT6Lk=
