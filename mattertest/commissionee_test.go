@@ -78,7 +78,7 @@ func TestCommissionee(t *testing.T) {
 			// }
 
 			for name, value := range test.attributes {
-				attr, ok := com.LookupDiscriminator()
+				attr, ok := com.LookupAttribute(name)
 				if !ok {
 					t.Errorf("attribute (%s) not found", name)
 				}
