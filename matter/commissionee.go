@@ -111,6 +111,14 @@ func (com *Commissionee) LookupRotatingDeviceID() (string, bool) {
 
 // 4.3.1.11. TXT key for pairing hint (PH)
 // LookupPairingHint returns a pairing hint.
-func (com *Commissionee) LookupPairingHint() (string, bool) {
-	return com.LookupAttribute(TxtRecordPairingHint)
+func (com *Commissionee) LookupPairingHint() (PairingHint, bool) {
+	phs, ok := com.LookupAttribute(TxtRecordDeviceType)
+	if !ok {
+		return PairingHintNone, false
+	}
+	ph, err := NewPairingHintFromString(phs)
+	if err != nil {
+		return PairingHintNone, false
+	}
+	return ph, true
 }
