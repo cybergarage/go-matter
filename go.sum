@@ -1,4 +1,4 @@
-github.com/cybergarage/go-logger v1.3.4 h1:UTgYZr/LwQtYVOncS3NJ64We5kCe7ce6L85y/MOYfrM=
-github.com/cybergarage/go-logger v1.3.4/go.mod h1:2iMjinHam5oqyKEGsKIzeQQmmOPxpCgro95LOlEC2ks=
-github.com/cybergarage/go-mdns v0.0.0-20240229091021-82d6d4e26d7d h1:JQ/OkLCGJDhxW8dG9+EfCtfwbrrx0CyjetJq7WYtuTk=
-github.com/cybergarage/go-mdns v0.0.0-20240229091021-82d6d4e26d7d/go.mod h1:xRiFV9LShc5W9ayt4aPTcJ8TR5C84fxk70AAulYbPq0=
+github.com/cybergarage/go-logger v1.3.5 h1:6ckpsB4qyCt/BQLCTV+1YvbAuitz2cl6zzp2gPoHEQk=
+github.com/cybergarage/go-logger v1.3.5/go.mod h1:hnlIC+K0YIkInMQkY6J5uWKSuiT3vLaYtuelBmCVJ2k=
+github.com/cybergarage/go-mdns v0.0.0-20240229092513-b53f67c85518 h1:nMjPXiJyRo177boA9YKZVSz8+sNkwFcSJGP2PFFLFXU=
+github.com/cybergarage/go-mdns v0.0.0-20240229092513-b53f67c85518/go.mod h1:xRiFV9LShc5W9ayt4aPTcJ8TR5C84fxk70AAulYbPq0=
