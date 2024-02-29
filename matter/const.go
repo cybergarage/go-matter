@@ -17,3 +17,13 @@ package matter
 const (
 	Port = 5540
 )
+
+// Matter Specification Version 1.2
+// 4.3.1.3. Commissioning Subtypes
+const (
+	DiscriminatorLong  = "_L"
+	DiscriminatorShort = "_S"
+	VendorID           = "_V"
+	DeviceType         = "_T"
+	CommissioningMode  = "_CM"
+)
