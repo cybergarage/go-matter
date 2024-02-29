@@ -108,3 +108,9 @@ func (com *Commissionee) LookupDeviceName() (string, bool) {
 func (com *Commissionee) LookupRotatingDeviceID() (string, bool) {
 	return com.LookupAttribute(TxtRecordRotatingDeviceID)
 }
+
+// 4.3.1.11. TXT key for pairing hint (PH)
+// LookupPairingHint returns a pairing hint.
+func (com *Commissionee) LookupPairingHint() (string, bool) {
+	return com.LookupAttribute(TxtRecordPairingHint)
+}
