@@ -96,3 +96,9 @@ func (com *Commissionee) LookupDeviceType() (DeviceType, bool) {
 	}
 	return dt, true
 }
+
+// 4.3.1.9. TXT key for device name (DN)
+// LookupDeviceName returns a device name.
+func (com *Commissionee) LookupDeviceName() (string, bool) {
+	return com.LookupAttribute(TxtRecordDeviceName)
+}
