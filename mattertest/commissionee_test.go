@@ -46,7 +46,8 @@ func TestCommissionee(t *testing.T) {
 				{"_services._dns-sd"},
 			},
 			map[string]string{
-				"D": "840",
+				"D":  "840",
+				"CM": "2",
 			},
 		},
 	}
