@@ -102,3 +102,9 @@ func (com *Commissionee) LookupDeviceType() (DeviceType, bool) {
 func (com *Commissionee) LookupDeviceName() (string, bool) {
 	return com.LookupAttribute(TxtRecordDeviceName)
 }
+
+// 4.3.1.10. TXT key for rotating device identifier (RI)
+// LookupRotatingDeviceID returns a rotating device identifier.
+func (com *Commissionee) LookupRotatingDeviceID() (string, bool) {
+	return com.LookupAttribute(TxtRecordRotatingDeviceID)
+}
