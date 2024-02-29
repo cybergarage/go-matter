@@ -14,6 +14,10 @@
 
 package matter
 
+import (
+	"strconv"
+)
+
 // PairingHint represents a pairing hint.
 type PairingHint uint
 
@@ -31,3 +35,12 @@ const (
 	PairingHintPressResetButtonUntilLightBlinks     (PairingHint) = 0x0200
 	PairingHintPressResetButtonForNSecondsWithPower (PairingHint) = 0x0400
 )
+
+// NewPairingHintFromString returns a new pairing hint from a string.
+func NewPairingHintFromString(s string) (PairingHint, error) {
+	ph, err := strconv.Atoi(s)
+	if err != nil {
+		return PairingHintNone, err
+	}
+	return PairingHint(ph), nil
+}
