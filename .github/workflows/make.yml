@@ -29,5 +29,5 @@ jobs:
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         slug: cybergarage/go-mdns
-        files: matter-cover.out
+        files: ./matter-cover.out
       
