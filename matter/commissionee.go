@@ -59,5 +59,11 @@ func (com *Commissionee) LookupDiscriminator() (string, bool) {
 
 // LookupCommissioningMode returns a commissioning mode.
 func (com *Commissionee) LookupCommissioningMode() (string, bool) {
-	return com.LookupAttribute(TxtRecordCommissioningMode)
+	cm, ok := com.LookupAttribute(TxtRecordCommissioningMode)
+	// 4.3.1.7. TXT key for commissioning mode (CM)
+	// The absence of key CM SHALL imply a value of 0 (CM=0).
+	if !ok {
+		return CommissioningModeNone, false
+	}
+	return cm, true
 }
