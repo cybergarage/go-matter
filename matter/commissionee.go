@@ -112,7 +112,7 @@ func (com *Commissionee) LookupRotatingDeviceID() (string, bool) {
 // 4.3.1.11. TXT key for pairing hint (PH)
 // LookupPairingHint returns a pairing hint.
 func (com *Commissionee) LookupPairingHint() (PairingHint, bool) {
-	phs, ok := com.LookupAttribute(TxtRecordDeviceType)
+	phs, ok := com.LookupAttribute(TxtRecordPairingHint)
 	if !ok {
 		return PairingHintNone, false
 	}
@@ -121,4 +121,10 @@ func (com *Commissionee) LookupPairingHint() (PairingHint, bool) {
 		return PairingHintNone, false
 	}
 	return ph, true
+}
+
+// 4.3.1.12. TXT key for pairing instructions (PI)
+// LookupPairingInstructions returns a pairing instructions.
+func (com *Commissionee) LookupPairingInstructions() (string, bool) {
+	return com.LookupAttribute(TxtRecordPairingInstruction)
 }
