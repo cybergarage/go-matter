@@ -82,3 +82,17 @@ func (com *Commissionee) LookupCommissioningMode() (string, bool) {
 	}
 	return cm, true
 }
+
+// 4.3.1.8. TXT key for device type (DT)
+// LookupDeviceType returns a device type.
+func (com *Commissionee) LookupDeviceType() (DeviceType, bool) {
+	dts, ok := com.LookupAttribute(TxtRecordDeviceType)
+	if !ok {
+		return DeviceTypeUnknown, false
+	}
+	dt, err := NewDeviceTypeFromString(dts)
+	if err != nil {
+		return DeviceTypeUnknown, false
+	}
+	return dt, true
+}
