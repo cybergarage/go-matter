@@ -1,5 +1,9 @@
+run:
+  timeout: 10m
 issues:
   fix: true
+  max-issues-per-linter: 0
+  max-same-issues: 0
   exclude-rules:
     - path: _test\.go
       linters:
@@ -53,3 +57,7 @@ linters:
 linters-settings:
   staticcheck:
     checks: ["all", "-SA5008", "-SA1008"]
+  revive:
+    rules:
+      - name: unused-parameter
+        disabled: true
