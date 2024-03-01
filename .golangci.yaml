@@ -63,7 +63,3 @@ linters-settings:
   gocritic:
     disabled-checks:
       - singleCaseSwitch
-  perfsprint:
-    err-error: false
-    errorf: false
-    sprintf: false
