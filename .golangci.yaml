@@ -64,5 +64,6 @@ linters-settings:
     disabled-checks:
       - singleCaseSwitch
   perfsprint:
-    enable-all: false
-    strconcat: true
+    err-error: false
+    errorf: false
+    sprintf: false
