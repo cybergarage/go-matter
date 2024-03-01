@@ -26,5 +26,5 @@ const (
 )
 
 // 4.4.1.3. Session ID (16 bits)
-// SessionId represents a session ID.
-type SessionId uint16
+// SessionID represents a session ID.
+type SessionID uint16

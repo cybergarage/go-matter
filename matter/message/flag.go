@@ -24,11 +24,11 @@ func (flag Flag) Version() int {
 }
 
 // HasVersion returns true if the message has a version.
-func (flag Flag) HasSourceNodeId() bool {
+func (flag Flag) HasSourceNodeID() bool {
 	return (flag & 0x04) != 0
 }
 
-// HasDestinationNodeId returns true if the message has a destination node ID.
-func (flag Flag) HasDestinationNodeId() bool {
+// HasDestinationNodeID returns true if the message has a destination node ID.
+func (flag Flag) HasDestinationNodeID() bool {
 	return (flag & 0x02) != 0
 }

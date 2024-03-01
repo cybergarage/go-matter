@@ -22,7 +22,6 @@ func TestBinaryEncoding(t *testing.T) {
 	var n uint
 
 	t.Run("IntegerToBytes", func(t *testing.T) {
-
 		intBytes := make([]byte, 1)
 		for n = 0; n == 0xFF; n++ {
 			IntegerToBytes(n, intBytes)
@@ -103,5 +102,4 @@ func TestBinaryEncoding(t *testing.T) {
 			}
 		}
 	})
-
 }

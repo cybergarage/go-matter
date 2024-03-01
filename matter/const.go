@@ -19,7 +19,7 @@ const (
 )
 
 // Matter Specification Version 1.2
-// 4.3.1.3. Commissioning Subtypes
+// 4.3.1.3. Commissioning Subtypes.
 const (
 	SubtypeDiscriminatorLong  = "_L"
 	SubtypeDiscriminatorShort = "_S"
@@ -29,7 +29,7 @@ const (
 )
 
 // Matter Specification Version 1.2
-// 4.3.1.4. TXT Records
+// 4.3.1.4. TXT Records.
 const (
 	TxtRecordDiscriminator      = "D"
 	TxtRecordVendorProductID    = "VP"
@@ -42,7 +42,7 @@ const (
 )
 
 // Matter Specification Version 1.2
-// 4.3.1.7. TXT key for commissioning mode (CM)
+// 4.3.1.7. TXT key for commissioning mode (CM).
 const (
 	CommissioningModeNone = "0"
 	CommissioningMode1    = "1"
