@@ -40,7 +40,6 @@ linters:
     - exhaustive
     - forbidigo
     - maligned
-    - revive
     - depguard
     - inamedparam
     - interfacer
