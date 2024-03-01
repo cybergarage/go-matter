@@ -12,7 +12,6 @@ issues:
 linters:
   enable-all: true
   disable:
-    - exhaustruct
     - deadcode
     - paralleltest
     - testpackage
