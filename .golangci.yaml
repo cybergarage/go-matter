@@ -50,6 +50,7 @@ linters:
     - exhaustivestruct
     - golint
     - musttag
+    - unconvert
 linters-settings:
   staticcheck:
     checks: ["all", "-SA5008", "-SA1008"]
