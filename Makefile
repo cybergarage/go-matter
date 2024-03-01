@@ -32,15 +32,24 @@ TEST_PKG_ID=${MODULE_ROOT}/${TEST_PKG_NAME}
 TEST_PKG_DIR=${TEST_PKG_NAME}
 TEST_PKG=${MODULE_ROOT}/${TEST_PKG_DIR}
 
+BIN_ROOT_DIR=bin
+BIN_ID=${MODULE_ROOT}/${BIN_ROOT_DIR}
+BIN_SRCS=\
+	${BIN_ROOT_DIR}/matter-browse \
+	${BIN_ROOT_DIR}/matter-server
+BINS=\
+	${BIN_ID}/matter-browse \
+	${BIN_ID}/matter-server
+
 .PHONY: format vet lint clean
 
 all: test
 
 format:
-	gofmt -s -w ${PKG_SRC_DIR} ${TEST_PKG_DIR}
+	gofmt -s -w ${PKG_SRC_DIR} ${TEST_PKG_DIR} ${BIN_ROOT_DIR}
 
 vet: format
-	go vet ${PKG_ID} ${TEST_PKG_ID}
+	go vet ${PKG_ID} ${TEST_PKG_ID} ${BINS}
 
 lint: vet
 	golangci-lint run ${PKG_SRC_DIR}/... ${TEST_PKG_DIR}/...
@@ -49,5 +58,8 @@ test: lint
 	go test -v -p 1 -timeout 10m -cover -coverpkg=${PKG}/... -coverprofile=${PKG_COVER}.out ${PKG}/... ${TEST_PKG}/...
 	go tool cover -html=${PKG_COVER}.out -o ${PKG_COVER}.html
 
+install: test
+	go install ${BINS}
+
 clean:
-	go clean -i ${PKG}
+	go clean -i ${PKG} ${TEST_PKG} ${BINS}
