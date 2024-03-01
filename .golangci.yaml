@@ -60,3 +60,8 @@ linters-settings:
     rules:
       - name: unused-parameter
         disabled: true
+  gocritic:
+    disabled-checks:
+      - singleCaseSwitch
+  perfsprint:
+    strconcat: true
