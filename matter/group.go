@@ -18,16 +18,16 @@ import (
 	"github.com/cybergarage/go-matter/matter/message"
 )
 
-// GroupId represents a group ID.
-type GroupId = message.GroupId
+// GroupID represents a group ID.
+type GroupID = message.GroupID
 
 const (
-	UnspecifiedGroupId            GroupId = 0x0000
-	UniversalGroupIdMin           GroupId = 0xFF00
-	UniversalGroupIdMax           GroupId = 0xFFFF
-	UniversalAllNodeGroupId       GroupId = 0xFFFF
-	UniversalAllNonICDNodeGroupId GroupId = 0xFFFE
-	UniversalAllProxyGroupId      GroupId = 0xFFFD
-	ApplicationGroupIDMin         GroupId = 0x0001
-	ApplicationGroupIDMax         GroupId = 0xFEFF
+	UnspecifiedGroupID            GroupID = 0x0000
+	UniversalGroupIDMin           GroupID = 0xFF00
+	UniversalGroupIDMax           GroupID = 0xFFFF
+	UniversalAllNodeGroupID       GroupID = 0xFFFF
+	UniversalAllNonICDNodeGroupID GroupID = 0xFFFE
+	UniversalAllProxyGroupID      GroupID = 0xFFFD
+	ApplicationGroupIDMin         GroupID = 0x0001
+	ApplicationGroupIDMax         GroupID = 0xFEFF
 )

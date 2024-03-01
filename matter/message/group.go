@@ -14,5 +14,5 @@
 
 package message
 
-// GroupId represents a group ID.
-type GroupId uint16
+// GroupID represents a group ID.
+type GroupID uint16

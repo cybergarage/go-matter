@@ -14,9 +14,9 @@
 
 package matter
 
-// ProductId represents a product ID.
-type ProductId uint16
+// ProductID represents a product ID.
+type ProductID uint16
 
 const (
-	AnonymizedProductId = (ProductId)(0x0000)
+	AnonymizedProductID = (ProductID)(0x0000)
 )

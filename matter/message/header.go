@@ -25,11 +25,11 @@ import (
 type Header struct {
 	length            [2]byte
 	flag              Flag
-	SessionId         SessionId
+	SessionID         SessionID
 	SecurityFlag      SecurityFlag
 	Counter           Counter
-	SourceNodeId      NodeId
-	DestinationNodeId NodeId
+	SourceNodeID      NodeID
+	DestinationNodeID NodeID
 }
 
 // NewHeader returns a new header.
@@ -37,11 +37,11 @@ func NewHeader() *Header {
 	header := &Header{
 		length:            [2]byte{},
 		flag:              0,
-		SessionId:         0,
+		SessionID:         0,
 		SecurityFlag:      0,
 		Counter:           0,
-		SourceNodeId:      0,
-		DestinationNodeId: 0,
+		SourceNodeID:      0,
+		DestinationNodeID: 0,
 	}
 	return header
 }

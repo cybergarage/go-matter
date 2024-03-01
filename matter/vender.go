@@ -18,13 +18,13 @@ import (
 	"github.com/cybergarage/go-matter/matter/protocol"
 )
 
-// VendorId represents a vendor ID.
-type VenderId = protocol.VenderId
+// VendorID represents a vendor ID.
+type VenderID = protocol.VenderID
 
 const (
-	MatterStandardVenderId VenderId = 0x0000
-	TestVender01Id         VenderId = 0xFFF1
-	TestVender02Id         VenderId = 0xFFF2
-	TestVender03Id         VenderId = 0xFFF3
-	TestVender04Id         VenderId = 0xFFF4
+	MatterStandardVenderID VenderID = 0x0000
+	TestVender01ID         VenderID = 0xFFF1
+	TestVender02ID         VenderID = 0xFFF2
+	TestVender03ID         VenderID = 0xFFF3
+	TestVender04ID         VenderID = 0xFFF4
 )

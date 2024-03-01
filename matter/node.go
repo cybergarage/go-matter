@@ -18,9 +18,9 @@ import (
 	"github.com/cybergarage/go-matter/matter/message"
 )
 
-// NodeId represents a node ID.
-type NodeId = message.NodeId
+// NodeID represents a node ID.
+type NodeID = message.NodeID
 
 const (
-	UnspecifiedNodeId = (NodeId)(0x0000000000000000)
+	UnspecifiedNodeID = (NodeID)(0x0000000000000000)
 )

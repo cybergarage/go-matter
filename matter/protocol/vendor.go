@@ -15,5 +15,5 @@
 package protocol
 
 // 4.4.3.5. Protocol Vendor ID (16 bits)
-// VendorId represents a vendor ID.
-type VenderId uint16
+// VendorID represents a vendor ID.
+type VenderID uint16
