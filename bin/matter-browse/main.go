@@ -73,9 +73,7 @@ func main() {
 	// }
 
 	services := []string{
-		"_services._dns-sd._udp",
-		"_rdlink._tcp",
-		"_companion - link._tcp",
+		"_matterc._udp.local",
 	}
 
 	err = client.Query(mdns.NewQueryWithServices(services))
