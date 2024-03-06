@@ -56,6 +56,7 @@ linters:
     - perfsprint
     - gochecknoinits
     - containedctx
+    - dupword
 linters-settings:
   staticcheck:
     checks: ["all", "-SA5008", "-SA1008"]
