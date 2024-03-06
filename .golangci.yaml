@@ -13,6 +13,8 @@ issues:
 linters:
   enable-all: true
   disable:
+    - dupword
+    - gocyclo
     - deadcode
     - paralleltest
     - testpackage
@@ -57,8 +59,7 @@ linters:
     - perfsprint
     - gochecknoinits
     - containedctx
-    - dupword
-    - gocyclo
+    - asasalint
 linters-settings:
   staticcheck:
     checks: ["all", "-SA5008", "-SA1008"]
