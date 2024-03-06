@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	DnsSdDServerType = "_matter._tcp"
+	DNSSDServerType = "_matter._tcp"
 )
 
 // Discoverer represents a discoverer for commisionners.
@@ -59,7 +59,7 @@ func (disc *Discoverer) Stop() error {
 // Section 4.3, “Discovery”, and more specifically in Section 4.3.1, “Commissionable Node Discovery”.
 func (disc *Discoverer) Search() error {
 	services := []string{
-		DnsSdDServerType,
+		DNSSDServerType,
 	}
 
 	err := disc.Query(mdns.NewQueryWithServices(services))
