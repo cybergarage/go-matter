@@ -21,7 +21,7 @@ import (
 
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter"
-	"github.com/cybergarage/go-mdns/mdns/protocol"
+	"github.com/cybergarage/go-mdns/mdns/dns"
 )
 
 //go:embed log/matter-spec-120-4.3.1.13.log
@@ -60,7 +60,7 @@ func TestCommissionee(t *testing.T) {
 				return
 			}
 
-			msg, err := protocol.NewMessageWithBytes(msgBytes)
+			msg, err := dns.NewMessageWithBytes(msgBytes)
 			if err != nil {
 				t.Error(err)
 				return
