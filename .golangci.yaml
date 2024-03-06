@@ -53,6 +53,8 @@ linters:
     - golint
     - musttag
     - unconvert
+    - perfsprint
+    - gochecknoinits
 linters-settings:
   staticcheck:
     checks: ["all", "-SA5008", "-SA1008"]
