@@ -28,33 +28,35 @@ import (
 var matterSpec12043113 string
 
 func TestCommissionee(t *testing.T) {
-	type answer struct {
-		name string
+	type expected struct {
+		disc  string
+		discs string
+		attrs map[string]string
 	}
 	tests := []struct {
-		name       string
-		msgLogs    string
-		answers    []answer
-		attributes map[string]string
+		name     string
+		dumpLog  string
+		expected expected
 	}{
 		// 4.3.1.13. Examples
 		// dns-sd -R DD200C20D25AE5F7 _matterc._udp,_S3,_L840,_CM . 11111 D=840 CM=2
 		{
 			"matter 120 4.3.1.13",
 			matterSpec12043113,
-			[]answer{
-				{"_services._dns-sd"},
-			},
-			map[string]string{
-				"D":  "840",
-				"CM": "2",
+			expected{
+				disc:  "840",
+				discs: "3",
+				attrs: map[string]string{
+					"D":  "840",
+					"CM": "2",
+				},
 			},
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			msgBytes, err := log.DecodeHexLog(strings.Split(test.msgLogs, "\n"))
+			msgBytes, err := log.DecodeHexLog(strings.Split(test.dumpLog, "\n"))
 			if err != nil {
 				t.Error(err)
 				return
@@ -72,13 +74,27 @@ func TestCommissionee(t *testing.T) {
 				return
 			}
 
-			// for _, answer := range test.answers {
-			// if !com.HasResourceRecord(answer.name) {
-			// 	t.Errorf("answer (%s) not found", answer.name)
-			// }
-			// }
+			if 0 < len(test.expected.disc) {
+				disc, ok := com.LookupDiscriminator()
+				if !ok {
+					t.Errorf("discriminator not found")
+				}
+				if disc != test.expected.disc {
+					t.Errorf("discriminator (%s) != (%s)", disc, test.expected.disc)
+				}
+			}
 
-			for name, value := range test.attributes {
+			if 0 < len(test.expected.discs) {
+				discs, ok := com.LookupShortDiscriminator()
+				if !ok {
+					t.Errorf("short discriminator not found")
+				}
+				if discs != test.expected.discs {
+					t.Errorf("short discriminator (%s) != (%s)", discs, test.expected.discs)
+				}
+			}
+
+			for name, value := range test.expected.attrs {
 				attr, ok := com.LookupAttribute(name)
 				if !ok {
 					t.Errorf("attribute (%s) not found", name)
