@@ -17,7 +17,7 @@ package matter
 import (
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-mdns/mdns"
-	"github.com/cybergarage/go-mdns/mdns/protocol"
+	"github.com/cybergarage/go-mdns/mdns/dns"
 )
 
 const (
@@ -38,7 +38,7 @@ func NewDiscoverer() *Discoverer {
 }
 
 // MessageReceived is a callback when a message is received.
-func (disc *Discoverer) MessageReceived(msg *protocol.Message) {
+func (disc *Discoverer) MessageReceived(msg *dns.Message) {
 	log.HexInfo(msg.Bytes())
 }
 

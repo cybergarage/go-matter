@@ -19,7 +19,7 @@ import (
 	"strings"
 
 	"github.com/cybergarage/go-mdns/mdns"
-	"github.com/cybergarage/go-mdns/mdns/protocol"
+	"github.com/cybergarage/go-mdns/mdns/dns"
 )
 
 // Commissionee represents a commissionee.
@@ -28,7 +28,7 @@ type Commissionee struct {
 }
 
 // NewCommissioneeWithMessage returns a new commissionee with a mDNS message.
-func NewCommissioneeWithMessage(msg *protocol.Message) (*Commissionee, error) {
+func NewCommissioneeWithMessage(msg *dns.Message) (*Commissionee, error) {
 	service, err := mdns.NewServiceWithMessage(msg)
 	if err != nil {
 		return nil, err
