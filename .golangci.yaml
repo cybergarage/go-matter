@@ -55,6 +55,7 @@ linters:
     - unconvert
     - perfsprint
     - gochecknoinits
+    - containedctx
 linters-settings:
   staticcheck:
     checks: ["all", "-SA5008", "-SA1008"]
