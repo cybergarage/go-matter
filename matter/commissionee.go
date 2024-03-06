@@ -44,7 +44,20 @@ func NewCommissioneeWithService(service *mdns.Service) *Commissionee {
 	return com
 }
 
-// LookupAttribute returns an attribute value.
+// LookupSubtype returns a subtype for the specified prefix.
+func (com *Commissionee) LookupSubtype(prefix string) (string, bool) {
+	record, ok := com.Service.LookupResourceRecordForNamePrefix(prefix)
+	if !ok {
+		return "", false
+	}
+	names := strings.Split(record.Name(), ".")
+	if len(names) < 1 {
+		return "", false
+	}
+	return names[0][len(prefix):], true
+}
+
+// LookupAttribute returns an attribute value for the specified name.
 func (com *Commissionee) LookupAttribute(name string) (string, bool) {
 	attr, ok := com.Service.LookupAttribute(name)
 	if !ok {
@@ -53,48 +66,132 @@ func (com *Commissionee) LookupAttribute(name string) (string, bool) {
 	return attr.Value(), true
 }
 
+func (com *Commissionee) appendLookupSubtype(records []string, name string) []string {
+	v, ok := com.LookupSubtype(name)
+	if !ok {
+		return records
+	}
+	return append(records, v)
+}
+
+func (com *Commissionee) appendLookupAttribute(records []string, name string) []string {
+	v, ok := com.LookupAttribute(name)
+	if !ok {
+		return records
+	}
+	return append(records, v)
+}
+
+// 4.3.1.3. Commissioning Subtypes (_L,_S)
 // 4.3.1.5. TXT key for discriminator (D)
 // LookupDiscriminator returns a discriminator.
 func (com *Commissionee) LookupDiscriminator() (string, bool) {
-	return com.LookupAttribute(TxtRecordDiscriminator)
+	d, ok := com.LookupFullDiscriminator()
+	if ok {
+		return d, true
+	}
+	return com.LookupShortDiscriminator()
+}
+
+// 4.3.1.3. Commissioning Subtypes (_L)
+// LookupDiscriminator returns a full 12-bit discriminator.
+func (com *Commissionee) LookupFullDiscriminator() (string, bool) {
+	d, ok := com.LookupAttribute(TxtRecordDiscriminator)
+	if ok {
+		return d, true
+	}
+	d, ok = com.LookupSubtype(SubtypeDiscriminatorLong)
+	if ok {
+		return d, true
+	}
+	return com.LookupSubtype(SubtypeDiscriminatorShort)
+}
+
+// 4.3.1.3. Commissioning Subtypes (_S)
+// LookupShortDiscriminator returns a short 4-bit discriminator.
+func (com *Commissionee) LookupShortDiscriminator() (string, bool) {
+	return com.LookupSubtype(SubtypeDiscriminatorShort)
+}
+
+// 4.3.1.3. Commissioning Subtypes (_V)
+// 4.3.1.6. TXT key for Vendor ID and Product ID (VP)
+// LookupVendorID returns a vendor and product ID.
+func (com *Commissionee) LookupVendorID() (string, bool) {
+	venderID, _, ok := com.LookupVendorProductID()
+	if ok {
+		return venderID, true
+	}
+	return com.LookupSubtype(SubtypeVendorID)
 }
 
 // 4.3.1.6. TXT key for Vendor ID and Product ID (VP)
 // LookupVendorProductID returns a vendor and product ID.
 func (com *Commissionee) LookupVendorProductID() (string, string, bool) {
+	splitVenderProductID := func(vp string) (string, string, bool) {
+		vpList := strings.Split(vp, "+")
+		if len(vpList) < 1 {
+			return vpList[0], "", true
+		}
+		return vpList[0], vpList[1], true
+	}
+
 	vp, ok := com.LookupAttribute(TxtRecordVendorProductID)
 	if !ok || len(vp) == 0 {
 		return "", "", false
 	}
-	vpList := strings.Split(vp, "+")
-	if len(vpList) < 1 {
-		return vpList[0], "", true
-	}
-	return vpList[0], vpList[1], true
+
+	return splitVenderProductID(vp)
 }
 
+// 4.3.1.3. Commissioning Subtypes (_CM)
 // 4.3.1.7. TXT key for commissioning mode (CM)
 // LookupCommissioningMode returns a commissioning mode.
 func (com *Commissionee) LookupCommissioningMode() (string, bool) {
-	cm, ok := com.LookupAttribute(TxtRecordCommissioningMode)
-	if !ok {
-		return CommissioningModeNone, false
+	cmFrom := func(cms string) (string, bool) {
+		if len(cms) == 0 {
+			return CommissioningModeNone, true
+		}
+		return cms, true
 	}
-	return cm, true
+
+	var records []string
+	records = com.appendLookupAttribute(records, TxtRecordCommissioningMode)
+	records = com.appendLookupSubtype(records, SubtypeCommissioningMode)
+
+	for _, cms := range records {
+		cm, ok := cmFrom(cms)
+		if ok {
+			return cm, true
+		}
+	}
+
+	return CommissioningModeNone, false
 }
 
+// 4.3.1.3. Commissioning Subtypes (_T)
 // 4.3.1.8. TXT key for device type (DT)
 // LookupDeviceType returns a device type.
 func (com *Commissionee) LookupDeviceType() (DeviceType, bool) {
-	dts, ok := com.LookupAttribute(TxtRecordDeviceType)
-	if !ok {
-		return DeviceTypeUnknown, false
+	deviceTypeFrom := func(dts string) (DeviceType, bool) {
+		dt, err := NewDeviceTypeFromString(dts)
+		if err != nil {
+			return DeviceTypeUnknown, false
+		}
+		return dt, true
 	}
-	dt, err := NewDeviceTypeFromString(dts)
-	if err != nil {
-		return DeviceTypeUnknown, false
+
+	var records []string
+	records = com.appendLookupAttribute(records, TxtRecordDeviceType)
+	records = com.appendLookupSubtype(records, SubtypeDeviceType)
+
+	for _, dts := range records {
+		dt, ok := deviceTypeFrom(dts)
+		if ok {
+			return dt, true
+		}
 	}
-	return dt, true
+
+	return DeviceTypeUnknown, false
 }
 
 // 4.3.1.9. TXT key for device name (DN)
