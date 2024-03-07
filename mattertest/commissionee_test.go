@@ -44,7 +44,7 @@ func TestCommissionee(t *testing.T) {
 		// 4.3.1.13. Examples
 		// dns-sd -R DD200C20D25AE5F7 _matterc._udp,_S3,_L840,_CM . 11111 D=840 CM=2
 		{
-			"matter 120 4.3.1.13",
+			"matter 120 4.3.1.13/dns-sd",
 			matterSpec12043113DNSSD,
 			expected{
 				disc:  "840",
@@ -58,7 +58,7 @@ func TestCommissionee(t *testing.T) {
 		// 4.3.1.13. Examples
 		// avahi-publish-service --subtype=_S3._sub._matterc._udp --subtype=_L840._sub._matterc._udp DD200C20D25AE5F7 --subtype=_CM._sub._matterc._udp _matterc._udp 11111 D=840 CM=2
 		{
-			"matter 120 4.3.1.13",
+			"matter 120 4.3.1.13/avahi",
 			matterSpec12043113Avahi,
 			expected{
 				disc:  "840",
