@@ -36,9 +36,11 @@ BIN_ROOT_DIR=bin
 BIN_ID=${MODULE_ROOT}/${BIN_ROOT_DIR}
 BIN_SRCS=\
 	${BIN_ROOT_DIR}/matter-browse \
+	${BIN_ROOT_DIR}/matter-dump \
 	${BIN_ROOT_DIR}/matter-server
 BINS=\
 	${BIN_ID}/matter-browse \
+	${BIN_ID}/matter-dump \
 	${BIN_ID}/matter-server
 
 .PHONY: format vet lint clean
