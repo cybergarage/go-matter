@@ -24,7 +24,7 @@ import (
 	"github.com/cybergarage/go-mdns/mdns/dns"
 )
 
-//go:embed log/matter-spec-120-4.3.1.13.log
+//go:embed log/matter-spec-120-4.3.1.13-dns-sd.log
 var matterSpec12043113 string
 
 func TestCommissionee(t *testing.T) {
