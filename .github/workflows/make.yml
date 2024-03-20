@@ -19,7 +19,7 @@ jobs:
         go-version: 1.21
 
     - name: Set up golangci-lint
-      run: sudo snap install golangci-lint
+      run: sudo snap install golangci-lint --classic
 
     - name: Test
       run: make test
