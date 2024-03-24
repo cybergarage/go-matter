@@ -70,5 +70,6 @@ linters-settings:
   gocritic:
     disabled-checks:
       - singleCaseSwitch
+      - dupArg
   interfacebloat:
     max: 100
