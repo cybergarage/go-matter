@@ -1,4 +1,5 @@
 run:
+  go: '1.21'
   timeout: 10m
 issues:
   fix: true
@@ -70,5 +71,6 @@ linters-settings:
   gocritic:
     disabled-checks:
       - singleCaseSwitch
+      - dupArg
   interfacebloat:
     max: 100
