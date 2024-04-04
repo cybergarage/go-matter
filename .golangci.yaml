@@ -1,5 +1,4 @@
 run:
-  go: '1.21'
   timeout: 10m
 issues:
   fix: true
