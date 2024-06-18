@@ -50,6 +50,7 @@ linters:
     - containedctx
     - asasalint
     - mnd
+    - err113
     - deadcode # Deprecated
     - exhaustivestruct # Deprecated
     - golint # Deprecated
