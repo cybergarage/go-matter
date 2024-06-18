@@ -16,7 +16,6 @@ linters:
   disable:
     - dupword
     - gocyclo
-    - deadcode
     - paralleltest
     - testpackage
     - gofumpt
@@ -28,33 +27,22 @@ linters:
     - unparam
     - gocognit
     - lll
-    - goerr113
     - nolintlint
     - godox
     - cyclop
     - wrapcheck
     - unused
-    - varcheck
     - ireturn
     - nilnil
     - makezero
-    - gomnd
     - nestif
     - gochecknoglobals
-    - scopelint
     - typecheck
     - dupl
     - exhaustive
     - forbidigo
-    - maligned
     - depguard
     - inamedparam
-    - interfacer
-    - ifshort
-    - structcheck
-    - nosnakecase
-    - exhaustivestruct
-    - golint
     - musttag
     - unconvert
     - perfsprint
@@ -62,6 +50,17 @@ linters:
     - containedctx
     - asasalint
     - mnd
+    - deadcode # Deprecated
+    - exhaustivestruct # Deprecated
+    - golint # Deprecated
+    - ifshort # Deprecated
+    - interfacer # Deprecated
+    - maligned # Deprecated
+    - gomnd # Deprecated
+    - nosnakecase # Deprecated
+    - scopelint # Deprecated
+    - structcheck # Deprecated
+    - varcheck # Deprecated
 linters-settings:
   staticcheck:
     checks: ["all", "-SA5008", "-SA1008"]
