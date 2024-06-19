@@ -62,6 +62,7 @@ linters:
     - scopelint # Deprecated
     - structcheck # Deprecated
     - varcheck # Deprecated
+    - execinquery # Deprecated
 linters-settings:
   staticcheck:
     checks: ["all", "-SA5008", "-SA1008"]
