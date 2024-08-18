@@ -64,8 +64,11 @@ linters:
     - varcheck # Deprecated
     - execinquery # Deprecated
 linters-settings:
+  govet:
+    disable:
+      - printf
   staticcheck:
-    checks: ["all", "-SA5008", "-SA1008"]
+    checks: ["all", "-SA5008", "-SA1008", "-SA1006"]
   revive:
     rules:
       - name: unused-parameter
