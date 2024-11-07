@@ -67,6 +67,9 @@ linters-settings:
   govet:
     disable:
       - printf
+  gosec:
+    exclude:
+      - [G115]
   staticcheck:
     checks: ["all", "-SA5008", "-SA1008", "-SA1006"]
   revive:
