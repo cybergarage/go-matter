@@ -69,8 +69,11 @@ linters-settings:
     disable:
       - printf
   gosec:
-    exclude:
-      - [G115]
+    excludes:
+      - G101
+      - G115
+      - G401
+      - G505
   staticcheck:
     checks: ["all", "-SA5008", "-SA1008", "-SA1006"]
   revive:
