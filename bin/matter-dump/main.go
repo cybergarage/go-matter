@@ -34,7 +34,6 @@ import (
 	"syscall"
 
 	"github.com/cybergarage/go-logger/log"
-	"github.com/cybergarage/puzzledb-go/puzzledb"
 )
 
 func main() {
@@ -66,7 +65,7 @@ func main() {
 			switch s {
 			case syscall.SIGINT, syscall.SIGTERM:
 				if err := client.Stop(); err != nil {
-					log.Errorf("%s couldn't be terminated (%s)", puzzledb.ProductName, err.Error())
+					log.Errorf("couldn't be terminated (%s)", err.Error())
 					os.Exit(1)
 				}
 				exitCh <- 0
