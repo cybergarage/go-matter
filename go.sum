@@ -1,6 +1,6 @@
-github.com/cybergarage/go-logger v1.3.5 h1:6ckpsB4qyCt/BQLCTV+1YvbAuitz2cl6zzp2gPoHEQk=
-github.com/cybergarage/go-logger v1.3.5/go.mod h1:hnlIC+K0YIkInMQkY6J5uWKSuiT3vLaYtuelBmCVJ2k=
-github.com/cybergarage/go-mdns v0.0.0-20240306032221-7aa483bd75de h1:0WMz9S2W9LfXvM8SXSlUx2mR4yYlJjED8FI9nmWNbB4=
-github.com/cybergarage/go-mdns v0.0.0-20240306032221-7aa483bd75de/go.mod h1:ZuXTd+ZQTmxZstbxl8mCU4bnRtGM2Wld6BWGf6PT6Lk=
-github.com/cybergarage/go-safecast v1.2.3 h1:DlD/VxntuR+H6hy+TMprxkDIxbwd9pLn6CZ44FC5PlE=
-github.com/cybergarage/go-safecast v1.2.3/go.mod h1:bv+1ykIikB3xYPJFqu3ZsY3xfyEVQesq8+biHX3ZMWQ=
+github.com/cybergarage/go-logger v1.3.8 h1:Law2nkLjH5tJDNISMVUjT7F46x4DaZuBUyWULMs30zY=
+github.com/cybergarage/go-logger v1.3.8/go.mod h1:a7B/AZjPoA1W8EU/458vdCv6YWtRJI7Q9rofUcZjiho=
+github.com/cybergarage/go-mdns v0.0.0-20250202083627-07f16705ea66 h1:3MtD2Lgg2MicQiDE0buPzxDvQbXBRzwlFRv7Nm2Ago8=
+github.com/cybergarage/go-mdns v0.0.0-20250202083627-07f16705ea66/go.mod h1:QvLU8jW8+spqelMvfVJaGiscMwIe9iwax1kP1Z86ysA=
+github.com/cybergarage/go-safecast v1.2.5 h1:ZDiKmdsE15RTKETRXKAKbYTDIhAzNONwJEfCaxmhkvU=
+github.com/cybergarage/go-safecast v1.2.5/go.mod h1:fw2lE/5DIOjmyPj5kx0aYZSAL2bSFoh/Zith5TWVTz8=
