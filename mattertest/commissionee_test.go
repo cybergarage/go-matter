@@ -19,7 +19,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cybergarage/go-logger/log"
+	"github.com/cybergarage/go-logger/log/hexdump"
 	"github.com/cybergarage/go-matter/matter"
 	"github.com/cybergarage/go-mdns/mdns/dns"
 )
@@ -73,7 +73,7 @@ func TestCommissionee(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			msgBytes, err := log.DecodeHexLog(strings.Split(test.dumpLog, "\n"))
+			msgBytes, err := hexdump.DecodeHexdumpLogs(strings.Split(test.dumpLog, "\n"))
 			if err != nil {
 				t.Error(err)
 				return
