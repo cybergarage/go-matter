@@ -45,6 +45,7 @@ linters:
     - funcorder
     - testableexamples
     - noinlineerr
+    - noctx
   settings:
     gocritic:
       disabled-checks:
