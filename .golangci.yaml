@@ -1,88 +1,102 @@
+version: "2"
 run:
-  go: '1.24'
-  timeout: 10m
-issues:
-  fix: true
-  max-issues-per-linter: 0
-  max-same-issues: 0
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - goconst
-        - gosec
-        - exhaustruct
+  go: "1.24"
 linters:
-  enable-all: true
+  default: all
   disable:
-    - dupword
-    - gocyclo
-    - paralleltest
-    - testpackage
-    - gofumpt
-    - nlreturn
-    - varnamelen
-    - wsl
-    - funlen
-    - errcheck
-    - unparam
-    - gocognit
-    - lll
-    - nolintlint
-    - godox
+    - asasalint
+    - containedctx
     - cyclop
-    - wrapcheck
-    - unused
-    - ireturn
-    - nilnil
-    - makezero
-    - nestif
-    - gochecknoglobals
-    - typecheck
+    - depguard
     - dupl
+    - dupword
+    - err113
+    - errcheck
     - exhaustive
     - forbidigo
-    - depguard
-    - musttag
-    - unconvert
+    - funlen
+    - gochecknoglobals
     - gochecknoinits
-    - containedctx
-    - asasalint
+    - gocognit
+    - gocyclo
+    - godox
     - iface
-    - inamedparam # Deprecated
-    - perfsprint # Deprecated
-    - mnd # Deprecated
-    - err113 # Deprecated
-    - deadcode # Deprecated
-    - exhaustivestruct # Deprecated
-    - golint # Deprecated
-    - ifshort # Deprecated
-    - interfacer # Deprecated
-    - maligned # Deprecated
-    - gomnd # Deprecated
-    - nosnakecase # Deprecated
-    - scopelint # Deprecated
-    - structcheck # Deprecated
-    - varcheck # Deprecated
-    - execinquery # Deprecated
-linters-settings:
-  govet:
-    disable:
-      - printf
-  gosec:
-    excludes:
-      - G101
-      - G115
-      - G401
-      - G505
-  staticcheck:
-    checks: ["all", "-SA5008", "-SA1008", "-SA1006"]
-  revive:
+    - inamedparam
+    - ireturn
+    - lll
+    - makezero
+    - mnd
+    - musttag
+    - nestif
+    - nilnil
+    - nlreturn
+    - nolintlint
+    - paralleltest
+    - perfsprint
+    - testpackage
+    - unconvert
+    - unparam
+    - unused
+    - varnamelen
+    - wrapcheck
+    - wsl
+    - maintidx
+  settings:
+    gocritic:
+      disabled-checks:
+        - singleCaseSwitch
+        - dupArg
+    gosec:
+      excludes:
+        - G101
+        - G115
+        - G401
+        - G505
+    govet:
+      disable:
+        - printf
+    interfacebloat:
+      max: 100
+    revive:
+      rules:
+        - name: unused-parameter
+          disabled: true
+    staticcheck:
+      checks:
+        - all
+        - -SA1006
+        - -SA1008
+        - -SA5008
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
     rules:
-      - name: unused-parameter
-        disabled: true
-  gocritic:
-    disabled-checks:
-      - singleCaseSwitch
-      - dupArg
-  interfacebloat:
-    max: 100
+      - linters:
+          - exhaustruct
+          - goconst
+          - gosec
+          - forcetypeassert
+        path: _test\.go
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  fix: true
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
