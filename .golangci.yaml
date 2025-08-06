@@ -71,6 +71,7 @@ linters:
         - -SA1006
         - -SA1008
         - -SA5008
+        - -QF1008
   exclusions:
     generated: lax
     presets:
@@ -92,7 +93,7 @@ linters:
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
-  fix: true
+  fix: false
 formatters:
   enable:
     - gci
