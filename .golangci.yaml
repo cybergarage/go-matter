@@ -43,6 +43,7 @@ linters:
     - maintidx
     - funcorder
     - testableexamples
+    - noinlineerr
   settings:
     gocritic:
       disabled-checks:
