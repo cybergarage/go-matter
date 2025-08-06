@@ -41,6 +41,8 @@ linters:
     - wrapcheck
     - wsl
     - maintidx
+    - funcorder
+    - testableexamples
   settings:
     gocritic:
       disabled-checks:
