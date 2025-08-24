@@ -46,6 +46,9 @@ linters:
     - testableexamples
     - noinlineerr
     - noctx
+    - contextcheck
+    - fatcontext
+    - embeddedstructfieldcheck
   settings:
     gocritic:
       disabled-checks:
