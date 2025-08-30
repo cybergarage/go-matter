@@ -1,10 +1,6 @@
 module github.com/cybergarage/go-matter
 
-<<<<<<< HEAD
-go 1.22
-=======
-go 1.22
->>>>>>> 9daf31b (Update go.mod)
+go 1.24
 
 require (
 	github.com/cybergarage/go-logger v1.3.11
