@@ -1,6 +1,6 @@
 module github.com/cybergarage/go-matter
 
-go 1.25
+go 1.22
 
 require (
 	github.com/cybergarage/go-logger v1.3.11
