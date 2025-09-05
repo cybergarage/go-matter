@@ -7,3 +7,5 @@ require (
 	github.com/cybergarage/go-mdns v0.0.0-20250202083627-07f16705ea66
 	github.com/cybergarage/go-safecast v1.3.3
 )
+
+require github.com/cybergarage/go-ble v0.0.0-20250905103000-853808bb222d // indirect

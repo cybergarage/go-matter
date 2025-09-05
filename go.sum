@@ -1,3 +1,5 @@
+github.com/cybergarage/go-ble v0.0.0-20250905103000-853808bb222d h1:AR1mU7zCZSe6WjgoeUDThvA+djisgA4FBEVkPsoimz4=
+github.com/cybergarage/go-ble v0.0.0-20250905103000-853808bb222d/go.mod h1:qSrLskolkDQePiW01CvcYVdGIhrRmCbq5WOsMh+QA/4=
 github.com/cybergarage/go-logger v1.3.11 h1:NwnC7cD/IDkdwBYhSODXaMEBmAu3c/jK4Q2XDsg1fno=
 github.com/cybergarage/go-logger v1.3.11/go.mod h1:SU5vzAFJOTs89JXk+Jn89RaNmcR07parcJgnW4e8aDw=
 github.com/cybergarage/go-mdns v0.0.0-20250202083627-07f16705ea66 h1:3MtD2Lgg2MicQiDE0buPzxDvQbXBRzwlFRv7Nm2Ago8=
