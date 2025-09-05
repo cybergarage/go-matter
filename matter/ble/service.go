@@ -21,6 +21,14 @@ import (
 	"github.com/cybergarage/go-ble/ble"
 )
 
+const (
+	// MatterServiceID is the Bluetooth service ID for Matter.
+	MatterServiceID = uint16(0xFFF6)
+)
+
+// MatterServiceUUID is the Bluetooth service UUID for Matter.
+var MatterServiceUUID = ble.NewUUIDFromUUID16(MatterServiceID)
+
 // Service represents a BLE service.
 type Service interface {
 	ble.Service
