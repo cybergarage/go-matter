@@ -16,6 +16,7 @@ package ble
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 
 	"github.com/cybergarage/go-ble/ble"
@@ -44,6 +45,10 @@ type Service interface {
 	AdditionalDataFlag() bool
 	// ExtendedAnnouncement returns the extended announcement flag.
 	ExtendedAnnouncement() bool
+	// MarshalObject returns an object suitable for marshaling to JSON.
+	MarshalObject() any
+	// String returns a string representation of the service.
+	String() string
 }
 
 type service struct {
@@ -61,6 +66,40 @@ func NewServiceWith(bleService ble.Service) (Service, error) {
 		Service:         bleService,
 		advertisingData: adData,
 	}, nil
+}
+
+// MarshalObject returns an object suitable for marshaling to JSON.
+func (s *service) MarshalObject() any {
+	return struct {
+		UUID                 string `json:"uuid"`
+		Name                 string `json:"name"`
+		OpCode               uint8  `json:"opCode"`
+		AdvertisementVersion uint8  `json:"advertisementVersion"`
+		Discriminator        uint16 `json:"discriminator"`
+		VendorID             uint16 `json:"vendorId"`
+		ProductID            uint16 `json:"productId"`
+		AdditionalDataFlag   bool   `json:"additionalDataFlag"`
+		ExtendedAnnouncement bool   `json:"extendedAnnouncement"`
+	}{
+		UUID:                 s.UUID().String(),
+		Name:                 s.Name(),
+		OpCode:               s.OpCode(),
+		AdvertisementVersion: s.AdvertisementVersion(),
+		Discriminator:        s.Discriminator(),
+		VendorID:             s.VendorID(),
+		ProductID:            s.ProductID(),
+		AdditionalDataFlag:   s.AdditionalDataFlag(),
+		ExtendedAnnouncement: s.ExtendedAnnouncement(),
+	}
+}
+
+// String returns a string representation of the service.
+func (s *service) String() string {
+	b, err := json.Marshal(s.MarshalObject())
+	if err != nil {
+		return "{}"
+	}
+	return string(b)
 }
 
 type advertisingData struct {
