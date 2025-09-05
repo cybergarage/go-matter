@@ -16,6 +16,7 @@ package ble
 
 import (
 	"context"
+	"sync"
 
 	"github.com/cybergarage/go-ble/ble"
 )
@@ -30,20 +31,28 @@ type Scanner interface {
 
 type scanner struct {
 	ble.Scanner
-	devices []Device
+	deviceMap sync.Map
 }
 
 // NewScanner returns a new BLE scanner.
 func NewScanner() Scanner {
 	return &scanner{
-		Scanner: ble.NewScanner(),
-		devices: []Device{},
+		Scanner:   ble.NewScanner(),
+		deviceMap: sync.Map{},
 	}
 }
 
 // Devices returns the list of discovered devices.
 func (scn *scanner) Devices() []Device {
-	return scn.devices
+	var devices []Device
+	scn.deviceMap.Range(func(key, value any) bool {
+		device, ok := value.(Device)
+		if ok {
+			devices = append(devices, device)
+		}
+		return true
+	})
+	return devices
 }
 
 func (scn *scanner) onScanResult(bleDev ble.Device) {
@@ -54,7 +63,7 @@ func (scn *scanner) onScanResult(bleDev ble.Device) {
 	if err != nil {
 		return
 	}
-	scn.devices = append(scn.devices, dev)
+	scn.deviceMap.Store(dev.Address(), dev)
 }
 
 // Scan starts scanning for Bluetooth devices.
