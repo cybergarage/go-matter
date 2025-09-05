@@ -15,6 +15,7 @@
 package ble
 
 import (
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -48,6 +49,8 @@ type Device interface {
 	LastSeenAt() time.Time
 	// Service returns the primary service of the device.
 	Service() Service
+	// MarshalObject returns an object suitable for marshaling to JSON.
+	MarshalObject() any
 	// String returns the string representation of the device.
 	String() string
 }
@@ -78,7 +81,34 @@ func (dev *device) Service() Service {
 	return dev.service
 }
 
-// String returns the string representation of the device.
+// MarshalObject returns an object suitable for marshaling to JSON.
+func (dev *device) MarshalObject() any {
+	return struct {
+		Address      Address `json:"address"`
+		LocalName    string  `json:"localName"`
+		Manufacturer any     `json:"manufacturer"`
+		RSSI         int     `json:"rssi"`
+		Services     []any   `json:"services"`
+		DiscoveredAt string  `json:"discoveredAt"`
+		ModifiedAt   string  `json:"modifiedAt"`
+		LastSeenAt   string  `json:"lastSeenAt"`
+	}{
+		Address:      dev.Address(),
+		LocalName:    dev.LocalName(),
+		Manufacturer: dev.Manufacturer().MarshalObject(),
+		RSSI:         dev.RSSI(),
+		Services:     []any{dev.service.MarshalObject()},
+		DiscoveredAt: dev.DiscoveredAt().Format(time.RFC3339),
+		ModifiedAt:   dev.ModifiedAt().Format(time.RFC3339),
+		LastSeenAt:   dev.LastSeenAt().Format(time.RFC3339),
+	}
+}
+
+// String returns a string representation of the service.
 func (dev *device) String() string {
-	return dev.Device.String() + ", " + dev.service.String()
+	b, err := json.Marshal(dev.MarshalObject())
+	if err != nil {
+		return "{}"
+	}
+	return string(b)
 }
