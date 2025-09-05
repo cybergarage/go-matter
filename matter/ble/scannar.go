@@ -56,10 +56,11 @@ func (scn *scanner) Devices() []Device {
 }
 
 func (scn *scanner) onScanResult(bleDev ble.Device) {
-	if _, ok := bleDev.LookupService(MatterServiceUUID); !ok {
+	bleSrv, ok := bleDev.LookupService(MatterServiceUUID)
+	if !ok {
 		return
 	}
-	dev, err := NewDeviceWith(bleDev)
+	dev, err := newDeviceWith(bleDev, bleSrv)
 	if err != nil {
 		return
 	}

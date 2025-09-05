@@ -16,7 +16,6 @@ package ble
 
 import (
 	"encoding/json"
-	"errors"
 	"time"
 
 	"github.com/cybergarage/go-ble/ble"
@@ -60,12 +59,7 @@ type device struct {
 	service Service
 }
 
-// NewDeviceWith returns a new matter BLE device.
-func NewDeviceWith(bleDev ble.Device) (Device, error) {
-	bleSrv, ok := bleDev.LookupService(MatterServiceUUID)
-	if !ok {
-		return nil, errors.New("no matter service")
-	}
+func newDeviceWith(bleDev ble.Device, bleSrv ble.Service) (Device, error) {
 	matterSrv, err := NewServiceWith(bleSrv)
 	if err != nil {
 		return nil, err
