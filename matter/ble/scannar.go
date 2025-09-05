@@ -1,4 +1,4 @@
-// Copyright (C) 2024 The go-matter Authors. All rights reserved.
+// Copyright (C) 2025 The go-matter Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,16 +15,22 @@
 package ble
 
 import (
+	"context"
+
 	"github.com/cybergarage/go-ble/ble"
 )
 
 // Scanner represents a BLE scanner.
 type Scanner interface {
-	ble.Scanner
+	// Devices returns the list of discovered devices.
+	Devices() []Device
+	// Scan starts scanning for Bluetooth devices.
+	Scan(ctx context.Context) error
 }
 
 type scanner struct {
 	ble.Scanner
+	devices []Device
 }
 
 // NewScanner returns a new BLE scanner.
@@ -32,4 +38,29 @@ func NewScanner() Scanner {
 	return &scanner{
 		Scanner: ble.NewScanner(),
 	}
+}
+
+// Devices returns the list of discovered devices.
+func (scn *scanner) Devices() []Device {
+	return scn.devices
+}
+
+func (scn *scanner) onScanResult(bleDev ble.Device) {
+	if _, ok := bleDev.LookupService(MatterServiceUUID); !ok {
+		return
+	}
+	dev, err := NewDeviceWith(bleDev)
+	if err != nil {
+		return
+	}
+	scn.devices = append(scn.devices, dev)
+}
+
+// Scan starts scanning for Bluetooth devices.
+func (scn *scanner) Scan(ctx context.Context) error {
+	var onScanResultlistener ble.OnScanResult
+	onScanResultlistener = func(bleDev ble.Device) {
+		scn.onScanResult(bleDev)
+	}
+	return scn.Scanner.Scan(ctx, onScanResultlistener)
 }
