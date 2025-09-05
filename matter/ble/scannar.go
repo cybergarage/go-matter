@@ -37,6 +37,7 @@ type scanner struct {
 func NewScanner() Scanner {
 	return &scanner{
 		Scanner: ble.NewScanner(),
+		devices: []Device{},
 	}
 }
 
@@ -58,9 +59,8 @@ func (scn *scanner) onScanResult(bleDev ble.Device) {
 
 // Scan starts scanning for Bluetooth devices.
 func (scn *scanner) Scan(ctx context.Context) error {
-	var onScanResultlistener ble.OnScanResult
-	onScanResultlistener = func(bleDev ble.Device) {
+	onScanResultlistener := ble.OnScanResult(func(bleDev ble.Device) {
 		scn.onScanResult(bleDev)
-	}
+	})
 	return scn.Scanner.Scan(ctx, onScanResultlistener)
 }
