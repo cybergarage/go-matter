@@ -25,6 +25,8 @@ import (
 const (
 	// MatterServiceID is the Bluetooth service ID for Matter.
 	MatterServiceID = uint16(0xFFF6)
+	// OpCodeCommissionable is the operation code for commissionable devices.
+	OpCodeCommissionable = uint8(0x00)
 )
 
 // MatterServiceUUID is the Bluetooth service UUID for Matter.
@@ -33,6 +35,7 @@ var MatterServiceUUID = ble.NewUUIDFromUUID16(MatterServiceID)
 // Service represents a BLE service.
 type Service interface {
 	ble.Service
+	ServiceHelper
 	// AdvertisementVersion returns the advertisement version.
 	AdvertisementVersion() uint8
 	// Discriminator returns the discriminator.
@@ -49,6 +52,10 @@ type Service interface {
 	MarshalObject() any
 	// String returns a string representation of the service.
 	String() string
+}
+
+type ServiceHelper interface {
+	IsCommissionable() bool
 }
 
 type service struct {
@@ -174,4 +181,9 @@ func (ad *advertisingData) AdditionalDataFlag() bool {
 // ExtendedAnnouncement returns the extended announcement flag.
 func (ad *advertisingData) ExtendedAnnouncement() bool {
 	return ad.extendedAnnouncement
+}
+
+// IsCommissionable returns true if the device is commissionable.
+func (ad *advertisingData) IsCommissionable() bool {
+	return ad.opCode == OpCodeCommissionable
 }
