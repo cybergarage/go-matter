@@ -18,6 +18,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/cybergarage/go-ble/ble"
 )
@@ -83,8 +84,8 @@ func (s *service) MarshalObject() any {
 		OpCode               uint8  `json:"opCode"`
 		AdvertisementVersion uint8  `json:"advertisementVersion"`
 		Discriminator        uint16 `json:"discriminator"`
-		VendorID             uint16 `json:"vendorId"`
-		ProductID            uint16 `json:"productId"`
+		VendorID             string `json:"vendorId"`
+		ProductID            string `json:"productId"`
 		AdditionalDataFlag   bool   `json:"additionalDataFlag"`
 		ExtendedAnnouncement bool   `json:"extendedAnnouncement"`
 	}{
@@ -93,8 +94,8 @@ func (s *service) MarshalObject() any {
 		OpCode:               s.OpCode(),
 		AdvertisementVersion: s.AdvertisementVersion(),
 		Discriminator:        s.Discriminator(),
-		VendorID:             s.VendorID(),
-		ProductID:            s.ProductID(),
+		VendorID:             fmt.Sprintf("%04X", s.VendorID()),
+		ProductID:            fmt.Sprintf("%04X", s.ProductID()),
 		AdditionalDataFlag:   s.AdditionalDataFlag(),
 		ExtendedAnnouncement: s.ExtendedAnnouncement(),
 	}
