@@ -15,6 +15,7 @@
 package ble
 
 import (
+	"context"
 	"encoding/json"
 	"time"
 
@@ -32,6 +33,16 @@ type UUID = ble.UUID
 
 // Device represents a matter BLE device.
 type Device interface {
+	// DeviceDescriptor returns the read-only device descriptor.
+	DeviceDescriptor
+	// DeviceOperator returns the device operator.
+	DeviceOperator
+	// String returns the string representation of the device.
+	String() string
+}
+
+// DeviceDescriptor represents a read-only Bluetooth device descriptor.
+type DeviceDescriptor interface {
 	// Manufacturer returns the Bluetooth manufacturer of the device.
 	Manufacturer() Manufacturer
 	// LocalName returns the local name of the device.
@@ -48,10 +59,16 @@ type Device interface {
 	LastSeenAt() time.Time
 	// Service returns the primary service of the device.
 	Service() Service
-	// MarshalObject returns an object suitable for marshaling to JSON.
-	MarshalObject() any
-	// String returns the string representation of the device.
-	String() string
+}
+
+// DeviceOperator represents a Bluetooth device operator.
+type DeviceOperator interface {
+	// Connect connects to the device.
+	Connect(ctx context.Context) error
+	// Disconnect disconnects from the device.
+	Disconnect() error
+	// IsConnected returns whether the device is connected.
+	IsConnected() bool
 }
 
 type device struct {
