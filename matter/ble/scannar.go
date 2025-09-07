@@ -64,7 +64,7 @@ func (scn *scanner) onScanResult(bleDev ble.Device) {
 	if err != nil {
 		return
 	}
-	scn.deviceMap.Store(dev.Address(), dev)
+	scn.deviceMap.Store(dev.Address().String(), dev)
 }
 
 // Scan starts scanning for Bluetooth devices.
