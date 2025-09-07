@@ -22,7 +22,7 @@ jobs:
       run: sudo snap install golangci-lint --classic
 
     - name: Set up bluez
-      run: sudo snap install bluez && sudo systemctl restart bluetooth
+      run: sudo snap install bluez && sudo systemctl restart snap.bluez.bluez.service
 
     - name: Test
       run: make test
