@@ -21,6 +21,9 @@ jobs:
     - name: Set up golangci-lint
       run: sudo snap install golangci-lint --classic
 
+    - name: Set up bluez
+      run: sudo snap install bluez
+
     - name: Test
       run: make test
 
