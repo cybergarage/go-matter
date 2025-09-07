@@ -46,6 +46,12 @@ func TestScanner(t *testing.T) {
 			log.Errorf("Failed to connect: %v", err)
 			continue
 		}
+		service, ok := dev.LookupService(ble.MatterServiceUUID)
+		if ok {
+			log.Infof("Lookup service: %s", service.String())
+		} else {
+			log.Errorf("Failed to lookup service: %s", ble.MatterServiceUUID)
+		}
 		if err := dev.Disconnect(); err != nil {
 			log.Errorf("Failed to disconnect: %v", err)
 		}

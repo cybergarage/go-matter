@@ -71,6 +71,8 @@ type DeviceOperator interface {
 	Disconnect() error
 	// IsConnected returns whether the device is connected.
 	IsConnected() bool
+	// LookupService looks up a Bluetooth service by its UUID.
+	LookupService(uuid UUID) (Service, bool)
 }
 
 type device struct {
@@ -100,6 +102,19 @@ func (dev *device) IsCommissionable() bool {
 		return false
 	}
 	return dev.service.IsCommissionable()
+}
+
+// LookupService looks up a Bluetooth service by its UUID.
+func (dev *device) LookupService(uuid UUID) (Service, bool) {
+	bleSrv, ok := dev.Device.LookupService(uuid)
+	if !ok {
+		return nil, false
+	}
+	matterSrv, err := NewServiceWith(bleSrv)
+	if err != nil {
+		return nil, false
+	}
+	return matterSrv, true
 }
 
 // MarshalObject returns an object suitable for marshaling to JSON.

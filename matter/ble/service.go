@@ -80,6 +80,10 @@ func NewServiceWith(bleService ble.Service) (Service, error) {
 
 // MarshalObject returns an object suitable for marshaling to JSON.
 func (s *service) MarshalObject() any {
+	charObjs := make([]any, 0)
+	for _, char := range s.Characteristics() {
+		charObjs = append(charObjs, char.MarshalObject())
+	}
 	return struct {
 		UUID                 string `json:"uuid"`
 		Name                 string `json:"name"`
@@ -90,6 +94,7 @@ func (s *service) MarshalObject() any {
 		ProductID            string `json:"productId"`
 		AdditionalDataFlag   bool   `json:"additionalDataFlag"`
 		ExtendedAnnouncement bool   `json:"extendedAnnouncement"`
+		Characteristic       any    `json:"characteristic"`
 	}{
 		UUID:                 s.UUID().String(),
 		Name:                 s.Name(),
@@ -100,6 +105,7 @@ func (s *service) MarshalObject() any {
 		ProductID:            fmt.Sprintf("%04X", s.ProductID()),
 		AdditionalDataFlag:   s.AdditionalDataFlag(),
 		ExtendedAnnouncement: s.ExtendedAnnouncement(),
+		Characteristic:       charObjs,
 	}
 }
 
