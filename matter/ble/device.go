@@ -63,6 +63,8 @@ type DeviceDescriptor interface {
 
 // DeviceOperator represents a Bluetooth device operator.
 type DeviceOperator interface {
+	// IsCommissionable returns whether the service is commissionable.
+	IsCommissionable() bool
 	// Connect connects to the device.
 	Connect(ctx context.Context) error
 	// Disconnect disconnects from the device.
@@ -90,6 +92,14 @@ func newDeviceWith(bleDev ble.Device, bleSrv ble.Service) (Device, error) {
 // Service returns the primary service of the device.
 func (dev *device) Service() Service {
 	return dev.service
+}
+
+// IsCommissionable returns whether the service is commissionable.
+func (dev *device) IsCommissionable() bool {
+	if dev.service == nil {
+		return false
+	}
+	return dev.service.IsCommissionable()
 }
 
 // MarshalObject returns an object suitable for marshaling to JSON.

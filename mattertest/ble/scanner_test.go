@@ -39,5 +39,15 @@ func TestScanner(t *testing.T) {
 	log.Infof("Discovered matter devices:")
 	for n, dev := range scanner.Devices() {
 		log.Infof("[%d] %s", n, dev.String())
+		if !dev.IsCommissionable() {
+			continue
+		}
+		if err := dev.Connect(context.Background()); err != nil {
+			log.Errorf("Failed to connect: %v", err)
+			continue
+		}
+		if err := dev.Disconnect(); err != nil {
+			log.Errorf("Failed to disconnect: %v", err)
+		}
 	}
 }
