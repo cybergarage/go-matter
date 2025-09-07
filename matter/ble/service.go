@@ -55,7 +55,9 @@ type Service interface {
 	String() string
 }
 
+// ServiceHelper provides helper methods for a BLE service.
 type ServiceHelper interface {
+	// IsCommissionable returns whether the service is commissionable.
 	IsCommissionable() bool
 }
 
