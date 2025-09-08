@@ -14,6 +14,15 @@
 
 SHELL := bash
 
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+	OS_ENV = macOS
+else ifeq ($(UNAME_S),Linux)
+	OS_ENV = linux
+else
+	OS_ENV = other
+endif
+
 GOBIN := $(shell go env GOPATH)/bin
 PATH := $(GOBIN):$(PATH)
 
@@ -63,6 +72,19 @@ test: lint
 
 cover: test
 	open ${PKG_COVER}.html || xdg-open ${PKG_COVER}.html || gnome-open ${PKG_COVER}.html
+
+codecov: test
+	@if [ "$(OS_ENV)" = "macOS" ]; then \
+		curl -Os https://cli.codecov.io/latest/macos/codecov && chmod +x codecov; \
+	elif [ "$(OS_ENV)" = "linux" ]; then \
+		curl -Os https://cli.codecov.io/latest/linux/codecov && chmod +x codecov; \
+	fi
+	@if test -f ./codecov; then \
+		CODECOV_TOKEN=$$(cat CODECOV_TOKEN); \
+		./codecov --verbose upload-process --disable-search -t $$CODECOV_TOKEN -f ${PKG_COVER}.out; \
+	else \
+		echo "./codecov not found"; \
+	fi
 
 install: test
 	go install ${BINS}
