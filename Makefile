@@ -83,7 +83,7 @@ codecov: test
 	fi
 	@if [ -f ./codecov ] && [ -f CODECOV_TOKEN ]; then \
 		CODECOV_TOKEN=$$(cat CODECOV_TOKEN); \
-		./codecov --verbose upload-process --disable-search -t $$CODECOV_TOKEN -f ${PKG_COVER}.out; \
+		./codecov upload-process --disable-search -t $$CODECOV_TOKEN -f ${PKG_COVER}.out; \
 	else \
 		echo "codecov or CODECOV_TOKEN not found"; \
 	fi
