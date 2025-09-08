@@ -20,3 +20,7 @@
 
 # Go workspace file
 go.work
+
+# Codecov files
+CODECOV_TOKEN
+codecov
