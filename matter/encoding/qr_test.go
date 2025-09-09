@@ -26,19 +26,23 @@ func TestQRPayload(t *testing.T) {
 		{
 			qrPayload: "MT:Y.ET08O614CCY06A810",
 			expected: QRPayload{ // nolint:exhaustruct
-				Version:   1,
-				VendorID:  3572,
-				ProductID: 993,
-				Passcode:  5174,
+				Version:       1,
+				VendorID:      37395,
+				ProductID:     769,
+				CustomFlow:    0,
+				Discriminator: 1039,
+				Passcode:      5174,
 			},
 		},
 		{
 			qrPayload: "",
 			expected: QRPayload{ // nolint:exhaustruct
-				Version:   1,
-				VendorID:  2581,
-				ProductID: 335,
-				Passcode:  1082,
+				Version:       1,
+				VendorID:      37395,
+				ProductID:     259,
+				CustomFlow:    0,
+				Discriminator: 3083,
+				Passcode:      1082,
 			},
 		},
 	}
