@@ -18,9 +18,17 @@ import (
 	"github.com/cybergarage/go-ble/ble"
 )
 
-var C1 = ble.MustUUIDFromUUIDString("18EE2EF5-263D-4559-959F-4F9C429F9D11")
-var C2 = ble.MustUUIDFromUUIDString("18EE2EF5-263D-4559-959F-4F9C429F9D12")
-var C3 = ble.MustUUIDFromUUIDString("64630238-8772-45F2-B87D-748A83218F04")
+// 4.19.4.2. BTP GATT Service
+
+const (
+	C1MaxDataLen = 247
+	C2MaxDataLen = 247
+	C3MaxDataLen = 512
+)
+
+var C1UUID = ble.MustUUIDFromUUIDString("18EE2EF5-263D-4559-959F-4F9C429F9D11")
+var C2UUID = ble.MustUUIDFromUUIDString("18EE2EF5-263D-4559-959F-4F9C429F9D12")
+var C3UUID = ble.MustUUIDFromUUIDString("64630238-8772-45F2-B87D-748A83218F04")
 
 // Characteristic represents a BLE characteristic.
 type Characteristic = ble.Characteristic

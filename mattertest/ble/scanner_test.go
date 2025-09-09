@@ -59,7 +59,7 @@ func TestScanner(t *testing.T) {
 		notify := func(char ble.Characteristic, data []byte) {
 			log.Infof("Notify data: % X", data)
 		}
-		c2, ok := service.LookupCharacteristic(ble.C2)
+		c2, ok := service.LookupCharacteristic(ble.C2UUID)
 		if !ok {
 			log.Errorf("Failed to lookup characteristic C2: %v", err)
 			continue
