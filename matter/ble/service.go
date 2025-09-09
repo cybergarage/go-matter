@@ -17,7 +17,6 @@ package ble
 import (
 	"encoding/binary"
 	"encoding/json"
-	"errors"
 
 	"github.com/cybergarage/go-ble/ble"
 )
@@ -129,8 +128,11 @@ type advertisingData struct {
 
 // newAdvertisingDataFromBytes parses a byte slice according to the Matter BLE data specification.
 func newAdvertisingDataFromBytes(data []byte) (*advertisingData, error) {
+	// 5.4.2.5.6. Advertising Data
+	// All multi-byte values are encoded in little-endian byte order within the service data payload.
+
 	if len(data) < 8 {
-		return nil, errors.New("invalid data length")
+		return nil, ErrInvalidData
 	}
 	opCode := data[0]
 

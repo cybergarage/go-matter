@@ -15,22 +15,9 @@
 package ble
 
 import (
-	"github.com/cybergarage/go-ble/ble"
-)
-
-// 4.19.4.2. BTP GATT Service
-
-const (
-	C1MaxDataLen = 247
-	C2MaxDataLen = 247
-	C3MaxDataLen = 512
+	"errors"
 )
 
 var (
-	C1UUID = ble.MustUUIDFromUUIDString("18EE2EF5-263D-4559-959F-4F9C429F9D11")
-	C2UUID = ble.MustUUIDFromUUIDString("18EE2EF5-263D-4559-959F-4F9C429F9D12")
-	C3UUID = ble.MustUUIDFromUUIDString("64630238-8772-45F2-B87D-748A83218F04")
+	ErrInvalidData = errors.New("invalid data")
 )
-
-// Characteristic represents a BLE characteristic.
-type Characteristic = ble.Characteristic
