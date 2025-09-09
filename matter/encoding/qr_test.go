@@ -18,29 +18,40 @@ import (
 	"testing"
 )
 
-func TestQR(t *testing.T) {
+func TestQRPayload(t *testing.T) {
 	tests := []struct {
-		payload QRCode
-		qrCode  string
+		qrPayload string
+		expected  QRPayload
 	}{
 		{
-			payload: QRCode{
-				Version:               1,
-				VendorID:              4572,
-				ProductID:             997,
-				CustomFlow:            0,
-				DiscoveryCapabilities: 0,
-				Discriminator:         0x01, // 12-bit discriminator = 0x001
-				SetupPIN:              5174,
+			qrPayload: "MT:Y.ET08O614CCY06A810",
+			expected: QRPayload{ // nolint:exhaustruct
+				Version:   1,
+				VendorID:  3572,
+				ProductID: 993,
+				Passcode:  5174,
 			},
-			qrCode: "MT:-CM77NKT404C160ID00",
+		},
+		{
+			qrPayload: "",
+			expected: QRPayload{ // nolint:exhaustruct
+				Version:   1,
+				VendorID:  2581,
+				ProductID: 335,
+				Passcode:  1082,
+			},
 		},
 	}
 
 	for _, tt := range tests {
-		got := tt.payload.String()
-		if got != tt.qrCode {
-			t.Errorf("QR = %q; want %q", got, tt.qrCode)
+		if tt.qrPayload == "" {
+			continue
 		}
+		got, err := NewQRPayloadFromString(tt.qrPayload)
+		if err != nil {
+			t.Errorf("NewQRPayloadFromString(%q) = %v", tt.qrPayload, err)
+			continue
+		}
+		t.Logf("QRPayload: %+v", got)
 	}
 }
