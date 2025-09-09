@@ -1,0 +1,81 @@
+// Copyright (C) 2025 The go-matter Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package encoding
+
+import (
+	"bytes"
+)
+
+// QRCode represents the Matter QR code payload fields.
+type QRCode struct {
+	Version               uint8  // 3-bit version
+	VendorID              uint16 // 16-bit Vendor ID
+	ProductID             uint16 // 16-bit Product ID
+	CustomFlow            uint8  // 2-bit commissioning flow (0=standard, 1=user-action, 2=custom)
+	DiscoveryCapabilities uint8  // 8-bit discovery flags (bitmap for BLE, soft-AP, on-network, etc.)
+	Discriminator         uint16 // 12-bit discriminator (0–4095)
+	SetupPIN              uint32 // 27-bit setup PIN code (usually 8 decimal digits)
+}
+
+// ToBytes packs the payload fields into a little-endian []byte per Matter spec.
+func (qr *QRCode) ToBytes() []byte {
+	// Total bits = 3+16+16+2+8+12+27 + 4 padding = 88 bits (11 bytes):contentReference[oaicite:15]{index=15}
+	totalBits := 88
+	totalBytes := totalBits / 8 // 11 bytes
+	buf := make([]byte, totalBytes)
+
+	// Use a 64-bit or larger container (88 bits doesn't fit in 64-bit, so use bytes).
+	// We'll pack bits LSB-first into a little-endian byte buffer.
+	var bitPos uint = 0
+
+	// Helper to set bits in the buffer
+	setBits := func(value uint64, numBits uint) {
+		for i := range numBits {
+			// Determine if the i-th bit of value is 1
+			bit := (value >> i) & 0x1
+			// Set that bit at the current bitPos in the buffer
+			byteIndex := bitPos / 8
+			bitIndex := bitPos % 8
+			if bit == 1 {
+				buf[byteIndex] |= (1 << bitIndex)
+			}
+			bitPos++
+		}
+	}
+
+	// Pack fields in LSB-first order:
+	setBits(uint64(qr.VendorID), 16)             // Vendor ID (16 bits):contentReference[oaicite:16]{index=16}
+	setBits(uint64(qr.ProductID), 16)            // Product ID (16 bits)
+	setBits(uint64(qr.CustomFlow&0x3), 2)        // Custom Flow (2 bits)
+	setBits(uint64(qr.DiscoveryCapabilities), 8) // Discovery capabilities (8 bits)
+	setBits(uint64(qr.Discriminator&0xFFF), 12)  // Discriminator (12 bits)
+	setBits(uint64(qr.SetupPIN&0x7FFFFFF), 27)   // PIN code (27 bits)
+	setBits(uint64(qr.Version&0x7), 3)           // Version (3 bits)
+	// The remaining high-order bits (up to 88) serve as padding (implicitly 0).
+
+	return buf
+}
+
+// String encodes the payload into the Matter QR code string (with "MT:" prefix).
+func (qr *QRCode) String() string {
+	payloadBytes := qr.ToBytes()
+	qrEncoded := EncodeBase38(payloadBytes) // uses Base38 alphabet [0-9A-Z.-]:contentReference[oaicite:17]{index=17}
+	// If the encoded string is shorter than 19 characters, pad with '0's (spec minimum length):contentReference[oaicite:18]{index=18}.
+	if len(qrEncoded) < 19 {
+		padding := bytes.Repeat([]byte("0"), 19-len(qrEncoded))
+		qrEncoded = string(padding) + qrEncoded
+	}
+	return "MT:" + qrEncoded
+}
