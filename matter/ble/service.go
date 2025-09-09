@@ -134,12 +134,12 @@ func newAdvertisingDataFromBytes(data []byte) (*advertisingData, error) {
 	}
 	opCode := data[0]
 
-	advAndDisc := binary.BigEndian.Uint16(data[1:3])
+	advAndDisc := binary.LittleEndian.Uint16(data[1:3])
 	advVersion := uint8((advAndDisc & 0xF000) >> 12)
 	discriminator := advAndDisc & 0x0FFF
 
-	vendorID := binary.BigEndian.Uint16(data[3:5])
-	productID := binary.BigEndian.Uint16(data[5:7])
+	vendorID := binary.LittleEndian.Uint16(data[3:5])
+	productID := binary.LittleEndian.Uint16(data[5:7])
 
 	flags := data[7]
 	additionalDataFlag := (flags & 0x01) != 0
