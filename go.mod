@@ -8,6 +8,7 @@ require (
 	github.com/cybergarage/go-mdns v0.0.0-20250202083627-07f16705ea66
 	github.com/cybergarage/go-safecast v1.3.4
 	github.com/spf13/cobra v1.10.1
+	github.com/spf13/viper v1.21.0
 )
 
 require (
@@ -27,7 +28,6 @@ require (
 	github.com/spf13/afero v1.15.0 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
-	github.com/spf13/viper v1.21.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/tinygo-org/cbgo v0.0.4 // indirect
 	github.com/tinygo-org/pio v0.2.0 // indirect
