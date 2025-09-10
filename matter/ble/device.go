@@ -71,8 +71,8 @@ type DeviceOperator interface {
 	Disconnect() error
 	// IsConnected returns whether the device is connected.
 	IsConnected() bool
-	// LookupService looks up a Bluetooth service by its UUID.
-	LookupService(uuid UUID) (Service, bool)
+	// LookupService looks up a service by its UUID. The UUID can be of any type accepted such as string, uint16, uint32, []byte, or UUID.
+	LookupService(any) (Service, bool)
 }
 
 type device struct {
@@ -104,8 +104,8 @@ func (dev *device) IsCommissionable() bool {
 	return dev.service.IsCommissionable()
 }
 
-// LookupService looks up a Bluetooth service by its UUID.
-func (dev *device) LookupService(uuid UUID) (Service, bool) {
+// LookupService looks up a service by its UUID. The UUID can be of any type accepted such as string, uint16, uint32, []byte, or UUID.
+func (dev *device) LookupService(uuid any) (Service, bool) {
 	bleSrv, ok := dev.Device.LookupService(uuid)
 	if !ok {
 		return nil, false
