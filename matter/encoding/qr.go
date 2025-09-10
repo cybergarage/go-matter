@@ -15,15 +15,13 @@
 package encoding
 
 import (
-	"errors"
+	"fmt"
 	"strings"
 )
 
 const (
 	QRPayloadPrefix = "MT:"
 )
-
-var ErrInvalidQRPayload = errors.New("invalid QR payload")
 
 // QRPayload represents the Matter QR code payload interface.
 type QRPayload interface {
@@ -57,15 +55,15 @@ type qrPayload struct {
 }
 
 // NewQRPayloadFromString parses the QR code string and returns a QRPayload instance.
-func NewQRPayloadFromString(qrCode string) (QRPayload, error) {
-	return newQRPayloadFromString(qrCode)
+func NewQRPayloadFromString(str string) (QRPayload, error) {
+	return newQRPayloadFromString(str)
 }
 
-func newQRPayloadFromString(qrCode string) (*qrPayload, error) {
-	if !strings.HasPrefix(qrCode, QRPayloadPrefix) {
-		return nil, ErrInvalidQRPayload
+func newQRPayloadFromString(str string) (*qrPayload, error) {
+	if !strings.HasPrefix(str, QRPayloadPrefix) {
+		return nil, fmt.Errorf("%w QR payload: %s", ErrInvalid, str)
 	}
-	encoded := strings.TrimPrefix(qrCode, QRPayloadPrefix)
+	encoded := strings.TrimPrefix(str, QRPayloadPrefix)
 	payloadBytes, err := DecodeBase38(encoded)
 	if err != nil {
 		return nil, err
@@ -75,7 +73,7 @@ func newQRPayloadFromString(qrCode string) (*qrPayload, error) {
 
 func newQRPayloadFromBytes(data []byte) (*qrPayload, error) {
 	if len(data) != 11 {
-		return nil, ErrInvalidQRPayload
+		return nil, fmt.Errorf("%w QR payload length: %d", ErrInvalid, len(data))
 	}
 	bitPos := uint(0)
 
@@ -101,6 +99,11 @@ func newQRPayloadFromBytes(data []byte) (*qrPayload, error) {
 		discriminator:         uint16(getBits(12)), // Discriminator (12 bits)
 		passcode:              uint32(getBits(27)), // Passcode (27 bits)
 	}
+
+	if (qr.passcode < 0x0000001) || (0x7FFFFFF < qr.passcode) {
+		return nil, fmt.Errorf("%w QR payload passcode out of range: %d", ErrInvalid, qr.passcode)
+	}
+
 	return qr, nil
 }
 
