@@ -25,19 +25,43 @@ const (
 
 var ErrInvalidQRPayload = errors.New("invalid QR payload")
 
-// QRPayload represents the Matter QR code payload fields.
-type QRPayload struct {
-	Version               uint8  // 3-bit version
-	VendorID              uint16 // 16-bit Vendor ID
-	ProductID             uint16 // 16-bit Product ID
-	CustomFlow            uint8  // 2-bit commissioning flow (0=standard, 1=user-action, 2=custom)
-	DiscoveryCapabilities uint8  // 8-bit discovery flags (bitmap for BLE, soft-AP, on-network, etc.)
-	Discriminator         uint16 // 12-bit discriminator (0–4095)
-	Passcode              uint32 // 27-bit setup PIN code (usually 8 decimal digits)
+// QRPayload represents the Matter QR code payload interface.
+type QRPayload interface {
+	// Version returns the QR code version.
+	Version() uint8
+	// VendorID returns the Vendor ID.
+	VendorID() uint16
+	// ProductID returns the Product ID.
+	ProductID() uint16
+	// CustomFlow returns the Custom Flow.
+	CustomFlow() uint8
+	// Discriminator returns the Discriminator.
+	Discriminator() uint16
+	// Passcode returns the Passcode.
+	Passcode() uint32
+	// String returns the QR code string representation.
+	String() string
+	// Bytes returns the QR code byte representation.
+	Bytes() []byte
 }
 
-// NewQRPayload creates a new QRPayload with default values.
-func NewQRPayloadFromString(qrCode string) (*QRPayload, error) {
+// qrPayload represents the Matter QR code payload fields.
+type qrPayload struct {
+	version               uint8  // 3-bit version
+	vendorID              uint16 // 16-bit Vendor ID
+	productID             uint16 // 16-bit Product ID
+	customFlow            uint8  // 2-bit commissioning flow (0=standard, 1=user-action, 2=custom)
+	discoveryCapabilities uint8  // 8-bit discovery flags (bitmap for BLE, soft-AP, on-network, etc.)
+	discriminator         uint16 // 12-bit discriminator (0–4095)
+	passcode              uint32 // 27-bit setup PIN code (usually 8 decimal digits)
+}
+
+// NewQRPayloadFromString parses the QR code string and returns a QRPayload instance.
+func NewQRPayloadFromString(qrCode string) (QRPayload, error) {
+	return newQRPayloadFromString(qrCode)
+}
+
+func newQRPayloadFromString(qrCode string) (*qrPayload, error) {
 	if !strings.HasPrefix(qrCode, QRPayloadPrefix) {
 		return nil, ErrInvalidQRPayload
 	}
@@ -46,11 +70,10 @@ func NewQRPayloadFromString(qrCode string) (*QRPayload, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewQRPayloadFromBytes(payloadBytes)
+	return newQRPayloadFromBytes(payloadBytes)
 }
 
-// NewQRPayloadFromBytes creates a new QRPayload from the given byte slice.
-func NewQRPayloadFromBytes(data []byte) (*QRPayload, error) {
+func newQRPayloadFromBytes(data []byte) (*qrPayload, error) {
 	if len(data) != 11 {
 		return nil, ErrInvalidQRPayload
 	}
@@ -69,20 +92,50 @@ func NewQRPayloadFromBytes(data []byte) (*QRPayload, error) {
 		return value
 	}
 
-	qr := &QRPayload{
-		Version:               uint8(getBits(3)),   // Version (3 bits)
-		VendorID:              uint16(getBits(16)), // Vendor ID (16 bits):contentReference[oaicite:16]{index=16}
-		ProductID:             uint16(getBits(16)), // Product ID (16 bits)
-		CustomFlow:            uint8(getBits(2)),   // Custom Flow (2 bits)
-		DiscoveryCapabilities: uint8(getBits(8)),   // Discovery capabilities (8 bits)
-		Discriminator:         uint16(getBits(12)), // Discriminator (12 bits)
-		Passcode:              uint32(getBits(27)), // PIN code (27 bits)
+	qr := &qrPayload{
+		version:               uint8(getBits(3)),   // Version (3 bits)
+		vendorID:              uint16(getBits(16)), // Vendor ID (16 bits):contentReference[oaicite:16]{index=16}
+		productID:             uint16(getBits(16)), // Product ID (16 bits)
+		customFlow:            uint8(getBits(2)),   // Custom Flow (2 bits)
+		discoveryCapabilities: uint8(getBits(8)),   // Discovery capabilities (8 bits)
+		discriminator:         uint16(getBits(12)), // Discriminator (12 bits)
+		passcode:              uint32(getBits(27)), // Passcode (27 bits)
 	}
 	return qr, nil
 }
 
+// Version returns the QR code version.
+func (qr *qrPayload) Version() uint8 {
+	return qr.version
+}
+
+// VendorID returns the Vendor ID.
+func (qr *qrPayload) VendorID() uint16 {
+	return qr.vendorID
+}
+
+// ProductID returns the Product ID.
+func (qr *qrPayload) ProductID() uint16 {
+	return qr.productID
+}
+
+// CustomFlow returns the Custom Flow.
+func (qr *qrPayload) CustomFlow() uint8 {
+	return qr.customFlow
+}
+
+// Discriminator returns the Discriminator.
+func (qr *qrPayload) Discriminator() uint16 {
+	return qr.discriminator
+}
+
+// Passcode returns the Passcode.
+func (qr *qrPayload) Passcode() uint32 {
+	return qr.passcode
+}
+
 // Bytes packs the payload fields into a little-endian []byte per Matter spec.
-func (qr *QRPayload) Bytes() []byte {
+func (qr *qrPayload) Bytes() []byte {
 	// Total bits = 3+16+16+2+8+12+27 + 4 padding = 88 bits (11 bytes):contentReference[oaicite:15]{index=15}
 	totalBits := 88
 	totalBytes := totalBits / 8 // 11 bytes
@@ -108,12 +161,13 @@ func (qr *QRPayload) Bytes() []byte {
 	}
 
 	// Pack fields in LSB-first order:
-	setBits(uint64(qr.Version&0x7), 3)           // Version (3 bits)
-	setBits(uint64(qr.VendorID), 16)             // Vendor ID (16 bits)	setBits(uint64(qr.ProductID), 16)            // Product ID (16 bits)
-	setBits(uint64(qr.CustomFlow&0x3), 2)        // Custom Flow (2 bits)
-	setBits(uint64(qr.DiscoveryCapabilities), 8) // Discovery capabilities (8 bits)
-	setBits(uint64(qr.Discriminator&0xFFF), 12)  // Discriminator (12 bits)
-	setBits(uint64(qr.Passcode&0x7FFFFFF), 27)   // PIN code (27 bits)
+	setBits(uint64(qr.version&0x7), 3)           // Version (3 bits)
+	setBits(uint64(qr.vendorID), 16)             // Vendor ID (16 bits)
+	setBits(uint64(qr.productID), 16)            // Product ID (16 bits)
+	setBits(uint64(qr.customFlow&0x3), 2)        // Custom Flow (2 bits)
+	setBits(uint64(qr.discoveryCapabilities), 8) // Discovery capabilities (8 bits)
+	setBits(uint64(qr.discriminator&0xFFF), 12)  // Discriminator (12 bits)
+	setBits(uint64(qr.passcode&0x7FFFFFF), 27)   // Passcode (27 bits)
 	setBits(0, 4)                                // Padding (4 bits)
 	// The remaining high-order bits (up to 88) serve as padding (implicitly 0).
 
@@ -121,7 +175,7 @@ func (qr *QRPayload) Bytes() []byte {
 }
 
 // String encodes the payload into the Matter QR code string (with "MT:" prefix).
-func (qr *QRPayload) String() string {
+func (qr *qrPayload) String() string {
 	payloadBytes := qr.Bytes()
 	qrEncoded := EncodeBase38(payloadBytes)
 	return "MT:" + qrEncoded
