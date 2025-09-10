@@ -117,6 +117,10 @@ var scanCmd = &cobra.Command{ // nolint:exhaustruct
 		}
 
 		devs := scanner.ScannedDevices()
+		if len(devs) == 0 {
+			return nil
+		}
+
 		switch format {
 		case FormatJSON:
 			return printDevicesJSON(devs)
