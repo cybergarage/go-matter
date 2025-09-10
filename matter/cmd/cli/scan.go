@@ -16,8 +16,10 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"strconv"
+	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -47,9 +49,26 @@ var scanCmd = &cobra.Command{ // nolint:exhaustruct
 			return err
 		}
 		columns := []string{"Name", "Addr", "VendorID", "ProductID", "Discriminator"}
+		deviceColumns := func(dev ble.Device) []string {
+			service := dev.Service()
+			if service == nil {
+				return nil
+			}
+			return []string{
+				dev.LocalName(),
+				dev.Address().String(),
+				strconv.Itoa(int(service.VendorID())),
+				strconv.Itoa(int(service.ProductID())),
+				strconv.Itoa(int(service.Discriminator())),
+			}
+		}
+
 		printDevicesTable := func(devs []ble.Device) error {
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
 			printRow := func(cols ...string) {
+				if len(cols) == 0 {
+					return
+				}
 				for i, col := range cols {
 					if i == len(cols)-1 {
 						_, _ = w.Write([]byte(col + "\n"))
@@ -64,32 +83,47 @@ var scanCmd = &cobra.Command{ // nolint:exhaustruct
 				if service == nil {
 					continue
 				}
-				printRow(
-					dev.LocalName(),
-					dev.Address().String(),
-					strconv.Itoa(int(service.VendorID())),
-					strconv.Itoa(int(service.ProductID())),
-					strconv.Itoa(int(service.Discriminator())),
-				)
+				printRow(deviceColumns(dev)...)
 			}
 			w.Flush()
 			return nil
 		}
-		printDevicesJSON := func(devs []ble.Device) error {
-			return nil
-		}
+
 		printDevicesCSV := func(devs []ble.Device) error {
+			printRow := func(cols ...string) {
+				if len(cols) == 0 {
+					return
+				}
+				outputf("%s\n", strings.Join(cols, ","))
+			}
+			printRow(columns...)
+			for _, dev := range devs {
+				printRow(deviceColumns(dev)...)
+			}
 			return nil
 		}
+
+		printDevicesJSON := func(devs []ble.Device) error {
+			devObjs := make([]any, 0)
+			for _, dev := range devs {
+				devObjs = append(devObjs, dev.MarshalObject())
+			}
+			b, err := json.MarshalIndent(devObjs, "", "  ")
+			if err != nil {
+				return err
+			}
+			outputf("%s\n", string(b))
+			return nil
+		}
+
 		devs := scanner.ScannedDevices()
 		switch format {
-		case FormatTable:
-			return printDevicesTable(devs)
 		case FormatJSON:
 			return printDevicesJSON(devs)
 		case FormatCSV:
 			return printDevicesCSV(devs)
+		default:
+			return printDevicesTable(devs)
 		}
-		return nil
 	},
 }
