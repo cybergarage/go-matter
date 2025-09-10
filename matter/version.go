@@ -12,28 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cli
+package matter
 
-import (
-	"github.com/cybergarage/go-matter/matter"
-	"github.com/spf13/cobra"
+const (
+	Version = ".."
 )
-
-var rootCmd = &cobra.Command{ // nolint:exhaustruct
-	Use:               "matterctl",
-	Version:           matter.Version,
-	Short:             "",
-	Long:              "",
-	DisableAutoGenTag: true,
-}
-
-func GetRootCommand() *cobra.Command {
-	return rootCmd
-}
-
-func Execute() error {
-	return rootCmd.Execute()
-}
-
-func init() {
-}

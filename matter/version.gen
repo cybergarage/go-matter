@@ -1,3 +1,17 @@
+#!/bin/sh
+
+major=$(git tag | sort | tail -n 1 | awk -F'.' '{print $1}')
+minor=$(git tag | sort | tail -n 1 | awk -F'.' '{print $2}')
+patch=$(git tag | sort | tail -n 1 | awk -F'.' '{print ($3)}')
+version="${major}.${minor}.${patch}"
+
+next_patch=$(git tag | sort | tail -n 1 | awk -F'.' '{print ($3+1)}')
+next_version="${major}.${minor}.${next_patch}"
+
+revision=$(git rev-list -n 1 "${version}")
+build_date=$(git show -s --format=%cI "${version}")
+
+cat <<EOF
 // Copyright (C) 2024 The go-matter Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,28 +26,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cli
+package matter
 
-import (
-	"github.com/cybergarage/go-matter/matter"
-	"github.com/spf13/cobra"
+const (
+	Version = "$next_version"
 )
-
-var rootCmd = &cobra.Command{ // nolint:exhaustruct
-	Use:               "matterctl",
-	Version:           matter.Version,
-	Short:             "",
-	Long:              "",
-	DisableAutoGenTag: true,
-}
-
-func GetRootCommand() *cobra.Command {
-	return rootCmd
-}
-
-func Execute() error {
-	return rootCmd.Execute()
-}
-
-func init() {
-}
+EOF
