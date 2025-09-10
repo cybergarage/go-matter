@@ -20,11 +20,11 @@ import (
 
 func TestQRPayload(t *testing.T) {
 	tests := []struct {
-		qrPayload string
-		expected  *qrPayload
+		payloadString string
+		expected      *qrPayload
 	}{
 		{
-			qrPayload: "MT:Y.ET0EDB00SWDX0IA00",
+			payloadString: "MT:Y.ET0EDB00SWDX0IA00",
 			expected: &qrPayload{ // nolint:exhaustruct
 				version:       0,
 				vendorID:      5010,
@@ -35,7 +35,7 @@ func TestQRPayload(t *testing.T) {
 			},
 		},
 		{
-			qrPayload: "MT:Y.ET08O614CCY06A810",
+			payloadString: "MT:Y.ET08O614CCY06A810",
 			expected: &qrPayload{ // nolint:exhaustruct
 				version:       0,
 				vendorID:      5010,
@@ -46,7 +46,7 @@ func TestQRPayload(t *testing.T) {
 			},
 		},
 		{
-			qrPayload: "MT:MFAA0CIW17MA.X1IN00",
+			payloadString: "MT:MFAA0CIW17MA.X1IN00",
 			expected: &qrPayload{ // nolint:exhaustruct
 				version:       0,
 				vendorID:      4933,
@@ -59,29 +59,34 @@ func TestQRPayload(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.qrPayload, func(t *testing.T) {
-			got, err := NewQRPayloadFromString(tt.qrPayload)
+		t.Run(tt.payloadString, func(t *testing.T) {
+			decodedPayload, err := NewQRPayloadFromString(tt.payloadString)
 			if err != nil {
-				t.Errorf("NewQRPayloadFromString(%q) = %v", tt.qrPayload, err)
+				t.Errorf("NewQRPayloadFromString(%q) = %v", tt.payloadString, err)
 				return
 			}
-			if got.Version() != tt.expected.version {
-				t.Errorf("Version: got=%d, want=%d", got.Version(), tt.expected.version)
+			if decodedPayload.Version() != tt.expected.version {
+				t.Errorf("Version: got=%d, want=%d", decodedPayload.Version(), tt.expected.version)
 			}
-			if got.VendorID() != tt.expected.vendorID {
-				t.Errorf("VendorID: got=%d, want=%d", got.VendorID(), tt.expected.vendorID)
+			if decodedPayload.VendorID() != tt.expected.vendorID {
+				t.Errorf("VendorID: got=%d, want=%d", decodedPayload.VendorID(), tt.expected.vendorID)
 			}
-			if got.ProductID() != tt.expected.productID {
-				t.Errorf("ProductID: got=%d, want=%d", got.ProductID(), tt.expected.productID)
+			if decodedPayload.ProductID() != tt.expected.productID {
+				t.Errorf("ProductID: got=%d, want=%d", decodedPayload.ProductID(), tt.expected.productID)
 			}
-			if got.CustomFlow() != tt.expected.customFlow {
-				t.Errorf("CustomFlow: got=%d, want=%d", got.CustomFlow(), tt.expected.customFlow)
+			if decodedPayload.CustomFlow() != tt.expected.customFlow {
+				t.Errorf("CustomFlow: got=%d, want=%d", decodedPayload.CustomFlow(), tt.expected.customFlow)
 			}
-			if got.Discriminator() != tt.expected.discriminator {
-				t.Errorf("Discriminator: got=%d, want=%d", got.Discriminator(), tt.expected.discriminator)
+			if decodedPayload.Discriminator() != tt.expected.discriminator {
+				t.Errorf("Discriminator: got=%d, want=%d", decodedPayload.Discriminator(), tt.expected.discriminator)
 			}
-			if got.Passcode() != tt.expected.passcode {
-				t.Errorf("Passcode: got=%d, want=%d", got.Passcode(), tt.expected.passcode)
+			if decodedPayload.Passcode() != tt.expected.passcode {
+				t.Errorf("Passcode: got=%d, want=%d", decodedPayload.Passcode(), tt.expected.passcode)
+			}
+
+			encodedPayloadString := decodedPayload.String()
+			if encodedPayloadString != tt.payloadString {
+				t.Errorf("String: got=%q, want=%q", encodedPayloadString, tt.payloadString)
 			}
 		})
 	}
