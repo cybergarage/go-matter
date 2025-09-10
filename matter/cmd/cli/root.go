@@ -1,4 +1,4 @@
-// Copyright (C) 2024 The go-matter Authors All rights reserved.
+// Copyright (C) 2024 The go-matter Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,24 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package cli
 
 import (
-	"github.com/cybergarage/go-logger/log"
-	"github.com/cybergarage/go-mdns/mdns"
-	"github.com/cybergarage/go-mdns/mdns/dns"
+	"github.com/spf13/cobra"
 )
 
-type Client struct {
-	*mdns.Client
+var rootCmd = &cobra.Command{ // nolint:exhaustruct
+	Use:               "matterctl",
+	Version:           "",
+	Short:             "",
+	Long:              "",
+	DisableAutoGenTag: true,
 }
 
-func NewClient() *Client {
-	client := &Client{
-		Client: mdns.NewClient(),
-	}
-	return client
+func GetRootCommand() *cobra.Command {
+	return rootCmd
 }
-func (client *Client) MessageReceived(msg *dns.Message) {
-	log.HexInfo(msg.Bytes())
+
+func Execute() error {
+	return rootCmd.Execute()
+}
+
+func init() {
 }

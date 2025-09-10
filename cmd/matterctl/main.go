@@ -1,4 +1,4 @@
-// Copyright (C) 2024 The go-matter Authors All rights reserved.
+// Copyright (C) 2025 The go-matter Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,19 +15,15 @@
 package main
 
 import (
-	"github.com/cybergarage/go-mdns/mdns"
-	"github.com/cybergarage/go-mdns/mdns/dns"
+	"fmt"
+	"os"
+
+	"github.com/cybergarage/go-matter/matter/cmd/cli"
 )
 
-type Server struct {
-	*mdns.Server
-}
-
-func NewServer() *Server {
-	server := &Server{
-		Server: mdns.NewServer(),
+func main() {
+	if err := cli.Execute(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
 	}
-	return server
-}
-func (server *Server) MessageReceived(msg *dns.Message) {
 }
