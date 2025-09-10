@@ -1,4 +1,4 @@
-// Copyright (C) 2024 The go-matter Authors. All rights reserved.
+// Copyright (C) 2025 The go-matter Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,8 +15,13 @@
 package cli
 
 import (
+	"errors"
+	"fmt"
+	"strings"
+
 	"github.com/cybergarage/go-matter/matter"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var rootCmd = &cobra.Command{ // nolint:exhaustruct
@@ -31,9 +36,25 @@ func GetRootCommand() *cobra.Command {
 	return rootCmd
 }
 
-func Execute() error {
-	return rootCmd.Execute()
+var sharedCommissioner matter.Commissioner
+
+func SharedCommissioner() matter.Commissioner {
+	return sharedCommissioner
+}
+
+func Execute(commissioner matter.Commissioner) error {
+	sharedCommissioner = commissioner
+	if err := sharedCommissioner.Start(); err != nil {
+		return err
+	}
+	err := rootCmd.Execute()
+	return errors.Join(err, sharedCommissioner.Stop())
 }
 
 func init() {
+	rootCmd.PersistentFlags().String(FormatParamStr, FormatTableStr, fmt.Sprintf("output format: %s", strings.Join(allSupportedFormats(), "|")))
+	viper.BindPFlag(FormatParamStr, rootCmd.PersistentFlags().Lookup(FormatParamStr))
+	viper.SetEnvPrefix("matter_ctl")
+	viper.BindEnv(FormatParamStr) // MATTER_CTL_FORMAT
+	viper.SetDefault(FormatParamStr, FormatTableStr)
 }

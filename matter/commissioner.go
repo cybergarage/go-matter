@@ -14,21 +14,36 @@
 
 package matter
 
-// Commissioner represents a commissioner.
-type Commissioner struct {
+import (
+	"github.com/cybergarage/go-matter/matter/ble"
+)
+
+// commissioner represents a commissioner.
+type Commissioner interface {
+	ble.Central
+	// Start starts the commissioner.
+	Start() error
+	// Stop stops the commissioner.
+	Stop() error
+}
+
+// commissioner represents a commissioner.
+type commissioner struct {
+	ble.Central
 	*Discoverer
 }
 
 // NewCommissioner returns a new commissioner.
-func NewCommissioner() *Commissioner {
-	com := &Commissioner{
+func NewCommissioner() *commissioner {
+	com := &commissioner{
+		Central:    ble.NewCentral(),
 		Discoverer: NewDiscoverer(),
 	}
 	return com
 }
 
 // Start starts the commissioner.
-func (com *Commissioner) Start() error {
+func (com *commissioner) Start() error {
 	err := com.Discoverer.Start()
 	if err != nil {
 		return err
@@ -38,7 +53,7 @@ func (com *Commissioner) Start() error {
 }
 
 // Stop stops the commissioner.
-func (com *Commissioner) Stop() error {
+func (com *commissioner) Stop() error {
 	err := com.Discoverer.Stop()
 	if err != nil {
 		return err

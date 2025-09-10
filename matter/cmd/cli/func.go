@@ -1,4 +1,4 @@
-// Copyright (C) 2025 The go-matter Authors. All rights reserved.
+// Copyright (C) 2022 The PuzzleDB Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,19 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package cli
 
 import (
 	"fmt"
-	"os"
-
-	"github.com/cybergarage/go-matter/matter"
-	"github.com/cybergarage/go-matter/matter/cmd/cli"
 )
 
-func main() {
-	if err := cli.Execute(matter.NewCommissioner()); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+func outputf(format string, args ...any) {
+	fmt.Printf(format, args...)
+}
+
+func errorf(format string, args ...any) {
+	fmt.Printf(format, args...)
 }
