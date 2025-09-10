@@ -23,8 +23,8 @@ import (
 
 // Scanner represents a BLE scanner.
 type Scanner interface {
-	// Devices returns the list of discovered devices.
-	Devices() []Device
+	// ScannedDevices returns the list of discovered devices.
+	ScannedDevices() []Device
 	// Scan starts scanning for Bluetooth devices.
 	Scan(ctx context.Context) error
 }
@@ -42,8 +42,8 @@ func NewScanner() Scanner {
 	}
 }
 
-// Devices returns the list of discovered devices.
-func (scn *scanner) Devices() []Device {
+// ScannedDevices returns the list of discovered devices.
+func (scn *scanner) ScannedDevices() []Device {
 	var devices []Device
 	scn.deviceMap.Range(func(key, value any) bool {
 		device, ok := value.(Device)
