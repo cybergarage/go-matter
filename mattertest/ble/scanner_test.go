@@ -28,7 +28,7 @@ func TestScanner(t *testing.T) {
 	log.EnableStdoutDebug(true)
 
 	scanner := ble.NewScanner()
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	err := scanner.Scan(ctx)
 	if err != nil {
