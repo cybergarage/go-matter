@@ -41,16 +41,12 @@ TEST_PKG_ID=${MODULE_ROOT}/${TEST_PKG_NAME}
 TEST_PKG_DIR=${TEST_PKG_NAME}
 TEST_PKG=${MODULE_ROOT}/${TEST_PKG_DIR}
 
-BIN_ROOT_DIR=bin
+BIN_ROOT_DIR=cmd
 BIN_ID=${MODULE_ROOT}/${BIN_ROOT_DIR}
 BIN_SRCS=\
-	${BIN_ROOT_DIR}/matter-browse \
-	${BIN_ROOT_DIR}/matter-dump \
-	${BIN_ROOT_DIR}/matter-server
+	${BIN_ROOT_DIR}/matterctl
 BINS=\
-	${BIN_ID}/matter-browse \
-	${BIN_ID}/matter-dump \
-	${BIN_ID}/matter-server
+	${BIN_ID}/matterctl
 
 .PHONY: format vet lint clean
 
