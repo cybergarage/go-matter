@@ -37,6 +37,8 @@ type Device interface {
 	DeviceDescriptor
 	// DeviceOperator returns the device operator.
 	DeviceOperator
+	// MarshalObject returns an object suitable for marshaling to JSON.
+	MarshalObject() any
 	// String returns the string representation of the device.
 	String() string
 }
