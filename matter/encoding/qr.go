@@ -25,22 +25,12 @@ const (
 
 // QRPayload represents the Matter QR code payload interface.
 type QRPayload interface {
-	// Version returns the QR code version.
-	Version() uint8
-	// VendorID returns the Vendor ID.
-	VendorID() uint16
-	// ProductID returns the Product ID.
-	ProductID() uint16
-	// CommissioningFlow returns the Commissioning Flow.
-	CommissioningFlow() CommissioningFlow
-	// Discriminator returns the Discriminator.
-	Discriminator() uint16
-	// Passcode returns the Passcode.
-	Passcode() uint32
-	// String returns the QR code string representation.
-	String() string
+	// OnboardingPayload defines the common onboarding payload fields.
+	OnboardingPayload
 	// Bytes returns the QR code byte representation.
 	Bytes() []byte
+	// String encodes the payload into the Matter QR code string (with "MT:" prefix and Base38 encoding).
+	String() string
 }
 
 // qrPayload represents the Matter QR code payload fields.
@@ -177,7 +167,7 @@ func (qr *qrPayload) Bytes() []byte {
 	return buf
 }
 
-// String encodes the payload into the Matter QR code string (with "MT:" prefix).
+// String encodes the payload into the Matter QR code string (with "MT:" prefix and Base38 encoding).
 func (qr *qrPayload) String() string {
 	payloadBytes := qr.Bytes()
 	qrEncoded := EncodeBase38(payloadBytes)
