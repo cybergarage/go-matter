@@ -29,7 +29,7 @@ func TestQRPayload(t *testing.T) {
 				version:       0,
 				vendorID:      5010,
 				productID:     259,
-				customFlow:    0,
+				commFlow:      0,
 				discriminator: 3136,
 				passcode:      13045239,
 			},
@@ -40,7 +40,7 @@ func TestQRPayload(t *testing.T) {
 				version:       0,
 				vendorID:      5010,
 				productID:     259,
-				customFlow:    0,
+				commFlow:      0,
 				discriminator: 4068,
 				passcode:      57630675,
 			},
@@ -51,7 +51,7 @@ func TestQRPayload(t *testing.T) {
 				version:       0,
 				vendorID:      4933,
 				productID:     40961,
-				customFlow:    0,
+				commFlow:      0,
 				discriminator: 1399,
 				passcode:      29236770,
 			},
@@ -74,8 +74,8 @@ func TestQRPayload(t *testing.T) {
 			if decodedPayload.ProductID() != tt.expected.productID {
 				t.Errorf("ProductID: got=%d, want=%d", decodedPayload.ProductID(), tt.expected.productID)
 			}
-			if decodedPayload.CustomFlow() != tt.expected.customFlow {
-				t.Errorf("CustomFlow: got=%d, want=%d", decodedPayload.CustomFlow(), tt.expected.customFlow)
+			if decodedPayload.CommissioningFlow() != CommissioningFlow(tt.expected.commFlow) {
+				t.Errorf("CommissioningFlow: got=%d, want=%d", decodedPayload.CommissioningFlow(), tt.expected.commFlow)
 			}
 			if decodedPayload.Discriminator() != tt.expected.discriminator {
 				t.Errorf("Discriminator: got=%d, want=%d", decodedPayload.Discriminator(), tt.expected.discriminator)

@@ -31,8 +31,8 @@ type QRPayload interface {
 	VendorID() uint16
 	// ProductID returns the Product ID.
 	ProductID() uint16
-	// CustomFlow returns the Custom Flow.
-	CustomFlow() uint8
+	// CommissioningFlow returns the Commissioning Flow.
+	CommissioningFlow() CommissioningFlow
 	// Discriminator returns the Discriminator.
 	Discriminator() uint16
 	// Passcode returns the Passcode.
@@ -48,7 +48,7 @@ type qrPayload struct {
 	version               uint8  // 3-bit version
 	vendorID              uint16 // 16-bit Vendor ID
 	productID             uint16 // 16-bit Product ID
-	customFlow            uint8  // 2-bit commissioning flow (0=standard, 1=user-action, 2=custom)
+	commFlow              uint8  // 2-bit commissioning flow (0=standard, 1=user-action, 2=custom)
 	discoveryCapabilities uint8  // 8-bit discovery flags (bitmap for BLE, soft-AP, on-network, etc.)
 	discriminator         uint16 // 12-bit discriminator (0–4095)
 	passcode              uint32 // 27-bit setup PIN code (usually 8 decimal digits)
@@ -94,7 +94,7 @@ func newQRPayloadFromBytes(data []byte) (*qrPayload, error) {
 		version:               uint8(getBits(3)),   // Version (3 bits)
 		vendorID:              uint16(getBits(16)), // Vendor ID (16 bits):contentReference[oaicite:16]{index=16}
 		productID:             uint16(getBits(16)), // Product ID (16 bits)
-		customFlow:            uint8(getBits(2)),   // Custom Flow (2 bits)
+		commFlow:              uint8(getBits(2)),   // Custom Flow (2 bits)
 		discoveryCapabilities: uint8(getBits(8)),   // Discovery capabilities (8 bits)
 		discriminator:         uint16(getBits(12)), // Discriminator (12 bits)
 		passcode:              uint32(getBits(27)), // Passcode (27 bits)
@@ -122,9 +122,9 @@ func (qr *qrPayload) ProductID() uint16 {
 	return qr.productID
 }
 
-// CustomFlow returns the Custom Flow.
-func (qr *qrPayload) CustomFlow() uint8 {
-	return qr.customFlow
+// CommissioningFlow returns the Commissioning Flow.
+func (qr *qrPayload) CommissioningFlow() CommissioningFlow {
+	return CommissioningFlow(qr.commFlow)
 }
 
 // Discriminator returns the Discriminator.
@@ -167,7 +167,7 @@ func (qr *qrPayload) Bytes() []byte {
 	setBits(uint64(qr.version&0x7), 3)           // Version (3 bits)
 	setBits(uint64(qr.vendorID), 16)             // Vendor ID (16 bits)
 	setBits(uint64(qr.productID), 16)            // Product ID (16 bits)
-	setBits(uint64(qr.customFlow&0x3), 2)        // Custom Flow (2 bits)
+	setBits(uint64(qr.commFlow&0x3), 2)          // Custom Flow (2 bits)
 	setBits(uint64(qr.discoveryCapabilities), 8) // Discovery capabilities (8 bits)
 	setBits(uint64(qr.discriminator&0xFFF), 12)  // Discriminator (12 bits)
 	setBits(uint64(qr.passcode&0x7FFFFFF), 27)   // Passcode (27 bits)
