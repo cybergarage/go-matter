@@ -31,10 +31,23 @@ const (
 // MatterServiceUUID is the Bluetooth service UUID for Matter.
 var MatterServiceUUID = ble.NewUUIDFromUUID16(MatterServiceID)
 
-// Service represents a BLE service.
+// Service represents a Matter BLE service.
 type Service interface {
-	ble.Service
-	ServiceHelper
+	// ServiceDescriptor represents a Matter BLE service descriptor.
+	ServiceDescriptor
+	// ServiceDescriptorHelper provides helper methods for a Matter BLE service.
+	ServiceDescriptorHelper
+	// ServiceOperator represents a Matter BLE service operator.
+	ServiceOperator
+	// MarshalObject returns an object suitable for marshaling to JSON.
+	MarshalObject() any
+	// String returns a string representation of the service.
+	String() string
+}
+
+// ServiceDescriptor represents a Matter BLE service descriptor.
+type ServiceDescriptor interface {
+	ble.ServiceDescriptor
 	// AdvertisementVersion returns the advertisement version.
 	AdvertisementVersion() uint8
 	// Discriminator returns the discriminator.
@@ -47,16 +60,18 @@ type Service interface {
 	AdditionalDataFlag() bool
 	// ExtendedAnnouncement returns the extended announcement flag.
 	ExtendedAnnouncement() bool
-	// MarshalObject returns an object suitable for marshaling to JSON.
-	MarshalObject() any
-	// String returns a string representation of the service.
-	String() string
 }
 
-// ServiceHelper provides helper methods for a BLE service.
-type ServiceHelper interface {
+// ServiceDescriptorHelper provides helper methods for a Matter BLE service.
+type ServiceDescriptorHelper interface {
 	// IsCommissionable returns whether the service is commissionable.
 	IsCommissionable() bool
+}
+
+// ServiceOperator represents a Matter BLE service operator.
+type ServiceOperator interface {
+	// Open opens the service and returns a transport of Matter BLE service.
+	Open() (Transport, error)
 }
 
 type service struct {
@@ -74,6 +89,15 @@ func NewServiceWith(bleService ble.Service) (Service, error) {
 		Service:         bleService,
 		advertisingData: adData,
 	}, nil
+}
+
+// Open opens the service and returns a transport of Matter BLE service.
+func (s *service) Open() (Transport, error) {
+	transport, err := s.Service.Open(
+		ble.WithTransportReadUUID(C1UUID),
+		ble.WithTransportNotifyUUID(C2UUID),
+	)
+	return transport, err
 }
 
 // MarshalObject returns an object suitable for marshaling to JSON.

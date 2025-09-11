@@ -45,29 +45,21 @@ func TestScanner(t *testing.T) {
 			log.Errorf("Failed to connect: %v", err)
 			continue
 		}
-		service, ok := dev.LookupService(ble.MatterServiceUUID)
-		if ok {
-			log.Infof("Lookup service: %s", service.String())
-		} else {
-			log.Errorf("Failed to lookup service: %s", ble.MatterServiceUUID)
-		}
+		service := dev.Service()
 		defer func() {
 			if err := dev.Disconnect(); err != nil {
 				log.Errorf("Failed to disconnect: %v", err)
 			}
 		}()
-		notify := func(char ble.Characteristic, data []byte) {
-			log.Infof("Notify data: % X", data)
-		}
-		c2, ok := service.LookupCharacteristic(ble.C2UUID)
-		if !ok {
-			log.Errorf("Failed to lookup characteristic C2: %v", err)
-			continue
-		}
-		err := c2.Notify(notify)
+		transport, err := service.Open()
 		if err != nil {
-			log.Errorf("Failed to enable notify: %v", err)
+			log.Errorf("Failed to open service: %v", err)
 			continue
 		}
+		defer func() {
+			if err := transport.Close(); err != nil {
+				log.Errorf("Failed to close transport: %v", err)
+			}
+		}()
 	}
 }
