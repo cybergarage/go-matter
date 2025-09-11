@@ -14,31 +14,6 @@
 
 package ble
 
-import (
-	"context"
-
-	"github.com/cybergarage/go-ble/ble"
+var (
+	handshakePayload = []byte{0x65, 0x6C, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 244}
 )
-
-// Transport represents a BLE transport.
-type Transport interface {
-	ble.Transport
-	Handshake() error
-}
-
-type transport struct {
-	ble.Transport
-}
-
-func newTransport(bleTransport ble.Transport) Transport {
-	return &transport{
-		Transport: bleTransport,
-	}
-}
-
-// Handshake performs the handshake operation.
-func (t *transport) Handshake() error {
-	ctx := context.Background()
-	_, err := t.Write(ctx, handshakePayload)
-	return err
-}

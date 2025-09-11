@@ -97,7 +97,7 @@ func (s *service) Open() (Transport, error) {
 		ble.WithTransportReadUUID(C1UUID),
 		ble.WithTransportNotifyUUID(C2UUID),
 	)
-	return transport, err
+	return newTransport(transport), err
 }
 
 // MarshalObject returns an object suitable for marshaling to JSON.
