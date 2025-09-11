@@ -1,6 +1,4 @@
 github.com/cpuguy83/go-md2man/v2 v2.0.6/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6NIQQ7OS05n1F4g=
-github.com/cybergarage/go-ble v0.0.0-20250910102646-47e8ba280fe0 h1:L/TjhtArt0CWQvIOqDxHllLDUBZWtPY8lvbzd829X2g=
-github.com/cybergarage/go-ble v0.0.0-20250910102646-47e8ba280fe0/go.mod h1:xkpDkMakC8mkGNfwG54ke4MQmap0JAA2O4jOM/wxO/8=
 github.com/cybergarage/go-ble v0.0.0-20250910121231-80bc71f4d1b1 h1:Lfka1YVGPZf03SmfFn3yaVCEhk60AL5N+6FwA/bJJGo=
 github.com/cybergarage/go-ble v0.0.0-20250910121231-80bc71f4d1b1/go.mod h1:xkpDkMakC8mkGNfwG54ke4MQmap0JAA2O4jOM/wxO/8=
 github.com/cybergarage/go-logger v1.3.11 h1:NwnC7cD/IDkdwBYhSODXaMEBmAu3c/jK4Q2XDsg1fno=
