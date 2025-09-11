@@ -1,0 +1,70 @@
+// Copyright (C) 2025 The go-matter Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package encoding
+
+import (
+	"testing"
+)
+
+func TestPairingCode(t *testing.T) {
+	tests := []struct {
+		paringCode string
+		expected   *pairingCode
+	}{
+		{
+			paringCode: "3572-993-5174",
+			expected: &pairingCode{
+				version:       1,
+				vendorID:      0,
+				productID:     0,
+				commFlow:      0,
+				discriminator: 2560,
+				passcode:      83332589,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		decodedCode, err := NewPairingCodeFromString(tt.paringCode)
+		if err != nil {
+			t.Errorf("Failed to decode pairing code %q: %v", tt.paringCode, err)
+			continue
+		}
+		if decodedCode.Version() != tt.expected.version {
+			t.Errorf("Version: got=%d, want=%d", decodedCode.Version(), tt.expected.version)
+		}
+		if decodedCode.VendorID() != tt.expected.vendorID {
+			t.Errorf("VendorID: got=%d, want=%d", decodedCode.VendorID(), tt.expected.vendorID)
+		}
+		if decodedCode.ProductID() != tt.expected.productID {
+			t.Errorf("ProductID: got=%d, want=%d", decodedCode.ProductID(), tt.expected.productID)
+		}
+		if decodedCode.CommissioningFlow() != CommissioningFlow(tt.expected.commFlow) {
+			t.Errorf("CommFlow: got=%d, want=%d", decodedCode.CommissioningFlow(), tt.expected.commFlow)
+		}
+		if decodedCode.Discriminator() != tt.expected.discriminator {
+			t.Errorf("Discriminator: got=%d, want=%d", decodedCode.Discriminator(), tt.expected.discriminator)
+		}
+		if decodedCode.Passcode() != tt.expected.passcode {
+			t.Errorf("Passcode: got=%d, want=%d", decodedCode.Passcode(), tt.expected.passcode)
+		}
+
+		// Test String() method
+		str := decodedCode.String()
+		if str != tt.paringCode {
+			t.Errorf("String(): got=%q, want=%q", str, tt.paringCode)
+		}
+	}
+}
