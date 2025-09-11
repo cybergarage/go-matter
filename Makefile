@@ -49,6 +49,7 @@ BINS=\
 	${BIN_ID}/matterctl
 
 .PHONY: format vet lint clean
+.IGNORE: lint
 
 all: codecov
 
