@@ -95,7 +95,7 @@ func NewServiceWith(bleService ble.Service) (Service, error) {
 // Open opens the service and returns a transport of Matter BLE service.
 func (s *service) Open() (Transport, error) {
 	transport, err := s.Service.Open(
-		ble.WithTransportReadUUID(C1UUID),
+		ble.WithTransportWriteUUID(C1UUID),
 		ble.WithTransportNotifyUUID(C2UUID),
 	)
 	return newTransport(transport), err

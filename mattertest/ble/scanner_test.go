@@ -45,12 +45,16 @@ func TestScanner(t *testing.T) {
 			log.Errorf("Failed to connect: %v", err)
 			continue
 		}
-		service := dev.Service()
 		defer func() {
 			if err := dev.Disconnect(); err != nil {
 				log.Errorf("Failed to disconnect: %v", err)
 			}
 		}()
+		service, err := dev.Service()
+		if err != nil {
+			log.Errorf("Failed to get service: %v", err)
+			continue
+		}
 		transport, err := service.Open()
 		if err != nil {
 			log.Errorf("Failed to open service: %v", err)
@@ -61,5 +65,9 @@ func TestScanner(t *testing.T) {
 				log.Errorf("Failed to close transport: %v", err)
 			}
 		}()
+		err = transport.Handshake()
+		if err != nil {
+			log.Errorf("Failed to handshake: %v", err)
+		}
 	}
 }

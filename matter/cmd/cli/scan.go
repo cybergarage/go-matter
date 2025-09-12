@@ -49,10 +49,10 @@ var scanCmd = &cobra.Command{ // nolint:exhaustruct
 			return err
 		}
 		columns := []string{"Name", "Addr", "VendorID", "ProductID", "Discriminator"}
-		deviceColumns := func(dev ble.Device) []string {
-			service := dev.Service()
-			if service == nil {
-				return nil
+		deviceColumns := func(dev ble.Device) ([]string, error) {
+			service, err := dev.Service()
+			if err != nil {
+				return nil, err
 			}
 			return []string{
 				dev.LocalName(),
@@ -60,7 +60,7 @@ var scanCmd = &cobra.Command{ // nolint:exhaustruct
 				strconv.Itoa(int(service.VendorID())),
 				strconv.Itoa(int(service.ProductID())),
 				strconv.Itoa(int(service.Discriminator())),
-			}
+			}, nil
 		}
 
 		printDevicesTable := func(devs []ble.Device) error {
@@ -79,11 +79,11 @@ var scanCmd = &cobra.Command{ // nolint:exhaustruct
 			}
 			printRow(columns...)
 			for _, dev := range devs {
-				service := dev.Service()
-				if service == nil {
-					continue
+				devColumns, err := deviceColumns(dev)
+				if err != nil {
+					return err
 				}
-				printRow(deviceColumns(dev)...)
+				printRow(devColumns...)
 			}
 			w.Flush()
 			return nil
@@ -98,7 +98,11 @@ var scanCmd = &cobra.Command{ // nolint:exhaustruct
 			}
 			printRow(columns...)
 			for _, dev := range devs {
-				printRow(deviceColumns(dev)...)
+				devColumns, err := deviceColumns(dev)
+				if err != nil {
+					return err
+				}
+				printRow(devColumns...)
 			}
 			return nil
 		}

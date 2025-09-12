@@ -19,5 +19,8 @@ import (
 )
 
 var (
+	// ErrInvalid indicates an invalid error.
 	ErrInvalid = errors.New("invalid")
+	// ErrNotFound indicates that a requested resource was not found.
+	ErrNotFound = errors.New("not found")
 )

@@ -17,6 +17,7 @@ package ble
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/cybergarage/go-ble/ble"
@@ -60,7 +61,7 @@ type DeviceDescriptor interface {
 	// LastSeenAt returns the time when the device was last seen.
 	LastSeenAt() time.Time
 	// Service returns the primary service of the device.
-	Service() Service
+	Service() (Service, error)
 }
 
 // DeviceOperator represents a Bluetooth device operator.
@@ -94,8 +95,13 @@ func newDeviceWith(bleDev ble.Device, bleSrv ble.Service) (Device, error) {
 }
 
 // Service returns the primary service of the device.
-func (dev *device) Service() Service {
-	return dev.service
+func (dev *device) Service() (Service, error) {
+	var ok bool
+	dev.service, ok = dev.LookupService(MatterServiceUUID)
+	if !ok {
+		return nil, fmt.Errorf("service (%s) not found: %w", MatterServiceUUID.String(), ErrNotFound)
+	}
+	return dev.service, nil
 }
 
 // IsCommissionable returns whether the service is commissionable.
