@@ -17,6 +17,7 @@ package ble
 import (
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 
 	"github.com/cybergarage/go-ble/ble"
 )
@@ -156,7 +157,7 @@ func newAdvertisingDataFromBytes(data []byte) (*advertisingData, error) {
 	// All multi-byte values are encoded in little-endian byte order within the service data payload.
 
 	if len(data) < 8 {
-		return nil, ErrInvalidData
+		return nil, fmt.Errorf("%w: %s", ErrInvalid, "advertising data too short")
 	}
 	opCode := data[0]
 

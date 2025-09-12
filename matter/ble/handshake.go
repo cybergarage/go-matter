@@ -14,6 +14,49 @@
 
 package ble
 
-var (
-	handshakePayload = []byte{0x65, 0x6C, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 244}
+import (
+	"fmt"
 )
+
+var (
+	// 4.19.3.1. BTP Handshake Request.
+	handshakeReqestPayload = []byte{0x65, 0x6C, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 244}
+)
+
+type HandshakeRequest interface {
+	Bytes() []byte
+}
+
+type handshakeRequest struct {
+}
+
+func newHandshakeRequest() HandshakeRequest {
+	return &handshakeRequest{}
+}
+
+func (req *handshakeRequest) Bytes() []byte {
+	return handshakeReqestPayload
+}
+
+type HandshakeResponse interface {
+	Bytes() []byte
+}
+
+type handshakeResponse struct {
+	bytes []byte
+}
+
+func newHandshakeResponse(data []byte) (HandshakeResponse, error) {
+	// 4.19.3.2. BTP Handshake Response
+	if len(data) < 6 {
+		return nil, fmt.Errorf("%w: %s", ErrInvalid, "handshake response length is less than 3")
+	}
+	return &handshakeResponse{
+		bytes: data,
+	}, nil
+}
+
+// Bytes returns the byte representation of the handshake response.
+func (res *handshakeResponse) Bytes() []byte {
+	return res.bytes
+}

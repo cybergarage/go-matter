@@ -19,5 +19,5 @@ import (
 )
 
 var (
-	ErrInvalidData = errors.New("invalid data")
+	ErrInvalid = errors.New("invalid")
 )

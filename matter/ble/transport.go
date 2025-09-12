@@ -39,6 +39,17 @@ func newTransport(bleTransport ble.Transport) Transport {
 // Handshake performs the handshake operation.
 func (t *transport) Handshake() error {
 	ctx := context.Background()
-	_, err := t.Write(ctx, handshakePayload)
-	return err
+	_, err := t.Write(ctx, newHandshakeRequest().Bytes())
+	if err != nil {
+		return err
+	}
+	resBytes, err := t.Read(ctx)
+	if err != nil {
+		return err
+	}
+	_, err = newHandshakeResponse(resBytes)
+	if err != nil {
+		return err
+	}
+	return nil
 }
