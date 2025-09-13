@@ -24,14 +24,15 @@ func TestPairingCode(t *testing.T) {
 		expected   *pairingCode
 	}{
 		{
-			paringCode: "3572-993-5174",
+			// MT:Y.ET0EDB00SWDX0IA00
+			paringCode: "3035-750-7966",
 			expected: &pairingCode{
-				version:       1,
+				version:       0,
 				vendorID:      0,
 				productID:     0,
 				commFlow:      0,
-				discriminator: 2560,
-				passcode:      83332589,
+				discriminator: 3136,
+				passcode:      13045239,
 			},
 		},
 	}

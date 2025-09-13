@@ -197,62 +197,57 @@ func decodeManualPairingCode(code string) (*pairingCode, error) {
 
 	// Separate data portion (all but last digit) and the checksum.
 	dataStr := code[:len(code)-1]
-	// Parse data portion into big.Int for bit extraction.
-	dataInt, ok := new(big.Int).SetString(dataStr, 10)
-	if !ok {
-		return nil, errors.New("failed to parse numeric code")
-	}
 
 	// Determine if it's long or short code by length.
 	isLong := (len(code) == 21)
 
 	// Extract fields from the data bits.
-	var version uint8
-	var commFlow uint8
-	var vendorID uint16
-	var productID uint16
-	var discriminator uint16
-	var passcode uint32
+	version := uint8(0)
+	commFlow := uint8(0)
+	vendorID := uint16(0)
+	productID := uint16(0)
+	discriminator := uint16(0)
+	passcode := uint32(0)
+
+	// DIGIT[1] := (VID_PID_PRESENT << 2) |(DISCRIMINATOR >> 10)
+	// DIGIT[2..6] :=((DISCRIMINATOR & 0x300)<< 6) |(PASSCODE & 0x3FFF)
+	dataInt, ok := new(big.Int).SetString(dataStr[0:2], 10)
+	if !ok {
+		return nil, errors.New("failed to parse numeric code")
+	}
+	discriminator = uint16((dataInt.Uint64() & 0x03) << 10)
+	dataInt, ok = new(big.Int).SetString(dataStr[1:6], 10)
+	if !ok {
+		return nil, errors.New("failed to parse numeric code")
+	}
+	discriminator += uint16((dataInt.Uint64() & 0xC000) >> 6)
+
+	// DIGIT[2..6] :=((DISCRIMINATOR & 0x300)<< 6) |(PASSCODE & 0x3FFF)
+	// DIGIT[7..10] :=(PASSCODE >> 14)
+	dataInt, ok = new(big.Int).SetString(dataStr[1:6], 10)
+	if !ok {
+		return nil, errors.New("failed to parse numeric code")
+	}
+	passcode = uint32(dataInt.Uint64() & 0x3FFF)
+	dataInt, ok = new(big.Int).SetString(dataStr[6:10], 10)
+	if !ok {
+		return nil, errors.New("failed to parse numeric code")
+	}
+	passcode += uint32(dataInt.Uint64() << 14)
 
 	if isLong {
-		// 20-digit data => 66-bit structure: version(1 bit)@65, flow(2 bits)@63-64, VendorID@47-62, ProductID@31-46, shortDisc@27-30, PIN@0-26.
-		// Extract version (bit 65)
-		versionInt := new(big.Int).Rsh(dataInt, 65)
-		version = uint8(versionInt.Uint64() & 0x1)
-		// Extract flow (bits 63-64)
-		flowInt := new(big.Int).Rsh(dataInt, 63)
-		commFlow = uint8(flowInt.Uint64() & 0x3)
-		// Extract Vendor ID (16 bits at 47-62)
-		vendorInt := new(big.Int).Rsh(dataInt, 47)
-		vendorID = uint16(vendorInt.Uint64() & 0xFFFF)
-		// Extract Product ID (16 bits at 31-46)
-		productInt := new(big.Int).Rsh(dataInt, 31)
-		productID = uint16(productInt.Uint64() & 0xFFFF)
-		// Extract short discriminator (4 bits at 27-30)
-		discInt := new(big.Int).Rsh(dataInt, 27)
-		shortDisc := uint8(discInt.Uint64() & 0xF)
-		// The manual code provides a 4-bit "short discriminator".
-		// Reconstruct the full 12-bit discriminator by placing these 4 bits as the most significant bits and setting lower 8 bits to 0 (since they are not conveyed):contentReference[oaicite:14]{index=14}.
-		discriminator = uint16(shortDisc) << 8
-		// Extract PIN code (27 bits at 0-26)
-		pinMask := big.NewInt(1)
-		pinMask.Lsh(pinMask, 27).Sub(pinMask, big.NewInt(1)) // (1<<27) - 1
-		pinInt := new(big.Int).And(dataInt, pinMask)
-		passcode = uint32(pinInt.Uint64())
-	} else {
-		// 10-digit data => 32-bit structure: version(1 bit)@31, shortDisc(4 bits)@27-30, PIN@0-26.
-		versionInt := new(big.Int).Rsh(dataInt, 31)
-		version = uint8(versionInt.Uint64() & 0x1)
-		commFlow = 0 // standard flow (not encoded in short code).
-		vendorID = 0
-		productID = 0
-		discInt := new(big.Int).Rsh(dataInt, 27)
-		shortDisc := uint8(discInt.Uint64() & 0xF)
-		discriminator = uint16(shortDisc) << 8 // reconstruct 12-bit discriminator as shortDisc << 8 (low 8 bits assumed 0):contentReference[oaicite:16]{index=16}.
-		pinMask := big.NewInt(1)
-		pinMask.Lsh(pinMask, 27).Sub(pinMask, big.NewInt(1))
-		pinInt := new(big.Int).And(dataInt, pinMask)
-		passcode = uint32(pinInt.Uint64())
+		// DIGIT[11..15] := (VENDOR_ID)
+		dataInt, ok = new(big.Int).SetString(dataStr[10:15], 10)
+		if !ok {
+			return nil, errors.New("failed to parse numeric code")
+		}
+		vendorID = uint16(dataInt.Uint64() & 0xFFFF)
+		// DIGIT[16..20] := (PRODUCT_ID)
+		dataInt, ok = new(big.Int).SetString(dataStr[15:20], 10)
+		if !ok {
+			return nil, errors.New("failed to parse numeric code")
+		}
+		productID = uint16(dataInt.Uint64() & 0xFFFF)
 	}
 
 	return &pairingCode{
