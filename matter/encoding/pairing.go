@@ -97,13 +97,13 @@ func (pc *pairingCode) String() string {
 func encodeManualPairingCode(version uint8, vendorID uint16, productID uint16, discriminator uint16, passcode uint32) (string, error) {
 	// Determine if we include VendorID/ProductID in the code.
 	isLong := (vendorID != 0 || productID != 0)
-	vid_pid_present := uint16(0)
+	vpIdPresent := uint16(0)
 	if isLong {
-		vid_pid_present = 1
+		vpIdPresent = 1
 	}
 
 	// DIGIT[1] := (VID_PID_PRESENT << 2) |(DISCRIMINATOR >> 10)
-	d1 := (vid_pid_present << 2) | uint16((discriminator>>10)&0x3)
+	d1 := (vpIdPresent << 2) | uint16((discriminator>>10)&0x3)
 	// DIGIT[2..6] :=((DISCRIMINATOR & 0x300)<< 6) |(PASSCODE & 0x3FFF)
 	d2 := (uint32)((discriminator&0x300)<<6) | (passcode & 0x3FFF)
 	// DIGIT[7..10] :=(PASSCODE >> 14)
@@ -111,10 +111,10 @@ func encodeManualPairingCode(version uint8, vendorID uint16, productID uint16, d
 
 	var dataDec string
 	if !isLong {
-		// 11桁: d1(1) + d2(5) + d7(5)
+		// 11  digits: d1(1) + d2(5) + d7(5)
 		dataDec = fmt.Sprintf("%01d%05d%05d", d1, d2, d7)
 	} else {
-		// 21桁: d1(1) + d2(5) + d7(4) + v(5) + p(5)
+		// 21 digits: d1(1) + d2(5) + d7(4) + v(5) + p(5)
 		dataDec = fmt.Sprintf("%01d%05d%04d%05d%05d", d1, d2, d7, vendorID, productID)
 	}
 	// Compute the Verhoeff checksum digit for the data portion.
@@ -154,17 +154,12 @@ func decodeManualPairingCode(code string) (*pairingCode, error) {
 	// Determine if it's long or short code by length.
 	isLong := (len(code) == 21)
 
+	vpIdPresent := uint8(0)
 	version := uint8(0)
-	commFlow := uint8(0)
 	vendorID := uint16(0)
 	productID := uint16(0)
 	discriminator := uint16(0)
 	passcode := uint32(0)
-
-	dataInt, err := strconv.ParseUint(dataStr, 10, 64)
-	if err != nil {
-		return nil, errors.New("failed to parse code data")
-	}
 
 	// DIGIT[1] := (VID_PID_PRESENT << 2) |(DISCRIMINATOR >> 10)
 	// DIGIT[2..6] :=((DISCRIMINATOR & 0x300)<< 6) |(PASSCODE & 0x3FFF)
@@ -172,20 +167,21 @@ func decodeManualPairingCode(code string) (*pairingCode, error) {
 	// DIGIT[7..10] :=(PASSCODE >> 14)
 
 	if !isLong {
-		d1 := (dataInt / 1e10) % 10
-		d2_6 := (dataInt / 1e5) % 1e5
-		d7_10 := dataInt % 1e5
+		d1, _ := strconv.Atoi(dataStr[0:1])
+		d2_6, _ := strconv.Atoi(dataStr[1:6])
+		d7_10, _ := strconv.Atoi(dataStr[6:10])
 
+		vpIdPresent = uint8((d1 >> 2) & 0x1)
 		discriminator = (uint16(d1) & 0x3) << 10
 		discriminator |= uint16((d2_6 & 0xFC000) >> 14)
 		passcode = uint32(d2_6 & 0x3FFF)
 		passcode |= uint32(d7_10) << 14
 	} else {
-		d1 := (dataInt / 1e20) % 10
-		d2_6 := (dataInt / 1e15) % 1e5
-		d7_10 := (dataInt / 1e11) % 1e4
-		v11_15 := (dataInt / 1e6) % 1e5
-		p16_20 := (dataInt / 1e1) % 1e5
+		d1, _ := strconv.Atoi(dataStr[0:1])
+		d2_6, _ := strconv.Atoi(dataStr[1:6])
+		d7_10, _ := strconv.Atoi(dataStr[6:10])
+		v11_15, _ := strconv.Atoi(dataStr[10:15])
+		p16_20, _ := strconv.Atoi(dataStr[15:20])
 
 		discriminator = (uint16(d1) & 0x3) << 10
 		discriminator |= uint16((d2_6 & 0xFC000) >> 14)
@@ -195,11 +191,16 @@ func decodeManualPairingCode(code string) (*pairingCode, error) {
 		productID = uint16(p16_20)
 	}
 
+	commFlow := CommissioningFlowStandard
+	if vpIdPresent == 1 {
+		commFlow = CommissioningFlowCustom
+	}
+
 	return &pairingCode{
 		version:       version,
 		vendorID:      vendorID,
 		productID:     productID,
-		commFlow:      commFlow,
+		commFlow:      uint8(commFlow),
 		discriminator: discriminator,
 		passcode:      passcode,
 	}, nil
