@@ -16,6 +16,7 @@ package encoding
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"unicode"
 )
@@ -107,19 +108,14 @@ func encodeManualPairingCode(version uint8, vendorID uint16, productID uint16, d
 	d2 := (uint32)((discriminator&0x300)<<6) | (passcode & 0x3FFF)
 	// DIGIT[7..10] :=(PASSCODE >> 14)
 	d7 := (passcode >> 14) & 0x3FFF
-	// DIGIT[11..15] := (VENDOR_ID)
-	p1 := uint32(vendorID)
-	// DIGIT[16..20] := (PRODUCT_ID)
-	p2 := uint32(productID)
 
-	dataDec := strconv.Itoa(int(d1))
-	dataDec += strconv.Itoa(int(d2))
-	dataDec += strconv.Itoa(int(d7))
-	dataDec += strconv.Itoa(int(p1))
-	dataDec += strconv.Itoa(int(p2))
-	if isLong {
-		dataDec += strconv.Itoa(int(vendorID))
-		dataDec += strconv.Itoa(int(productID))
+	var dataDec string
+	if !isLong {
+		// 11桁: d1(1) + d2(5) + d7(5)
+		dataDec = fmt.Sprintf("%01d%05d%05d", d1, d2, d7)
+	} else {
+		// 21桁: d1(1) + d2(5) + d7(4) + v(5) + p(5)
+		dataDec = fmt.Sprintf("%01d%05d%04d%05d%05d", d1, d2, d7, vendorID, productID)
 	}
 	// Compute the Verhoeff checksum digit for the data portion.
 	checkChar := generateVerhoeffCheck(dataDec)
@@ -158,7 +154,6 @@ func decodeManualPairingCode(code string) (*pairingCode, error) {
 	// Determine if it's long or short code by length.
 	isLong := (len(code) == 21)
 
-	// Extract fields from the data bits.
 	version := uint8(0)
 	commFlow := uint8(0)
 	vendorID := uint16(0)
@@ -166,26 +161,38 @@ func decodeManualPairingCode(code string) (*pairingCode, error) {
 	discriminator := uint16(0)
 	passcode := uint32(0)
 
+	dataInt, err := strconv.ParseUint(dataStr, 10, 64)
+	if err != nil {
+		return nil, errors.New("failed to parse code data")
+	}
+
 	// DIGIT[1] := (VID_PID_PRESENT << 2) |(DISCRIMINATOR >> 10)
 	// DIGIT[2..6] :=((DISCRIMINATOR & 0x300)<< 6) |(PASSCODE & 0x3FFF)
-
-	d0, _ := strconv.Atoi(dataStr[0:1]) // 1桁目
-	d1, _ := strconv.Atoi(dataStr[1:6]) // 2～6桁目
-	discriminator = (uint16(d0&0x3) << 10) | uint16((d1&0x03000)>>6)
-
 	// DIGIT[2..6] :=((DISCRIMINATOR & 0x300)<< 6) |(PASSCODE & 0x3FFF)
 	// DIGIT[7..10] :=(PASSCODE >> 14)
-	p0, _ := strconv.Atoi(dataStr[1:6])  // 2～6桁目
-	p1, _ := strconv.Atoi(dataStr[6:10]) // 7～10桁目
-	passcode = uint32(p0&0x03FFF) | uint32((p1 << 14))
 
-	if isLong {
-		// DIGIT[11..15] := (VENDOR_ID)
-		v0, _ := strconv.Atoi(dataStr[10:15])
-		vendorID = uint16(v0)
-		// DIGIT[16..20] := (PRODUCT_ID)
-		p0, _ := strconv.Atoi(dataStr[15:20])
-		productID = uint16(p0)
+	if !isLong {
+		d1 := (dataInt / 1e10) % 10
+		d2_6 := (dataInt / 1e5) % 1e5
+		d7_10 := dataInt % 1e5
+
+		discriminator = (uint16(d1) & 0x3) << 10
+		discriminator |= uint16((d2_6 & 0xFC000) >> 14)
+		passcode = uint32(d2_6 & 0x3FFF)
+		passcode |= uint32(d7_10) << 14
+	} else {
+		d1 := (dataInt / 1e20) % 10
+		d2_6 := (dataInt / 1e15) % 1e5
+		d7_10 := (dataInt / 1e11) % 1e4
+		v11_15 := (dataInt / 1e6) % 1e5
+		p16_20 := (dataInt / 1e1) % 1e5
+
+		discriminator = (uint16(d1) & 0x3) << 10
+		discriminator |= uint16((d2_6 & 0xFC000) >> 14)
+		passcode = uint32(d2_6 & 0x3FFF)
+		passcode |= uint32(d7_10) << 14
+		vendorID = uint16(v11_15)
+		productID = uint16(p16_20)
 	}
 
 	return &pairingCode{
