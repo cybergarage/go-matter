@@ -16,8 +16,7 @@ package encoding
 
 import (
 	"errors"
-	"math/big"
-	"strings"
+	"strconv"
 	"unicode"
 )
 
@@ -93,76 +92,35 @@ func (pc *pairingCode) String() string {
 
 // encodeManualPairingCode generates the manual pairing code (as a numeric string) based on Matter 1.4 specification.
 // It supports both the 11-digit code (without Vendor ID/Product ID for standard commissioning flow) and the 21-digit code (including Vendor ID and Product ID for non-standard flows).
-//
-// Inputs:
-//   - version:     Version of the onboarding payload format (1 bit, currently 0).
-//   - vendorID:    Vendor ID (16 bits). For standard flow (11-digit code), set this to 0 to exclude it.
-//   - productID:   Product ID (16 bits). For standard flow (11-digit code), set this to 0 to exclude it.
-//   - discriminator:  Discriminator (12-bit device discriminator). The manual code will use the top 4 bits (the “short” discriminator).
-//   - passcode:    Setup PIN code (passcode for PASE) up to 27 bits (typically an 8-digit decimal, but up to 2^27-1).
-//
 // Returns the manual pairing code as a numeric string. The code includes a Verhoeff checksum digit for error detection.
 func encodeManualPairingCode(version uint8, vendorID uint16, productID uint16, discriminator uint16, passcode uint32) (string, error) {
-	// Validate input ranges according to spec fields
-	if version > 1 {
-		return "", errors.New("version must be 0 or 1")
-	}
-	if discriminator > 0x0FFF {
-		return "", errors.New("discriminator must be a 12-bit value (0-4095)")
-	}
-	if passcode > (1<<27)-1 {
-		return "", errors.New("setup PIN code must be <= 27 bits (max 134217727)")
-	}
-
 	// Determine if we include VendorID/ProductID in the code.
-	includeVendor := (vendorID != 0 || productID != 0)
-	// Commissioning Flow: standard (0) if no vendor/product, otherwise non-standard (set to 1 for example).
-	flow := uint8(0)
-	if includeVendor {
-		flow = 1 // use 1 or 2 for non-standard flows; both indicate vendor info included.
+	isLong := (vendorID != 0 || productID != 0)
+	vid_pid_present := uint16(0)
+	if isLong {
+		vid_pid_present = 1
 	}
 
-	// Compute the numeric payload (without the checksum) as a big integer.
-	// Use big.Int since the long code can exceed 64 bits (up to 66 bits of data).
-	data := big.NewInt(0)
-	if includeVendor {
-		// Long code (21-digit): version(1 bit) | flow(2 bits) | VendorID(16 bits) | ProductID(16 bits) | shortDisc(4 bits) | PIN(27 bits)
-		// Pack bits accordingly:
-		// - Take the 4-bit "short discriminator" (top 4 bits of the 12-bit discriminator).
-		shortDisc := uint64(discriminator>>8) & 0xF
-		// Construct 66-bit value in a 64-bit intermediate (will not fully fit if version=1 and flow=2, but handle via big.Int if needed).
-		// We'll shift each component into place using big.Int for safety.
-		data.Or(data, big.NewInt(int64(passcode)&((1<<27)-1))) // bits 0-26: PIN
-		data.Or(data, big.NewInt(int64(shortDisc)<<27))        // bits 27-30: discriminator (4 bits)
-		data.Or(data, big.NewInt(int64(productID)&0xFFFF<<31)) // bits 31-46: ProductID (16 bits)
-		data.Or(data, big.NewInt(int64(vendorID)&0xFFFF<<47))  // bits 47-62: VendorID (16 bits)
-		data.Or(data, big.NewInt(int64(flow&0x3)<<63))         // bits 63-64: commissioning flow (2 bits)
-		data.Or(data, big.NewInt(int64(version&0x1)<<65))      // bit 65: version (1 bit)
-	} else {
-		// Short code (11-digit): version(1 bit) | shortDisc(4 bits) | PIN(27 bits).
-		// (For standard flow, CommissioningFlow=0 is assumed and not explicitly encoded to save space.)
-		shortDisc := uint64(discriminator>>8) & 0xF
-		data.Or(data, big.NewInt(int64(passcode)&((1<<27)-1))) // bits 0-26: PIN
-		data.Or(data, big.NewInt(int64(shortDisc)<<27))        // bits 27-30: discriminator (4 bits)
-		data.Or(data, big.NewInt(int64(version&0x1)<<31))      // bit 31: version (1 bit)
-	}
+	// DIGIT[1] := (VID_PID_PRESENT << 2) |(DISCRIMINATOR >> 10)
+	d1 := (vid_pid_present << 2) | uint16((discriminator>>10)&0x3)
+	// DIGIT[2..6] :=((DISCRIMINATOR & 0x300)<< 6) |(PASSCODE & 0x3FFF)
+	d2 := (uint32)((discriminator&0x300)<<6) | (passcode & 0x3FFF)
+	// DIGIT[7..10] :=(PASSCODE >> 14)
+	d7 := (passcode >> 14) & 0x3FFF
+	// DIGIT[11..15] := (VENDOR_ID)
+	p1 := uint32(vendorID)
+	// DIGIT[16..20] := (PRODUCT_ID)
+	p2 := uint32(productID)
 
-	// Convert the data portion to a decimal string with leading zeros if necessary to fill the required length.
-	var dataDec string
-	if includeVendor {
-		// Long code data should be 20 digits long (66-bit value fits in 20 decimal digits). Pad with leading zeros if needed.
-		dataDec = data.Text(10)
-		if len(dataDec) < 20 {
-			dataDec = strings.Repeat("0", 20-len(dataDec)) + dataDec
-		}
-	} else {
-		// Short code data should be 10 digits long (32-bit value fits in 10 decimal digits). Pad with leading zeros if needed.
-		dataDec = data.Text(10)
-		if len(dataDec) < 10 {
-			dataDec = strings.Repeat("0", 10-len(dataDec)) + dataDec
-		}
+	dataDec := strconv.Itoa(int(d1))
+	dataDec += strconv.Itoa(int(d2))
+	dataDec += strconv.Itoa(int(d7))
+	dataDec += strconv.Itoa(int(p1))
+	dataDec += strconv.Itoa(int(p2))
+	if isLong {
+		dataDec += strconv.Itoa(int(vendorID))
+		dataDec += strconv.Itoa(int(productID))
 	}
-
 	// Compute the Verhoeff checksum digit for the data portion.
 	checkChar := generateVerhoeffCheck(dataDec)
 	// Append the checksum digit to form the final code.
@@ -172,7 +130,6 @@ func encodeManualPairingCode(version uint8, vendorID uint16, productID uint16, d
 }
 
 // decodeManualPairingCode decodes an 11-digit or 21-digit manual pairing code string and returns the extracted fields.
-// It returns: version, vendorID, productID, discriminator, passcode. For a short code (11-digit, standard flow), vendorID and productID will be 0 (not present).
 func decodeManualPairingCode(code string) (*pairingCode, error) {
 	// Remove any non-digit characters (e.g., spaces or hyphens) from the code.
 	filtered := ""
@@ -211,43 +168,24 @@ func decodeManualPairingCode(code string) (*pairingCode, error) {
 
 	// DIGIT[1] := (VID_PID_PRESENT << 2) |(DISCRIMINATOR >> 10)
 	// DIGIT[2..6] :=((DISCRIMINATOR & 0x300)<< 6) |(PASSCODE & 0x3FFF)
-	dataInt, ok := new(big.Int).SetString(dataStr[0:2], 10)
-	if !ok {
-		return nil, errors.New("failed to parse numeric code")
-	}
-	discriminator = uint16((dataInt.Uint64() & 0x03) << 10)
-	dataInt, ok = new(big.Int).SetString(dataStr[1:6], 10)
-	if !ok {
-		return nil, errors.New("failed to parse numeric code")
-	}
-	discriminator += uint16((dataInt.Uint64() & 0xC000) >> 6)
+
+	d0, _ := strconv.Atoi(dataStr[0:1]) // 1桁目
+	d1, _ := strconv.Atoi(dataStr[1:6]) // 2～6桁目
+	discriminator = (uint16(d0&0x3) << 10) | uint16((d1&0x03000)>>6)
 
 	// DIGIT[2..6] :=((DISCRIMINATOR & 0x300)<< 6) |(PASSCODE & 0x3FFF)
 	// DIGIT[7..10] :=(PASSCODE >> 14)
-	dataInt, ok = new(big.Int).SetString(dataStr[1:6], 10)
-	if !ok {
-		return nil, errors.New("failed to parse numeric code")
-	}
-	passcode = uint32(dataInt.Uint64() & 0x3FFF)
-	dataInt, ok = new(big.Int).SetString(dataStr[6:10], 10)
-	if !ok {
-		return nil, errors.New("failed to parse numeric code")
-	}
-	passcode += uint32(dataInt.Uint64() << 14)
+	p0, _ := strconv.Atoi(dataStr[1:6])  // 2～6桁目
+	p1, _ := strconv.Atoi(dataStr[6:10]) // 7～10桁目
+	passcode = uint32(p0&0x03FFF) | uint32((p1 << 14))
 
 	if isLong {
 		// DIGIT[11..15] := (VENDOR_ID)
-		dataInt, ok = new(big.Int).SetString(dataStr[10:15], 10)
-		if !ok {
-			return nil, errors.New("failed to parse numeric code")
-		}
-		vendorID = uint16(dataInt.Uint64() & 0xFFFF)
+		v0, _ := strconv.Atoi(dataStr[10:15])
+		vendorID = uint16(v0)
 		// DIGIT[16..20] := (PRODUCT_ID)
-		dataInt, ok = new(big.Int).SetString(dataStr[15:20], 10)
-		if !ok {
-			return nil, errors.New("failed to parse numeric code")
-		}
-		productID = uint16(dataInt.Uint64() & 0xFFFF)
+		p0, _ := strconv.Atoi(dataStr[15:20])
+		productID = uint16(p0)
 	}
 
 	return &pairingCode{
