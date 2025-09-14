@@ -154,39 +154,31 @@ func decodeManualPairingCode(code string) (*pairingCode, error) {
 	// Determine if it's long or short code by length.
 	isLong := (len(code) == 21)
 
-	vpIdPresent := uint8(0)
-	version := uint8(0)
-	vendorID := uint16(0)
-	productID := uint16(0)
-	discriminator := uint16(0)
-	passcode := uint32(0)
-
 	// DIGIT[1] := (VID_PID_PRESENT << 2) |(DISCRIMINATOR >> 10)
 	// DIGIT[2..6] :=((DISCRIMINATOR & 0x300)<< 6) |(PASSCODE & 0x3FFF)
 	// DIGIT[2..6] :=((DISCRIMINATOR & 0x300)<< 6) |(PASSCODE & 0x3FFF)
 	// DIGIT[7..10] :=(PASSCODE >> 14)
 
-	if !isLong {
-		d1, _ := strconv.Atoi(dataStr[0:1])
-		d2_6, _ := strconv.Atoi(dataStr[1:6])
-		d7_10, _ := strconv.Atoi(dataStr[6:10])
+	d1, _ := strconv.Atoi(dataStr[0:1])
+	d2_6, _ := strconv.Atoi(dataStr[1:6])
+	d7_10, _ := strconv.Atoi(dataStr[6:10])
 
-		vpIdPresent = uint8((d1 >> 2) & 0x1)
-		discriminator = (uint16(d1) & 0x3) << 10
-		discriminator |= uint16((d2_6 & 0xFC000) >> 14)
-		passcode = uint32(d2_6 & 0x3FFF)
-		passcode |= uint32(d7_10) << 14
-	} else {
-		d1, _ := strconv.Atoi(dataStr[0:1])
-		d2_6, _ := strconv.Atoi(dataStr[1:6])
-		d7_10, _ := strconv.Atoi(dataStr[6:10])
+	version := uint8(0)
+	vpIdPresent := uint8((d1 >> 2) & 0x1)
+
+	passLower := uint32(d2_6 & 0x3FFF)
+	passUpper := uint32(d7_10) << 14
+	passcode := passUpper | passLower
+
+	disc := (uint16(d1&0x3) << 10)
+	disc |= uint16((d2_6 & 0xFC000) >> 14)
+
+	vendorID := uint16(0)
+	productID := uint16(0)
+
+	if isLong {
 		v11_15, _ := strconv.Atoi(dataStr[10:15])
 		p16_20, _ := strconv.Atoi(dataStr[15:20])
-
-		discriminator = (uint16(d1) & 0x3) << 10
-		discriminator |= uint16((d2_6 & 0xFC000) >> 14)
-		passcode = uint32(d2_6 & 0x3FFF)
-		passcode |= uint32(d7_10) << 14
 		vendorID = uint16(v11_15)
 		productID = uint16(p16_20)
 	}
@@ -201,7 +193,7 @@ func decodeManualPairingCode(code string) (*pairingCode, error) {
 		vendorID:      vendorID,
 		productID:     productID,
 		commFlow:      uint8(commFlow),
-		discriminator: discriminator,
+		discriminator: disc,
 		passcode:      passcode,
 	}, nil
 }
