@@ -103,24 +103,23 @@ func encodeManualPairingCode(version uint8, vendorID uint16, productID uint16, d
 	// DIGIT[1] := (VID_PID_PRESENT << 2) |(DISCRIMINATOR >> 10)
 	d1 := (vpIdPresent << 2) | uint16((discriminator>>10)&0x3)
 	// DIGIT[2..6] :=((DISCRIMINATOR & 0x300)<< 6) |(PASSCODE & 0x3FFF)
-	d2 := (uint32)((discriminator&0x300)<<6) | (passcode & 0x3FFF)
+	d2_6 := (uint32)((discriminator&0x300)<<6) | (passcode & 0x3FFF)
 	// DIGIT[7..10] :=(PASSCODE >> 14)
-	d7 := (passcode >> 14) & 0x3FFF
+	d7_10 := (passcode >> 14) & 0x3FFF
 
-	var dataDec string
+	var code string
 	if !isLong {
-		// 11  digits: d1(1) + d2(5) + d7(5)
-		dataDec = fmt.Sprintf("%01d%05d%05d", d1, d2, d7)
+		// 11  digits: d1(1) + d2(5) + d7(4)
+		code = fmt.Sprintf("%01d%05d%04d", d1, d2_6, d7_10)
 	} else {
 		// 21 digits: d1(1) + d2(5) + d7(4) + v(5) + p(5)
-		dataDec = fmt.Sprintf("%01d%05d%04d%05d%05d", d1, d2, d7, vendorID, productID)
+		code = fmt.Sprintf("%01d%05d%04d%05d%05d", d1, d2_6, d7_10, vendorID, productID)
 	}
 	// Compute the Verhoeff checksum digit for the data portion.
-	checkChar := generateVerhoeffCheck(dataDec)
-	// Append the checksum digit to form the final code.
-	code := dataDec + string(checkChar)
+	checkChar := generateVerhoeffCheck(code)
 
-	return code, nil
+	// Append the checksum digit to form the final code.
+	return code + string(checkChar), nil
 }
 
 // decodeManualPairingCode decodes an 11-digit or 21-digit manual pairing code string and returns the extracted fields.
