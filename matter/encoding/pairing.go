@@ -30,12 +30,12 @@ type PairingCode interface {
 }
 
 type pairingCode struct {
-	version       uint8
-	vendorID      uint16
-	productID     uint16
-	commFlow      uint8
-	discriminator uint16
-	passcode      uint32
+	version   uint8
+	vendorID  uint16
+	productID uint16
+	commFlow  uint8
+	shortDesc uint16
+	passcode  uint32
 }
 
 // NewPairingCodeFromString decodes a manual pairing code string and returns a PairingCode instance.
@@ -65,7 +65,7 @@ func (pc *pairingCode) CommissioningFlow() CommissioningFlow {
 
 // Discriminator returns the Discriminator.
 func (pc *pairingCode) Discriminator() uint16 {
-	return pc.discriminator
+	return pc.shortDesc
 }
 
 // Passcode returns the Passcode.
@@ -76,7 +76,7 @@ func (pc *pairingCode) Passcode() uint32 {
 // String returns the manual pairing code string representation (11-digit or 21-digit).
 func (pc *pairingCode) String() string {
 	// Generate the manual pairing code string (11-digit or 21-digit) based on the fields.
-	code, err := encodeManualPairingCode(pc.version, pc.vendorID, pc.productID, pc.discriminator, pc.passcode)
+	code, err := encodeManualPairingCode(pc.version, pc.vendorID, pc.productID, pc.shortDesc, pc.passcode)
 	if err != nil {
 		return ""
 	}
@@ -92,8 +92,6 @@ func (pc *pairingCode) String() string {
 }
 
 // encodeManualPairingCode generates the manual pairing code (as a numeric string) based on Matter 1.4 specification.
-// It supports both the 11-digit code (without Vendor ID/Product ID for standard commissioning flow) and the 21-digit code (including Vendor ID and Product ID for non-standard flows).
-// Returns the manual pairing code as a numeric string. The code includes a Verhoeff checksum digit for error detection.
 func encodeManualPairingCode(version uint8, vendorID uint16, productID uint16, discriminator uint16, passcode uint32) (string, error) {
 	// Determine if we include VendorID/ProductID in the code.
 	isLong := (vendorID != 0 || productID != 0)
@@ -126,59 +124,59 @@ func encodeManualPairingCode(version uint8, vendorID uint16, productID uint16, d
 }
 
 // decodeManualPairingCode decodes an 11-digit or 21-digit manual pairing code string and returns the extracted fields.
-func decodeManualPairingCode(code string) (*pairingCode, error) {
-	// Remove any non-digit characters (e.g., spaces or hyphens) from the code.
-	filtered := ""
-	for _, r := range code {
+func decodeManualPairingCode(paraingCodeStr string) (*pairingCode, error) {
+	// Remove any non-digit characters (e.g., spaces or hyphens) from the c.
+	code := ""
+	for _, r := range paraingCodeStr {
 		if unicode.IsDigit(r) {
-			filtered += string(r)
+			code += string(r)
 		}
 	}
-	if filtered == "" {
-		return nil, errors.New("code contains no digits")
-	}
-	code = filtered
 
-	// Check length: must be 11 or 21 digits.
-	if len(code) != 11 && len(code) != 21 {
-		return nil, errors.New("manual pairing code must be 11 or 21 digits long")
-	}
 	// Verify the Verhoeff checksum of the entire code.
 	if !validateVerhoeffCheck(code) {
 		return nil, errors.New("manual pairing code failed checksum validation")
 	}
 
-	// Separate data portion (all but last digit) and the checksum.
-	dataStr := code[:len(code)-1]
+	// Check length: must be 11 or 21 digits.
+	if len(code) != 11 && len(code) != 21 {
+		return nil, errors.New("manual pairing code must be 11 or 21 digits long")
+	}
 
-	// Determine if it's long or short code by length.
+	// Determine if VendorID/ProductID are included based on length.
 	isLong := (len(code) == 21)
 
 	// DIGIT[1] := (VID_PID_PRESENT << 2) |(DISCRIMINATOR >> 10)
 	// DIGIT[2..6] :=((DISCRIMINATOR & 0x300)<< 6) |(PASSCODE & 0x3FFF)
-	// DIGIT[2..6] :=((DISCRIMINATOR & 0x300)<< 6) |(PASSCODE & 0x3FFF)
 	// DIGIT[7..10] :=(PASSCODE >> 14)
 
-	d1, _ := strconv.Atoi(dataStr[0:1])
-	d2_6, _ := strconv.Atoi(dataStr[1:6])
-	d7_10, _ := strconv.Atoi(dataStr[6:10])
+	d1, _ := strconv.Atoi(code[0:1])
+	d2_6, _ := strconv.Atoi(code[1:6])
+	d7_10, _ := strconv.Atoi(code[6:10])
 
 	version := uint8(0)
 	vpIdPresent := uint8((d1 >> 2) & 0x1)
+
+	// 5.1.1.5. Discriminator value
+	// For machine-readable formats, the full 12-bit Discriminator is used. For the Manual Pairing Code,
+	// only the upper 4 bits out of the 12-bit Discriminator are used.
+	discUpper := (uint16(d1&0x03) << 10)
+	discLower := uint16((d2_6 & 0xC000) >> 6)
+	disc := discUpper | discLower
 
 	passLower := uint32(d2_6 & 0x3FFF)
 	passUpper := uint32(d7_10) << 14
 	passcode := passUpper | passLower
 
-	disc := (uint16(d1&0x3) << 10)
-	disc |= uint16((d2_6 & 0xFC000) >> 14)
-
 	vendorID := uint16(0)
 	productID := uint16(0)
 
 	if isLong {
-		v11_15, _ := strconv.Atoi(dataStr[10:15])
-		p16_20, _ := strconv.Atoi(dataStr[15:20])
+		// DIGIT[11..15] := (VENDOR_ID)
+		// DIGIT[16..20] := (PRODUCT_ID)
+
+		v11_15, _ := strconv.Atoi(code[10:15])
+		p16_20, _ := strconv.Atoi(code[15:20])
 		vendorID = uint16(v11_15)
 		productID = uint16(p16_20)
 	}
@@ -189,11 +187,11 @@ func decodeManualPairingCode(code string) (*pairingCode, error) {
 	}
 
 	return &pairingCode{
-		version:       version,
-		vendorID:      vendorID,
-		productID:     productID,
-		commFlow:      uint8(commFlow),
-		discriminator: disc,
-		passcode:      passcode,
+		version:   version,
+		vendorID:  vendorID,
+		productID: productID,
+		commFlow:  uint8(commFlow),
+		shortDesc: disc,
+		passcode:  passcode,
 	}, nil
 }
