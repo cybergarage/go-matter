@@ -34,7 +34,7 @@ type pairingCode struct {
 	vendorID  uint16
 	productID uint16
 	commFlow  uint8
-	shortDesc uint16
+	upperDesc uint16
 	passcode  uint32
 }
 
@@ -64,8 +64,8 @@ func (pc *pairingCode) CommissioningFlow() CommissioningFlow {
 }
 
 // Discriminator returns the Discriminator.
-func (pc *pairingCode) Discriminator() uint16 {
-	return pc.shortDesc
+func (pc *pairingCode) Discriminator() Discriminator {
+	return Discriminator(pc.upperDesc)
 }
 
 // Passcode returns the Passcode.
@@ -76,7 +76,7 @@ func (pc *pairingCode) Passcode() uint32 {
 // String returns the manual pairing code string representation (11-digit or 21-digit).
 func (pc *pairingCode) String() string {
 	// Generate the manual pairing code string (11-digit or 21-digit) based on the fields.
-	code, err := encodeManualPairingCode(pc.version, pc.vendorID, pc.productID, pc.shortDesc, pc.passcode)
+	code, err := encodeManualPairingCode(pc.version, pc.vendorID, pc.productID, pc.upperDesc, pc.passcode)
 	if err != nil {
 		return ""
 	}
@@ -95,13 +95,13 @@ func (pc *pairingCode) String() string {
 func encodeManualPairingCode(version uint8, vendorID uint16, productID uint16, discriminator uint16, passcode uint32) (string, error) {
 	// Determine if we include VendorID/ProductID in the code.
 	isLong := (vendorID != 0 || productID != 0)
-	vpIdPresent := uint16(0)
+	vpIDPresent := uint16(0)
 	if isLong {
-		vpIdPresent = 1
+		vpIDPresent = 1
 	}
 
 	// DIGIT[1] := (VID_PID_PRESENT << 2) |(DISCRIMINATOR >> 10)
-	d1 := (vpIdPresent << 2) | uint16((discriminator>>10)&0x3)
+	d1 := (vpIDPresent << 2) | uint16((discriminator>>10)&0x3)
 	// DIGIT[2..6] :=((DISCRIMINATOR & 0x300)<< 6) |(PASSCODE & 0x3FFF)
 	d2_6 := (uint32)((discriminator&0x300)<<6) | (passcode & 0x3FFF)
 	// DIGIT[7..10] :=(PASSCODE >> 14)
@@ -154,7 +154,7 @@ func decodeManualPairingCode(paraingCodeStr string) (*pairingCode, error) {
 	d7_10, _ := strconv.Atoi(code[6:10])
 
 	version := uint8(0)
-	vpIdPresent := uint8((d1 >> 2) & 0x1)
+	vpIDPresent := uint8((d1 >> 2) & 0x1)
 
 	// 5.1.1.5. Discriminator value
 	// For machine-readable formats, the full 12-bit Discriminator is used. For the Manual Pairing Code,
@@ -181,7 +181,7 @@ func decodeManualPairingCode(paraingCodeStr string) (*pairingCode, error) {
 	}
 
 	commFlow := CommissioningFlowStandard
-	if vpIdPresent == 1 {
+	if vpIDPresent == 1 {
 		commFlow = CommissioningFlowCustom
 	}
 
@@ -190,7 +190,7 @@ func decodeManualPairingCode(paraingCodeStr string) (*pairingCode, error) {
 		vendorID:  vendorID,
 		productID: productID,
 		commFlow:  uint8(commFlow),
-		shortDesc: disc,
+		upperDesc: disc,
 		passcode:  passcode,
 	}, nil
 }

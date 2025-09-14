@@ -14,18 +14,15 @@
 
 package encoding
 
-// OnboardingPayload defines the common onboarding payload fields.
-type OnboardingPayload interface {
-	// Version returns the version.
-	Version() uint8
-	// VendorID returns the Vendor ID.
-	VendorID() uint16
-	// ProductID returns the Product ID.
-	ProductID() uint16
-	// CommissioningFlow returns the Commissioning Flow.
-	CommissioningFlow() CommissioningFlow
-	// Discriminator returns the Discriminator.
-	Discriminator() Discriminator
-	// Passcode returns the Passcode.
-	Passcode() uint32
+// Discriminator represents the discriminator value used in onboarding payloads.
+type Discriminator uint16
+
+// IsUpper4Bits returns true if the discriminator indicates only upper 4 bits are used for a manual pairing code.
+func (d Discriminator) IsUpper4Bits() bool {
+	return ((d & 0x0F00) == d)
+}
+
+// IsFull12Bits returns true if the discriminator indicates full 12 bits are used for a QR code.
+func (d Discriminator) IsFull12Bits() bool {
+	return !d.IsUpper4Bits()
 }

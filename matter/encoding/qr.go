@@ -118,8 +118,8 @@ func (qr *qrPayload) CommissioningFlow() CommissioningFlow {
 }
 
 // Discriminator returns the Discriminator.
-func (qr *qrPayload) Discriminator() uint16 {
-	return qr.discriminator
+func (qr *qrPayload) Discriminator() Discriminator {
+	return Discriminator(qr.discriminator)
 }
 
 // Passcode returns the Passcode.
