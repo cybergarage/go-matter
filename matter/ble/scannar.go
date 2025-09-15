@@ -19,12 +19,22 @@ import (
 	"sync"
 
 	"github.com/cybergarage/go-ble/ble"
+	"github.com/cybergarage/go-matter/matter/encoding"
+	"github.com/cybergarage/go-matter/matter/types"
 )
+
+// OnboardingPayload defines the common onboarding payload fields.
+type OnboardingPayload = encoding.OnboardingPayload
+
+// Discriminator represents a Matter discriminator.
+type Discriminator = encoding.Discriminator
 
 // Scanner represents a BLE scanner.
 type Scanner interface {
-	// ScannedDevices returns the list of discovered devices.
-	ScannedDevices() []Device
+	// DiscoveredDevices returns the list of discovered devices.
+	DiscoveredDevices() []Device
+	// LookupDeviceByDiscriminator looks up a scanned device by a discriminator.
+	LookupDeviceByDiscriminator(v any) (Device, bool)
 	// Scan starts scanning for Bluetooth devices.
 	Scan(ctx context.Context) error
 }
@@ -40,19 +50,6 @@ func NewScanner() Scanner {
 		Scanner:   ble.NewScanner(),
 		deviceMap: sync.Map{},
 	}
-}
-
-// ScannedDevices returns the list of discovered devices.
-func (scn *scanner) ScannedDevices() []Device {
-	var devices []Device
-	scn.deviceMap.Range(func(key, value any) bool {
-		device, ok := value.(Device)
-		if ok {
-			devices = append(devices, device)
-		}
-		return true
-	})
-	return devices
 }
 
 func (scn *scanner) onScanResult(bleDev ble.Device) {
@@ -73,4 +70,45 @@ func (scn *scanner) Scan(ctx context.Context) error {
 		scn.onScanResult(bleDev)
 	})
 	return scn.Scanner.Scan(ctx, onScanResultlistener)
+}
+
+// DiscoveredDevices returns the list of discovered devices.
+func (scn *scanner) DiscoveredDevices() []Device {
+	var devices []Device
+	scn.deviceMap.Range(func(key, value any) bool {
+		device, ok := value.(Device)
+		if ok {
+			devices = append(devices, device)
+		}
+		return true
+	})
+	return devices
+}
+
+// LookupDeviceByDiscriminator looks up a scanned device by a discriminator.
+func (scn *scanner) LookupDeviceByDiscriminator(v any) (Device, bool) {
+	lookupDisc, err := types.NewDiscriminatorFrom(v)
+	if err != nil {
+		return nil, false
+	}
+
+	var foundDev Device
+	scn.deviceMap.Range(func(key, value any) bool {
+		dev, ok := value.(Device)
+		if !ok {
+			return true
+		}
+		service, err := dev.Service()
+		if err != nil {
+			return true
+		}
+		devDisc := service.Discriminator()
+		if lookupDisc.Equal(devDisc) {
+			foundDev = dev
+			return false
+		}
+		return true
+	})
+
+	return foundDev, false
 }

@@ -18,10 +18,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/spf13/cobra"
-
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/encoding"
+	"github.com/spf13/cobra"
 )
 
 func init() {
@@ -29,7 +28,7 @@ func init() {
 }
 
 var pairingCmd = &cobra.Command{ // nolint:exhaustruct
-	Use:   "pairing <nodeID> <passcode> <ssid> <passwd>",
+	Use:   "pairing <node ID> <pairing code> <WIFI SSID> <WIFI password>",
 	Short: "Pairing Matter devices.",
 	Long:  "Pairing Matter devices.",
 	Args:  cobra.ExactArgs(4),
@@ -52,6 +51,28 @@ var pairingCmd = &cobra.Command{ // nolint:exhaustruct
 		err = scanner.Scan(ctx)
 		if err != nil {
 			return err
+		}
+
+		log.Infof("Discovered matter devices:")
+		for n, dev := range scanner.DiscoveredDevices() {
+			log.Infof("[%d] %s", n, dev.String())
+		}
+
+		log.Infof("Pairing code: %s (%d/%d)", paringCode.String(), paringCode.Discriminator(), paringCode.Passcode())
+
+		dev, ok := scanner.LookupDeviceByDiscriminator(paringCode.Discriminator())
+		if !ok {
+			dev, ok = scanner.LookupDeviceByDiscriminator(nodeID)
+			if !ok {
+				log.Errorf("Device not found: %s", nodeID)
+				return nil
+			}
+		}
+		log.Infof("Found device: %s", dev.String())
+
+		if !dev.IsCommissionable() {
+			log.Errorf("Device is not commissionable: %s", dev.String())
+			return nil
 		}
 
 		return nil

@@ -120,7 +120,7 @@ var scanCmd = &cobra.Command{ // nolint:exhaustruct
 			return nil
 		}
 
-		devs := scanner.ScannedDevices()
+		devs := scanner.DiscoveredDevices()
 		if len(devs) == 0 {
 			return nil
 		}

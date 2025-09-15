@@ -52,7 +52,7 @@ type ServiceDescriptor interface {
 	// AdvertisementVersion returns the advertisement version.
 	AdvertisementVersion() uint8
 	// Discriminator returns the discriminator.
-	Discriminator() uint16
+	Discriminator() Discriminator
 	// VendorID returns the vendor ID.
 	VendorID() uint16
 	// ProductID returns the product ID.
@@ -123,7 +123,7 @@ func (s *service) MarshalObject() any {
 		Name:                 s.Name(),
 		OpCode:               s.OpCode(),
 		AdvertisementVersion: s.AdvertisementVersion(),
-		Discriminator:        s.Discriminator(),
+		Discriminator:        uint16(s.Discriminator()),
 		VendorID:             s.VendorID(),
 		ProductID:            s.ProductID(),
 		AdditionalDataFlag:   s.AdditionalDataFlag(),
@@ -194,8 +194,8 @@ func (ad *advertisingData) AdvertisementVersion() uint8 {
 }
 
 // Discriminator returns the discriminator.
-func (ad *advertisingData) Discriminator() uint16 {
-	return ad.discriminator
+func (ad *advertisingData) Discriminator() Discriminator {
+	return Discriminator(ad.discriminator)
 }
 
 // VendorID returns the vendor ID.

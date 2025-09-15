@@ -36,7 +36,7 @@ func TestScanner(t *testing.T) {
 	}
 
 	log.Infof("Discovered matter devices:")
-	for n, dev := range scanner.ScannedDevices() {
+	for n, dev := range scanner.DiscoveredDevices() {
 		log.Infof("[%d] %s", n, dev.String())
 		if !dev.IsCommissionable() {
 			continue
