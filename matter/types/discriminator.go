@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package encoding
+package types
 
-// Discriminator represents the discriminator value used in onboarding payloads.
+// Discriminator represents the discriminator value which specifies how to identify a device during commissioning.
 type Discriminator uint16
 
 // IsUpper4Bits returns true if the discriminator indicates only upper 4 bits are used for a manual pairing code.

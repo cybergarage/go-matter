@@ -14,6 +14,13 @@
 
 package encoding
 
+import (
+	"github.com/cybergarage/go-matter/matter/types"
+)
+
+// Discriminator represents the discriminator value used in onboarding payloads.
+type Discriminator = types.Discriminator
+
 // OnboardingPayload defines the common onboarding payload fields.
 type OnboardingPayload interface {
 	// Version returns the version.
