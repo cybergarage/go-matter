@@ -23,6 +23,21 @@ const (
 // Discriminator represents the discriminator value which specifies how to identify a device during commissioning.
 type Discriminator uint16
 
+// NewDiscriminatorFrom returns a new discriminator from the specified value.
+func NewDiscriminatorFrom(v any) (Discriminator, error) {
+	switch v := v.(type) {
+	case Discriminator:
+		return v, nil
+	case uint16:
+		return Discriminator(v), nil
+	}
+	var uv uint16
+	if err := safecast.ToUint16(v, &uv); err != nil {
+		return 0, err
+	}
+	return Discriminator(uv), nil
+}
+
 // IsUpper4Bits returns true if the discriminator indicates only upper 4 bits are used for a manual pairing code.
 func (d Discriminator) IsUpper4Bits() bool {
 	return ((d & upper4BitsMask) == d)
@@ -34,7 +49,11 @@ func (d Discriminator) IsFull12Bits() bool {
 }
 
 // Equal returns true if the discriminator equals to the specified value.
-func (d Discriminator) Equal(v any) bool {
+func (d Discriminator) Equal(other any) bool {
+	otherDisc, err := NewDiscriminatorFrom(other)
+	if err != nil {
+		return false
+	}
 	equal := func(v1, v2 uint16) bool {
 		if v1 == v2 {
 			return true
@@ -44,14 +63,5 @@ func (d Discriminator) Equal(v any) bool {
 		}
 		return false
 	}
-	switch v := v.(type) {
-	case Discriminator:
-		return equal(uint16(d), uint16(v))
-	default:
-		var uv uint16
-		if err := safecast.ToUint16(v, &uv); err == nil {
-			return equal(uint16(d), uv)
-		}
-	}
-	return false
+	return equal(uint16(d), uint16(otherDisc))
 }
