@@ -84,6 +84,18 @@ var pairingCmd = &cobra.Command{ // nolint:exhaustruct
 			return nil
 		}
 
+		if err := dev.Connect(context.Background()); err != nil {
+			log.Errorf("Failed to connect: %v", err)
+			return nil
+		}
+		defer func() {
+			if err := dev.Disconnect(); err != nil {
+				log.Errorf("Failed to disconnect: %v", err)
+			}
+		}()
+
+		log.Infof("Connected to device: %s", dev.String())
+
 		service, err := dev.Service()
 		if err != nil {
 			log.Errorf("Failed to get device service: %s: %v", dev.String(), err)
