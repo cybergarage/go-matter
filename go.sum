@@ -1,10 +1,14 @@
 github.com/cpuguy83/go-md2man/v2 v2.0.6/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6NIQQ7OS05n1F4g=
 github.com/cybergarage/go-ble v0.0.0-20250912095720-ea212f2fb8a7 h1:rU+7qJb6YWtqTC6MdQvk6yt09kv+mATE0M2U6APQXuo=
 github.com/cybergarage/go-ble v0.0.0-20250912095720-ea212f2fb8a7/go.mod h1:xkpDkMakC8mkGNfwG54ke4MQmap0JAA2O4jOM/wxO/8=
+github.com/cybergarage/go-ble v0.0.0-20250916155829-56ca0b034c6a h1:RYl2rOpmovZf92KWa+WCGDaWPTleNuX3rGR3Tp0ukzU=
+github.com/cybergarage/go-ble v0.0.0-20250916155829-56ca0b034c6a/go.mod h1:xkpDkMakC8mkGNfwG54ke4MQmap0JAA2O4jOM/wxO/8=
 github.com/cybergarage/go-logger v1.3.11 h1:NwnC7cD/IDkdwBYhSODXaMEBmAu3c/jK4Q2XDsg1fno=
 github.com/cybergarage/go-logger v1.3.11/go.mod h1:SU5vzAFJOTs89JXk+Jn89RaNmcR07parcJgnW4e8aDw=
 github.com/cybergarage/go-mdns v0.0.0-20250202083627-07f16705ea66 h1:3MtD2Lgg2MicQiDE0buPzxDvQbXBRzwlFRv7Nm2Ago8=
 github.com/cybergarage/go-mdns v0.0.0-20250202083627-07f16705ea66/go.mod h1:QvLU8jW8+spqelMvfVJaGiscMwIe9iwax1kP1Z86ysA=
+github.com/cybergarage/go-mdns v0.0.0-20250916142804-706cc05169b2 h1:DN8XbwcqA6gvePytU6eaYsZT4nsR2K8EyyvmL6/md8o=
+github.com/cybergarage/go-mdns v0.0.0-20250916142804-706cc05169b2/go.mod h1:A5oiW1GgTiqBySemnVUOLllHnY43ZdvloUHq1ejusX4=
 github.com/cybergarage/go-safecast v1.3.4 h1:gy0MwfrG+o56GeaJu7/5FB6Pubqm6ZGzg50ebvZbSvM=
 github.com/cybergarage/go-safecast v1.3.4/go.mod h1:flFLUrI49kNK+U7ZeQDQxbaxxQyFVQGKpT7KYN3A4ew=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
