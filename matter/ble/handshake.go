@@ -15,7 +15,9 @@
 package ble
 
 import (
+	"encoding/hex"
 	"fmt"
+	"strings"
 )
 
 var (
@@ -23,8 +25,12 @@ var (
 	handshakeReqestPayload = []byte{0x65, 0x6C, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 244}
 )
 
+// HandshakeRequest represents a BTP handshake request.
 type HandshakeRequest interface {
+	// Bytes returns the byte representation of the handshake request.
 	Bytes() []byte
+	// String returns the string representation of the handshake request.
+	String() string
 }
 
 type handshakeRequest struct {
@@ -38,8 +44,17 @@ func (req *handshakeRequest) Bytes() []byte {
 	return handshakeReqestPayload
 }
 
+// String returns the string representation of the handshake request.
+func (req *handshakeRequest) String() string {
+	return strings.ToUpper(hex.EncodeToString(req.Bytes()))
+}
+
+// HandshakeResponse represents a BTP handshake response.
 type HandshakeResponse interface {
+	// Bytes returns the byte representation of the handshake response.
 	Bytes() []byte
+	// String returns the string representation of the handshake response.
+	String() string
 }
 
 type handshakeResponse struct {
@@ -59,4 +74,9 @@ func newHandshakeResponse(data []byte) (HandshakeResponse, error) {
 // Bytes returns the byte representation of the handshake response.
 func (res *handshakeResponse) Bytes() []byte {
 	return res.bytes
+}
+
+// String returns the string representation of the handshake response.
+func (res *handshakeResponse) String() string {
+	return strings.ToUpper(hex.EncodeToString(res.Bytes()))
 }
