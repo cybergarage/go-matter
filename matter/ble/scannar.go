@@ -34,7 +34,7 @@ type Scanner interface {
 	// DiscoveredDevices returns the list of discovered devices.
 	DiscoveredDevices() []Device
 	// LookupDeviceByDiscriminator looks up a scanned device by a discriminator.
-	LookupDeviceByDiscriminator(v any) (Device, bool)
+	LookupDeviceByDiscriminator(v any) (Device, error)
 	// Scan starts scanning for Bluetooth devices.
 	Scan(ctx context.Context) error
 }
@@ -86,10 +86,10 @@ func (scn *scanner) DiscoveredDevices() []Device {
 }
 
 // LookupDeviceByDiscriminator looks up a scanned device by a discriminator.
-func (scn *scanner) LookupDeviceByDiscriminator(v any) (Device, bool) {
+func (scn *scanner) LookupDeviceByDiscriminator(v any) (Device, error) {
 	lookupDisc, err := types.NewDiscriminatorFrom(v)
 	if err != nil {
-		return nil, false
+		return nil, err
 	}
 
 	var foundDev Device
@@ -110,5 +110,9 @@ func (scn *scanner) LookupDeviceByDiscriminator(v any) (Device, bool) {
 		return true
 	})
 
-	return foundDev, false
+	if foundDev == nil {
+		return nil, ErrNotFound
+	}
+
+	return foundDev, nil
 }
