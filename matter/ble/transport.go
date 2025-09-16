@@ -23,7 +23,7 @@ import (
 // Transport represents a BLE transport.
 type Transport interface {
 	ble.Transport
-	Handshake() error
+	Handshake() (HandshakeResponse, error)
 }
 
 type transport struct {
@@ -37,19 +37,19 @@ func newTransport(bleTransport ble.Transport) Transport {
 }
 
 // Handshake performs the handshake operation.
-func (t *transport) Handshake() error {
+func (t *transport) Handshake() (HandshakeResponse, error) {
 	ctx := context.Background()
 	_, err := t.Write(ctx, newHandshakeRequest().Bytes())
 	if err != nil {
-		return err
+		return nil, err
 	}
 	resBytes, err := t.Read(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	_, err = newHandshakeResponse(resBytes)
+	res, err := newHandshakeResponse(resBytes)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return res, nil
 }
