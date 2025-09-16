@@ -16,11 +16,14 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/cybergarage/go-logger/log"
+	"github.com/cybergarage/go-matter/matter/ble"
 	"github.com/cybergarage/go-matter/matter/encoding"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 func init() {
@@ -33,6 +36,11 @@ var pairingCmd = &cobra.Command{ // nolint:exhaustruct
 	Long:  "Pairing Matter devices.",
 	Args:  cobra.ExactArgs(4),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		verbose := viper.GetBool(VerboseParamStr)
+		if verbose {
+			enableStdoutVerbose(true)
+		}
+
 		nodeID := args[0]
 		passcode := args[1]
 		wifiSSID := args[2]
@@ -60,20 +68,44 @@ var pairingCmd = &cobra.Command{ // nolint:exhaustruct
 
 		log.Infof("Pairing code: %s (%d/%d)", paringCode.String(), paringCode.Discriminator(), paringCode.Passcode())
 
-		dev, ok := scanner.LookupDeviceByDiscriminator(paringCode.Discriminator())
-		if !ok {
-			dev, ok = scanner.LookupDeviceByDiscriminator(nodeID)
-			if !ok {
-				log.Errorf("Device not found: %s", nodeID)
-				return nil
+		dev, err := scanner.LookupDeviceByDiscriminator(paringCode.Discriminator())
+		if err != nil {
+			if errors.Is(err, ble.ErrNotFound) {
+				log.Errorf("Device not found: %s (%d)", passcode, uint16(paringCode.Discriminator()))
+			} else {
+				log.Errorf("Failed to lookup device: %s (%d): %v", passcode, uint16(paringCode.Discriminator()), err)
 			}
 		}
+
 		log.Infof("Found device: %s", dev.String())
 
 		if !dev.IsCommissionable() {
 			log.Errorf("Device is not commissionable: %s", dev.String())
 			return nil
 		}
+
+		service, err := dev.Service()
+		if err != nil {
+			log.Errorf("Failed to get device service: %s: %v", dev.String(), err)
+			return nil
+		}
+
+		log.Infof("Device service: %s", service.String())
+
+		transport, err := service.Open()
+		if err != nil {
+			log.Errorf("Failed to open device transport: %s: %v", dev.String(), err)
+			return nil
+		}
+		defer transport.Close()
+
+		res, err := transport.Handshake()
+		if err != nil {
+			log.Errorf("Failed to perform handshake: %s: %v", dev.String(), err)
+			return nil
+		}
+
+		log.Infof("Handshake response: %s", res.String())
 
 		return nil
 	}}

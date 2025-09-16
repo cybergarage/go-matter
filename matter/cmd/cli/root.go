@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -48,11 +47,6 @@ func SharedCommissioner() matter.Commissioner {
 }
 
 func Execute(commissioner matter.Commissioner) error {
-	verbose := viper.GetBool(VerboseParamStr)
-	if verbose {
-		log.EnableStdoutDebug(true)
-	}
-
 	sharedCommissioner = commissioner
 	if err := sharedCommissioner.Start(); err != nil {
 		return err
@@ -64,13 +58,13 @@ func Execute(commissioner matter.Commissioner) error {
 func init() {
 	viper.SetEnvPrefix("matter_ctl")
 
+	viper.SetDefault(FormatParamStr, FormatTableStr)
 	rootCmd.PersistentFlags().String(FormatParamStr, FormatTableStr, fmt.Sprintf("output format: %s", strings.Join(allSupportedFormats(), "|")))
 	viper.BindPFlag(FormatParamStr, rootCmd.PersistentFlags().Lookup(FormatParamStr))
 	viper.BindEnv(FormatParamStr) // MATTER_CTL_FORMAT
-	viper.SetDefault(FormatParamStr, FormatTableStr)
 
+	viper.SetDefault(VerboseParamStr, false)
 	rootCmd.PersistentFlags().Bool((VerboseParamStr), false, "enable verbose output")
 	viper.BindPFlag(VerboseParamStr, rootCmd.PersistentFlags().Lookup(VerboseParamStr))
 	viper.BindEnv(VerboseParamStr) // MATTER_CTL_VERBOSE
-	viper.SetDefault(VerboseParamStr, false)
 }
