@@ -69,7 +69,7 @@ func (com *commissioner) Scannar() ble.Scanner {
 
 func (com *commissioner) bleCommission(ctx context.Context, options CommissioningOptions) error {
 	scanner := com.Scannar()
-	err := scanner.Scan(ctx)
+	err := scanner.Scan(context.Background())
 	if err != nil {
 		return err
 	}
