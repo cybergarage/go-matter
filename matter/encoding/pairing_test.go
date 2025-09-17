@@ -35,40 +35,54 @@ func TestPairingCode(t *testing.T) {
 				passcode:  13045239,
 			},
 		},
+		{
+			// MT:Y.ET08O614CCY06A810
+			paringCode: "3572-993-5174",
+			expected: &pairingCode{
+				version:   0,
+				vendorID:  0,
+				productID: 0,
+				commFlow:  0,
+				upperDesc: 4068 & 0x0F00,
+				passcode:  57630675,
+			},
+		},
 	}
 
 	for _, tt := range tests {
-		decodedCode, err := NewPairingCodeFromString(tt.paringCode)
-		if err != nil {
-			t.Errorf("Failed to decode pairing code %q: %v", tt.paringCode, err)
-			continue
-		}
-		if decodedCode.Version() != tt.expected.version {
-			t.Errorf("Version: got=%d, want=%d", decodedCode.Version(), tt.expected.version)
-		}
-		if decodedCode.VendorID() != tt.expected.vendorID {
-			t.Errorf("VendorID: got=%d, want=%d", decodedCode.VendorID(), tt.expected.vendorID)
-		}
-		if decodedCode.ProductID() != tt.expected.productID {
-			t.Errorf("ProductID: got=%d, want=%d", decodedCode.ProductID(), tt.expected.productID)
-		}
-		if decodedCode.CommissioningFlow() != CommissioningFlow(tt.expected.commFlow) {
-			t.Errorf("CommFlow: got=%d, want=%d", decodedCode.CommissioningFlow(), tt.expected.commFlow)
-		}
-		if !decodedCode.Discriminator().IsUpper4Bits() {
-			t.Errorf("Discriminator: expected upper 4 bits only, got=%d", decodedCode.Discriminator())
-		}
-		if decodedCode.Discriminator() != Discriminator(tt.expected.upperDesc) {
-			t.Errorf("Discriminator: got=%d, want=%d", decodedCode.Discriminator(), Discriminator(tt.expected.upperDesc))
-		}
-		if decodedCode.Passcode() != tt.expected.passcode {
-			t.Errorf("Passcode: got=%d, want=%d", decodedCode.Passcode(), tt.expected.passcode)
-		}
+		t.Run(tt.paringCode, func(t *testing.T) {
+			decodedCode, err := NewPairingCodeFromString(tt.paringCode)
+			if err != nil {
+				t.Errorf("Failed to decode pairing code %q: %v", tt.paringCode, err)
+				return
+			}
+			if decodedCode.Version() != tt.expected.version {
+				t.Errorf("Version(): got=%d, want=%d", decodedCode.Version(), tt.expected.version)
+			}
+			if decodedCode.VendorID() != tt.expected.vendorID {
+				t.Errorf("VendorID(): got=%d, want=%d", decodedCode.VendorID(), tt.expected.vendorID)
+			}
+			if decodedCode.ProductID() != tt.expected.productID {
+				t.Errorf("ProductID(): got=%d, want=%d", decodedCode.ProductID(), tt.expected.productID)
+			}
+			if decodedCode.CommissioningFlow() != CommissioningFlow(tt.expected.commFlow) {
+				t.Errorf("CommFlow(): got=%d, want=%d", decodedCode.CommissioningFlow(), tt.expected.commFlow)
+			}
+			if !decodedCode.Discriminator().IsUpper4Bits() {
+				t.Errorf("Discriminator(): expected upper 4 bits only, got=%d", decodedCode.Discriminator())
+			}
+			if decodedCode.Discriminator() != Discriminator(tt.expected.upperDesc) {
+				t.Errorf("Discriminator(): got=%d, want=%d", decodedCode.Discriminator(), Discriminator(tt.expected.upperDesc))
+			}
+			if decodedCode.Passcode() != tt.expected.passcode {
+				t.Errorf("Passcode(): got=%d, want=%d", decodedCode.Passcode(), tt.expected.passcode)
+			}
 
-		// Test String() method
-		str := decodedCode.String()
-		if str != tt.paringCode {
-			t.Errorf("String(): got=%q, want=%q", str, tt.paringCode)
-		}
+			// Test String() method
+			str := decodedCode.String()
+			if str != tt.paringCode {
+				t.Errorf("String(): got=%q, want=%q", str, tt.paringCode)
+			}
+		})
 	}
 }
