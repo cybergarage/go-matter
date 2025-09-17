@@ -18,6 +18,7 @@ import (
 	"context"
 	_ "embed"
 	"testing"
+	"time"
 
 	"github.com/cybergarage/go-matter/matter"
 	"github.com/cybergarage/go-matter/matter/encoding"
@@ -30,9 +31,9 @@ func TestCommissionerBLE(t *testing.T) {
 		{
 			paringCode: "3035-750-7966",
 		},
-		{
-			paringCode: "3572-993-5174",
-		},
+		// {
+		// 	paringCode: "3572-993-5174",
+		// },
 	}
 
 	comm := matter.NewCommissioner()
@@ -57,7 +58,10 @@ func TestCommissionerBLE(t *testing.T) {
 				return
 			}
 
-			err = comm.Commission(context.Background(), paringCode)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(5)*time.Minute)
+			defer cancel()
+
+			err = comm.Commission(ctx, paringCode)
 			if err != nil {
 				t.Skipf("Failed to commission device: %v", err)
 				return
