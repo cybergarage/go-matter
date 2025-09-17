@@ -5,6 +5,8 @@ github.com/cybergarage/go-ble v0.0.0-20250917031518-7bcf854763c7 h1:PwRsHkB7ixC6
 github.com/cybergarage/go-ble v0.0.0-20250917031518-7bcf854763c7/go.mod h1:xkpDkMakC8mkGNfwG54ke4MQmap0JAA2O4jOM/wxO/8=
 github.com/cybergarage/go-ble v0.0.0-20250917103444-47fcf196d039 h1:LEx+ljHemsPatGYnkooZ3R8IB5YHsdifWlyhN5IpYM0=
 github.com/cybergarage/go-ble v0.0.0-20250917103444-47fcf196d039/go.mod h1:xkpDkMakC8mkGNfwG54ke4MQmap0JAA2O4jOM/wxO/8=
+github.com/cybergarage/go-ble v0.0.0-20250917150637-a6fcc5b45691 h1:hjR7Xs2EYrDD15gr2sQytVP3M9/eGSias8tYpDIeu7g=
+github.com/cybergarage/go-ble v0.0.0-20250917150637-a6fcc5b45691/go.mod h1:xkpDkMakC8mkGNfwG54ke4MQmap0JAA2O4jOM/wxO/8=
 github.com/cybergarage/go-logger v1.3.11 h1:NwnC7cD/IDkdwBYhSODXaMEBmAu3c/jK4Q2XDsg1fno=
 github.com/cybergarage/go-logger v1.3.11/go.mod h1:SU5vzAFJOTs89JXk+Jn89RaNmcR07parcJgnW4e8aDw=
 github.com/cybergarage/go-mdns v0.0.0-20250916142804-706cc05169b2 h1:DN8XbwcqA6gvePytU6eaYsZT4nsR2K8EyyvmL6/md8o=
