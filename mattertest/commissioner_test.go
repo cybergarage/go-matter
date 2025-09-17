@@ -28,9 +28,27 @@ func TestCommissionerBLE(t *testing.T) {
 		paringCode string
 	}{
 		{
+			paringCode: "3035-750-7966",
+		},
+		{
 			paringCode: "3572-993-5174",
 		},
 	}
+
+	comm := matter.NewCommissioner()
+	err := comm.Start()
+	if err != nil {
+		t.Errorf("Failed to start commissioner: %v", err)
+		return
+	}
+
+	defer func() {
+		err := comm.Stop()
+		if err != nil {
+			t.Errorf("Failed to stop commissioner: %v", err)
+		}
+	}()
+
 	for _, tt := range tests {
 		t.Run(tt.paringCode, func(t *testing.T) {
 			paringCode, err := encoding.NewPairingCodeFromString(tt.paringCode)
@@ -38,19 +56,6 @@ func TestCommissionerBLE(t *testing.T) {
 				t.Errorf("Failed to decode pairing code %q: %v", tt.paringCode, err)
 				return
 			}
-
-			comm := matter.NewCommissioner()
-			err = comm.Start()
-			if err != nil {
-				t.Errorf("Failed to start commissioner: %v", err)
-				return
-			}
-			defer func() {
-				err := comm.Stop()
-				if err != nil {
-					t.Errorf("Failed to stop commissioner: %v", err)
-				}
-			}()
 
 			err = comm.Commission(context.Background(), paringCode)
 			if err != nil {
