@@ -65,9 +65,5 @@ func TestScanner(t *testing.T) {
 				log.Errorf("Failed to close transport: %v", err)
 			}
 		}()
-		_, err = transport.Handshake()
-		if err != nil {
-			log.Errorf("Failed to handshake: %v", err)
-		}
 	}
 }

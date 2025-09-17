@@ -118,7 +118,7 @@ func (com *commissioner) bleCommission(ctx context.Context, options Commissionin
 	}
 	defer transport.Close()
 
-	res, err := transport.Handshake()
+	res, err := transport.Handshake(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to perform handshake: %s: %w", dev.String(), err)
 	}
