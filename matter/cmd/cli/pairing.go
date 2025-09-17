@@ -16,11 +16,9 @@ package cli
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/cybergarage/go-logger/log"
-	"github.com/cybergarage/go-matter/matter/ble"
 	"github.com/cybergarage/go-matter/matter/encoding"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -53,71 +51,14 @@ var pairingCmd = &cobra.Command{ // nolint:exhaustruct
 			return err
 		}
 
-		scanner := SharedCommissioner()
+		comm := SharedCommissioner()
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		err = scanner.Scan(ctx)
+
+		err = comm.Commission(ctx, paringCode)
 		if err != nil {
 			return err
 		}
-
-		log.Infof("Discovered matter devices:")
-		for n, dev := range scanner.DiscoveredDevices() {
-			log.Infof("[%d] %s", n, dev.String())
-		}
-
-		log.Infof("Pairing code: %s (%d/%d)", paringCode.String(), paringCode.Discriminator(), paringCode.Passcode())
-
-		dev, err := scanner.LookupDeviceByDiscriminator(paringCode.Discriminator())
-		if err != nil {
-			if errors.Is(err, ble.ErrNotFound) {
-				log.Errorf("Device not found: %s (%d)", passcode, uint16(paringCode.Discriminator()))
-			} else {
-				log.Errorf("Failed to lookup device: %s (%d): %v", passcode, uint16(paringCode.Discriminator()), err)
-			}
-		}
-
-		log.Infof("Found device: %s", dev.String())
-
-		if !dev.IsCommissionable() {
-			log.Errorf("Device is not commissionable: %s", dev.String())
-			return nil
-		}
-
-		if err := dev.Connect(context.Background()); err != nil {
-			log.Errorf("Failed to connect: %v", err)
-			return nil
-		}
-		defer func() {
-			if err := dev.Disconnect(); err != nil {
-				log.Errorf("Failed to disconnect: %v", err)
-			}
-		}()
-
-		log.Infof("Connected to device: %s", dev.String())
-
-		service, err := dev.Service()
-		if err != nil {
-			log.Errorf("Failed to get device service: %s: %v", dev.String(), err)
-			return nil
-		}
-
-		log.Infof("Device service: %s", service.String())
-
-		transport, err := service.Open()
-		if err != nil {
-			log.Errorf("Failed to open device transport: %s: %v", dev.String(), err)
-			return nil
-		}
-		defer transport.Close()
-
-		res, err := transport.Handshake()
-		if err != nil {
-			log.Errorf("Failed to perform handshake: %s: %v", dev.String(), err)
-			return nil
-		}
-
-		log.Infof("Handshake response: %s", res.String())
 
 		return nil
 	}}
