@@ -58,7 +58,7 @@ func TestCommissionerBLE(t *testing.T) {
 				return
 			}
 
-			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(5)*time.Minute)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(5)*time.Second)
 			defer cancel()
 
 			err = comm.Commission(ctx, paringCode)
