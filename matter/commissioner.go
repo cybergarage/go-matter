@@ -16,13 +16,13 @@ package matter
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/ble"
 	"github.com/cybergarage/go-matter/matter/encoding"
+	"github.com/cybergarage/go-matter/matter/errors"
 )
 
 const (
@@ -81,7 +81,7 @@ func (com *commissioner) bleCommission(ctx context.Context, options Commissionin
 
 	dev, err := scanner.LookupDeviceByDiscriminator(options.Discriminator())
 	if err != nil {
-		if errors.Is(err, ble.ErrNotFound) {
+		if errors.Is(err, errors.ErrNotFound) {
 			return fmt.Errorf("device not found: %d (%d)", options.Passcode(), uint16(options.Discriminator()))
 		} else {
 			return fmt.Errorf("failed to lookup device: %d (%d): %w", options.Passcode(), uint16(options.Discriminator()), err)

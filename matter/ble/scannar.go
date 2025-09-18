@@ -20,6 +20,7 @@ import (
 
 	"github.com/cybergarage/go-ble/ble"
 	"github.com/cybergarage/go-matter/matter/encoding"
+	"github.com/cybergarage/go-matter/matter/errors"
 	"github.com/cybergarage/go-matter/matter/types"
 )
 
@@ -111,7 +112,7 @@ func (scn *scanner) LookupDeviceByDiscriminator(v any) (Device, error) {
 	})
 
 	if foundDev == nil {
-		return nil, ErrNotFound
+		return nil, errors.ErrNotFound
 	}
 
 	return foundDev, nil

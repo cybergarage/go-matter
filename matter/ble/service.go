@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/cybergarage/go-ble/ble"
+	"github.com/cybergarage/go-matter/matter/errors"
 )
 
 const (
@@ -157,7 +158,7 @@ func newAdvertisingDataFromBytes(data []byte) (*advertisingData, error) {
 	// All multi-byte values are encoded in little-endian byte order within the service data payload.
 
 	if len(data) < 8 {
-		return nil, fmt.Errorf("%w: %s", ErrInvalid, "advertising data too short")
+		return nil, fmt.Errorf("%w: %s", errors.ErrInvalid, "advertising data too short")
 	}
 	opCode := data[0]
 

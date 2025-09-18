@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ble
+package errors
 
 import (
 	"errors"
@@ -24,3 +24,13 @@ var (
 	// ErrNotFound indicates that a requested resource was not found.
 	ErrNotFound = errors.New("not found")
 )
+
+// Is reports whether any error in err's chain matches target.
+func Is(err, target error) bool {
+	return errors.Is(err, target)
+}
+
+// As finds the first error in err's chain that matches target, and if so, sets target to that error value and returns true.
+func As(err error, target interface{}) bool {
+	return errors.As(err, target)
+}

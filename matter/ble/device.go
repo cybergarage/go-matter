@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/cybergarage/go-ble/ble"
+	"github.com/cybergarage/go-matter/matter/errors"
 )
 
 // Manufacturer represents a Bluetooth manufacturer.
@@ -99,7 +100,7 @@ func (dev *device) Service() (Service, error) {
 	var ok bool
 	dev.service, ok = dev.LookupService(MatterServiceUUID)
 	if !ok {
-		return nil, fmt.Errorf("service (%s) not found: %w", MatterServiceUUID.String(), ErrNotFound)
+		return nil, fmt.Errorf("service (%s) not found: %w", MatterServiceUUID.String(), errors.ErrNotFound)
 	}
 	return dev.service, nil
 }

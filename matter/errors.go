@@ -15,10 +15,10 @@
 package matter
 
 import (
-	"errors"
+	"github.com/cybergarage/go-matter/matter/errors"
 )
 
 var (
 	// ErrNotFound is returned when a requested resource is not found.
-	ErrNotFound = errors.New("not found")
+	ErrNotFound = errors.ErrNotFound
 )
