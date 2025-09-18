@@ -18,13 +18,14 @@ import (
 	"context"
 
 	"github.com/cybergarage/go-ble/ble"
+	"github.com/cybergarage/go-matter/matter/ble/btp"
 )
 
 // Transport represents a BLE transport.
 type Transport interface {
 	ble.Transport
 	// Handshake performs the handshake operation.
-	Handshake(ctx context.Context) (HandshakeResponse, error)
+	Handshake(ctx context.Context) (btp.HandshakeResponse, error)
 }
 
 type transport struct {
@@ -38,19 +39,10 @@ func newTransport(bleTransport ble.Transport) Transport {
 }
 
 // Handshake performs the handshake operation.
-func (t *transport) Handshake(ctx context.Context) (HandshakeResponse, error) {
+func (t *transport) Handshake(ctx context.Context) (btp.HandshakeResponse, error) {
 	// 4.19.4.3. Session Establishment
 
-	_, err := t.WriteWithoutResponse(ctx, newHandshakeRequest().Bytes())
-	if err != nil {
-		return nil, err
-	}
-
-	notifyCh, err := t.NotifyCharacteristic()
-	if err != nil {
-		return nil, err
-	}
-	_, err = notifyCh.WriteWithoutResponse([]byte{0x01})
+	_, err := t.WriteWithoutResponse(ctx, btp.NewHandshakeRequest().Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -59,9 +51,11 @@ func (t *transport) Handshake(ctx context.Context) (HandshakeResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	res, err := newHandshakeResponse(resBytes)
+
+	res, err := btp.NewHandshakeResponseFromBytes(resBytes)
 	if err != nil {
 		return nil, err
 	}
+
 	return res, nil
 }

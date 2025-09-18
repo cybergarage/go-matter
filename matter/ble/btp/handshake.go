@@ -12,12 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ble
+package btp
 
 import (
 	"encoding/hex"
 	"fmt"
 	"strings"
+
+	"github.com/cybergarage/go-matter/matter/errors"
 )
 
 var (
@@ -36,7 +38,8 @@ type HandshakeRequest interface {
 type handshakeRequest struct {
 }
 
-func newHandshakeRequest() HandshakeRequest {
+// NewHandshakeRequest returns a new HandshakeRequest.
+func NewHandshakeRequest() HandshakeRequest {
 	return &handshakeRequest{}
 }
 
@@ -61,10 +64,11 @@ type handshakeResponse struct {
 	bytes []byte
 }
 
-func newHandshakeResponse(data []byte) (HandshakeResponse, error) {
+// NewHandshakeResponseFromBytes returns a new HandshakeResponse from the specified bytes.
+func NewHandshakeResponseFromBytes(data []byte) (HandshakeResponse, error) {
 	// 4.19.3.2. BTP Handshake Response
 	if len(data) < 6 {
-		return nil, fmt.Errorf("%w: %s", ErrInvalid, "handshake response length is less than 3")
+		return nil, fmt.Errorf("%w: %s", errors.ErrInvalid, "handshake response length is less than 3")
 	}
 	return &handshakeResponse{
 		bytes: data,
