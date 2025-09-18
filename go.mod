@@ -3,7 +3,7 @@ module github.com/cybergarage/go-matter
 go 1.25
 
 require (
-	github.com/cybergarage/go-ble v0.0.0-20250917171055-c4ba972b12d5
+	github.com/cybergarage/go-ble v0.0.0-20250918035400-5734dab0b943
 	github.com/cybergarage/go-logger v1.3.11
 	github.com/cybergarage/go-mdns v0.0.0-20250916142804-706cc05169b2
 	github.com/cybergarage/go-safecast v1.3.4
