@@ -14,12 +14,12 @@
 
 package btp
 
-// CRC8 computation (polynomial 0x31, initial 0xFF) for BTP frames
+// CRC8 computation (polynomial 0x31, initial 0xFF) for BTP frames.
 func computeCRC8(data []byte) byte {
 	crc := byte(0xFF)
 	for _, b := range data {
 		crc ^= b
-		for i := 0; i < 8; i++ {
+		for range 8 {
 			if crc&0x80 != 0 {
 				crc = byte((uint16(crc) << 1) ^ 0x31)
 			} else {
