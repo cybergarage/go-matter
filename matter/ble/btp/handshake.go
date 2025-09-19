@@ -22,11 +22,6 @@ import (
 	"github.com/cybergarage/go-matter/matter/errors"
 )
 
-var (
-	// 4.19.3.1. BTP Handshake Request.
-	handshakeReqestPayload = []byte{0x65, 0x6C, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 244}
-)
-
 // HandshakeRequest represents a BTP handshake request.
 type HandshakeRequest interface {
 	// Bytes returns the byte representation of the handshake request.
@@ -36,15 +31,28 @@ type HandshakeRequest interface {
 }
 
 type handshakeRequest struct {
+	bytes []byte
 }
 
 // NewHandshakeRequest returns a new HandshakeRequest.
 func NewHandshakeRequest() HandshakeRequest {
-	return &handshakeRequest{}
+	// Construct handshake request frame (9 bytes)[6]
+	handshake := make([]byte, 9)
+	handshake[0] = 0x65 // Control flags: Handshake + Management + etc. (0x65)[7]
+	handshake[1] = 0x6C // Management Opcode: 0x6C (BLE transport handshake)
+	handshake[2] = 0x04 // BTP version = 4
+	// Bytes [3..7]: supported BTP version mask or reserved (set to 0)
+	for i := 3; i <= 7; i++ {
+		handshake[i] = 0x00
+	}
+	handshake[8] = computeCRC8(handshake[:8]) // CRC8 over first 8 bytes
+	return &handshakeRequest{
+		bytes: handshake,
+	}
 }
 
 func (req *handshakeRequest) Bytes() []byte {
-	return handshakeReqestPayload
+	return req.bytes
 }
 
 // String returns the string representation of the handshake request.
