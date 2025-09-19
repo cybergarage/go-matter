@@ -24,6 +24,8 @@ import (
 
 // HandshakeRequest represents a BTP handshake request.
 type HandshakeRequest interface {
+	// Versiond returns the BTP version.
+	Versiond() int
 	// Bytes returns the byte representation of the handshake request.
 	Bytes() []byte
 	// String returns the string representation of the handshake request.
@@ -51,6 +53,12 @@ func NewHandshakeRequest() HandshakeRequest {
 	}
 }
 
+// Versiond returns the BTP version.
+func (req *handshakeRequest) Versiond() int {
+	return int(req.bytes[2])
+}
+
+// Bytes returns the byte representation of the handshake request.
 func (req *handshakeRequest) Bytes() []byte {
 	return req.bytes
 }
