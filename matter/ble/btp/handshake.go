@@ -24,6 +24,10 @@ import (
 
 // HandshakeRequest represents a BTP handshake request.
 type HandshakeRequest interface {
+	// ControlFlags returns the control flags.
+	ControlFlags() byte
+	// Opcode returns the management opcode.
+	Opcode() byte
 	// Versiond returns the BTP version.
 	Versiond() int
 	// Bytes returns the byte representation of the handshake request.
@@ -53,8 +57,27 @@ func NewHandshakeRequest() HandshakeRequest {
 	}
 }
 
+// ControlFlags returns the control flags.
+func (req *handshakeRequest) ControlFlags() byte {
+	if len(req.bytes) < 1 {
+		return 0
+	}
+	return req.bytes[0]
+}
+
+// Opcode returns the management opcode.
+func (req *handshakeRequest) Opcode() byte {
+	if len(req.bytes) < 2 {
+		return 0
+	}
+	return req.bytes[1]
+}
+
 // Versiond returns the BTP version.
 func (req *handshakeRequest) Versiond() int {
+	if len(req.bytes) < 6 {
+		return 0
+	}
 	return int(req.bytes[2])
 }
 
@@ -70,6 +93,12 @@ func (req *handshakeRequest) String() string {
 
 // HandshakeResponse represents a BTP handshake response.
 type HandshakeResponse interface {
+	// ControlFlags returns the control flags.
+	ControlFlags() byte
+	// Opcode returns the management opcode.
+	Opcode() byte
+	// Vendord returns the vendor ID.
+	Vendord() int
 	// Bytes returns the byte representation of the handshake response.
 	Bytes() []byte
 	// String returns the string representation of the handshake response.
@@ -89,6 +118,30 @@ func NewHandshakeResponseFromBytes(data []byte) (HandshakeResponse, error) {
 	return &handshakeResponse{
 		bytes: data,
 	}, nil
+}
+
+// ControlFlags returns the control flags.
+func (res *handshakeResponse) ControlFlags() byte {
+	if len(res.bytes) < 1 {
+		return 0
+	}
+	return res.bytes[0]
+}
+
+// Opcode returns the management opcode.
+func (res *handshakeResponse) Opcode() byte {
+	if len(res.bytes) < 2 {
+		return 0
+	}
+	return res.bytes[1]
+}
+
+// Vendord returns the vendor ID.
+func (res *handshakeResponse) Vendord() int {
+	if len(res.bytes) < 6 {
+		return 0
+	}
+	return int((res.bytes[2] & 0xF0) >> 4)
 }
 
 // Bytes returns the byte representation of the handshake response.
