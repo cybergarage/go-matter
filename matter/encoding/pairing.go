@@ -69,8 +69,8 @@ func (pc *pairingCode) Discriminator() Discriminator {
 }
 
 // Passcode returns the Passcode.
-func (pc *pairingCode) Passcode() uint32 {
-	return pc.passcode
+func (pc *pairingCode) Passcode() Passcode {
+	return Passcode(pc.passcode)
 }
 
 // String returns the manual pairing code string representation (11-digit or 21-digit).

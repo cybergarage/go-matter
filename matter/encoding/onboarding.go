@@ -34,5 +34,5 @@ type OnboardingPayload interface {
 	// Discriminator returns the Discriminator.
 	Discriminator() Discriminator
 	// Passcode returns the Passcode.
-	Passcode() uint32
+	Passcode() Passcode
 }

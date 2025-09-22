@@ -123,8 +123,8 @@ func (qr *qrPayload) Discriminator() Discriminator {
 }
 
 // Passcode returns the Passcode.
-func (qr *qrPayload) Passcode() uint32 {
-	return qr.passcode
+func (qr *qrPayload) Passcode() Passcode {
+	return Passcode(qr.passcode)
 }
 
 // Bytes packs the payload fields into a little-endian []byte per Matter spec.
