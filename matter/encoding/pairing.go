@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"strconv"
 	"unicode"
+
+	"github.com/cybergarage/go-matter/matter/types"
 )
 
 // PairingCode represents a Matter manual pairing code.
@@ -180,9 +182,9 @@ func decodeManualPairingCode(paraingCodeStr string) (*pairingCode, error) {
 		productID = uint16(p16_20)
 	}
 
-	commFlow := CommissioningFlowStandard
+	commFlow := types.CommissioningFlowStandard
 	if vpIDPresent == 1 {
-		commFlow = CommissioningFlowCustom
+		commFlow = types.CommissioningFlowCustom
 	}
 
 	return &pairingCode{

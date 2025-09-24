@@ -21,6 +21,12 @@ import (
 // Discriminator represents the discriminator value used in onboarding payloads.
 type Discriminator = types.Discriminator
 
+// CommissioningFlow represents the commissioning flow type.
+type CommissioningFlow = types.CommissioningFlow
+
+// Passcode represents a passcode.
+type Passcode = types.Passcode
+
 // OnboardingPayload defines the common onboarding payload fields.
 type OnboardingPayload interface {
 	// Version returns the version.
