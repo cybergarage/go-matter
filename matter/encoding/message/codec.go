@@ -22,17 +22,17 @@ import (
 // FrameEncoder defines an interface for encoding Frame objects into raw bytes.
 type FrameEncoder interface {
 	// Encode encodes the provided Frame into a newly allocated byte slice.
-	Encode(f Frame) ([]byte, error)
+	Encode(f Message) ([]byte, error)
 	// EncodeInto encodes the provided Frame into the supplied buffer, returning bytes written.
-	EncodeInto(f Frame, dst []byte) (int, error)
+	EncodeInto(f Message, dst []byte) (int, error)
 	// ComputeLength returns the number of bytes required to encode the Frame.
-	ComputeLength(f Frame) (int, error)
+	ComputeLength(f Message) (int, error)
 }
 
 // FrameDecoder defines an interface for decoding raw bytes into Frame objects.
 type FrameDecoder interface {
 	// Decode parses the raw byte slice into a new Frame instance.
-	Decode(src []byte) (Frame, error)
+	Decode(src []byte) (Message, error)
 	// PeekFrameControl extracts version, type, and presence flags without full decode.
 	PeekFrameControl(src []byte) (version FrameVersion, frameType FrameType, hasSrc, hasDst bool, err error)
 	// Validate verifies minimal structural correctness (length, supported version).
@@ -59,7 +59,7 @@ func NewBasicFrameCodec() *BasicFrameCodec {
 }
 
 // Encode allocates a buffer and encodes the frame into it.
-func (c *BasicFrameCodec) Encode(f Frame) ([]byte, error) {
+func (c *BasicFrameCodec) Encode(f Message) ([]byte, error) {
 	total, err := c.ComputeLength(f)
 	if err != nil {
 		return nil, err
@@ -70,7 +70,7 @@ func (c *BasicFrameCodec) Encode(f Frame) ([]byte, error) {
 }
 
 // EncodeInto encodes the frame into an existing buffer.
-func (c *BasicFrameCodec) EncodeInto(f Frame, dst []byte) (int, error) {
+func (c *BasicFrameCodec) EncodeInto(f Message, dst []byte) (int, error) {
 	if f.Payload() == nil {
 		return 0, ErrPayloadMissing
 	}
@@ -138,7 +138,7 @@ func (c *BasicFrameCodec) EncodeInto(f Frame, dst []byte) (int, error) {
 }
 
 // ComputeLength returns the encoded length of the frame, validating MIC limits.
-func (c *BasicFrameCodec) ComputeLength(f Frame) (int, error) {
+func (c *BasicFrameCodec) ComputeLength(f Message) (int, error) {
 	if err := c.validateVersion(f.Version()); err != nil {
 		return 0, err
 	}
@@ -170,7 +170,7 @@ func (c *BasicFrameCodec) ComputeLength(f Frame) (int, error) {
 }
 
 // Decode builds a new Frame from the raw buffer.
-func (c *BasicFrameCodec) Decode(src []byte) (Frame, error) {
+func (c *BasicFrameCodec) Decode(src []byte) (Message, error) {
 	if len(src) < 2+2+1+4 {
 		return nil, ErrInvalidFrameLength
 	}

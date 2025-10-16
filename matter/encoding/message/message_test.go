@@ -19,8 +19,8 @@ import (
 	"testing"
 )
 
-// TestBasicFrameCodec verifies encode/decode round-trip for a basic frame using WithFrameOption.
-func TestBasicFrameCodec(t *testing.T) {
+// TestMessageFrame verifies encode/decode round-trip for a basic frame using WithFrameOption.
+func TestMessageFrame(t *testing.T) {
 	codec := NewBasicFrameCodec()
 
 	fr := NewBasicFrameWith(

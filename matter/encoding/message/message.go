@@ -34,9 +34,9 @@ const (
 	FrameTypeControl FrameType = 0x02
 )
 
-// Frame defines the interface for a Matter-like message frame.
+// Message defines the interface for a Matter-like message frame.
 // All fields are read-only; mutation is by WithFrameOption only.
-type Frame interface {
+type Message interface {
 	// Version returns the frame version.
 	Version() FrameVersion
 	// Type returns the frame type.
@@ -61,12 +61,12 @@ type Frame interface {
 	MIC() []byte
 }
 
-// WithFrameOption is a functional option type for basicFrame construction.
+// WithMessageOption is a functional option type for basicFrame construction.
 // Each option mutates the basicFrame pointer during creation.
-type WithFrameOption func(*basicFrame)
+type WithMessageOption func(*message)
 
-// basicFrame is the default concrete implementation of Frame.
-type basicFrame struct {
+// message is the default concrete implementation of Frame.
+type message struct {
 	version        FrameVersion
 	ftype          FrameType
 	hasSourceNode  bool
@@ -81,7 +81,7 @@ type basicFrame struct {
 }
 
 // NewBasicFrameWith creates a new basicFrame implementing Frame, applying any options.
-func NewBasicFrameWith(opts ...WithFrameOption) Frame {
+func NewBasicFrameWith(opts ...WithMessageOption) Message {
 	return newBasicFrameWith(opts...)
 }
 
@@ -99,8 +99,8 @@ func NewBasicFrameWith(opts ...WithFrameOption) Frame {
 //	DestNodeID: 0x0
 //	Payload: nil
 //	MIC: nil
-func newBasicFrameWith(opts ...WithFrameOption) *basicFrame {
-	f := &basicFrame{
+func newBasicFrameWith(opts ...WithMessageOption) *message {
+	f := &message{
 		version:        FrameVersion1,
 		ftype:          FrameTypeUnspecified,
 		hasSourceNode:  false,
@@ -120,122 +120,122 @@ func newBasicFrameWith(opts ...WithFrameOption) *basicFrame {
 }
 
 // Version implements Frame.
-func (f *basicFrame) Version() FrameVersion { return f.version }
+func (f *message) Version() FrameVersion { return f.version }
 
 // SetVersion implements Frame (fluent).
-func (f *basicFrame) SetVersion(v FrameVersion) *basicFrame { f.version = v; return f }
+func (f *message) SetVersion(v FrameVersion) *message { f.version = v; return f }
 
 // Type implements Frame.
-func (f *basicFrame) Type() FrameType { return f.ftype }
+func (f *message) Type() FrameType { return f.ftype }
 
 // SetType implements Frame (fluent).
-func (f *basicFrame) SetType(t FrameType) *basicFrame { f.ftype = t; return f }
+func (f *message) SetType(t FrameType) *message { f.ftype = t; return f }
 
 // HasSourceNodeID implements Frame.
-func (f *basicFrame) HasSourceNodeID() bool { return f.hasSourceNode }
+func (f *message) HasSourceNodeID() bool { return f.hasSourceNode }
 
 // SetSourceNodeIDPresent implements Frame (fluent).
-func (f *basicFrame) SetSourceNodeIDPresent(p bool) *basicFrame { f.hasSourceNode = p; return f }
+func (f *message) SetSourceNodeIDPresent(p bool) *message { f.hasSourceNode = p; return f }
 
 // HasDestNodeID implements Frame.
-func (f *basicFrame) HasDestNodeID() bool { return f.hasDestNode }
+func (f *message) HasDestNodeID() bool { return f.hasDestNode }
 
 // SetDestNodeIDPresent implements Frame (fluent).
-func (f *basicFrame) SetDestNodeIDPresent(p bool) *basicFrame { f.hasDestNode = p; return f }
+func (f *message) SetDestNodeIDPresent(p bool) *message { f.hasDestNode = p; return f }
 
 // SessionID implements Frame.
-func (f *basicFrame) SessionID() uint16 { return f.sessionID }
+func (f *message) SessionID() uint16 { return f.sessionID }
 
 // SetSessionID implements Frame (fluent).
-func (f *basicFrame) SetSessionID(id uint16) *basicFrame { f.sessionID = id; return f }
+func (f *message) SetSessionID(id uint16) *message { f.sessionID = id; return f }
 
 // SecurityFlags implements Frame.
-func (f *basicFrame) SecurityFlags() uint8 { return f.securityFlags }
+func (f *message) SecurityFlags() uint8 { return f.securityFlags }
 
 // SetSecurityFlags implements Frame (fluent).
-func (f *basicFrame) SetSecurityFlags(sf uint8) *basicFrame { f.securityFlags = sf; return f }
+func (f *message) SetSecurityFlags(sf uint8) *message { f.securityFlags = sf; return f }
 
 // MessageCounter implements Frame.
-func (f *basicFrame) MessageCounter() uint32 { return f.messageCounter }
+func (f *message) MessageCounter() uint32 { return f.messageCounter }
 
 // SetMessageCounter implements Frame (fluent).
-func (f *basicFrame) SetMessageCounter(mc uint32) *basicFrame { f.messageCounter = mc; return f }
+func (f *message) SetMessageCounter(mc uint32) *message { f.messageCounter = mc; return f }
 
 // SourceNodeID implements Frame.
-func (f *basicFrame) SourceNodeID() uint64 { return f.sourceNodeID }
+func (f *message) SourceNodeID() uint64 { return f.sourceNodeID }
 
 // SetSourceNodeID implements Frame (fluent).
-func (f *basicFrame) SetSourceNodeID(id uint64) *basicFrame { f.sourceNodeID = id; return f }
+func (f *message) SetSourceNodeID(id uint64) *message { f.sourceNodeID = id; return f }
 
 // DestNodeID implements Frame.
-func (f *basicFrame) DestNodeID() uint64 { return f.destNodeID }
+func (f *message) DestNodeID() uint64 { return f.destNodeID }
 
 // SetDestNodeID implements Frame (fluent).
-func (f *basicFrame) SetDestNodeID(id uint64) *basicFrame { f.destNodeID = id; return f }
+func (f *message) SetDestNodeID(id uint64) *message { f.destNodeID = id; return f }
 
 // Payload implements Frame.
-func (f *basicFrame) Payload() []byte { return f.payload }
+func (f *message) Payload() []byte { return f.payload }
 
 // SetPayload implements Frame (fluent).
-func (f *basicFrame) SetPayload(p []byte) *basicFrame { f.payload = p; return f }
+func (f *message) SetPayload(p []byte) *message { f.payload = p; return f }
 
 // MIC implements Frame.
-func (f *basicFrame) MIC() []byte { return f.mic }
+func (f *message) MIC() []byte { return f.mic }
 
 // SetMIC implements Frame (fluent).
-func (f *basicFrame) SetMIC(m []byte) *basicFrame { f.mic = m; return f }
+func (f *message) SetMIC(m []byte) *message { f.mic = m; return f }
 
 // WithVersion sets the frame version field.
-func WithVersion(v FrameVersion) WithFrameOption {
-	return func(f *basicFrame) { f.version = v }
+func WithVersion(v FrameVersion) WithMessageOption {
+	return func(f *message) { f.version = v }
 }
 
 // WithType sets the frame type field.
-func WithType(t FrameType) WithFrameOption {
-	return func(f *basicFrame) { f.ftype = t }
+func WithType(t FrameType) WithMessageOption {
+	return func(f *message) { f.ftype = t }
 }
 
 // WithSourceNodeIDPresent sets the source node ID presence flag.
-func WithSourceNodeIDPresent(p bool) WithFrameOption {
-	return func(f *basicFrame) { f.hasSourceNode = p }
+func WithSourceNodeIDPresent(p bool) WithMessageOption {
+	return func(f *message) { f.hasSourceNode = p }
 }
 
 // WithDestNodeIDPresent sets the destination node ID presence flag.
-func WithDestNodeIDPresent(p bool) WithFrameOption {
-	return func(f *basicFrame) { f.hasDestNode = p }
+func WithDestNodeIDPresent(p bool) WithMessageOption {
+	return func(f *message) { f.hasDestNode = p }
 }
 
 // WithSessionID sets the session ID field.
-func WithSessionID(id uint16) WithFrameOption {
-	return func(f *basicFrame) { f.sessionID = id }
+func WithSessionID(id uint16) WithMessageOption {
+	return func(f *message) { f.sessionID = id }
 }
 
 // WithSecurityFlags sets the security flags field.
-func WithSecurityFlags(flags uint8) WithFrameOption {
-	return func(f *basicFrame) { f.securityFlags = flags }
+func WithSecurityFlags(flags uint8) WithMessageOption {
+	return func(f *message) { f.securityFlags = flags }
 }
 
 // WithMessageCounter sets the message counter field.
-func WithMessageCounter(mc uint32) WithFrameOption {
-	return func(f *basicFrame) { f.messageCounter = mc }
+func WithMessageCounter(mc uint32) WithMessageOption {
+	return func(f *message) { f.messageCounter = mc }
 }
 
 // WithSourceNodeID sets the source node ID field.
-func WithSourceNodeID(id uint64) WithFrameOption {
-	return func(f *basicFrame) { f.sourceNodeID = id }
+func WithSourceNodeID(id uint64) WithMessageOption {
+	return func(f *message) { f.sourceNodeID = id }
 }
 
 // WithDestNodeID sets the destination node ID field.
-func WithDestNodeID(id uint64) WithFrameOption {
-	return func(f *basicFrame) { f.destNodeID = id }
+func WithDestNodeID(id uint64) WithMessageOption {
+	return func(f *message) { f.destNodeID = id }
 }
 
 // WithPayload sets the payload field.
-func WithPayload(p []byte) WithFrameOption {
-	return func(f *basicFrame) { f.payload = p }
+func WithPayload(p []byte) WithMessageOption {
+	return func(f *message) { f.payload = p }
 }
 
 // WithMIC sets the MIC field.
-func WithMIC(m []byte) WithFrameOption {
-	return func(f *basicFrame) { f.mic = m }
+func WithMIC(m []byte) WithMessageOption {
+	return func(f *message) { f.mic = m }
 }
