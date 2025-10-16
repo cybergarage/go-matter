@@ -13,6 +13,27 @@ Matter is an open-source connectivity standard for smart home and IoT (Internet 
 
 **Note:** 🌱 This is a spare-time hobby project, so progress may be slow and changes may appear irregular. Thank you for your patience 🙂
 
+### Progress Overview
+
+#### Packages
+
+| Package | Status | Description |
+|---------|--------|-------------|
+| `ble.btp` | ✅ Under verification | BLE transport protocol implementation |
+| `encoding.base38` | ✅ Implemented | Base38 encoding/decoding |
+| `encoding.qr` | ✅ Implemented | QR code generation |
+| `encoding.pairing` | ✅ Implemented | Manual pairing code handling |
+| `encoding.tlv` | 🚧 In progress | TLV (Tag-Length-Value) encoding |
+| `pase` | 🚧 In progress | Passcode-Authenticated Session Establishment (PASE) implementation |
+
+#### Related Projects
+
+| Project | Status | Description |
+|---------|--------|-------------|
+| [go-ble](https://github.com/cybergarage/go-ble) | 🚧 In progress | Go package for Bluetooth Low Energy (BLE) communication |
+| [go-mdns](github.com/cybergarage/go-mdns) | 🚧 In progress | Go package for mDNS (Multicast DNS) service discovery |
+
+
 ## References
 
 - [Matter](https://buildwithmatter.com/)
