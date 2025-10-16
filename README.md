@@ -11,6 +11,8 @@
 Matter is an open-source connectivity standard for smart home and IoT (Internet of Things) devices.
 `go-matter` is a Go library for develping Matter applications and devices.
 
+**Note:** 🌱 This is a spare-time hobby project, so progress may be slow and changes may appear irregular. Thank you for your patience 🙂
+
 ## References
 
 - [Matter](https://buildwithmatter.com/)
