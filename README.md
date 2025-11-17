@@ -31,7 +31,7 @@ Matter is an open-source connectivity standard for smart home and IoT (Internet 
 | Project | Status | Description |
 |---------|--------|-------------|
 | [go-ble](https://github.com/cybergarage/go-ble) | 🚧 In progress | Go package for Bluetooth Low Energy (BLE) communication |
-| [go-mdns](github.com/cybergarage/go-mdns) | 🚧 In progress | Go package for mDNS (Multicast DNS) service discovery |
+| [go-mdns](https://github.com/cybergarage/go-mdns) | 🚧 In progress | Go package for mDNS (Multicast DNS) service discovery |
 
 
 ## References
