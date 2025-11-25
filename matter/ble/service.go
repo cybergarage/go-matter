@@ -81,7 +81,7 @@ type service struct {
 	*advertisingData
 }
 
-// NewService returns a new BLE service.
+// NewServiceWith returns a new BLE service.
 func NewServiceWith(bleService ble.Service) (Service, error) {
 	adData, err := newAdvertisingDataFromBytes(bleService.Data())
 	if err != nil {

@@ -35,7 +35,7 @@ type CommissioningOptions interface {
 	encoding.OnboardingPayload
 }
 
-// commissioner represents a commissioner.
+// Commissioner represents a commissioner interface.
 type Commissioner interface {
 	// Scannar returns the BLE scanner.
 	Scannar() ble.Scanner
