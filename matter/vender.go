@@ -19,12 +19,12 @@ import (
 )
 
 // VendorID represents a vendor ID.
-type VenderID = protocol.VenderID
+type VendorID = protocol.VendorID
 
 const (
-	MatterStandardVenderID VenderID = 0x0000
-	TestVender01ID         VenderID = 0xFFF1
-	TestVender02ID         VenderID = 0xFFF2
-	TestVender03ID         VenderID = 0xFFF3
-	TestVender04ID         VenderID = 0xFFF4
+	MatterStandardVendorID VendorID = 0x0000
+	TestVendor01ID         VendorID = 0xFFF1
+	TestVendor02ID         VendorID = 0xFFF2
+	TestVender03ID         VendorID = 0xFFF3
+	TestVender04ID         VendorID = 0xFFF4
 )
