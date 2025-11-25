@@ -37,7 +37,7 @@ Matter is an open-source connectivity standard for smart home and IoT (Internet 
 ## References
 
 - [Matter](https://buildwithmatter.com/)
-    - [Matter 1.4 Standard Namespace Specification](https://csa-iot.org/developer-resource/specifications-download-request/)
-    - [Matter 1.4 Device Library Specification](https://csa-iot.org/developer-resource/specifications-download-request/)
-    - [Matter 1.4 Core Specification](https://csa-iot.org/developer-resource/specifications-download-request/)
-    - [Matter 1.4 Application Cluster Specification](https://csa-iot.org/developer-resource/specifications-download-request/)
+    - [Matter 1.5 Standard Namespace Specification](https://csa-iot.org/developer-resource/specifications-download-request/)
+    - [Matter 1.5 Device Library Specification](https://csa-iot.org/developer-resource/specifications-download-request/)
+    - [Matter 1.5 Core Specification](https://csa-iot.org/developer-resource/specifications-download-request/)
+    - [Matter 1.5 Application Cluster Specification](https://csa-iot.org/developer-resource/specifications-download-request/)
