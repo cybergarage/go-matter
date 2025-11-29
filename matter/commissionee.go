@@ -29,7 +29,9 @@ type Commissionee struct {
 
 // NewCommissioneeWithMessage returns a new commissionee with a mDNS message.
 func NewCommissioneeWithMessage(msg *dns.Message) (*Commissionee, error) {
-	service, err := mdns.NewServiceWithMessage(msg)
+	service, err := mdns.NewService(
+		mdns.WithServiceMessage(msg),
+	)
 	if err != nil {
 		return nil, err
 	}

@@ -21,7 +21,6 @@ import (
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/encoding"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 func init() {
@@ -34,12 +33,6 @@ var pairingCmd = &cobra.Command{ // nolint:exhaustruct
 	Long:  "Pairing Matter devices.",
 	Args:  cobra.ExactArgs(4),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		verbose := viper.GetBool(VerboseParamStr)
-		if verbose {
-			debug := viper.GetBool(DebugParamStr)
-			enableStdoutVerbose(true, debug)
-		}
-
 		nodeID := args[0]
 		passcode := args[1]
 		wifiSSID := args[2]

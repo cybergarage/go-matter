@@ -48,6 +48,15 @@ func SharedCommissioner() matter.Commissioner {
 }
 
 func Execute(commissioner matter.Commissioner) error {
+	verbose := viper.GetBool(VerboseParamStr)
+	debug := viper.GetBool(DebugParamStr)
+	if debug {
+		verbose = true
+	}
+	if verbose {
+		enableStdoutVerbose(verbose, debug)
+	}
+
 	sharedCommissioner = commissioner
 	if err := sharedCommissioner.Start(); err != nil {
 		return err
