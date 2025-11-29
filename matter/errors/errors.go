@@ -31,6 +31,6 @@ func Is(err, target error) bool {
 }
 
 // As finds the first error in err's chain that matches target, and if so, sets target to that error value and returns true.
-func As(err error, target interface{}) bool {
+func As(err error, target any) bool {
 	return errors.As(err, target)
 }

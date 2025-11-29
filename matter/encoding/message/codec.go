@@ -17,6 +17,7 @@ package message
 import (
 	"encoding/binary"
 	"fmt"
+	"slices"
 )
 
 // FrameEncoder defines an interface for encoding Frame objects into raw bytes.
@@ -269,10 +270,8 @@ func (c *BasicFrameCodec) validateVersion(v FrameVersion) error {
 		}
 		return ErrUnknownVersion
 	}
-	for _, av := range c.AllowedVersions {
-		if av == v {
-			return nil
-		}
+	if slices.Contains(c.AllowedVersions, v) {
+		return nil
 	}
 	return ErrUnknownVersion
 }

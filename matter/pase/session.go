@@ -19,8 +19,7 @@ import (
 )
 
 // Session represents a PASE session.
-type Session interface {
-}
+type Session any
 
 // SessionOption represents a session option.
 type SessionOption func(*session)
