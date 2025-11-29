@@ -28,9 +28,13 @@ func errorf(format string, args ...any) {
 	fmt.Printf(format, args...)
 }
 
-func enableStdoutVerbose(flag bool) {
+func enableStdoutVerbose(flag bool, debug bool) {
 	if flag {
-		log.SetSharedLogger(log.NewStdoutLogger(log.LevelInfo))
+		if debug {
+			log.SetSharedLogger(log.NewStdoutLogger(log.LevelDebug))
+		} else {
+			log.SetSharedLogger(log.NewStdoutLogger(log.LevelInfo))
+		}
 	} else {
 		log.SetSharedLogger(nil)
 	}

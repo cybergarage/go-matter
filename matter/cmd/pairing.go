@@ -36,7 +36,8 @@ var pairingCmd = &cobra.Command{ // nolint:exhaustruct
 	RunE: func(cmd *cobra.Command, args []string) error {
 		verbose := viper.GetBool(VerboseParamStr)
 		if verbose {
-			enableStdoutVerbose(true)
+			debug := viper.GetBool(DebugParamStr)
+			enableStdoutVerbose(true, debug)
 		}
 
 		nodeID := args[0]

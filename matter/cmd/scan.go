@@ -39,7 +39,8 @@ var scanCmd = &cobra.Command{ // nolint:exhaustruct
 	RunE: func(cmd *cobra.Command, args []string) error {
 		verbose := viper.GetBool(VerboseParamStr)
 		if verbose {
-			enableStdoutVerbose(true)
+			debug := viper.GetBool(DebugParamStr)
+			enableStdoutVerbose(true, debug)
 		}
 
 		format, err := NewFormatFromString(viper.GetString(FormatParamStr))
