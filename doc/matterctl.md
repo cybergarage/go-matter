@@ -5,6 +5,7 @@
 ### Options
 
 ```
+      --debug           enable debug output
       --format string   output format: table|json|csv (default "table")
   -h, --help            help for matterctl
       --verbose         enable verbose output
@@ -33,6 +34,7 @@ See each sub-command's help for details on how to use the generated script.
 ### Options inherited from parent commands
 
 ```
+      --debug           enable debug output
       --format string   output format: table|json|csv (default "table")
       --verbose         enable verbose output
 ```
@@ -84,6 +86,7 @@ matterctl completion bash
 ### Options inherited from parent commands
 
 ```
+      --debug           enable debug output
       --format string   output format: table|json|csv (default "table")
       --verbose         enable verbose output
 ```
@@ -122,6 +125,7 @@ matterctl completion fish [flags]
 ### Options inherited from parent commands
 
 ```
+      --debug           enable debug output
       --format string   output format: table|json|csv (default "table")
       --verbose         enable verbose output
 ```
@@ -149,6 +153,7 @@ matterctl completion help [command] [flags]
 ### Options inherited from parent commands
 
 ```
+      --debug           enable debug output
       --format string   output format: table|json|csv (default "table")
       --verbose         enable verbose output
 ```
@@ -184,6 +189,7 @@ matterctl completion powershell [flags]
 ### Options inherited from parent commands
 
 ```
+      --debug           enable debug output
       --format string   output format: table|json|csv (default "table")
       --verbose         enable verbose output
 ```
@@ -233,6 +239,7 @@ matterctl completion zsh [flags]
 ### Options inherited from parent commands
 
 ```
+      --debug           enable debug output
       --format string   output format: table|json|csv (default "table")
       --verbose         enable verbose output
 ```
@@ -255,6 +262,7 @@ matterctl doc [flags]
 ### Options inherited from parent commands
 
 ```
+      --debug           enable debug output
       --format string   output format: table|json|csv (default "table")
       --verbose         enable verbose output
 ```
@@ -282,6 +290,7 @@ matterctl help [command] [flags]
 ### Options inherited from parent commands
 
 ```
+      --debug           enable debug output
       --format string   output format: table|json|csv (default "table")
       --verbose         enable verbose output
 ```
@@ -308,6 +317,7 @@ matterctl pairing <node ID> <pairing code> <WIFI SSID> <WIFI password> [flags]
 ### Options inherited from parent commands
 
 ```
+      --debug           enable debug output
       --format string   output format: table|json|csv (default "table")
       --verbose         enable verbose output
 ```
@@ -334,6 +344,7 @@ matterctl scan [flags]
 ### Options inherited from parent commands
 
 ```
+      --debug           enable debug output
       --format string   output format: table|json|csv (default "table")
       --verbose         enable verbose output
 ```
