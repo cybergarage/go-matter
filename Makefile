@@ -98,7 +98,7 @@ codecov: test
 install:
 	go install ${BINS}
 	${GOBIN}/${BIN_CTL} doc > ${DOCS_ROOT_DIR}/${BIN_CTL}.md
-	git commit ${DOCS_ROOT_DIR}/${BIN_CTL}.md -m "docs: update ${BIN_CTL} command reference"
+	-git commit ${DOCS_ROOT_DIR}/${BIN_CTL}.md -m "docs: update ${BIN_CTL} command reference"
 
 clean:
 	go clean -i ${PKG} ${TEST_PKG} ${BINS}
