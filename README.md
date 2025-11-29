@@ -34,6 +34,12 @@ Matter is an open-source connectivity standard for smart home and IoT (Internet 
 | [go-mdns](https://github.com/cybergarage/go-mdns) | 🚧 In progress | Go package for mDNS (Multicast DNS) service discovery |
 
 
+# User Guides
+
+- Operation
+  - [matterctl](doc/matterctl.md)
+
+
 ## References
 
 - [Matter](https://buildwithmatter.com/)
