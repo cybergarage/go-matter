@@ -24,7 +24,7 @@ import (
 
 // Commissionee represents a commissionee.
 type Commissionee struct {
-	*mdns.Service
+	mdns.Service
 }
 
 // NewCommissioneeWithMessage returns a new commissionee with a mDNS message.
@@ -37,7 +37,7 @@ func NewCommissioneeWithMessage(msg *dns.Message) (*Commissionee, error) {
 }
 
 // NewCommissioneeWithService returns a new commissionee with a mDNS service.
-func NewCommissioneeWithService(service *mdns.Service) *Commissionee {
+func NewCommissioneeWithService(service mdns.Service) *Commissionee {
 	com := &Commissionee{
 		Service: service,
 	}
@@ -46,7 +46,7 @@ func NewCommissioneeWithService(service *mdns.Service) *Commissionee {
 
 // LookupSubtype returns a subtype for the specified prefix.
 func (com *Commissionee) LookupSubtype(prefix string) (string, bool) {
-	record, ok := com.Service.LookupResourceRecordForNamePrefix(prefix)
+	record, ok := com.Service.LookupResourceRecordByNamePrefix(prefix)
 	if !ok {
 		return "", false
 	}

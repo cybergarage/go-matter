@@ -15,18 +15,23 @@
 package matter
 
 import (
+	"context"
+	"time"
+
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-mdns/mdns"
 	"github.com/cybergarage/go-mdns/mdns/dns"
 )
 
 const (
-	DNSSDServerType = "_matter._tcp"
+	mDNSSDServerType  = "_matter._tcp"
+	mDNSSearchDomain  = "local."
+	mDNSSearchTimeout = time.Duration(5 * time.Second)
 )
 
 // Discoverer represents a discoverer for commisionners.
 type Discoverer struct {
-	*mdns.Client
+	mdns.Client
 }
 
 // NewDiscoverer returns a new discoverer.
@@ -57,15 +62,20 @@ func (disc *Discoverer) Stop() error {
 // To discover a commissionable device over an existing IP-bearing network connection,
 // the Commis­ sioner SHALL perform service discovery using DNS-SD as detailed in
 // Section 4.3, “Discovery”, and more specifically in Section 4.3.1, “Commissionable Node Discovery”.
-func (disc *Discoverer) Search() error {
-	services := []string{
-		DNSSDServerType,
-	}
+func (disc *Discoverer) Search() ([]mdns.Service, error) {
+	query := mdns.NewQuery(
+		mdns.WithQueryServices(mDNSSDServerType),
+		mdns.WithQueryDomain(mDNSSearchDomain),
+	)
 
-	err := disc.Query(mdns.NewQueryWithServices(services))
+	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(ctx, mDNSSearchTimeout)
+	defer cancel()
+
+	services, err := disc.Client.Query(ctx, query)
 	if err != nil {
-		return err
+		return []mdns.Service{}, err
 	}
 
-	return nil
+	return services, nil
 }
