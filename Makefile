@@ -14,6 +14,9 @@
 
 SHELL := bash
 
+PATH := $(GOBIN):$(PATH)
+GOBIN := $(shell go env GOPATH)/bin
+
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
 	OS_ENV = macOS
@@ -43,10 +46,13 @@ TEST_PKG=${MODULE_ROOT}/${TEST_PKG_DIR}
 
 BIN_ROOT_DIR=cmd
 BIN_ID=${MODULE_ROOT}/${BIN_ROOT_DIR}
+BIN_CTL=matterctl
 BIN_SRCS=\
-	${BIN_ROOT_DIR}/matterctl
+	${BIN_ROOT_DIR}/${BIN_CTL}
 BINS=\
-	${BIN_ID}/matterctl
+	${BIN_ID}/${BIN_CTL}
+
+DOCS_ROOT_DIR=doc
 
 .PHONY: format vet lint clean
 .IGNORE: lint
@@ -89,8 +95,10 @@ codecov: test
 		echo "codecov or CODECOV_TOKEN not found"; \
 	fi
 
-install: test
+install:
 	go install ${BINS}
+	${GOBIN}/${BIN_CTL} doc > ${DOCS_ROOT_DIR}/${BIN_CTL}.md
+	git commit ${DOCS_ROOT_DIR}/${BIN_CTL}.md -m "docs: update ${BIN_CTL} command reference"
 
 clean:
 	go clean -i ${PKG} ${TEST_PKG} ${BINS}
