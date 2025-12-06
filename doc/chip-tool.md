@@ -21,6 +21,11 @@ sudo apt-get install git gcc g++ pkg-config cmake libssl-dev libdbus-1-dev \
 
 ### Prepare for building
 
+```
+cd connectedhomeip_${CHIP_TOOL_VER}
+source scripts/activate.sh
+```
+
 ## References
 
 - [project-chip/connectedhomeip: Matter (formerly Project CHIP)](https://github.com/project-chip/connectedhomeip)
