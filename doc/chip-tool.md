@@ -3,7 +3,7 @@
 ## Building Matter
 
 - [Welcome to Matter’s documentation — Matter documentation](https://project-chip.github.io/connectedhomeip-doc/index.html)
-  - [Building Matter — Matter documentation](https://project-chip.github.io/connectedhomeip-doc/guides/BUILDING.htm)
+  - [Building Matter — Matter documentation](https://project-chip.github.io/connectedhomeip-doc/guides/BUILDING.html)
 
 ### Checking out the Matter code
 ```
