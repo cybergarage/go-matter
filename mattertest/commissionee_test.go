@@ -24,10 +24,10 @@ import (
 	"github.com/cybergarage/go-mdns/mdns/dns"
 )
 
-//go:embed log/matter-spec-120-4.3.1.13-dns-sd.log
+//go:embed dumps/matter-spec-120-4.3.1.13-dns-sd.dump
 var matterSpec12043113DNSSD string
 
-//go:embed log/matter-spec-120-4.3.1.13-avahi.log
+//go:embed dumps/matter-spec-120-4.3.1.13-avahi.dump
 var matterSpec12043113Avahi string
 
 func TestCommissionee(t *testing.T) {
