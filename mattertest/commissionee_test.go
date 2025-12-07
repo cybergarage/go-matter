@@ -30,6 +30,9 @@ var matterSpec12043113DNSSD string
 //go:embed dumps/matter-spec-120-4.3.1.13-avahi.dump
 var matterSpec12043113Avahi string
 
+//go:embed dumps/amazon-fire-tv-01.dump
+var amazonFireTV01 string
+
 func TestCommissionee(t *testing.T) {
 	type expected struct {
 		disc  string
@@ -38,7 +41,7 @@ func TestCommissionee(t *testing.T) {
 	}
 	tests := []struct {
 		name     string
-		dumpLog  string
+		dump     string
 		expected expected
 	}{
 		// 4.3.1.13. Examples
@@ -69,11 +72,23 @@ func TestCommissionee(t *testing.T) {
 				},
 			},
 		},
+		{
+			"amazon fire tv 01",
+			amazonFireTV01,
+			expected{
+				disc:  "840",
+				discs: "3",
+				attrs: map[string]string{
+					"D":  "840",
+					"CM": "2",
+				},
+			},
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			msgBytes, err := hexdump.DecodeHexdumpLogs(strings.Split(test.dumpLog, "\n"))
+			msgBytes, err := hexdump.DecodeHexdumpLogs(strings.Split(test.dump, "\n"))
 			if err != nil {
 				t.Error(err)
 				return

@@ -48,7 +48,7 @@ func NewCommissioneeWithService(service mdns.Service) *Commissionee {
 
 // LookupSubtype returns a subtype for the specified prefix.
 func (com *Commissionee) LookupSubtype(prefix string) (string, bool) {
-	record, ok := com.Service.LookupResourceRecordByNamePrefix(prefix)
+	record, ok := com.Service.LookupResourceByNamePrefix(prefix)
 	if !ok {
 		return "", false
 	}
@@ -61,7 +61,7 @@ func (com *Commissionee) LookupSubtype(prefix string) (string, bool) {
 
 // LookupAttribute returns an attribute value for the specified name.
 func (com *Commissionee) LookupAttribute(name string) (string, bool) {
-	attr, ok := com.Service.LookupAttribute(name)
+	attr, ok := com.Service.LookupResourceAttribute(name)
 	if !ok {
 		return "", false
 	}
