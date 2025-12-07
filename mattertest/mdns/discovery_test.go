@@ -12,16 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mattertest
+package mdns
 
 import (
 	"testing"
 
-	"github.com/cybergarage/go-matter/matter"
+	"github.com/cybergarage/go-matter/matter/mdns"
 )
 
 func TestDiscoverer(t *testing.T) {
-	disc := matter.NewDiscoverer()
+	disc := mdns.NewDiscoverer()
 
 	err := disc.Start()
 	if err != nil {

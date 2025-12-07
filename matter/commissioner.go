@@ -23,6 +23,7 @@ import (
 	"github.com/cybergarage/go-matter/matter/ble"
 	"github.com/cybergarage/go-matter/matter/encoding"
 	"github.com/cybergarage/go-matter/matter/errors"
+	"github.com/cybergarage/go-matter/matter/mdns"
 )
 
 const (
@@ -50,14 +51,14 @@ type Commissioner interface {
 // commissioner represents a commissioner.
 type commissioner struct {
 	ble.Central
-	*Discoverer
+	*mdns.Discoverer
 }
 
 // NewCommissioner returns a new commissioner.
 func NewCommissioner() *commissioner {
 	com := &commissioner{
 		Central:    ble.NewCentral(),
-		Discoverer: NewDiscoverer(),
+		Discoverer: mdns.NewDiscoverer(),
 	}
 	return com
 }

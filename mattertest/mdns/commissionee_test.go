@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mattertest
+package mdns
 
 import (
 	_ "embed"
@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"github.com/cybergarage/go-logger/log/hexdump"
-	"github.com/cybergarage/go-matter/matter"
+	"github.com/cybergarage/go-matter/matter/mdns"
 	"github.com/cybergarage/go-mdns/mdns/dns"
 )
 
@@ -100,7 +100,7 @@ func TestCommissionee(t *testing.T) {
 				return
 			}
 
-			com, err := matter.NewCommissioneeWithMessage(msg)
+			com, err := mdns.NewCommissioneeWithMessage(msg)
 			if err != nil {
 				t.Error(err)
 				return
