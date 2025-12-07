@@ -25,6 +25,14 @@ cd connectedhomeip_${CHIP_TOOL_VER}
 source scripts/activate.sh
 ```
 
+### Build for the host OS (Linux or macOS)
+
+```
+source scripts/activate.sh
+gn gen out/host
+ninja -C out/host
+```
+
 ## References
 
 - [project-chip/connectedhomeip: Matter (formerly Project CHIP)](https://github.com/project-chip/connectedhomeip)
