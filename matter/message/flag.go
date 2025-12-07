@@ -14,8 +14,8 @@
 
 package message
 
-// 4.4.1.2. Message Flags (8 bits)
 // Flag represents a message flag.
+// 4.4.1.2. Message Flags (8 bits).
 type Flag uint8
 
 // Version returns the matter message format version.
@@ -23,7 +23,7 @@ func (flag Flag) Version() int {
 	return int((flag & 0xF0) >> 4)
 }
 
-// HasVersion returns true if the message has a version.
+// HasSourceNodeID returns true if the message has a source node ID.
 func (flag Flag) HasSourceNodeID() bool {
 	return (flag & 0x04) != 0
 }

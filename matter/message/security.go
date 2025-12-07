@@ -14,8 +14,8 @@
 
 package message
 
-// 4.4.1.4. Security Flags (8 bits)
 // SecurityFlag represents a message security flag.
+// 4.4.1.4. Security Flags (8 bits).
 type SecurityFlag uint8
 
 // IsPrivacyMessage returns true if the message is privacy.

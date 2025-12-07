@@ -14,8 +14,8 @@
 
 package message
 
-// 4.4.1.4. Security Flags (8 bits)
 // SessionType represents a session type.
+// 4.4.1.4. Security Flags (8 bits).
 type SessionType uint8
 
 const (
@@ -25,6 +25,6 @@ const (
 	GroupeSession = (SessionType)(0x01)
 )
 
-// 4.4.1.3. Session ID (16 bits)
 // SessionID represents a session ID.
+// 4.4.1.3. Session ID (16 bits).
 type SessionID uint16

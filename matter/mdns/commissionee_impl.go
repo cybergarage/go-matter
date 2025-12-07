@@ -84,7 +84,7 @@ func (com *commissionee) appendLookupTxtAttribute(records []string, name string)
 	return append(records, v)
 }
 
-// LookupDiscriminator returns a discriminator.
+// LookupDiscriminator returns a full discriminator or short discriminator.
 // 4.3.1.5. TXT key for discriminator (D).
 func (com *commissionee) LookupDiscriminator() (string, bool) {
 	d, ok := com.LookupFullDiscriminator()
@@ -94,7 +94,7 @@ func (com *commissionee) LookupDiscriminator() (string, bool) {
 	return com.LookupShortDiscriminator()
 }
 
-// LookupDiscriminator returns a full 12-bit discriminator.
+// LookupFullDiscriminator returns a full 12-bit discriminator.
 // 4.3.1.3. Commissioning Subtypes (_L).
 func (com *commissionee) LookupFullDiscriminator() (string, bool) {
 	d, ok := com.LookupTxtAttribute(TxtRecordDiscriminator)

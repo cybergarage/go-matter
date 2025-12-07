@@ -20,8 +20,8 @@ import (
 	"github.com/cybergarage/go-matter/matter/encoding"
 )
 
-// 4.4.1. Message Header Field Descriptions
 // Header represents a message header.
+// 4.4.1. Message Header Field Descriptions.
 type Header struct {
 	length            [2]byte
 	flag              Flag

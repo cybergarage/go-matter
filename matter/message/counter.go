@@ -14,8 +14,8 @@
 
 package message
 
-// 4.4.1.5. Message Counter (32 bits)
 // Counter represents a message counter.
+// 4.4.1.5. Message Counter (32 bits).
 type Counter uint32
 
 // NewCounter returns a new counter.

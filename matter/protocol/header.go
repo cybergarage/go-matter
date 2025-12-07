@@ -14,8 +14,8 @@
 
 package protocol
 
-// 4.4.3. Protocol Header Field Descriptions
 // Header represents a protocol header.
+// 4.4.3. Protocol Header Field Descriptions.
 type Header struct {
 	ExchangeFlag ExchangeFlag
 	Opcode       Opcode

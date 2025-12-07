@@ -14,6 +14,6 @@
 
 package protocol
 
-// 4.4.3.4. Protocol ID (16 bits)
 // ProtocolID represents a protocol ID.
+// 4.4.3.4. Protocol ID (16 bits).
 type ProtocolID uint16
