@@ -114,7 +114,7 @@ func TestCommissionee(t *testing.T) {
 			}
 
 			for name, value := range test.expected.attrs {
-				attr, ok := com.LookupAttribute(name)
+				attr, ok := com.LookupTxtAttribute(name)
 				if !ok {
 					t.Errorf("attribute (%s) not found", name)
 				}
