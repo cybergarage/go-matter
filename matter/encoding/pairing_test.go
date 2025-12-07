@@ -47,6 +47,18 @@ func TestPairingCode(t *testing.T) {
 				passcode:  57630675,
 			},
 		},
+		{
+			// MT:5W124010006874
+			paringCode: "2167-692-8175",
+			expected: &pairingCode{
+				version:   0,
+				vendorID:  0,
+				productID: 0,
+				commFlow:  0,
+				upperDesc: 2304 & 0x0F00,
+				passcode:  46154113,
+			},
+		},
 	}
 
 	for _, tt := range tests {
