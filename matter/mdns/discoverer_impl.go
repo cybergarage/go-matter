@@ -36,7 +36,7 @@ func NewDiscoverer() Discoverer {
 }
 
 // MessageReceived is a callback when a message is received.
-func (disc *discoverer) MessageReceived(msg *dns.Message) {
+func (disc *discoverer) MessageReceived(msg dns.Message) {
 	log.HexInfo(msg.Bytes())
 }
 

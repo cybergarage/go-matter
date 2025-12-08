@@ -5,7 +5,7 @@ go 1.25
 require (
 	github.com/cybergarage/go-ble v0.0.0-20250918144852-4a99b3ec9970
 	github.com/cybergarage/go-logger v1.3.11
-	github.com/cybergarage/go-mdns v0.0.0-20251207024322-b843d23e982d
+	github.com/cybergarage/go-mdns v0.0.0-20251208155036-280c64028999
 	github.com/cybergarage/go-safecast v1.3.4
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
@@ -38,6 +38,5 @@ require (
 	golang.org/x/sys v0.29.0 // indirect
 	golang.org/x/text v0.28.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 	tinygo.org/x/bluetooth v0.13.0 // indirect
 )
