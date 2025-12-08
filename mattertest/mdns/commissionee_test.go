@@ -30,6 +30,9 @@ var matterSpec12043113DNSSD string
 //go:embed dumps/matter-spec-120-4.3.1.13-avahi.dump
 var matterSpec12043113Avahi string
 
+//go:embed dumps/matter-service-01.dump
+var matterService01 string
+
 func TestCommissionee(t *testing.T) {
 	type expected struct {
 		disc  string
@@ -66,6 +69,18 @@ func TestCommissionee(t *testing.T) {
 				attrs: map[string]string{
 					"D":  "840",
 					"CM": "2",
+				},
+			},
+		},
+		{
+			"matter service 01",
+			matterService01,
+			expected{
+				disc:  "2377",
+				discs: "9",
+				attrs: map[string]string{
+					"D":  "2377",
+					"CM": "1",
 				},
 			},
 		},
