@@ -1,4 +1,4 @@
-// Copyright (C) 2025 The PuzzleDB Authors.
+// Copyright (C) 2025 The go-matter Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,13 +24,48 @@ import (
 )
 
 func init() {
+	pairingCmd.AddCommand(pairingCodeCmd)
+	pairingCmd.AddCommand(pairingCodeWifiCmd)
 	rootCmd.AddCommand(pairingCmd)
 }
 
-var pairingCmd = &cobra.Command{ // nolint:exhaustruct
-	Use:   "pairing <node ID> <pairing code> <WIFI SSID> <WIFI password>",
+var pairingCmd = &cobra.Command{
+	Use:   "pairing",
 	Short: "Pairing Matter devices.",
 	Long:  "Pairing Matter devices.",
+}
+
+var pairingCodeCmd = &cobra.Command{
+	Use:   "code <node ID> <pairing code>",
+	Short: "Pair using node ID and pairing code.",
+	Args:  cobra.ExactArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		nodeID := args[0]
+		passcode := args[1]
+
+		log.Infof("Pairing nodeID=%s, passcode=%s", nodeID, passcode)
+
+		pairingCode, err := encoding.NewPairingCodeFromString(passcode)
+		if err != nil {
+			return err
+		}
+
+		comm := SharedCommissioner()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		err = comm.Commission(ctx, pairingCode)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	},
+}
+
+var pairingCodeWifiCmd = &cobra.Command{
+	Use:   "code-wifi <node ID> <pairing code> <WIFI SSID> <WIFI password>",
+	Short: "Pair using node ID, pairing code, and WiFi credentials.",
 	Args:  cobra.ExactArgs(4),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		nodeID := args[0]
@@ -40,7 +75,7 @@ var pairingCmd = &cobra.Command{ // nolint:exhaustruct
 
 		log.Infof("Pairing nodeID=%s, passcode=%s, ssid=%s, passwd=%s", nodeID, passcode, wifiSSID, wifiPasswd)
 
-		paringCode, err := encoding.NewPairingCodeFromString(passcode)
+		pairingCode, err := encoding.NewPairingCodeFromString(passcode)
 		if err != nil {
 			return err
 		}
@@ -49,10 +84,12 @@ var pairingCmd = &cobra.Command{ // nolint:exhaustruct
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		err = comm.Commission(ctx, paringCode)
+		// WiFi情報をCommissionerに渡す処理が必要な場合はここに追加
+		err = comm.Commission(ctx, pairingCode)
 		if err != nil {
 			return err
 		}
 
 		return nil
-	}}
+	},
+}
