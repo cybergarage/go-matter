@@ -18,64 +18,25 @@ import (
 	"context"
 	"time"
 
-	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-mdns/mdns"
-	"github.com/cybergarage/go-mdns/mdns/dns"
 )
 
 const (
-	mDNSSDServerType  = "_matter._tcp"
-	mDNSSearchDomain  = "local."
-	mDNSSearchTimeout = time.Duration(5 * time.Second)
+	SDServerType  = "_matter._tcp"
+	SearchDomain  = "local."
+	SearchTimeout = time.Duration(5 * time.Second)
 )
 
 // Discoverer represents a discoverer for commisionners.
-type Discoverer struct {
-	mdns.Client
-}
-
-// NewDiscoverer returns a new discoverer.
-func NewDiscoverer() *Discoverer {
-	disc := &Discoverer{
-		Client: mdns.NewClient(),
-	}
-	return disc
-}
-
-// MessageReceived is a callback when a message is received.
-func (disc *Discoverer) MessageReceived(msg *dns.Message) {
-	log.HexInfo(msg.Bytes())
-}
-
-// Start starts this discoverer.
-func (disc *Discoverer) Start() error {
-	return disc.Client.Start()
-}
-
-// Stop stops this discoverer.
-func (disc *Discoverer) Stop() error {
-	return disc.Client.Stop()
-}
-
-// Search searches commisioners.
-// 5.4.3.3. Using Existing IP-bearing Network
-// To discover a commissionable device over an existing IP-bearing network connection,
-// the Commis­ sioner SHALL perform service discovery using DNS-SD as detailed in
-// Section 4.3, “Discovery”, and more specifically in Section 4.3.1, “Commissionable Node Discovery”.
-func (disc *Discoverer) Search() ([]mdns.Service, error) {
-	query := mdns.NewQuery(
-		mdns.WithQueryServices(mDNSSDServerType),
-		mdns.WithQueryDomain(mDNSSearchDomain),
-	)
-
-	ctx := context.Background()
-	ctx, cancel := context.WithTimeout(ctx, mDNSSearchTimeout)
-	defer cancel()
-
-	services, err := disc.Client.Query(ctx, query)
-	if err != nil {
-		return []mdns.Service{}, err
-	}
-
-	return services, nil
+type Discoverer interface {
+	// Search searches commisioners.
+	// 5.4.3.3. Using Existing IP-bearing Network
+	// To discover a commissionable device over an existing IP-bearing network connection,
+	// the Commis­ sioner SHALL perform service discovery using DNS-SD as detailed in
+	// Section 4.3, “Discovery”, and more specifically in Section 4.3.1, “Commissionable Node Discovery”.
+	Search(ctx context.Context) ([]mdns.Service, error)
+	// Start starts this discoverer.
+	Start() error
+	// Stop stops this discoverer.
+	Stop() error
 }

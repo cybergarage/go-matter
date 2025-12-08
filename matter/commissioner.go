@@ -51,7 +51,7 @@ type Commissioner interface {
 // commissioner represents a commissioner.
 type commissioner struct {
 	ble.Central
-	*mdns.Discoverer
+	mdns.Discoverer
 }
 
 // NewCommissioner returns a new commissioner.

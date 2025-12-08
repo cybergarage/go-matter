@@ -35,7 +35,7 @@ var pairingCmd = &cobra.Command{
 	Long:  "Pairing Matter devices.",
 }
 
-var pairingCodeCmd = &cobra.Command{
+var pairingCodeCmd = &cobra.Command{ // nolint:exhaustruct
 	Use:   "code <node ID> <pairing code>",
 	Short: "Pair using node ID and pairing code.",
 	Args:  cobra.ExactArgs(2),
@@ -63,7 +63,7 @@ var pairingCodeCmd = &cobra.Command{
 	},
 }
 
-var pairingCodeWifiCmd = &cobra.Command{
+var pairingCodeWifiCmd = &cobra.Command{ // nolint:exhaustruct
 	Use:   "code-wifi <node ID> <pairing code> <WIFI SSID> <WIFI password>",
 	Short: "Pair using node ID, pairing code, and WiFi credentials.",
 	Args:  cobra.ExactArgs(4),
