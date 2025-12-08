@@ -29,7 +29,7 @@ func init() {
 	rootCmd.AddCommand(pairingCmd)
 }
 
-var pairingCmd = &cobra.Command{
+var pairingCmd = &cobra.Command{ // nolint:exhaustruct
 	Use:   "pairing",
 	Short: "Pairing Matter devices.",
 	Long:  "Pairing Matter devices.",
