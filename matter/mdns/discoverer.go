@@ -22,8 +22,8 @@ import (
 )
 
 const (
-	SDServerType  = "_matter._tcp"
-	SearchDomain  = "local."
+	SDServerType  = "_matterc._udp"
+	SearchDomain  = "local"
 	SearchTimeout = time.Duration(5 * time.Second)
 )
 
