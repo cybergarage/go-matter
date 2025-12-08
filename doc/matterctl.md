@@ -304,14 +304,86 @@ Pairing Matter devices.
 
 Pairing Matter devices.
 
+### Options
+
 ```
-matterctl pairing <node ID> <pairing code> <WIFI SSID> <WIFI password> [flags]
+  -h, --help   help for pairing
+```
+
+### Options inherited from parent commands
+
+```
+      --debug           enable debug output
+      --format string   output format: table|json|csv (default "table")
+      --verbose         enable verbose output
+```
+
+* [matterctl pairing code]()	 - Pair using node ID and pairing code.
+* [matterctl pairing code-wifi]()	 - Pair using node ID, pairing code, and WiFi credentials.
+
+## matterctl pairing code
+
+Pair using node ID and pairing code.
+
+```
+matterctl pairing code <node ID> <pairing code> [flags]
 ```
 
 ### Options
 
 ```
-  -h, --help   help for pairing
+  -h, --help   help for code
+```
+
+### Options inherited from parent commands
+
+```
+      --debug           enable debug output
+      --format string   output format: table|json|csv (default "table")
+      --verbose         enable verbose output
+```
+
+
+## matterctl pairing code-wifi
+
+Pair using node ID, pairing code, and WiFi credentials.
+
+```
+matterctl pairing code-wifi <node ID> <pairing code> <WIFI SSID> <WIFI password> [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for code-wifi
+```
+
+### Options inherited from parent commands
+
+```
+      --debug           enable debug output
+      --format string   output format: table|json|csv (default "table")
+      --verbose         enable verbose output
+```
+
+
+## matterctl pairing help
+
+Help about any command
+
+### Synopsis
+
+Help provides help for any command in the application.
+Simply type pairing help [path to command] for full details.
+
+```
+matterctl pairing help [command] [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for help
 ```
 
 ### Options inherited from parent commands
