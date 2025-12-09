@@ -20,6 +20,7 @@ Matter is an open-source connectivity standard for smart home and IoT (Internet 
 | Package | Status | Description |
 |---------|--------|-------------|
 | `ble.btp` | ✅ Under verification | BLE transport protocol implementation |
+| `mdns` | ✅ Under verification | mDNS (Multicast DNS) service discovery |
 | `encoding.base38` | ✅ Implemented | Base38 encoding/decoding |
 | `encoding.qr` | ✅ Implemented | QR code generation |
 | `encoding.pairing` | ✅ Implemented | Manual pairing code handling |
