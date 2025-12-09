@@ -18,8 +18,8 @@ import (
 	_ "embed"
 )
 
-// Commissionee represents a commissionee.
-type Commissionee interface {
+// CommissionableNode represents a commissionable node.
+type CommissionableNode interface {
 	// LookupTxtAttribute looks up a TXT attribute by name.
 	LookupTxtAttribute(name string) (string, bool)
 	// LookupVendorID returns a vendor and product ID.

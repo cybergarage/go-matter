@@ -50,12 +50,9 @@ func (disc *discoverer) Stop() error {
 	return disc.Client.Stop()
 }
 
-// Search searches commisioners.
-// 5.4.3.3. Using Existing IP-bearing Network
-// To discover a commissionable device over an existing IP-bearing network connection,
-// the Commis­ sioner SHALL perform service discovery using DNS-SD as detailed in
-// Section 4.3, “Discovery”, and more specifically in Section 4.3.1, “Commissionable Node Discovery”.
-func (disc *discoverer) Search(ctx context.Context) ([]mdns.Service, error) {
+// Search searches commissionable Nodes.
+// 4.3. Discovery.
+func (disc *discoverer) Search(ctx context.Context) ([]CommissionableNode, error) {
 	query := mdns.NewQuery(
 		mdns.WithQueryServices(SDServerType),
 		mdns.WithQueryDomain(SearchDomain),
@@ -69,8 +66,13 @@ func (disc *discoverer) Search(ctx context.Context) ([]mdns.Service, error) {
 
 	services, err := disc.Client.Query(ctx, query)
 	if err != nil {
-		return []mdns.Service{}, err
+		return []CommissionableNode{}, err
 	}
 
-	return services, nil
+	var nodes []CommissionableNode
+	for _, service := range services {
+		node := NewCommissioningNodeWithService(service)
+		nodes = append(nodes, node)
+	}
+	return nodes, nil
 }

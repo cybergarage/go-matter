@@ -100,7 +100,7 @@ func TestCommissionee(t *testing.T) {
 				return
 			}
 
-			com, err := mdns.NewCommissioneeWithMessage(msg)
+			com, err := mdns.NewCommissioningNodeWithMessage(msg)
 			if err != nil {
 				t.Error(err)
 				return

@@ -17,8 +17,6 @@ package mdns
 import (
 	"context"
 	"time"
-
-	"github.com/cybergarage/go-mdns/mdns"
 )
 
 const (
@@ -27,14 +25,11 @@ const (
 	SearchTimeout = time.Duration(5 * time.Second)
 )
 
-// Discoverer represents a discoverer for commisionners.
+// Discoverer represents a discoverer for commissionable Nodes.
 type Discoverer interface {
-	// Search searches commisioners.
-	// 5.4.3.3. Using Existing IP-bearing Network
-	// To discover a commissionable device over an existing IP-bearing network connection,
-	// the Commis­ sioner SHALL perform service discovery using DNS-SD as detailed in
-	// Section 4.3, “Discovery”, and more specifically in Section 4.3.1, “Commissionable Node Discovery”.
-	Search(ctx context.Context) ([]mdns.Service, error)
+	// Search searches commissionable Nodes.
+	// 4.3. Discovery
+	Search(ctx context.Context) ([]CommissionableNode, error)
 	// Start starts this discoverer.
 	Start() error
 	// Stop stops this discoverer.

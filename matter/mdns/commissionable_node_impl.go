@@ -22,32 +22,32 @@ import (
 	"github.com/cybergarage/go-mdns/mdns/dns"
 )
 
-// commissionee represents a commissionee.
-type commissionee struct {
+// commissioningNode represents a commissioning node.
+type commissioningNode struct {
 	mdns.Service
 }
 
-// NewCommissioneeWithMessage returns a new commissionee with a mDNS message.
-func NewCommissioneeWithMessage(msg dns.Message) (Commissionee, error) {
+// NewCommissioningNodeWithMessage returns a new commissioning node with a mDNS message.
+func NewCommissioningNodeWithMessage(msg dns.Message) (CommissionableNode, error) {
 	service, err := mdns.NewService(
 		mdns.WithServiceMessage(msg),
 	)
 	if err != nil {
 		return nil, err
 	}
-	return NewCommissioneeWithService(service), nil
+	return NewCommissioningNodeWithService(service), nil
 }
 
-// NewCommissioneeWithService returns a new commissionee with a mDNS service.
-func NewCommissioneeWithService(service mdns.Service) Commissionee {
-	com := &commissionee{
+// NewCommissioningNodeWithService returns a new commissioning node with a mDNS service.
+func NewCommissioningNodeWithService(service mdns.Service) CommissionableNode {
+	com := &commissioningNode{
 		Service: service,
 	}
 	return com
 }
 
 // LookupSubtype returns a subtype for the specified prefix.
-func (com *commissionee) LookupSubtype(prefix string) (string, bool) {
+func (com *commissioningNode) LookupSubtype(prefix string) (string, bool) {
 	record, ok := com.Service.LookupResourceByNamePrefix(prefix)
 	if !ok {
 		return "", false
@@ -60,7 +60,7 @@ func (com *commissionee) LookupSubtype(prefix string) (string, bool) {
 }
 
 // LookupTxtAttribute looks up a TXT attribute by name.
-func (com *commissionee) LookupTxtAttribute(name string) (string, bool) {
+func (com *commissioningNode) LookupTxtAttribute(name string) (string, bool) {
 	attr, ok := com.Service.LookupResourceAttribute(name)
 	if !ok {
 		return "", false
@@ -68,7 +68,7 @@ func (com *commissionee) LookupTxtAttribute(name string) (string, bool) {
 	return attr.Value(), true
 }
 
-func (com *commissionee) appendLookupSubtype(records []string, name string) []string {
+func (com *commissioningNode) appendLookupSubtype(records []string, name string) []string {
 	v, ok := com.LookupSubtype(name)
 	if !ok {
 		return records
@@ -76,7 +76,7 @@ func (com *commissionee) appendLookupSubtype(records []string, name string) []st
 	return append(records, v)
 }
 
-func (com *commissionee) appendLookupTxtAttribute(records []string, name string) []string {
+func (com *commissioningNode) appendLookupTxtAttribute(records []string, name string) []string {
 	v, ok := com.LookupTxtAttribute(name)
 	if !ok {
 		return records
@@ -86,7 +86,7 @@ func (com *commissionee) appendLookupTxtAttribute(records []string, name string)
 
 // LookupDiscriminator returns a full discriminator or short discriminator.
 // 4.3.1.5. TXT key for discriminator (D).
-func (com *commissionee) LookupDiscriminator() (string, bool) {
+func (com *commissioningNode) LookupDiscriminator() (string, bool) {
 	d, ok := com.LookupFullDiscriminator()
 	if ok {
 		return d, true
@@ -96,7 +96,7 @@ func (com *commissionee) LookupDiscriminator() (string, bool) {
 
 // LookupFullDiscriminator returns a full 12-bit discriminator.
 // 4.3.1.3. Commissioning Subtypes (_L).
-func (com *commissionee) LookupFullDiscriminator() (string, bool) {
+func (com *commissioningNode) LookupFullDiscriminator() (string, bool) {
 	d, ok := com.LookupTxtAttribute(TxtRecordDiscriminator)
 	if ok {
 		return d, true
@@ -110,14 +110,14 @@ func (com *commissionee) LookupFullDiscriminator() (string, bool) {
 
 // LookupShortDiscriminator returns a short 4-bit discriminator.
 // 4.3.1.3. Commissioning Subtypes (_S).
-func (com *commissionee) LookupShortDiscriminator() (string, bool) {
+func (com *commissioningNode) LookupShortDiscriminator() (string, bool) {
 	return com.LookupSubtype(SubtypeDiscriminatorShort)
 }
 
 // LookupVendorID returns a vendor and product ID.
 // 4.3.1.3. Commissioning Subtypes (_V)
 // 4.3.1.6. TXT key for Vendor ID and Product ID (VP).
-func (com *commissionee) LookupVendorID() (string, bool) {
+func (com *commissioningNode) LookupVendorID() (string, bool) {
 	venderID, _, ok := com.LookupVendorProductID()
 	if ok {
 		return venderID, true
@@ -127,7 +127,7 @@ func (com *commissionee) LookupVendorID() (string, bool) {
 
 // LookupVendorProductID returns a vendor and product ID.
 // 4.3.1.6. TXT key for Vendor ID and Product ID (VP).
-func (com *commissionee) LookupVendorProductID() (string, string, bool) {
+func (com *commissioningNode) LookupVendorProductID() (string, string, bool) {
 	splitVenderProductID := func(vp string) (string, string, bool) {
 		vpList := strings.Split(vp, "+")
 		if len(vpList) < 1 {
@@ -147,7 +147,7 @@ func (com *commissionee) LookupVendorProductID() (string, string, bool) {
 // LookupCommissioningMode returns a commissioning mode.
 // 4.3.1.3. Commissioning Subtypes (_CM)
 // 4.3.1.7. TXT key for commissioning mode (CM).
-func (com *commissionee) LookupCommissioningMode() (string, bool) {
+func (com *commissioningNode) LookupCommissioningMode() (string, bool) {
 	cmFrom := func(cms string) (string, bool) {
 		if len(cms) == 0 {
 			return CommissioningModeNone, true
@@ -172,7 +172,7 @@ func (com *commissionee) LookupCommissioningMode() (string, bool) {
 // LookupDeviceType returns a device type.
 // 4.3.1.3. Commissioning Subtypes (_T)
 // 4.3.1.8. TXT key for device type (DT).
-func (com *commissionee) LookupDeviceType() (DeviceType, bool) {
+func (com *commissioningNode) LookupDeviceType() (DeviceType, bool) {
 	deviceTypeFrom := func(dts string) (DeviceType, bool) {
 		dt, err := NewDeviceTypeFromString(dts)
 		if err != nil {
@@ -197,19 +197,19 @@ func (com *commissionee) LookupDeviceType() (DeviceType, bool) {
 
 // LookupDeviceName returns a device name.
 // 4.3.1.9. TXT key for device name (DN).
-func (com *commissionee) LookupDeviceName() (string, bool) {
+func (com *commissioningNode) LookupDeviceName() (string, bool) {
 	return com.LookupTxtAttribute(TxtRecordDeviceName)
 }
 
 // LookupRotatingDeviceID returns a rotating device identifier.
 // 4.3.1.10. TXT key for rotating device identifier (RI).
-func (com *commissionee) LookupRotatingDeviceID() (string, bool) {
+func (com *commissioningNode) LookupRotatingDeviceID() (string, bool) {
 	return com.LookupTxtAttribute(TxtRecordRotatingDeviceID)
 }
 
 // LookupPairingHint returns a pairing hint.
 // 4.3.1.11. TXT key for pairing hint (PH).
-func (com *commissionee) LookupPairingHint() (PairingHint, bool) {
+func (com *commissioningNode) LookupPairingHint() (PairingHint, bool) {
 	phs, ok := com.LookupTxtAttribute(TxtRecordPairingHint)
 	if !ok {
 		return PairingHintNone, false
@@ -223,6 +223,6 @@ func (com *commissionee) LookupPairingHint() (PairingHint, bool) {
 
 // LookupPairingInstructions returns a pairing instructions.
 // 4.3.1.12. TXT key for pairing instructions (PI).
-func (com *commissionee) LookupPairingInstructions() (string, bool) {
+func (com *commissioningNode) LookupPairingInstructions() (string, bool) {
 	return com.LookupTxtAttribute(TxtRecordPairingInstruction)
 }
