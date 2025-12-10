@@ -37,7 +37,6 @@ func TestCommissionee(t *testing.T) {
 	type expected struct {
 		disc  string
 		discs string
-		attrs map[string]string
 	}
 	tests := []struct {
 		name     string
@@ -52,10 +51,6 @@ func TestCommissionee(t *testing.T) {
 			expected{
 				disc:  "840",
 				discs: "3",
-				attrs: map[string]string{
-					"D":  "840",
-					"CM": "2",
-				},
 			},
 		},
 		// 4.3.1.13. Examples
@@ -66,10 +61,6 @@ func TestCommissionee(t *testing.T) {
 			expected{
 				disc:  "840",
 				discs: "3",
-				attrs: map[string]string{
-					"D":  "840",
-					"CM": "2",
-				},
 			},
 		},
 		{
@@ -78,10 +69,6 @@ func TestCommissionee(t *testing.T) {
 			expected{
 				disc:  "2377",
 				discs: "9",
-				attrs: map[string]string{
-					"D":  "2377",
-					"CM": "1",
-				},
 			},
 		},
 	}
@@ -125,16 +112,6 @@ func TestCommissionee(t *testing.T) {
 				}
 				if discs != test.expected.discs {
 					t.Errorf("short discriminator (%s) != (%s)", discs, test.expected.discs)
-				}
-			}
-
-			for name, value := range test.expected.attrs {
-				attr, ok := com.LookupTxtAttribute(name)
-				if !ok {
-					t.Errorf("attribute (%s) not found", name)
-				}
-				if attr != value {
-					t.Errorf("attribute (%s) value (%s) != (%s)", name, attr, value)
 				}
 			}
 		})

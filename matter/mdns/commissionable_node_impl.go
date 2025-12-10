@@ -114,20 +114,9 @@ func (com *commissioningNode) ShortDiscriminator() (string, bool) {
 	return com.LookupSubtype(SubtypeDiscriminatorShort)
 }
 
-// VendorID returns a vendor and product ID.
-// 4.3.1.3. Commissioning Subtypes (_V)
+// VendorProductID returns a vendor and product ID.
 // 4.3.1.6. TXT key for Vendor ID and Product ID (VP).
-func (com *commissioningNode) VendorID() (string, bool) {
-	venderID, _, ok := com.ProductID()
-	if ok {
-		return venderID, true
-	}
-	return com.LookupSubtype(SubtypeVendorID)
-}
-
-// ProductID returns a vendor and product ID.
-// 4.3.1.6. TXT key for Vendor ID and Product ID (VP).
-func (com *commissioningNode) ProductID() (string, string, bool) {
+func (com *commissioningNode) VendorProductID() (string, string, bool) {
 	splitVenderProductID := func(vp string) (string, string, bool) {
 		vpList := strings.Split(vp, "+")
 		if len(vpList) < 1 {
@@ -142,6 +131,27 @@ func (com *commissioningNode) ProductID() (string, string, bool) {
 	}
 
 	return splitVenderProductID(vp)
+}
+
+// VendorID returns a vendor and product ID.
+// 4.3.1.3. Commissioning Subtypes (_V)
+// 4.3.1.6. TXT key for Vendor ID and Product ID (VP).
+func (com *commissioningNode) VendorID() (string, bool) {
+	venderID, _, ok := com.VendorProductID()
+	if ok {
+		return venderID, true
+	}
+	return com.LookupSubtype(SubtypeVendorID)
+}
+
+// ProductID returns a vendor and product ID.
+// 4.3.1.6. TXT key for Vendor ID and Product ID (VP).
+func (com *commissioningNode) ProductID() (string, bool) {
+	_, productID, ok := com.VendorProductID()
+	if !ok {
+		return "", false
+	}
+	return productID, true
 }
 
 // CommissioningMode returns a commissioning mode.

@@ -20,15 +20,13 @@ import (
 
 // CommissionableNode represents a commissionable node.
 type CommissionableNode interface {
-	// LookupTxtAttribute looks up a TXT attribute by name.
-	LookupTxtAttribute(name string) (string, bool)
 	// VendorID returns a vendor and product ID.
 	// 4.3.1.3. Commissioning Subtypes (_V)
 	// 4.3.1.6. TXT key for Vendor ID and Product ID (VP)
 	VendorID() (string, bool)
 	// ProductID returns a vendor and product ID.
 	// 4.3.1.6. TXT key for Vendor ID and Product ID (VP)
-	ProductID() (string, string, bool)
+	ProductID() (string, bool)
 	// ShortDiscriminator returns a short 4-bit discriminator.
 	// 4.3.1.3. Commissioning Subtypes (_S)
 	ShortDiscriminator() (string, bool)
