@@ -52,7 +52,7 @@ func (node *commissioningNode) LookupSubtype(prefix string) (string, bool) {
 	if !ok {
 		return "", false
 	}
-	names := strings.Split(record.Name(), ".")
+	names := dns.SplitName(record.Name())
 	if len(names) < 1 {
 		return "", false
 	}
@@ -87,18 +87,34 @@ func (node *commissioningNode) appendLookupTxtAttribute(records []string, name s
 // Hostname returns the host name.
 // 4.3.1.1. Host Name Construction.
 func (node *commissioningNode) Hostname() (string, bool) {
-	srvName := node.Name()
-	extractHostname := func(srvName string) (string, bool) {
-		if len(srvName) == 0 {
+	extractHostname := func(domainName string) (string, bool) {
+		if len(domainName) == 0 {
 			return "", false
 		}
-		names := strings.Split(srvName, ".")
+		names := dns.SplitName(domainName)
 		if len(names) < 1 {
 			return "", false
 		}
-		return names[0], true
+		hostname := names[0]
+		if !HostnameRegexp.MatchString(hostname) {
+			return "", false
+		}
+		return hostname, true
 	}
-	return extractHostname(srvName)
+	hostname, ok := extractHostname(node.Name())
+	if ok {
+		return hostname, true
+	}
+	for _, rr := range node.Service.ResourceRecords() {
+		switch v := rr.(type) {
+		case dns.PTRRecord:
+			hostname, ok := extractHostname(v.DomainName())
+			if ok {
+				return hostname, true
+			}
+		}
+	}
+	return "", false
 }
 
 // Discriminator returns a full discriminator or short discriminator.

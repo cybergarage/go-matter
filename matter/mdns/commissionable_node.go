@@ -15,8 +15,13 @@
 package mdns
 
 import (
+	"regexp"
+
 	"github.com/cybergarage/go-matter/matter/types"
 )
+
+// HostnameRegexp is the regular expression to validate host names.
+var HostnameRegexp = regexp.MustCompile("^[0-9A-F]{16}$")
 
 // VendorID represents a vendor ID.
 type VendorID = types.VendorID

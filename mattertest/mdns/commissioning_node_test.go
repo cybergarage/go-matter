@@ -69,7 +69,7 @@ func TestCommissioningNode(t *testing.T) {
 			"matter 120 4.3.1.13/avahi",
 			matterSpec12043113Avahi,
 			expected{
-				hostname:  "", // TODO: "DD200C20D25AE5F7",
+				hostname:  "DD200C20D25AE5F7",
 				venderID:  mdns.VendorID(0),
 				productID: mdns.ProductID(0),
 				disc:      mdns.Discriminator(840),
