@@ -145,12 +145,19 @@ func (node *commissioningNode) VendorProductID() (string, string, bool) {
 // VendorID returns a vendor and product ID.
 // 4.3.1.3. Commissioning Subtypes (_V)
 // 4.3.1.6. TXT key for Vendor ID and Product ID (VP).
-func (node *commissioningNode) VendorID() (string, bool) {
-	venderID, _, ok := node.VendorProductID()
-	if ok {
-		return venderID, true
+func (node *commissioningNode) VendorID() (VendorID, bool) {
+	venderIDStr, _, ok := node.VendorProductID()
+	if !ok {
+		venderIDStr, ok = node.LookupSubtype(SubtypeVendorID)
 	}
-	return node.LookupSubtype(SubtypeVendorID)
+	if !ok {
+		return 0, false
+	}
+	venderID, err := types.NewVendorIDFrom(venderIDStr)
+	if err != nil {
+		return 0, false
+	}
+	return venderID, true
 }
 
 // ProductID returns a vendor and product ID.

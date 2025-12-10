@@ -35,6 +35,7 @@ var matterService01 string
 
 func TestCommissionee(t *testing.T) {
 	type expected struct {
+		venderID  mdns.VendorID
 		disc      mdns.Discriminator
 		fullDisc  mdns.Discriminator
 		shortDisc mdns.Discriminator
@@ -51,6 +52,7 @@ func TestCommissionee(t *testing.T) {
 			"matter 120 4.3.1.13/dns-sd",
 			matterSpec12043113DNSSD,
 			expected{
+				venderID:  mdns.VendorID(0),
 				disc:      mdns.Discriminator(840),
 				fullDisc:  mdns.Discriminator(840),
 				shortDisc: mdns.Discriminator(3),
@@ -63,6 +65,7 @@ func TestCommissionee(t *testing.T) {
 			"matter 120 4.3.1.13/avahi",
 			matterSpec12043113Avahi,
 			expected{
+				venderID:  mdns.VendorID(0),
 				disc:      mdns.Discriminator(840),
 				fullDisc:  mdns.Discriminator(840),
 				shortDisc: mdns.Discriminator(3),
@@ -73,6 +76,7 @@ func TestCommissionee(t *testing.T) {
 			"matter service 01",
 			matterService01,
 			expected{
+				venderID:  mdns.VendorID(5002),
 				disc:      mdns.Discriminator(2377),
 				fullDisc:  mdns.Discriminator(2377),
 				shortDisc: mdns.Discriminator(9),
@@ -108,7 +112,15 @@ func TestCommissionee(t *testing.T) {
 				t.Log("\n" + node.String())
 			}
 
-			t.Log("\n" + msg.String())
+			if 0 < test.expected.venderID {
+				vendorID, ok := node.VendorID()
+				if !ok {
+					reportError(msg, node, "vendor ID not found")
+				}
+				if vendorID != test.expected.venderID {
+					reportError(msg, node, "vendor ID (%s) != (%s)", vendorID, test.expected.venderID)
+				}
+			}
 
 			if 0 < test.expected.disc {
 				disc, ok := node.Discriminator()

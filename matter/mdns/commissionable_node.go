@@ -18,6 +18,9 @@ import (
 	"github.com/cybergarage/go-matter/matter/types"
 )
 
+// VendorID represents a vendor ID.
+type VendorID = types.VendorID
+
 // Discriminator represents the discriminator value used in onboarding payloads.
 type Discriminator = types.Discriminator
 
@@ -26,7 +29,7 @@ type CommissionableNode interface {
 	// VendorID returns the vendor ID from the TXT record if available; otherwise, it returns the vendor ID from the subtype.
 	// 4.3.1.3. Commissioning Subtypes (_V)
 	// 4.3.1.6. TXT key for Vendor ID and Product ID (VP)
-	VendorID() (string, bool)
+	VendorID() (VendorID, bool)
 	// ProductID returns the vendor and product ID from the TXT record if available.
 	// 4.3.1.6. TXT key for Vendor ID and Product ID (VP)
 	ProductID() (string, bool)
