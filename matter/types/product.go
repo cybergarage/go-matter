@@ -34,6 +34,6 @@ func NewProductIDFrom(v any) (ProductID, error) {
 }
 
 // String returns the string representation of the ProductID.
-func (vid ProductID) String() string {
-	return fmt.Sprintf("%d", uint(vid))
+func (pid ProductID) String() string {
+	return fmt.Sprintf("%d", uint(pid))
 }

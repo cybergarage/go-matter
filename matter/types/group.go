@@ -34,6 +34,6 @@ func NewGroupIDFrom(v any) (GroupID, error) {
 }
 
 // String returns the string representation of the GroupID.
-func (vid GroupID) String() string {
-	return fmt.Sprintf("%d", uint(vid))
+func (gid GroupID) String() string {
+	return fmt.Sprintf("%d", uint(gid))
 }
