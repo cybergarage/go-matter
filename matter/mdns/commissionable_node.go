@@ -29,6 +29,9 @@ type Discriminator = types.Discriminator
 
 // CommissionableNode represents the commissionable node.
 type CommissionableNode interface {
+	// Hostname returns the host name.
+	// 4.3.1.1. Host Name Construction
+	Hostname() (string, bool)
 	// VendorID returns the vendor ID from the TXT record if available; otherwise, it returns the vendor ID from the subtype.
 	// 4.3.1.3. Commissioning Subtypes (_V)
 	// 4.3.1.6. TXT key for Vendor ID and Product ID (VP)

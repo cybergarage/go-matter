@@ -84,6 +84,23 @@ func (node *commissioningNode) appendLookupTxtAttribute(records []string, name s
 	return append(records, v)
 }
 
+// Hostname returns the host name.
+// 4.3.1.1. Host Name Construction.
+func (node *commissioningNode) Hostname() (string, bool) {
+	srvName := node.Name()
+	extractHostname := func(srvName string) (string, bool) {
+		if len(srvName) == 0 {
+			return "", false
+		}
+		names := strings.Split(srvName, ".")
+		if len(names) < 1 {
+			return "", false
+		}
+		return names[0], true
+	}
+	return extractHostname(srvName)
+}
+
 // Discriminator returns a full discriminator or short discriminator.
 // 4.3.1.5. TXT key for discriminator (D).
 func (node *commissioningNode) Discriminator() (Discriminator, bool) {

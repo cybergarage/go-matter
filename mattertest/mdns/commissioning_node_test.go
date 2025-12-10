@@ -35,6 +35,7 @@ var matterService01 string
 
 func TestCommissioningNode(t *testing.T) {
 	type expected struct {
+		hostname  string
 		venderID  mdns.VendorID
 		productID mdns.ProductID
 		disc      mdns.Discriminator
@@ -53,6 +54,7 @@ func TestCommissioningNode(t *testing.T) {
 			"matter 120 4.3.1.13/dns-sd",
 			matterSpec12043113DNSSD,
 			expected{
+				hostname:  "DD200C20D25AE5F7",
 				venderID:  mdns.VendorID(0),
 				productID: mdns.ProductID(0),
 				disc:      mdns.Discriminator(840),
@@ -67,6 +69,7 @@ func TestCommissioningNode(t *testing.T) {
 			"matter 120 4.3.1.13/avahi",
 			matterSpec12043113Avahi,
 			expected{
+				hostname:  "", // TODO: "DD200C20D25AE5F7",
 				venderID:  mdns.VendorID(0),
 				productID: mdns.ProductID(0),
 				disc:      mdns.Discriminator(840),
@@ -79,6 +82,7 @@ func TestCommissioningNode(t *testing.T) {
 			"matter service 01",
 			matterService01,
 			expected{
+				hostname:  "89692F67BC97311B",
 				venderID:  mdns.VendorID(5002),
 				productID: mdns.ProductID(5010),
 				disc:      mdns.Discriminator(2377),
@@ -114,6 +118,16 @@ func TestCommissioningNode(t *testing.T) {
 				t.Errorf(format, args...)
 				t.Log("\n" + msg.String())
 				t.Log("\n" + node.String())
+			}
+
+			if 0 < len(test.expected.hostname) {
+				hostname, ok := node.Hostname()
+				if !ok {
+					reportError(msg, node, "host name not found")
+				}
+				if hostname != test.expected.hostname {
+					reportError(msg, node, "host name (%s) != (%s)", hostname, test.expected.hostname)
+				}
 			}
 
 			if 0 < test.expected.venderID {
