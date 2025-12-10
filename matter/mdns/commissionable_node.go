@@ -44,7 +44,7 @@ type CommissionableNode interface {
 	// CommissioningMode returns the commissioning mode from the TXT record if available; otherwise, it returns the commissioning mode from the subtype if available.
 	// 4.3.1.3. Commissioning Subtypes (_CM)
 	// 4.3.1.7. TXT key for commissioning mode (CM)
-	CommissioningMode() (string, bool)
+	CommissioningMode() (CommissioningMode, bool)
 	// DeviceType returns the device type from the TXT record if available; otherwise, it returns the device type from the subtype.
 	// 4.3.1.3. Commissioning Subtypes (_T)
 	// 4.3.1.8. TXT key for device type (DT)

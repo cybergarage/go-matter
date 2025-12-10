@@ -38,6 +38,7 @@ func TestCommissionee(t *testing.T) {
 		disc      mdns.Discriminator
 		fullDisc  mdns.Discriminator
 		shortDisc mdns.Discriminator
+		cm        mdns.CommissioningMode
 	}
 	tests := []struct {
 		name     string
@@ -53,6 +54,7 @@ func TestCommissionee(t *testing.T) {
 				disc:      mdns.Discriminator(840),
 				fullDisc:  mdns.Discriminator(840),
 				shortDisc: mdns.Discriminator(3),
+				cm:        mdns.CommissioningModeDynamicPasscode,
 			},
 		},
 		// 4.3.1.13. Examples
@@ -64,6 +66,7 @@ func TestCommissionee(t *testing.T) {
 				disc:      mdns.Discriminator(840),
 				fullDisc:  mdns.Discriminator(840),
 				shortDisc: mdns.Discriminator(3),
+				cm:        mdns.CommissioningModeDynamicPasscode,
 			},
 		},
 		{
@@ -73,6 +76,7 @@ func TestCommissionee(t *testing.T) {
 				disc:      mdns.Discriminator(2377),
 				fullDisc:  mdns.Discriminator(2377),
 				shortDisc: mdns.Discriminator(9),
+				cm:        mdns.CommissioningModePasscode,
 			},
 		},
 	}
@@ -133,6 +137,16 @@ func TestCommissionee(t *testing.T) {
 				}
 				if discs != test.expected.shortDisc {
 					reportError(msg, node, "short discriminator (%s) != (%s)", discs, test.expected.shortDisc)
+				}
+			}
+
+			if 0 < test.expected.cm {
+				cm, ok := node.CommissioningMode()
+				if !ok {
+					reportError(msg, node, "commissioning mode not found")
+				}
+				if cm != test.expected.cm {
+					reportError(msg, node, "commissioning mode (%s) != (%s)", cm, test.expected.cm)
 				}
 			}
 		})

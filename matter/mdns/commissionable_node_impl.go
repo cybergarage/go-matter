@@ -166,12 +166,16 @@ func (node *commissioningNode) ProductID() (string, bool) {
 // CommissioningMode returns a commissioning mode.
 // 4.3.1.3. Commissioning Subtypes (_CM)
 // 4.3.1.7. TXT key for commissioning mode (CM).
-func (node *commissioningNode) CommissioningMode() (string, bool) {
-	cmFrom := func(cms string) (string, bool) {
+func (node *commissioningNode) CommissioningMode() (CommissioningMode, bool) {
+	cmFrom := func(cms string) (CommissioningMode, bool) {
 		if len(cms) == 0 {
-			return CommissioningModeNone, true
+			return CommissioningModeAbsence, true
 		}
-		return cms, true
+		cm, err := NewCommissioningModeFrom(cms)
+		if err != nil {
+			return CommissioningModeAbsence, false
+		}
+		return cm, true
 	}
 
 	var records []string
@@ -185,7 +189,7 @@ func (node *commissioningNode) CommissioningMode() (string, bool) {
 		}
 	}
 
-	return CommissioningModeNone, false
+	return CommissioningModeAbsence, false
 }
 
 // DeviceType returns a device type.
