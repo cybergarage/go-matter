@@ -21,6 +21,7 @@ import (
 )
 
 // ProductID represents a product ID.
+// 2.5.3. Product Identifier (Product ID, PID)
 type ProductID uint16
 
 // NewProductIDFrom creates a new ProductID from the given value.
