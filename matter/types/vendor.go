@@ -21,7 +21,7 @@ import (
 )
 
 // VendorID represents a vendor ID.
-// 2.5.2. Vendor Identifier (Vendor ID, VID)
+// 2.5.2. Vendor Identifier (Vendor ID, VID).
 type VendorID uint16
 
 // NewVendorIDFrom creates a new VendorID from the given value.

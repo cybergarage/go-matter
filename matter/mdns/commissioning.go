@@ -21,7 +21,7 @@ import (
 )
 
 // CommissioningMode represents the commissioning mode type.
-// 4.3.1.7. TXT key for commissioning mode (CM)
+// 4.3.1.7. TXT key for commissioning mode (CM).
 type CommissioningMode int
 
 const (
