@@ -84,19 +84,19 @@ func (com *commissioningNode) appendLookupTxtAttribute(records []string, name st
 	return append(records, v)
 }
 
-// LookupDiscriminator returns a full discriminator or short discriminator.
+// Discriminator returns a full discriminator or short discriminator.
 // 4.3.1.5. TXT key for discriminator (D).
-func (com *commissioningNode) LookupDiscriminator() (string, bool) {
-	d, ok := com.LookupFullDiscriminator()
+func (com *commissioningNode) Discriminator() (string, bool) {
+	d, ok := com.FullDiscriminator()
 	if ok {
 		return d, true
 	}
-	return com.LookupShortDiscriminator()
+	return com.ShortDiscriminator()
 }
 
-// LookupFullDiscriminator returns a full 12-bit discriminator.
+// FullDiscriminator returns a full 12-bit discriminator.
 // 4.3.1.3. Commissioning Subtypes (_L).
-func (com *commissioningNode) LookupFullDiscriminator() (string, bool) {
+func (com *commissioningNode) FullDiscriminator() (string, bool) {
 	d, ok := com.LookupTxtAttribute(TxtRecordDiscriminator)
 	if ok {
 		return d, true
@@ -108,26 +108,26 @@ func (com *commissioningNode) LookupFullDiscriminator() (string, bool) {
 	return com.LookupSubtype(SubtypeDiscriminatorShort)
 }
 
-// LookupShortDiscriminator returns a short 4-bit discriminator.
+// ShortDiscriminator returns a short 4-bit discriminator.
 // 4.3.1.3. Commissioning Subtypes (_S).
-func (com *commissioningNode) LookupShortDiscriminator() (string, bool) {
+func (com *commissioningNode) ShortDiscriminator() (string, bool) {
 	return com.LookupSubtype(SubtypeDiscriminatorShort)
 }
 
-// LookupVendorID returns a vendor and product ID.
+// VendorID returns a vendor and product ID.
 // 4.3.1.3. Commissioning Subtypes (_V)
 // 4.3.1.6. TXT key for Vendor ID and Product ID (VP).
-func (com *commissioningNode) LookupVendorID() (string, bool) {
-	venderID, _, ok := com.LookupVendorProductID()
+func (com *commissioningNode) VendorID() (string, bool) {
+	venderID, _, ok := com.ProductID()
 	if ok {
 		return venderID, true
 	}
 	return com.LookupSubtype(SubtypeVendorID)
 }
 
-// LookupVendorProductID returns a vendor and product ID.
+// ProductID returns a vendor and product ID.
 // 4.3.1.6. TXT key for Vendor ID and Product ID (VP).
-func (com *commissioningNode) LookupVendorProductID() (string, string, bool) {
+func (com *commissioningNode) ProductID() (string, string, bool) {
 	splitVenderProductID := func(vp string) (string, string, bool) {
 		vpList := strings.Split(vp, "+")
 		if len(vpList) < 1 {
@@ -144,10 +144,10 @@ func (com *commissioningNode) LookupVendorProductID() (string, string, bool) {
 	return splitVenderProductID(vp)
 }
 
-// LookupCommissioningMode returns a commissioning mode.
+// CommissioningMode returns a commissioning mode.
 // 4.3.1.3. Commissioning Subtypes (_CM)
 // 4.3.1.7. TXT key for commissioning mode (CM).
-func (com *commissioningNode) LookupCommissioningMode() (string, bool) {
+func (com *commissioningNode) CommissioningMode() (string, bool) {
 	cmFrom := func(cms string) (string, bool) {
 		if len(cms) == 0 {
 			return CommissioningModeNone, true
@@ -169,10 +169,10 @@ func (com *commissioningNode) LookupCommissioningMode() (string, bool) {
 	return CommissioningModeNone, false
 }
 
-// LookupDeviceType returns a device type.
+// DeviceType returns a device type.
 // 4.3.1.3. Commissioning Subtypes (_T)
 // 4.3.1.8. TXT key for device type (DT).
-func (com *commissioningNode) LookupDeviceType() (DeviceType, bool) {
+func (com *commissioningNode) DeviceType() (DeviceType, bool) {
 	deviceTypeFrom := func(dts string) (DeviceType, bool) {
 		dt, err := NewDeviceTypeFromString(dts)
 		if err != nil {
@@ -195,21 +195,21 @@ func (com *commissioningNode) LookupDeviceType() (DeviceType, bool) {
 	return DeviceTypeUnknown, false
 }
 
-// LookupDeviceName returns a device name.
+// DeviceName returns a device name.
 // 4.3.1.9. TXT key for device name (DN).
-func (com *commissioningNode) LookupDeviceName() (string, bool) {
+func (com *commissioningNode) DeviceName() (string, bool) {
 	return com.LookupTxtAttribute(TxtRecordDeviceName)
 }
 
-// LookupRotatingDeviceID returns a rotating device identifier.
+// RotatingDeviceID returns a rotating device identifier.
 // 4.3.1.10. TXT key for rotating device identifier (RI).
-func (com *commissioningNode) LookupRotatingDeviceID() (string, bool) {
+func (com *commissioningNode) RotatingDeviceID() (string, bool) {
 	return com.LookupTxtAttribute(TxtRecordRotatingDeviceID)
 }
 
-// LookupPairingHint returns a pairing hint.
+// PairingHint returns a pairing hint.
 // 4.3.1.11. TXT key for pairing hint (PH).
-func (com *commissioningNode) LookupPairingHint() (PairingHint, bool) {
+func (com *commissioningNode) PairingHint() (PairingHint, bool) {
 	phs, ok := com.LookupTxtAttribute(TxtRecordPairingHint)
 	if !ok {
 		return PairingHintNone, false
@@ -221,8 +221,8 @@ func (com *commissioningNode) LookupPairingHint() (PairingHint, bool) {
 	return ph, true
 }
 
-// LookupPairingInstructions returns a pairing instructions.
+// PairingInstructions returns a pairing instructions.
 // 4.3.1.12. TXT key for pairing instructions (PI).
-func (com *commissioningNode) LookupPairingInstructions() (string, bool) {
+func (com *commissioningNode) PairingInstructions() (string, bool) {
 	return com.LookupTxtAttribute(TxtRecordPairingInstruction)
 }

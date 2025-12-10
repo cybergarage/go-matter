@@ -109,7 +109,7 @@ func TestCommissionee(t *testing.T) {
 			t.Log("\n" + msg.String())
 
 			if 0 < len(test.expected.disc) {
-				disc, ok := com.LookupDiscriminator()
+				disc, ok := com.Discriminator()
 				if !ok {
 					t.Errorf("discriminator not found")
 				}
@@ -119,7 +119,7 @@ func TestCommissionee(t *testing.T) {
 			}
 
 			if 0 < len(test.expected.discs) {
-				discs, ok := com.LookupShortDiscriminator()
+				discs, ok := com.ShortDiscriminator()
 				if !ok {
 					t.Errorf("short discriminator not found")
 				}

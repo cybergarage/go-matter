@@ -22,41 +22,41 @@ import (
 type CommissionableNode interface {
 	// LookupTxtAttribute looks up a TXT attribute by name.
 	LookupTxtAttribute(name string) (string, bool)
-	// LookupVendorID returns a vendor and product ID.
+	// VendorID returns a vendor and product ID.
 	// 4.3.1.3. Commissioning Subtypes (_V)
 	// 4.3.1.6. TXT key for Vendor ID and Product ID (VP)
-	LookupVendorID() (string, bool)
-	// LookupVendorProductID returns a vendor and product ID.
+	VendorID() (string, bool)
+	// ProductID returns a vendor and product ID.
 	// 4.3.1.6. TXT key for Vendor ID and Product ID (VP)
-	LookupVendorProductID() (string, string, bool)
-	// LookupShortDiscriminator returns a short 4-bit discriminator.
+	ProductID() (string, string, bool)
+	// ShortDiscriminator returns a short 4-bit discriminator.
 	// 4.3.1.3. Commissioning Subtypes (_S)
-	LookupShortDiscriminator() (string, bool)
+	ShortDiscriminator() (string, bool)
 	// LookupDiscriminator returns a full 12-bit discriminator.
 	// 4.3.1.3. Commissioning Subtypes (_L)
-	LookupFullDiscriminator() (string, bool)
-	// LookupDiscriminator returns a full discriminator or short discriminator.
+	FullDiscriminator() (string, bool)
+	// Discriminator returns a full discriminator or short discriminator.
 	// 4.3.1.3. Commissioning Subtypes (_L,_S)
 	// 4.3.1.5. TXT key for discriminator (D)
-	LookupDiscriminator() (string, bool)
-	// LookupCommissioningMode returns a commissioning mode.
+	Discriminator() (string, bool)
+	// CommissioningMode returns a commissioning mode.
 	// 4.3.1.3. Commissioning Subtypes (_CM)
 	// 4.3.1.7. TXT key for commissioning mode (CM)
-	LookupCommissioningMode() (string, bool)
-	// LookupDeviceType returns a device type.
+	CommissioningMode() (string, bool)
+	// DeviceType returns a device type.
 	// 4.3.1.3. Commissioning Subtypes (_T)
 	// 4.3.1.8. TXT key for device type (DT)
-	LookupDeviceType() (DeviceType, bool)
-	// LookupDeviceName returns a device name.
+	DeviceType() (DeviceType, bool)
+	// DeviceName returns a device name.
 	// 4.3.1.9. TXT key for device name (DN)
-	LookupDeviceName() (string, bool)
-	// LookupRotatingDeviceID returns a rotating device identifier.
+	DeviceName() (string, bool)
+	// RotatingDeviceID returns a rotating device identifier.
 	// 4.3.1.10. TXT key for rotating device identifier (RI)
-	LookupRotatingDeviceID() (string, bool)
-	// LookupPairingHint returns a pairing hint.
+	RotatingDeviceID() (string, bool)
+	// PairingHint returns a pairing hint.
 	// 4.3.1.11. TXT key for pairing hint (PH)
-	LookupPairingHint() (PairingHint, bool)
-	// LookupPairingInstructions returns a pairing instructions.
+	PairingHint() (PairingHint, bool)
+	// PairingInstructions returns a pairing instructions.
 	// 4.3.1.12. TXT key for pairing instructions (PI)
-	LookupPairingInstructions() (string, bool)
+	PairingInstructions() (string, bool)
 }
