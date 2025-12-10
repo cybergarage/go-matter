@@ -15,8 +15,6 @@
 package mdns
 
 import (
-	"strconv"
-
 	"github.com/cybergarage/go-safecast/safecast"
 )
 
@@ -28,14 +26,10 @@ const (
 	DeviceTypeUnknown DeviceType = 0
 )
 
-// NewDeviceTypeFromString returns a new device type from a string.
-func NewDeviceTypeFromString(s string) (DeviceType, error) {
-	dti, err := strconv.Atoi(s)
-	if err != nil {
-		return DeviceTypeUnknown, err
-	}
+// NewDeviceTypeFrom returns a new device type from a string.
+func NewDeviceTypeFrom(v any) (DeviceType, error) {
 	var dt uint
-	if err := safecast.ToUint(dti, &dt); err != nil {
+	if err := safecast.ToUint(v, &dt); err != nil {
 		return DeviceTypeUnknown, err
 	}
 	return DeviceType(dt), nil

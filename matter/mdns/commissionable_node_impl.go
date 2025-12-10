@@ -208,7 +208,7 @@ func (node *commissioningNode) CommissioningMode() (CommissioningMode, bool) {
 // 4.3.1.8. TXT key for device type (DT).
 func (node *commissioningNode) DeviceType() (DeviceType, bool) {
 	deviceTypeFrom := func(dts string) (DeviceType, bool) {
-		dt, err := NewDeviceTypeFromString(dts)
+		dt, err := NewDeviceTypeFrom(dts)
 		if err != nil {
 			return DeviceTypeUnknown, false
 		}
