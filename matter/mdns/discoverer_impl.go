@@ -69,7 +69,7 @@ func (disc *discoverer) Search(ctx context.Context) ([]CommissionableNode, error
 		return []CommissionableNode{}, err
 	}
 
-	var nodes []CommissionableNode
+	nodes := []CommissionableNode{}
 	for _, service := range services {
 		node := NewCommissioningNodeWithService(service)
 		nodes = append(nodes, node)

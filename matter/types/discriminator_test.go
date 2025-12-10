@@ -30,8 +30,11 @@ func TestDiscriminator(t *testing.T) {
 		{Discriminator(3136), uint16(3072), true},
 		{Discriminator(3136), int(3136), true},
 		{Discriminator(3136), int(3072), true},
+		{Discriminator(3136), string("3136"), true},
+		{Discriminator(3136), string("3072"), true},
 		{Discriminator(3136), uint16(4072), false},
 		{Discriminator(3136), int(4072), false},
+		{Discriminator(3136), string("4072"), false},
 	}
 
 	for _, test := range tests {

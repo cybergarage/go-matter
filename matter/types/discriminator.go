@@ -14,7 +14,11 @@
 
 package types
 
-import "github.com/cybergarage/go-safecast/safecast"
+import (
+	"fmt"
+
+	"github.com/cybergarage/go-safecast/safecast"
+)
 
 const (
 	upper4BitsMask = 0x0F00
@@ -38,14 +42,14 @@ func NewDiscriminatorFrom(v any) (Discriminator, error) {
 	return Discriminator(uv), nil
 }
 
-// IsUpper4Bits returns true if the discriminator indicates only upper 4 bits are used for a manual pairing code.
-func (d Discriminator) IsUpper4Bits() bool {
+// IsShort returns true if the discriminator indicates only upper 4 bits are used for a manual pairing code.
+func (d Discriminator) IsShort() bool {
 	return ((d & upper4BitsMask) == d)
 }
 
-// IsFull12Bits returns true if the discriminator indicates full 12 bits are used for a QR code.
-func (d Discriminator) IsFull12Bits() bool {
-	return !d.IsUpper4Bits()
+// IsFull returns true if the discriminator indicates full 12 bits are used for a QR code.
+func (d Discriminator) IsFull() bool {
+	return !d.IsShort()
 }
 
 // Equal returns true if the discriminator equals to the specified value.
@@ -64,4 +68,9 @@ func (d Discriminator) Equal(other any) bool {
 		return false
 	}
 	return equal(uint16(d), uint16(otherDisc))
+}
+
+// String returns the string representation of the discriminator.
+func (d Discriminator) String() string {
+	return fmt.Sprintf("%d", uint16(d))
 }

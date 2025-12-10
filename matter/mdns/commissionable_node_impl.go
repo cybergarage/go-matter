@@ -15,9 +15,9 @@
 package mdns
 
 import (
-	_ "embed"
 	"strings"
 
+	"github.com/cybergarage/go-matter/matter/types"
 	"github.com/cybergarage/go-mdns/mdns"
 	"github.com/cybergarage/go-mdns/mdns/dns"
 )
@@ -40,15 +40,15 @@ func NewCommissioningNodeWithMessage(msg dns.Message) (CommissionableNode, error
 
 // NewCommissioningNodeWithService returns a new commissioning node with a mDNS service.
 func NewCommissioningNodeWithService(service mdns.Service) CommissionableNode {
-	com := &commissioningNode{
+	node := &commissioningNode{
 		Service: service,
 	}
-	return com
+	return node
 }
 
 // LookupSubtype returns a subtype for the specified prefix.
-func (com *commissioningNode) LookupSubtype(prefix string) (string, bool) {
-	record, ok := com.Service.LookupResourceByNamePrefix(prefix)
+func (node *commissioningNode) LookupSubtype(prefix string) (string, bool) {
+	record, ok := node.Service.LookupResourceByNamePrefix(prefix)
 	if !ok {
 		return "", false
 	}
@@ -60,24 +60,24 @@ func (com *commissioningNode) LookupSubtype(prefix string) (string, bool) {
 }
 
 // LookupTxtAttribute looks up a TXT attribute by name.
-func (com *commissioningNode) LookupTxtAttribute(name string) (string, bool) {
-	attr, ok := com.Service.LookupResourceAttribute(name)
+func (node *commissioningNode) LookupTxtAttribute(name string) (string, bool) {
+	attr, ok := node.Service.LookupResourceAttribute(name)
 	if !ok {
 		return "", false
 	}
 	return attr.Value(), true
 }
 
-func (com *commissioningNode) appendLookupSubtype(records []string, name string) []string {
-	v, ok := com.LookupSubtype(name)
+func (node *commissioningNode) appendLookupSubtype(records []string, name string) []string {
+	v, ok := node.LookupSubtype(name)
 	if !ok {
 		return records
 	}
 	return append(records, v)
 }
 
-func (com *commissioningNode) appendLookupTxtAttribute(records []string, name string) []string {
-	v, ok := com.LookupTxtAttribute(name)
+func (node *commissioningNode) appendLookupTxtAttribute(records []string, name string) []string {
+	v, ok := node.LookupTxtAttribute(name)
 	if !ok {
 		return records
 	}
@@ -86,37 +86,48 @@ func (com *commissioningNode) appendLookupTxtAttribute(records []string, name st
 
 // Discriminator returns a full discriminator or short discriminator.
 // 4.3.1.5. TXT key for discriminator (D).
-func (com *commissioningNode) Discriminator() (string, bool) {
-	d, ok := com.FullDiscriminator()
+func (node *commissioningNode) Discriminator() (Discriminator, bool) {
+	desc, ok := node.FullDiscriminator()
 	if ok {
-		return d, true
+		return desc, true
 	}
-	return com.ShortDiscriminator()
+	return node.ShortDiscriminator()
 }
 
 // FullDiscriminator returns a full 12-bit discriminator.
 // 4.3.1.3. Commissioning Subtypes (_L).
-func (com *commissioningNode) FullDiscriminator() (string, bool) {
-	d, ok := com.LookupTxtAttribute(TxtRecordDiscriminator)
-	if ok {
-		return d, true
+func (node *commissioningNode) FullDiscriminator() (Discriminator, bool) {
+	v, ok := node.LookupTxtAttribute(TxtRecordDiscriminator)
+	if !ok {
+		v, ok = node.LookupSubtype(SubtypeDiscriminatorLong)
+		if !ok {
+			return 0, false
+		}
 	}
-	d, ok = com.LookupSubtype(SubtypeDiscriminatorLong)
-	if ok {
-		return d, true
+	desc, err := types.NewDiscriminatorFrom(v)
+	if err != nil {
+		return 0, false
 	}
-	return com.LookupSubtype(SubtypeDiscriminatorShort)
+	return desc, true
 }
 
 // ShortDiscriminator returns a short 4-bit discriminator.
 // 4.3.1.3. Commissioning Subtypes (_S).
-func (com *commissioningNode) ShortDiscriminator() (string, bool) {
-	return com.LookupSubtype(SubtypeDiscriminatorShort)
+func (node *commissioningNode) ShortDiscriminator() (Discriminator, bool) {
+	v, ok := node.LookupSubtype(SubtypeDiscriminatorShort)
+	if !ok {
+		return 0, false
+	}
+	desc, err := types.NewDiscriminatorFrom(v)
+	if err != nil {
+		return 0, false
+	}
+	return desc, true
 }
 
 // VendorProductID returns a vendor and product ID.
 // 4.3.1.6. TXT key for Vendor ID and Product ID (VP).
-func (com *commissioningNode) VendorProductID() (string, string, bool) {
+func (node *commissioningNode) VendorProductID() (string, string, bool) {
 	splitVenderProductID := func(vp string) (string, string, bool) {
 		vpList := strings.Split(vp, "+")
 		if len(vpList) < 1 {
@@ -124,30 +135,28 @@ func (com *commissioningNode) VendorProductID() (string, string, bool) {
 		}
 		return vpList[0], vpList[1], true
 	}
-
-	vp, ok := com.LookupTxtAttribute(TxtRecordVendorProductID)
+	vp, ok := node.LookupTxtAttribute(TxtRecordVendorProductID)
 	if !ok || len(vp) == 0 {
 		return "", "", false
 	}
-
 	return splitVenderProductID(vp)
 }
 
 // VendorID returns a vendor and product ID.
 // 4.3.1.3. Commissioning Subtypes (_V)
 // 4.3.1.6. TXT key for Vendor ID and Product ID (VP).
-func (com *commissioningNode) VendorID() (string, bool) {
-	venderID, _, ok := com.VendorProductID()
+func (node *commissioningNode) VendorID() (string, bool) {
+	venderID, _, ok := node.VendorProductID()
 	if ok {
 		return venderID, true
 	}
-	return com.LookupSubtype(SubtypeVendorID)
+	return node.LookupSubtype(SubtypeVendorID)
 }
 
 // ProductID returns a vendor and product ID.
 // 4.3.1.6. TXT key for Vendor ID and Product ID (VP).
-func (com *commissioningNode) ProductID() (string, bool) {
-	_, productID, ok := com.VendorProductID()
+func (node *commissioningNode) ProductID() (string, bool) {
+	_, productID, ok := node.VendorProductID()
 	if !ok {
 		return "", false
 	}
@@ -157,7 +166,7 @@ func (com *commissioningNode) ProductID() (string, bool) {
 // CommissioningMode returns a commissioning mode.
 // 4.3.1.3. Commissioning Subtypes (_CM)
 // 4.3.1.7. TXT key for commissioning mode (CM).
-func (com *commissioningNode) CommissioningMode() (string, bool) {
+func (node *commissioningNode) CommissioningMode() (string, bool) {
 	cmFrom := func(cms string) (string, bool) {
 		if len(cms) == 0 {
 			return CommissioningModeNone, true
@@ -166,8 +175,8 @@ func (com *commissioningNode) CommissioningMode() (string, bool) {
 	}
 
 	var records []string
-	records = com.appendLookupTxtAttribute(records, TxtRecordCommissioningMode)
-	records = com.appendLookupSubtype(records, SubtypeCommissioningMode)
+	records = node.appendLookupTxtAttribute(records, TxtRecordCommissioningMode)
+	records = node.appendLookupSubtype(records, SubtypeCommissioningMode)
 
 	for _, cms := range records {
 		cm, ok := cmFrom(cms)
@@ -182,7 +191,7 @@ func (com *commissioningNode) CommissioningMode() (string, bool) {
 // DeviceType returns a device type.
 // 4.3.1.3. Commissioning Subtypes (_T)
 // 4.3.1.8. TXT key for device type (DT).
-func (com *commissioningNode) DeviceType() (DeviceType, bool) {
+func (node *commissioningNode) DeviceType() (DeviceType, bool) {
 	deviceTypeFrom := func(dts string) (DeviceType, bool) {
 		dt, err := NewDeviceTypeFromString(dts)
 		if err != nil {
@@ -192,8 +201,8 @@ func (com *commissioningNode) DeviceType() (DeviceType, bool) {
 	}
 
 	var records []string
-	records = com.appendLookupTxtAttribute(records, TxtRecordDeviceType)
-	records = com.appendLookupSubtype(records, SubtypeDeviceType)
+	records = node.appendLookupTxtAttribute(records, TxtRecordDeviceType)
+	records = node.appendLookupSubtype(records, SubtypeDeviceType)
 
 	for _, dts := range records {
 		dt, ok := deviceTypeFrom(dts)
@@ -207,20 +216,20 @@ func (com *commissioningNode) DeviceType() (DeviceType, bool) {
 
 // DeviceName returns a device name.
 // 4.3.1.9. TXT key for device name (DN).
-func (com *commissioningNode) DeviceName() (string, bool) {
-	return com.LookupTxtAttribute(TxtRecordDeviceName)
+func (node *commissioningNode) DeviceName() (string, bool) {
+	return node.LookupTxtAttribute(TxtRecordDeviceName)
 }
 
 // RotatingDeviceID returns a rotating device identifier.
 // 4.3.1.10. TXT key for rotating device identifier (RI).
-func (com *commissioningNode) RotatingDeviceID() (string, bool) {
-	return com.LookupTxtAttribute(TxtRecordRotatingDeviceID)
+func (node *commissioningNode) RotatingDeviceID() (string, bool) {
+	return node.LookupTxtAttribute(TxtRecordRotatingDeviceID)
 }
 
 // PairingHint returns a pairing hint.
 // 4.3.1.11. TXT key for pairing hint (PH).
-func (com *commissioningNode) PairingHint() (PairingHint, bool) {
-	phs, ok := com.LookupTxtAttribute(TxtRecordPairingHint)
+func (node *commissioningNode) PairingHint() (PairingHint, bool) {
+	phs, ok := node.LookupTxtAttribute(TxtRecordPairingHint)
 	if !ok {
 		return PairingHintNone, false
 	}
@@ -233,6 +242,11 @@ func (com *commissioningNode) PairingHint() (PairingHint, bool) {
 
 // PairingInstructions returns a pairing instructions.
 // 4.3.1.12. TXT key for pairing instructions (PI).
-func (com *commissioningNode) PairingInstructions() (string, bool) {
-	return com.LookupTxtAttribute(TxtRecordPairingInstruction)
+func (node *commissioningNode) PairingInstructions() (string, bool) {
+	return node.LookupTxtAttribute(TxtRecordPairingInstruction)
+}
+
+// String returns the string representation.
+func (node *commissioningNode) String() string {
+	return node.Service.String()
 }

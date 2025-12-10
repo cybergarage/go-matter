@@ -80,7 +80,7 @@ func TestPairingCode(t *testing.T) {
 			if decodedCode.CommissioningFlow() != CommissioningFlow(tt.expected.commFlow) {
 				t.Errorf("CommFlow(): got=%d, want=%d", decodedCode.CommissioningFlow(), tt.expected.commFlow)
 			}
-			if !decodedCode.Discriminator().IsUpper4Bits() {
+			if !decodedCode.Discriminator().IsShort() {
 				t.Errorf("Discriminator(): expected upper 4 bits only, got=%d", decodedCode.Discriminator())
 			}
 			if decodedCode.Discriminator() != Discriminator(tt.expected.upperDesc) {

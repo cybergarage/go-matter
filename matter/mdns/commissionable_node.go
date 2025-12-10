@@ -2,7 +2,7 @@
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+// You may obtain the copy of the License at
 //
 //    http://www.apache.org/licenses/LICENSE-2.0
 //
@@ -15,46 +15,52 @@
 package mdns
 
 import (
-	_ "embed"
+	"github.com/cybergarage/go-matter/matter/types"
 )
 
-// CommissionableNode represents a commissionable node.
+// Discriminator represents the discriminator value used in onboarding payloads.
+type Discriminator = types.Discriminator
+
+// CommissionableNode represents the commissionable node.
 type CommissionableNode interface {
-	// VendorID returns a vendor and product ID.
+	// VendorID returns the vendor ID from the TXT record if available; otherwise, it returns the vendor ID from the subtype.
 	// 4.3.1.3. Commissioning Subtypes (_V)
 	// 4.3.1.6. TXT key for Vendor ID and Product ID (VP)
 	VendorID() (string, bool)
-	// ProductID returns a vendor and product ID.
+	// ProductID returns the vendor and product ID from the TXT record if available.
 	// 4.3.1.6. TXT key for Vendor ID and Product ID (VP)
 	ProductID() (string, bool)
-	// ShortDiscriminator returns a short 4-bit discriminator.
+	// ShortDiscriminator returns the short 4-bit discriminator from the subtype if available.
 	// 4.3.1.3. Commissioning Subtypes (_S)
-	ShortDiscriminator() (string, bool)
-	// LookupDiscriminator returns a full 12-bit discriminator.
+	ShortDiscriminator() (Discriminator, bool)
+	// FullDiscriminator returns the full 12-bit discriminator from the TXT record if available; otherwise, it returns the full 12-bit discriminator from the subtype.
 	// 4.3.1.3. Commissioning Subtypes (_L)
-	FullDiscriminator() (string, bool)
-	// Discriminator returns a full discriminator or short discriminator.
+	// 4.3.1.5. TXT key for discriminator (D)
+	FullDiscriminator() (Discriminator, bool)
+	// Discriminator returns the full 12-bit discriminator from the TXT record if available; otherwise, it returns the full 12-bit or short 4-bit discriminator from the subtype.
 	// 4.3.1.3. Commissioning Subtypes (_L,_S)
 	// 4.3.1.5. TXT key for discriminator (D)
-	Discriminator() (string, bool)
-	// CommissioningMode returns a commissioning mode.
+	Discriminator() (Discriminator, bool)
+	// CommissioningMode returns the commissioning mode from the TXT record if available; otherwise, it returns the commissioning mode from the subtype if available.
 	// 4.3.1.3. Commissioning Subtypes (_CM)
 	// 4.3.1.7. TXT key for commissioning mode (CM)
 	CommissioningMode() (string, bool)
-	// DeviceType returns a device type.
+	// DeviceType returns the device type from the TXT record if available; otherwise, it returns the device type from the subtype.
 	// 4.3.1.3. Commissioning Subtypes (_T)
 	// 4.3.1.8. TXT key for device type (DT)
 	DeviceType() (DeviceType, bool)
-	// DeviceName returns a device name.
+	// DeviceName returns the device name from the TXT record if available,
 	// 4.3.1.9. TXT key for device name (DN)
 	DeviceName() (string, bool)
-	// RotatingDeviceID returns a rotating device identifier.
+	// RotatingDeviceID returns the rotating device identifier from the TXT record if available,
 	// 4.3.1.10. TXT key for rotating device identifier (RI)
 	RotatingDeviceID() (string, bool)
-	// PairingHint returns a pairing hint.
+	// PairingHint returns the pairing hint from the TXT record if available,
 	// 4.3.1.11. TXT key for pairing hint (PH)
 	PairingHint() (PairingHint, bool)
-	// PairingInstructions returns a pairing instructions.
+	// PairingInstructions returns the pairing instructions from the TXT record if available,
 	// 4.3.1.12. TXT key for pairing instructions (PI)
 	PairingInstructions() (string, bool)
+	// String returns the string representation.
+	String() string
 }

@@ -35,8 +35,9 @@ var matterService01 string
 
 func TestCommissionee(t *testing.T) {
 	type expected struct {
-		disc  string
-		discs string
+		disc      mdns.Discriminator
+		fullDisc  mdns.Discriminator
+		shortDisc mdns.Discriminator
 	}
 	tests := []struct {
 		name     string
@@ -49,8 +50,9 @@ func TestCommissionee(t *testing.T) {
 			"matter 120 4.3.1.13/dns-sd",
 			matterSpec12043113DNSSD,
 			expected{
-				disc:  "840",
-				discs: "3",
+				disc:      mdns.Discriminator(840),
+				fullDisc:  mdns.Discriminator(840),
+				shortDisc: mdns.Discriminator(3),
 			},
 		},
 		// 4.3.1.13. Examples
@@ -59,16 +61,18 @@ func TestCommissionee(t *testing.T) {
 			"matter 120 4.3.1.13/avahi",
 			matterSpec12043113Avahi,
 			expected{
-				disc:  "840",
-				discs: "3",
+				disc:      mdns.Discriminator(840),
+				fullDisc:  mdns.Discriminator(840),
+				shortDisc: mdns.Discriminator(3),
 			},
 		},
 		{
 			"matter service 01",
 			matterService01,
 			expected{
-				disc:  "2377",
-				discs: "9",
+				disc:      mdns.Discriminator(2377),
+				fullDisc:  mdns.Discriminator(2377),
+				shortDisc: mdns.Discriminator(9),
 			},
 		},
 	}
@@ -87,31 +91,48 @@ func TestCommissionee(t *testing.T) {
 				return
 			}
 
-			com, err := mdns.NewCommissioningNodeWithMessage(msg)
+			node, err := mdns.NewCommissioningNodeWithMessage(msg)
 			if err != nil {
+				t.Log("\n" + msg.String())
 				t.Error(err)
 				return
 			}
 
+			reportError := func(msg dns.Message, node mdns.CommissionableNode, format string, args ...any) {
+				t.Errorf(format, args...)
+				t.Log("\n" + msg.String())
+				t.Log("\n" + node.String())
+			}
+
 			t.Log("\n" + msg.String())
 
-			if 0 < len(test.expected.disc) {
-				disc, ok := com.Discriminator()
+			if 0 < test.expected.disc {
+				disc, ok := node.Discriminator()
 				if !ok {
-					t.Errorf("discriminator not found")
+					reportError(msg, node, "discriminator not found")
 				}
-				if disc != test.expected.disc {
-					t.Errorf("discriminator (%s) != (%s)", disc, test.expected.disc)
+				if !test.expected.disc.Equal(disc) {
+					reportError(msg, node, "discriminator (%s) != (%s)", disc, test.expected.disc)
 				}
 			}
 
-			if 0 < len(test.expected.discs) {
-				discs, ok := com.ShortDiscriminator()
+			if 0 < test.expected.fullDisc {
+				disc, ok := node.FullDiscriminator()
 				if !ok {
-					t.Errorf("short discriminator not found")
+					reportError(msg, node, "full discriminator not found")
 				}
-				if discs != test.expected.discs {
-					t.Errorf("short discriminator (%s) != (%s)", discs, test.expected.discs)
+				if !test.expected.fullDisc.Equal(disc) {
+					reportError(msg, node, "full discriminator (%s) != (%s)", disc, test.expected.fullDisc)
+				}
+			}
+
+			if 0 < test.expected.shortDisc {
+				discs, ok := node.ShortDiscriminator()
+				if !ok {
+					reportError(msg, node, "short discriminator not found")
+				}
+				if discs != test.expected.shortDisc {
+					reportError(msg, node, "short discriminator (%s) != (%s)", discs, test.expected.shortDisc)
 				}
 			}
 		})

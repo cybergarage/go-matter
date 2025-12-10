@@ -77,7 +77,7 @@ func TestQRPayload(t *testing.T) {
 			if decodedPayload.CommissioningFlow() != CommissioningFlow(tt.expected.commFlow) {
 				t.Errorf("CommissioningFlow: got=%d, want=%d", decodedPayload.CommissioningFlow(), tt.expected.commFlow)
 			}
-			if !decodedPayload.Discriminator().IsFull12Bits() {
+			if !decodedPayload.Discriminator().IsFull() {
 				t.Errorf("Discriminator: expected full 12 bits, got=%d", decodedPayload.Discriminator())
 			}
 			if decodedPayload.Discriminator() != Discriminator(tt.expected.discriminator) {
