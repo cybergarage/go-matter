@@ -33,9 +33,10 @@ var matterSpec12043113Avahi string
 //go:embed dumps/matter-service-01.dump
 var matterService01 string
 
-func TestCommissionee(t *testing.T) {
+func TestCommissioningNode(t *testing.T) {
 	type expected struct {
 		venderID  mdns.VendorID
+		productID mdns.ProductID
 		disc      mdns.Discriminator
 		fullDisc  mdns.Discriminator
 		shortDisc mdns.Discriminator
@@ -53,6 +54,7 @@ func TestCommissionee(t *testing.T) {
 			matterSpec12043113DNSSD,
 			expected{
 				venderID:  mdns.VendorID(0),
+				productID: mdns.ProductID(0),
 				disc:      mdns.Discriminator(840),
 				fullDisc:  mdns.Discriminator(840),
 				shortDisc: mdns.Discriminator(3),
@@ -66,6 +68,7 @@ func TestCommissionee(t *testing.T) {
 			matterSpec12043113Avahi,
 			expected{
 				venderID:  mdns.VendorID(0),
+				productID: mdns.ProductID(0),
 				disc:      mdns.Discriminator(840),
 				fullDisc:  mdns.Discriminator(840),
 				shortDisc: mdns.Discriminator(3),
@@ -77,6 +80,7 @@ func TestCommissionee(t *testing.T) {
 			matterService01,
 			expected{
 				venderID:  mdns.VendorID(5002),
+				productID: mdns.ProductID(5010),
 				disc:      mdns.Discriminator(2377),
 				fullDisc:  mdns.Discriminator(2377),
 				shortDisc: mdns.Discriminator(9),
@@ -119,6 +123,16 @@ func TestCommissionee(t *testing.T) {
 				}
 				if vendorID != test.expected.venderID {
 					reportError(msg, node, "vendor ID (%s) != (%s)", vendorID, test.expected.venderID)
+				}
+			}
+
+			if 0 < test.expected.productID {
+				productID, ok := node.ProductID()
+				if !ok {
+					reportError(msg, node, "product ID not found")
+				}
+				if productID != test.expected.productID {
+					reportError(msg, node, "product ID (%s) != (%s)", productID, test.expected.productID)
 				}
 			}
 

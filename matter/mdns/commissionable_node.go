@@ -21,6 +21,9 @@ import (
 // VendorID represents a vendor ID.
 type VendorID = types.VendorID
 
+// ProductID represents a product ID.
+type ProductID = types.ProductID
+
 // Discriminator represents the discriminator value used in onboarding payloads.
 type Discriminator = types.Discriminator
 
@@ -32,7 +35,7 @@ type CommissionableNode interface {
 	VendorID() (VendorID, bool)
 	// ProductID returns the vendor and product ID from the TXT record if available.
 	// 4.3.1.6. TXT key for Vendor ID and Product ID (VP)
-	ProductID() (string, bool)
+	ProductID() (ProductID, bool)
 	// ShortDiscriminator returns the short 4-bit discriminator from the subtype if available.
 	// 4.3.1.3. Commissioning Subtypes (_S)
 	ShortDiscriminator() (Discriminator, bool)

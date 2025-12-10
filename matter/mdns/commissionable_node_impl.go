@@ -146,14 +146,14 @@ func (node *commissioningNode) VendorProductID() (string, string, bool) {
 // 4.3.1.3. Commissioning Subtypes (_V)
 // 4.3.1.6. TXT key for Vendor ID and Product ID (VP).
 func (node *commissioningNode) VendorID() (VendorID, bool) {
-	venderIDStr, _, ok := node.VendorProductID()
+	s, _, ok := node.VendorProductID()
 	if !ok {
-		venderIDStr, ok = node.LookupSubtype(SubtypeVendorID)
+		s, ok = node.LookupSubtype(SubtypeVendorID)
 	}
 	if !ok {
 		return 0, false
 	}
-	venderID, err := types.NewVendorIDFrom(venderIDStr)
+	venderID, err := types.NewVendorIDFrom(s)
 	if err != nil {
 		return 0, false
 	}
@@ -162,10 +162,14 @@ func (node *commissioningNode) VendorID() (VendorID, bool) {
 
 // ProductID returns a vendor and product ID.
 // 4.3.1.6. TXT key for Vendor ID and Product ID (VP).
-func (node *commissioningNode) ProductID() (string, bool) {
-	_, productID, ok := node.VendorProductID()
+func (node *commissioningNode) ProductID() (ProductID, bool) {
+	_, s, ok := node.VendorProductID()
 	if !ok {
-		return "", false
+		return 0, false
+	}
+	productID, err := types.NewProductIDFrom(s)
+	if err != nil {
+		return 0, false
 	}
 	return productID, true
 }
