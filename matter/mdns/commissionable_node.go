@@ -15,6 +15,7 @@
 package mdns
 
 import (
+	"net"
 	"regexp"
 
 	"github.com/cybergarage/go-matter/matter/types"
@@ -37,6 +38,10 @@ type CommissionableNode interface {
 	// Hostname returns the host name.
 	// 4.3.1.1. Host Name Construction
 	Hostname() (string, bool)
+	// Addresses returns the IP address.
+	Addresses() ([]net.IP, bool)
+	// Port returns the port number.
+	Port() (int, bool)
 	// VendorID returns the vendor ID from the TXT record if available; otherwise, it returns the vendor ID from the subtype.
 	// 4.3.1.3. Commissioning Subtypes (_V)
 	// 4.3.1.6. TXT key for Vendor ID and Product ID (VP)

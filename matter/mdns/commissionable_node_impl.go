@@ -15,6 +15,7 @@
 package mdns
 
 import (
+	"net"
 	"strings"
 
 	"github.com/cybergarage/go-matter/matter/types"
@@ -115,6 +116,24 @@ func (node *commissioningNode) Hostname() (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// Addresses returns the IP address.
+func (node *commissioningNode) Addresses() ([]net.IP, bool) {
+	addrs := node.Service.Addresses()
+	if len(addrs) == 0 {
+		return []net.IP{}, false
+	}
+	return addrs, true
+}
+
+// Port returns the port number.
+func (node *commissioningNode) Port() (int, bool) {
+	port := node.Service.Port()
+	if port <= 0 {
+		return 0, false
+	}
+	return port, true
 }
 
 // Discriminator returns a full discriminator or short discriminator.
