@@ -15,11 +15,12 @@
 package matter
 
 import (
-	"github.com/cybergarage/go-matter/matter/message"
+	"github.com/cybergarage/go-matter/matter/types"
 )
 
 // NodeID represents a node ID.
-type NodeID = message.NodeID
+// 2.5.5. Node Identifier (NID).
+type NodeID = types.NodeID
 
 const (
 	UnspecifiedNodeID = (NodeID)(0x0000000000000000)

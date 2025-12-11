@@ -14,12 +14,11 @@
 
 package matter
 
-import (
-	"github.com/cybergarage/go-matter/matter/message"
-)
+import "github.com/cybergarage/go-matter/matter/types"
 
 // GroupID represents a group ID.
-type GroupID = message.GroupID
+// 2.5.4. Group Identifier (GID).
+type GroupID = types.GroupID
 
 const (
 	UnspecifiedGroupID            GroupID = 0x0000

@@ -14,6 +14,12 @@
 
 package message
 
+import (
+	"github.com/cybergarage/go-matter/matter/types"
+)
+
 // NodeID represents a node ID.
+// 2.5.5. Node Identifier (NID).
 // 4.4.1.6. Source Node ID (64 bits).
-type NodeID uint64
+// 4.4.1.6. Destination Node ID
+type NodeID = types.NodeID

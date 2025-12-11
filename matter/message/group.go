@@ -14,5 +14,10 @@
 
 package message
 
+import (
+	"github.com/cybergarage/go-matter/matter/types"
+)
+
 // GroupID represents a group ID.
-type GroupID uint16
+// 2.5.4. Group Identifier (GID).
+type GroupID = types.GroupID
