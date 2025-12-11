@@ -151,19 +151,35 @@ func (com *commissioner) Discover(ctx context.Context) ([]CommissionableDevice, 
 		return devs, nil
 	}
 
+	// Run BLE scan and mDNS discovery in parallel
+	type result struct {
+		devs []CommissionableDevice
+		err  error
+	}
+
+	// Use a single channel to collect both results symmetrically
+	done := make(chan result, 2)
+
+	go func() {
+		d, e := scanNodes(ctx)
+		done <- result{devs: d, err: e}
+	}()
+
+	go func() {
+		d, e := discoverNodes(ctx)
+		done <- result{devs: d, err: e}
+	}()
+
 	var devs []CommissionableDevice
 
-	belDevices, err := scanNodes(ctx)
-	if err != nil {
-		return nil, err
+	// Collect two results; return on first error
+	for range 2 {
+		r := <-done
+		if r.err != nil {
+			return nil, r.err
+		}
+		devs = append(devs, r.devs...)
 	}
-	devs = append(devs, belDevices...)
-
-	mDNSDevices, err := discoverNodes(ctx)
-	if err != nil {
-		return nil, err
-	}
-	devs = append(devs, mDNSDevices...)
 
 	return devs, nil
 }
