@@ -71,10 +71,10 @@ func TestPairingCode(t *testing.T) {
 			if decodedCode.Version() != tt.expected.version {
 				t.Errorf("Version(): got=%d, want=%d", decodedCode.Version(), tt.expected.version)
 			}
-			if decodedCode.VendorID() != tt.expected.vendorID {
+			if decodedCode.VendorID() != VendorID(tt.expected.vendorID) {
 				t.Errorf("VendorID(): got=%d, want=%d", decodedCode.VendorID(), tt.expected.vendorID)
 			}
-			if decodedCode.ProductID() != tt.expected.productID {
+			if decodedCode.ProductID() != ProductID(tt.expected.productID) {
 				t.Errorf("ProductID(): got=%d, want=%d", decodedCode.ProductID(), tt.expected.productID)
 			}
 			if decodedCode.CommissioningFlow() != CommissioningFlow(tt.expected.commFlow) {

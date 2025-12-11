@@ -103,13 +103,13 @@ func (qr *qrPayload) Version() uint8 {
 }
 
 // VendorID returns the Vendor ID.
-func (qr *qrPayload) VendorID() uint16 {
-	return qr.vendorID
+func (qr *qrPayload) VendorID() VendorID {
+	return VendorID(qr.vendorID)
 }
 
 // ProductID returns the Product ID.
-func (qr *qrPayload) ProductID() uint16 {
-	return qr.productID
+func (qr *qrPayload) ProductID() ProductID {
+	return ProductID(qr.productID)
 }
 
 // CommissioningFlow returns the Commissioning Flow.

@@ -68,10 +68,10 @@ func TestQRPayload(t *testing.T) {
 			if decodedPayload.Version() != tt.expected.version {
 				t.Errorf("Version: got=%d, want=%d", decodedPayload.Version(), tt.expected.version)
 			}
-			if decodedPayload.VendorID() != tt.expected.vendorID {
+			if decodedPayload.VendorID() != VendorID(tt.expected.vendorID) {
 				t.Errorf("VendorID: got=%d, want=%d", decodedPayload.VendorID(), tt.expected.vendorID)
 			}
-			if decodedPayload.ProductID() != tt.expected.productID {
+			if decodedPayload.ProductID() != ProductID(tt.expected.productID) {
 				t.Errorf("ProductID: got=%d, want=%d", decodedPayload.ProductID(), tt.expected.productID)
 			}
 			if decodedPayload.CommissioningFlow() != CommissioningFlow(tt.expected.commFlow) {

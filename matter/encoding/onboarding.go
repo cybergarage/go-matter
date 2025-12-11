@@ -18,6 +18,12 @@ import (
 	"github.com/cybergarage/go-matter/matter/types"
 )
 
+// VendorID represents a vendor ID.
+type VendorID = types.VendorID
+
+// ProductID represents a product ID.
+type ProductID = types.ProductID
+
 // Discriminator represents the discriminator value used in onboarding payloads.
 type Discriminator = types.Discriminator
 
@@ -32,9 +38,9 @@ type OnboardingPayload interface {
 	// Version returns the version.
 	Version() uint8
 	// VendorID returns the Vendor ID.
-	VendorID() uint16
+	VendorID() VendorID
 	// ProductID returns the Product ID.
-	ProductID() uint16
+	ProductID() ProductID
 	// CommissioningFlow returns the Commissioning Flow.
 	CommissioningFlow() CommissioningFlow
 	// Discriminator returns the Discriminator.

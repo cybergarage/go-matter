@@ -51,13 +51,13 @@ func (pc *pairingCode) Version() uint8 {
 }
 
 // VendorID returns the Vendor ID.
-func (pc *pairingCode) VendorID() uint16 {
-	return pc.vendorID
+func (pc *pairingCode) VendorID() VendorID {
+	return VendorID(pc.vendorID)
 }
 
 // ProductID returns the Product ID.
-func (pc *pairingCode) ProductID() uint16 {
-	return pc.productID
+func (pc *pairingCode) ProductID() ProductID {
+	return ProductID(pc.productID)
 }
 
 // CommissioningFlow returns the Commissioning Flow.
