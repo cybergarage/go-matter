@@ -14,6 +14,10 @@
 
 package protocol
 
+import (
+	"github.com/cybergarage/go-matter/matter/types"
+)
+
 // VendorID represents a vendor ID.
 // 4.4.3.5. Protocol Vendor ID (16 bits).
-type VendorID uint16
+type VendorID = types.VendorID

@@ -14,8 +14,13 @@
 
 package matter
 
+import (
+	"github.com/cybergarage/go-matter/matter/types"
+)
+
 // ProductID represents a product ID.
-type ProductID uint16
+// 2.5.3. Product Identifier (Product ID, PID).
+type ProductID = types.ProductID
 
 const (
 	AnonymizedProductID = (ProductID)(0x0000)

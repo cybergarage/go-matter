@@ -15,11 +15,11 @@
 package matter
 
 import (
-	"github.com/cybergarage/go-matter/matter/protocol"
+	"github.com/cybergarage/go-matter/matter/types"
 )
 
-// VendorID represents a vendor ID.
-type VendorID = protocol.VendorID
+// VendorID represents a Matter vendor ID.
+type VendorID = types.VendorID
 
 const (
 	MatterStandardVendorID VendorID = 0x0000

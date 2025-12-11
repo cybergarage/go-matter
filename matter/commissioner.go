@@ -28,6 +28,9 @@ const (
 	DefaultCommissioningTimeout = time.Duration(5 * time.Second)
 )
 
+type CommissionableNode interface {
+}
+
 // CommissioningOptions represents the commissioning options.
 type CommissioningOptions interface {
 	encoding.OnboardingPayload
