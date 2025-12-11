@@ -49,7 +49,7 @@ func (com *commissioner) Discoverer() mdns.Discoverer {
 	return com.discoverer
 }
 
-func (com *commissioner) bleCommission(ctx context.Context, options CommissioningOptions) error {
+func (com *commissioner) bleCommission(ctx context.Context, payload OnboardingPayload) error {
 	scanner := com.Scannar()
 	err := scanner.Scan(context.Background())
 	if err != nil {
@@ -61,12 +61,12 @@ func (com *commissioner) bleCommission(ctx context.Context, options Commissionin
 		log.Infof("[%d] %s", n, dev.String())
 	}
 
-	dev, err := scanner.LookupDeviceByDiscriminator(options.Discriminator())
+	dev, err := scanner.LookupDeviceByDiscriminator(payload.Discriminator())
 	if err != nil {
 		if errors.Is(err, errors.ErrNotFound) {
-			return fmt.Errorf("device not found: %d (%d)", options.Passcode(), uint16(options.Discriminator()))
+			return fmt.Errorf("device not found: %d (%d)", payload.Passcode(), uint16(payload.Discriminator()))
 		} else {
-			return fmt.Errorf("failed to lookup device: %d (%d): %w", options.Passcode(), uint16(options.Discriminator()), err)
+			return fmt.Errorf("failed to lookup device: %d (%d): %w", payload.Passcode(), uint16(payload.Discriminator()), err)
 		}
 	}
 
@@ -111,13 +111,14 @@ func (com *commissioner) bleCommission(ctx context.Context, options Commissionin
 }
 
 // Commission commissions a device with the given commissioning options.
-func (com *commissioner) Commission(ctx context.Context, options CommissioningOptions) error {
+// 5.5. Commissioning Flows
+func (com *commissioner) Commission(ctx context.Context, payload OnboardingPayload) error {
 	if _, ok := ctx.Deadline(); !ok {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, DefaultCommissioningTimeout)
 		defer cancel()
 	}
-	err := com.bleCommission(ctx, options)
+	err := com.bleCommission(ctx, payload)
 	if err != nil {
 		return err
 	}

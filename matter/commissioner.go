@@ -28,12 +28,19 @@ const (
 	DefaultCommissioningTimeout = time.Duration(5 * time.Second)
 )
 
-type CommissionableNode interface {
-}
+// OnboardingPayload represents an onboarding payload.
+type OnboardingPayload = encoding.OnboardingPayload
 
-// CommissioningOptions represents the commissioning options.
-type CommissioningOptions interface {
-	encoding.OnboardingPayload
+// CommissionableNode represents a commissionable node interface.
+type CommissionableNode interface {
+	// VendorID represents a vendor ID.
+	// 2.5.2. Vendor Identifier (Vendor ID, VID).
+	VendorID() VendorID
+	// ProductID represents a product ID.
+	// 2.5.3. Product Identifier (Product ID, PID).
+	ProductID() ProductID
+	// Commission commissions the node with the given commissioning options.
+	Commission(ctx context.Context, payload OnboardingPayload) error
 }
 
 // Commissioner represents a commissioner interface.
@@ -43,7 +50,7 @@ type Commissioner interface {
 	// Discoverer returns the mDNS discoverer.
 	Discoverer() mdns.Discoverer
 	// Commission commissions a device with the given commissioning options.
-	Commission(ctx context.Context, options CommissioningOptions) error
+	Commission(ctx context.Context, options OnboardingPayload) error
 	// Start starts the commissioner.
 	Start() error
 	// Stop stops the commissioner.
