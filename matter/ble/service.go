@@ -21,6 +21,7 @@ import (
 
 	"github.com/cybergarage/go-ble/ble"
 	"github.com/cybergarage/go-matter/matter/errors"
+	"github.com/cybergarage/go-matter/matter/types"
 )
 
 const (
@@ -32,6 +33,12 @@ const (
 
 // MatterServiceUUID is the Bluetooth service UUID for Matter.
 var MatterServiceUUID = ble.NewUUIDFromUUID16(MatterServiceID)
+
+// VendorID represents a vendor ID.
+type VendorID = types.VendorID
+
+// ProductID represents a product ID.
+type ProductID = types.ProductID
 
 // Service represents a Matter BLE service.
 type Service interface {
@@ -55,9 +62,9 @@ type ServiceDescriptor interface {
 	// Discriminator returns the discriminator.
 	Discriminator() Discriminator
 	// VendorID returns the vendor ID.
-	VendorID() uint16
+	VendorID() VendorID
 	// ProductID returns the product ID.
-	ProductID() uint16
+	ProductID() ProductID
 	// AdditionalDataFlag returns the additional data flag.
 	AdditionalDataFlag() bool
 	// ExtendedAnnouncement returns the extended announcement flag.
@@ -125,8 +132,8 @@ func (s *service) MarshalObject() any {
 		OpCode:               s.OpCode(),
 		AdvertisementVersion: s.AdvertisementVersion(),
 		Discriminator:        uint16(s.Discriminator()),
-		VendorID:             s.VendorID(),
-		ProductID:            s.ProductID(),
+		VendorID:             uint16(s.VendorID()),
+		ProductID:            uint16(s.ProductID()),
 		AdditionalDataFlag:   s.AdditionalDataFlag(),
 		ExtendedAnnouncement: s.ExtendedAnnouncement(),
 		Characteristic:       charObjs,
@@ -200,13 +207,13 @@ func (ad *advertisingData) Discriminator() Discriminator {
 }
 
 // VendorID returns the vendor ID.
-func (ad *advertisingData) VendorID() uint16 {
-	return ad.vendorID
+func (ad *advertisingData) VendorID() VendorID {
+	return VendorID(ad.vendorID)
 }
 
 // ProductID returns the product ID.
-func (ad *advertisingData) ProductID() uint16 {
-	return ad.productID
+func (ad *advertisingData) ProductID() ProductID {
+	return ProductID(ad.productID)
 }
 
 // AdditionalDataFlag returns the additional data flag.
