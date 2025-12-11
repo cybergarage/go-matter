@@ -21,16 +21,28 @@ import (
 )
 
 type bleDevice struct {
+	*baseDevice
 	ble.Service
 }
 
 func newBLEDevice(service ble.Service) CommissionableDevice {
 	return &bleDevice{
-		Service: service,
+		baseDevice: &baseDevice{},
+		Service:    service,
 	}
 }
 
 // Commission commissions the node with the given commissioning options.
 func (d *bleDevice) Commission(ctx context.Context, payload OnboardingPayload) error {
 	return nil
+}
+
+// String returns the string representation of the BLE device.
+func (d *bleDevice) String() string {
+	return d.baseDevice.String(d)
+}
+
+// MarshalObject returns an object suitable for marshaling to JSON.
+func (d *bleDevice) MarshalObject() any {
+	return d.baseDevice.MarshalObject(d)
 }

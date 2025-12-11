@@ -41,4 +41,8 @@ type CommissionableDevice interface {
 	Discriminator() Discriminator
 	// Commission commissions the node with the given commissioning options.
 	Commission(ctx context.Context, payload OnboardingPayload) error
+	// MarshalObject returns an object suitable for marshaling to JSON.
+	MarshalObject() any
+	// String returns the string representation of the device.
+	String() string
 }

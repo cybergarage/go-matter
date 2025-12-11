@@ -21,11 +21,13 @@ import (
 )
 
 type mDNSDevice struct {
+	*baseDevice
 	mdns.CommissionableNode
 }
 
 func newMDNSDevice(node mdns.CommissionableNode) CommissionableDevice {
 	return &mDNSDevice{
+		baseDevice:         &baseDevice{},
 		CommissionableNode: node,
 	}
 }
@@ -63,4 +65,14 @@ func (d *mDNSDevice) Discriminator() Discriminator {
 // Commission commissions the node with the given commissioning options.
 func (d *mDNSDevice) Commission(ctx context.Context, payload OnboardingPayload) error {
 	return nil
+}
+
+// String returns the string representation of the mDNS device.
+func (d *mDNSDevice) String() string {
+	return d.baseDevice.String(d)
+}
+
+// MarshalObject returns an object suitable for marshaling to JSON.
+func (d *mDNSDevice) MarshalObject() any {
+	return d.baseDevice.MarshalObject(d)
 }
