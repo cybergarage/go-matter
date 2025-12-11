@@ -23,7 +23,7 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/cybergarage/go-matter/matter/ble"
+	"github.com/cybergarage/go-matter/matter"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -41,29 +41,28 @@ var scanCmd = &cobra.Command{ // nolint:exhaustruct
 		if err != nil {
 			return err
 		}
-		scanner := SharedCommissioner().Scannar()
+
+		comm := SharedCommissioner()
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		err = scanner.Scan(ctx)
+		devs, err := comm.Discover(ctx)
 		if err != nil {
 			return err
 		}
+		if len(devs) == 0 {
+			return nil
+		}
+
 		columns := []string{"Name", "Addr", "VendorID", "ProductID", "Discriminator"}
-		deviceColumns := func(dev ble.Device) ([]string, error) {
-			service, err := dev.Service()
-			if err != nil {
-				return nil, err
-			}
+		deviceColumns := func(dev matter.CommissionableDevice) ([]string, error) {
 			return []string{
-				dev.LocalName(),
-				dev.Address().String(),
-				strconv.Itoa(int(service.VendorID())),
-				strconv.Itoa(int(service.ProductID())),
-				strconv.Itoa(int(service.Discriminator())),
+				strconv.Itoa(int(dev.VendorID())),
+				strconv.Itoa(int(dev.ProductID())),
+				strconv.Itoa(int(dev.Discriminator())),
 			}, nil
 		}
 
-		printDevicesTable := func(devs []ble.Device) error {
+		printDevicesTable := func(devs []matter.CommissionableDevice) error {
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
 			printRow := func(cols ...string) {
 				if len(cols) == 0 {
@@ -89,7 +88,7 @@ var scanCmd = &cobra.Command{ // nolint:exhaustruct
 			return nil
 		}
 
-		printDevicesCSV := func(devs []ble.Device) error {
+		printDevicesCSV := func(devs []matter.CommissionableDevice) error {
 			printRow := func(cols ...string) {
 				if len(cols) == 0 {
 					return
@@ -107,7 +106,7 @@ var scanCmd = &cobra.Command{ // nolint:exhaustruct
 			return nil
 		}
 
-		printDevicesJSON := func(devs []ble.Device) error {
+		printDevicesJSON := func(devs []matter.CommissionableDevice) error {
 			devObjs := make([]any, 0)
 			for _, dev := range devs {
 				devObjs = append(devObjs, dev.MarshalObject())
@@ -117,11 +116,6 @@ var scanCmd = &cobra.Command{ // nolint:exhaustruct
 				return err
 			}
 			outputf("%s\n", string(b))
-			return nil
-		}
-
-		devs := scanner.DiscoveredDevices()
-		if len(devs) == 0 {
 			return nil
 		}
 
