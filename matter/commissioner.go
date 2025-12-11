@@ -19,29 +19,15 @@ import (
 	"time"
 
 	"github.com/cybergarage/go-matter/matter/ble"
-	"github.com/cybergarage/go-matter/matter/encoding"
 	"github.com/cybergarage/go-matter/matter/mdns"
 )
 
 const (
+	// DefaultDiscoveryTimeout is the default discovery timeout.
+	DefaultDiscoveryTimeout = time.Duration(5 * time.Second)
 	// DefaultCommissioningTimeout is the default commissioning timeout.
 	DefaultCommissioningTimeout = time.Duration(5 * time.Second)
 )
-
-// OnboardingPayload represents an onboarding payload.
-type OnboardingPayload = encoding.OnboardingPayload
-
-// CommissionableNode represents a commissionable node interface.
-type CommissionableNode interface {
-	// VendorID represents a vendor ID.
-	// 2.5.2. Vendor Identifier (Vendor ID, VID).
-	VendorID() VendorID
-	// ProductID represents a product ID.
-	// 2.5.3. Product Identifier (Product ID, PID).
-	ProductID() ProductID
-	// Commission commissions the node with the given commissioning options.
-	Commission(ctx context.Context, payload OnboardingPayload) error
-}
 
 // Commissioner represents a commissioner interface.
 type Commissioner interface {
@@ -49,8 +35,11 @@ type Commissioner interface {
 	Scannar() ble.Scanner
 	// Discoverer returns the mDNS discoverer.
 	Discoverer() mdns.Discoverer
-	// Commission commissions a device with the given commissioning options.
-	Commission(ctx context.Context, options OnboardingPayload) error
+	// Discover discovers commissionable devices.
+	// 5.4.3. Discovery by Commissioner
+	Discover(ctx context.Context) ([]CommissionableDevice, error)
+	// Commission commissions a device with the given onboarding payload.
+	Commission(ctx context.Context, payload OnboardingPayload) error
 	// Start starts the commissioner.
 	Start() error
 	// Stop stops the commissioner.

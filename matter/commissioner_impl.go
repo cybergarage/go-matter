@@ -110,8 +110,38 @@ func (com *commissioner) bleCommission(ctx context.Context, payload OnboardingPa
 	return nil
 }
 
-// Commission commissions a device with the given commissioning options.
-// 5.5. Commissioning Flows
+// Discover discovers commissionable devices.
+// 5.4.3. Discovery by Commissioner.
+func (com *commissioner) Discover(ctx context.Context) ([]CommissionableDevice, error) {
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, DefaultDiscoveryTimeout)
+		defer cancel()
+	}
+
+	discoverNodes := func(ctx context.Context) ([]CommissionableDevice, error) {
+		var devices []CommissionableDevice
+		nodes, err := com.discoverer.Search(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, entry := range nodes {
+			device := newMDNSDevice(entry)
+			devices = append(devices, device)
+		}
+		return devices, nil
+	}
+
+	devices, err := discoverNodes(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return devices, nil
+}
+
+// Commission commissions a device with the given onboarding payload.
+// 5.5. Commissioning Flows.
 func (com *commissioner) Commission(ctx context.Context, payload OnboardingPayload) error {
 	if _, ok := ctx.Deadline(); !ok {
 		var cancel context.CancelFunc
