@@ -119,25 +119,53 @@ func (com *commissioner) Discover(ctx context.Context) ([]CommissionableDevice, 
 		defer cancel()
 	}
 
+	scanNodes := func(ctx context.Context) ([]CommissionableDevice, error) {
+		var devs []CommissionableDevice
+		scanner := com.Scannar()
+		err := scanner.Scan(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, bleDev := range scanner.DiscoveredDevices() {
+			if !bleDev.IsCommissionable() {
+				continue
+			}
+			bleService, err := bleDev.Service()
+			if err != nil {
+				continue
+			}
+			devs = append(devs, newBLEDevice(bleService))
+		}
+		return devs, nil
+	}
+
 	discoverNodes := func(ctx context.Context) ([]CommissionableDevice, error) {
-		var devices []CommissionableDevice
+		var devs []CommissionableDevice
 		nodes, err := com.discoverer.Search(ctx)
 		if err != nil {
 			return nil, err
 		}
 		for _, entry := range nodes {
-			device := newMDNSDevice(entry)
-			devices = append(devices, device)
+			devs = append(devs, newMDNSDevice(entry))
 		}
-		return devices, nil
+		return devs, nil
 	}
 
-	devices, err := discoverNodes(ctx)
+	var devs []CommissionableDevice
+
+	belDevices, err := scanNodes(ctx)
 	if err != nil {
 		return nil, err
 	}
+	devs = append(devs, belDevices...)
 
-	return devices, nil
+	mDNSDevices, err := discoverNodes(ctx)
+	if err != nil {
+		return nil, err
+	}
+	devs = append(devs, mDNSDevices...)
+
+	return devs, nil
 }
 
 // Commission commissions a device with the given onboarding payload.
