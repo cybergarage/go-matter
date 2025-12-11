@@ -17,15 +17,15 @@ Matter is an open-source connectivity standard for smart home and IoT (Internet 
 
 #### Packages
 
-| Package | Status | Description |
-|---------|--------|-------------|
-| `ble.btp` | ✅ Under verification | BLE transport protocol implementation |
-| `mdns` | ✅ Under verification | mDNS (Multicast DNS) service discovery |
-| `encoding.base38` | ✅ Implemented | Base38 encoding/decoding |
-| `encoding.qr` | ✅ Implemented | QR code generation |
-| `encoding.pairing` | ✅ Implemented | Manual pairing code handling |
-| `encoding.tlv` | 🚧 In progress | TLV (Tag-Length-Value) encoding |
-| `pase` | 🚧 In progress | Passcode-Authenticated Session Establishment (PASE) implementation |
+| Category | Package | Status | Description |
+|----------|---------|--------|-------------|
+| Discovery | `ble.btp` | ✅ Under verification | BLE transport protocol implementation |
+|           | `mdns` | ✅ Under verification | mDNS (Multicast DNS) service discovery |
+| Commissioning |`pase` | 🚧 In progress | Passcode-Authenticated Session Establishment (PASE) implementation |
+| Encoding | `encoding.base38` | ✅ Implemented | Base38 encoding/decoding |
+|          | `encoding.qr` | ✅ Implemented | QR code generation |
+|          | `encoding.pairing` | ✅ Implemented | Manual pairing code handling |
+|          | `encoding.tlv` | 🚧 In progress | TLV (Tag-Length-Value) encoding |
 
 #### Related Projects
 
