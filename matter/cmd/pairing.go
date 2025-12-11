@@ -84,7 +84,6 @@ var pairingCodeWifiCmd = &cobra.Command{ // nolint:exhaustruct
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		// WiFi情報をCommissionerに渡す処理が必要な場合はここに追加
 		err = comm.Commission(ctx, pairingCode)
 		if err != nil {
 			return err
