@@ -21,5 +21,5 @@ import (
 // NodeID represents a node ID.
 // 2.5.5. Node Identifier (NID).
 // 4.4.1.6. Source Node ID (64 bits).
-// 4.4.1.6. Destination Node ID
+// 4.4.1.6. Destination Node ID.
 type NodeID = types.NodeID
