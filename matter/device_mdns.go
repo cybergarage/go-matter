@@ -50,6 +50,16 @@ func (d *mDNSDevice) ProductID() ProductID {
 	return ProductID(pid)
 }
 
+// Discriminator represents a discriminator.
+// 2.5.6. Discriminator.
+func (d *mDNSDevice) Discriminator() Discriminator {
+	discriminator, ok := d.CommissionableNode.Discriminator()
+	if !ok {
+		return 0
+	}
+	return Discriminator(discriminator)
+}
+
 // Commission commissions the node with the given commissioning options.
 func (d *mDNSDevice) Commission(ctx context.Context, payload OnboardingPayload) error {
 	return nil

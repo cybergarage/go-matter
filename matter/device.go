@@ -18,7 +18,11 @@ import (
 	"context"
 
 	"github.com/cybergarage/go-matter/matter/encoding"
+	"github.com/cybergarage/go-matter/matter/types"
 )
+
+// Discriminator represents a discriminator.
+type Discriminator = types.Discriminator
 
 // OnboardingPayload represents an onboarding payload.
 type OnboardingPayload = encoding.OnboardingPayload
@@ -32,6 +36,9 @@ type CommissionableDevice interface {
 	// ProductID represents a product ID.
 	// 2.5.3. Product Identifier (Product ID, PID).
 	ProductID() ProductID
+	// Discriminator represents a discriminator.
+	// 2.5.6. Discriminator.
+	Discriminator() Discriminator
 	// Commission commissions the node with the given commissioning options.
 	Commission(ctx context.Context, payload OnboardingPayload) error
 }
