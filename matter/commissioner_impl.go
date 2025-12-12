@@ -172,10 +172,10 @@ func (com *commissioner) Discover(ctx context.Context) ([]CommissionableDevice, 
 
 	var devs []CommissionableDevice
 
-	// Collect two results; return on first error
+	// Collect two results; treat timeouts as normal (skip)
 	for range 2 {
 		r := <-done
-		if r.err != nil {
+		if r.err != nil && !errors.Is(r.err, context.DeadlineExceeded) {
 			return nil, r.err
 		}
 		devs = append(devs, r.devs...)
