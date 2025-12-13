@@ -13,23 +13,3 @@
 // limitations under the License.
 
 package mdns
-
-import (
-	"context"
-	"time"
-)
-
-const (
-	SearchTimeout = time.Duration(5 * time.Second)
-)
-
-// Discoverer represents a discoverer for commissionable Nodes.
-type Discoverer interface {
-	// Search searches commissionable Nodes.
-	// 4.3. Discovery
-	Search(ctx context.Context, query Query) ([]CommissionableNode, error)
-	// Start starts this discoverer.
-	Start() error
-	// Stop stops this discoverer.
-	Stop() error
-}

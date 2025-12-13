@@ -52,10 +52,9 @@ func (disc *discoverer) Stop() error {
 
 // Search searches commissionable Nodes.
 // 4.3. Discovery.
-func (disc *discoverer) Search(ctx context.Context) ([]CommissionableNode, error) {
-	query := mdns.NewQuery(
-		mdns.WithQueryServices(SDServerType),
-		mdns.WithQueryDomain(SearchDomain),
+func (disc *discoverer) Search(ctx context.Context, query Query) ([]CommissionableNode, error) {
+	dnsQuery := mdns.NewQuery(
+		mdns.WithQueryServices(CommissionableNodeService),
 	)
 
 	if _, ok := ctx.Deadline(); !ok {
@@ -64,7 +63,7 @@ func (disc *discoverer) Search(ctx context.Context) ([]CommissionableNode, error
 		defer cancel()
 	}
 
-	services, err := disc.Client.Query(ctx, query)
+	services, err := disc.Client.Query(ctx, dnsQuery)
 	if err != nil {
 		return []CommissionableNode{}, err
 	}
