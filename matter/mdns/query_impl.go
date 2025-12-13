@@ -51,10 +51,18 @@ func WithQueryService(service string) QueryOption {
 // WithQueryOnboardingPayload sets the onboarding payload for the query.
 func WithQueryOnboardingPayload(payload OnboardingPayload) QueryOption {
 	return func(q *query) {
-		q.subtype = fmt.Sprintf("%s%d",
-			QuerySubtypeShortDiscriminator,
-			payload.Discriminator(),
-		)
+		switch {
+		case payload.Discriminator().IsShort():
+			q.subtype = fmt.Sprintf("%s%d",
+				QuerySubtypeShortDiscriminator,
+				payload.Discriminator().Short(),
+			)
+		default:
+			q.subtype = fmt.Sprintf("%s%d",
+				QuerySubtypeLongDiscriminator,
+				payload.Discriminator().Full(),
+			)
+		}
 	}
 }
 
