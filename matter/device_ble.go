@@ -16,33 +16,63 @@ package matter
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/ble"
 )
 
 type bleDevice struct {
 	*baseDevice
+	ble.Device
 	ble.Service
 }
 
-func newBLEDevice(service ble.Service) CommissionableDevice {
+func newBLEDevice(dev ble.Device, srv ble.Service) CommissionableDevice {
 	return &bleDevice{
 		baseDevice: &baseDevice{},
-		Service:    service,
+		Device:     dev,
+		Service:    srv,
 	}
 }
 
 // Commission commissions the node with the given commissioning options.
-func (d *bleDevice) Commission(ctx context.Context, payload OnboardingPayload) error {
+func (dev *bleDevice) Commission(ctx context.Context, payload OnboardingPayload) error {
+	if err := dev.Connect(ctx); err != nil {
+		return fmt.Errorf("failed to connect: %w", err)
+	}
+	defer func() {
+		if err := dev.Disconnect(); err != nil {
+			log.Errorf("Failed to disconnect: %v", err)
+		}
+	}()
+
+	log.Infof("Connected to device: %s", dev.String())
+
+	log.Infof("Device service: %s", dev.Service.String())
+
+	transport, err := dev.Service.Open()
+	if err != nil {
+		return fmt.Errorf("failed to open device transport: %s: %w", dev.String(), err)
+	}
+	defer transport.Close()
+
+	res, err := transport.Handshake(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to perform handshake: %s: %w", dev.String(), err)
+	}
+
+	log.Infof("Handshake response: %s", res.String())
+
 	return nil
 }
 
 // String returns the string representation of the BLE device.
-func (d *bleDevice) String() string {
-	return d.baseDevice.String(d)
+func (dev *bleDevice) String() string {
+	return dev.baseDevice.String(dev)
 }
 
 // MarshalObject returns an object suitable for marshaling to JSON.
-func (d *bleDevice) MarshalObject() any {
-	return d.baseDevice.MarshalObject(d)
+func (dev *bleDevice) MarshalObject() any {
+	return dev.baseDevice.MarshalObject(dev)
 }
