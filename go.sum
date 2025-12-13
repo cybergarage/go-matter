@@ -10,6 +10,8 @@ github.com/cybergarage/go-mdns v0.0.0-20251209144739-3b664f11b64c h1:Jb+O/TSTNg8
 github.com/cybergarage/go-mdns v0.0.0-20251209144739-3b664f11b64c/go.mod h1:jzpxysP31xSfiUWPK4WAfU3Yr9XuBDuWEV3Z8N04uC0=
 github.com/cybergarage/go-mdns v0.0.0-20251210141306-8ca3ed545048 h1:cMu3x+JIYnYEke596g5ws7QssR3igazUJZEqaPeQwZc=
 github.com/cybergarage/go-mdns v0.0.0-20251210141306-8ca3ed545048/go.mod h1:jzpxysP31xSfiUWPK4WAfU3Yr9XuBDuWEV3Z8N04uC0=
+github.com/cybergarage/go-mdns v0.0.0-20251213143654-a4b1c1d7d4b8 h1:VRpEMvPMj3k40r4mXz2si0Xj2MUooDLzmCes5eUwR5Q=
+github.com/cybergarage/go-mdns v0.0.0-20251213143654-a4b1c1d7d4b8/go.mod h1:jzpxysP31xSfiUWPK4WAfU3Yr9XuBDuWEV3Z8N04uC0=
 github.com/cybergarage/go-safecast v1.3.4 h1:gy0MwfrG+o56GeaJu7/5FB6Pubqm6ZGzg50ebvZbSvM=
 github.com/cybergarage/go-safecast v1.3.4/go.mod h1:flFLUrI49kNK+U7ZeQDQxbaxxQyFVQGKpT7KYN3A4ew=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
