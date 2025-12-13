@@ -79,6 +79,16 @@ func NewQuery(opts ...QueryOption) Query {
 	return q
 }
 
+// Subtype returns the subtype for the query.
+func (q *query) Subtype() string {
+	return q.subtype
+}
+
+// Service returns the service name for the query.
+func (q *query) Service() string {
+	return q.service
+}
+
 // DomainName returns the domain name for the query.
 func (q *query) DomainName() string {
 	labels := []string{}

@@ -54,7 +54,8 @@ func (disc *discoverer) Stop() error {
 // 4.3. Discovery.
 func (disc *discoverer) Search(ctx context.Context, query Query) ([]CommissionableNode, error) {
 	dnsQuery := mdns.NewQuery(
-		mdns.WithQueryServices(CommissionableNodeService),
+		mdns.WithQuerySubtype(query.Subtype()),
+		mdns.WithQueryService(CommissionableNodeService),
 	)
 
 	if _, ok := ctx.Deadline(); !ok {

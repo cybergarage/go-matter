@@ -39,6 +39,10 @@ const (
 
 // Query represents a mDNS query.
 type Query interface {
+	// Subtype returns the subtype for the query.
+	Subtype() string
+	// Service returns the service for the query.
+	Service() string
 	// DomainName returns the domain name for the query.
 	DomainName() string
 	// String returns the string representation of the query.
