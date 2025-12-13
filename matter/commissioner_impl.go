@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/ble"
 	"github.com/cybergarage/go-matter/matter/errors"
 	"github.com/cybergarage/go-matter/matter/mdns"
@@ -39,18 +40,18 @@ func NewCommissioner() Commissioner {
 }
 
 // Scannar returns the BLE scanner.
-func (com *commissioner) Scannar() ble.Scanner {
-	return com.Central
+func (cmr *commissioner) Scannar() ble.Scanner {
+	return cmr.Central
 }
 
 // Discoverer returns the mDNS discoverer.
-func (com *commissioner) Discoverer() mdns.Discoverer {
-	return com.discoverer
+func (cmr *commissioner) Discoverer() mdns.Discoverer {
+	return cmr.discoverer
 }
 
 // Discover discovers commissionable devices.
 // 5.4.3. Discovery by Commissioner.
-func (com *commissioner) Discover(ctx context.Context) ([]CommissionableDevice, error) {
+func (cmr *commissioner) Discover(ctx context.Context, query Query) ([]CommissionableDevice, error) {
 	if _, ok := ctx.Deadline(); !ok {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, DefaultDiscoveryTimeout)
@@ -59,7 +60,7 @@ func (com *commissioner) Discover(ctx context.Context) ([]CommissionableDevice, 
 
 	scanNodes := func(ctx context.Context) ([]CommissionableDevice, error) {
 		var devs []CommissionableDevice
-		scanner := com.Scannar()
+		scanner := cmr.Scannar()
 		err := scanner.Scan(ctx)
 		if err != nil {
 			return nil, err
@@ -79,7 +80,13 @@ func (com *commissioner) Discover(ctx context.Context) ([]CommissionableDevice, 
 
 	discoverNodes := func(ctx context.Context) ([]CommissionableDevice, error) {
 		var devs []CommissionableDevice
-		nodes, err := com.discoverer.Search(ctx)
+		dnsQueryOpts := []mdns.QueryOption{}
+		if payload, ok := query.OnboardingPayload(); ok {
+			dnsQueryOpts = append(dnsQueryOpts,
+				mdns.WithQueryOnboardingPayload(payload),
+			)
+		}
+		nodes, err := cmr.discoverer.Search(ctx, mdns.NewQuery(dnsQueryOpts...))
 		if err != nil {
 			return nil, err
 		}
@@ -123,10 +130,18 @@ func (com *commissioner) Discover(ctx context.Context) ([]CommissionableDevice, 
 }
 
 // 5.5. Commissioning Flows.
-func (com *commissioner) Commission(ctx context.Context, payload OnboardingPayload) error {
-	devs, err := com.Discover(ctx)
+func (cmr *commissioner) Commission(ctx context.Context, payload OnboardingPayload) (Commissionee, error) {
+	query := NewQuery(
+		WithQueryOnboardingPayload(payload),
+	)
+	devs, err := cmr.Discover(ctx, query)
 	if err != nil {
-		return err
+		return nil, err
+	}
+
+	log.Infof("Discovered device: %d", len(devs))
+	for n, dev := range devs {
+		log.Infof("[%d] %s", n, dev.String())
 	}
 
 	isCommissionableDevicePayload := func(dev CommissionableDevice, payload OnboardingPayload) bool {
@@ -139,18 +154,18 @@ func (com *commissioner) Commission(ctx context.Context, payload OnboardingPaylo
 		if isCommissionableDevicePayload(dev, payload) {
 			err = dev.Commission(ctx, payload)
 			if err != nil {
-				return fmt.Errorf("%w to commission device (%s): %w", ErrFailed, dev.String(), err)
+				return nil, fmt.Errorf("%w to commission device (%s): %w", ErrFailed, dev.String(), err)
 			}
-			return nil
+			return newCommissioneeWithDevice(dev), nil
 		}
 	}
 
-	return fmt.Errorf("%w: no matching commissionable device found (payload=%s)", ErrNotFound, payload.String())
+	return nil, fmt.Errorf("%w: no matching commissionable device found (payload=%s)", ErrNotFound, payload.String())
 }
 
 // Start starts the commissioner.
-func (com *commissioner) Start() error {
-	err := com.discoverer.Start()
+func (cmr *commissioner) Start() error {
+	err := cmr.discoverer.Start()
 	if err != nil {
 		return err
 	}
@@ -158,8 +173,8 @@ func (com *commissioner) Start() error {
 }
 
 // Stop stops the commissioner.
-func (com *commissioner) Stop() error {
-	err := com.discoverer.Stop()
+func (cmr *commissioner) Stop() error {
+	err := cmr.discoverer.Stop()
 	if err != nil {
 		return err
 	}

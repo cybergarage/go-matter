@@ -27,9 +27,8 @@ type Discriminator = types.Discriminator
 // OnboardingPayload represents an onboarding payload.
 type OnboardingPayload = encoding.OnboardingPayload
 
-// CommissionableDevice represents a commissionable device interface.
-// 5.4.3. Discovery by Commissioner.
-type CommissionableDevice interface {
+// Device represents a device interface that is a piece of equipment containing one or more Nodes.
+type Device interface {
 	// VendorID represents a vendor ID.
 	// 2.5.2. Vendor Identifier (Vendor ID, VID).
 	VendorID() VendorID
@@ -39,10 +38,17 @@ type CommissionableDevice interface {
 	// Discriminator represents a discriminator.
 	// 2.5.6. Discriminator.
 	Discriminator() Discriminator
-	// Commission commissions the node with the given commissioning options.
-	Commission(ctx context.Context, payload OnboardingPayload) error
 	// MarshalObject returns an object suitable for marshaling to JSON.
 	MarshalObject() any
 	// String returns the string representation of the device.
 	String() string
+}
+
+// Commission commissions the node with the given commissioning options.}
+// CommissionableDevice represents a commissionable device interface.
+// 5.4.3. Discovery by Commissioner.
+type CommissionableDevice interface {
+	Device
+	// Commission commissions the node with the given commissioning options.
+	Commission(ctx context.Context, payload OnboardingPayload) error
 }

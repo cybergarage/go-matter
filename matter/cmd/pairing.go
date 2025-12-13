@@ -50,14 +50,17 @@ var pairingCodeCmd = &cobra.Command{ // nolint:exhaustruct
 			return err
 		}
 
-		comm := SharedCommissioner()
+		cmr := SharedCommissioner()
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		err = comm.Commission(ctx, pairingCode)
+		cme, err := cmr.Commission(ctx, pairingCode)
 		if err != nil {
+			log.Error(err)
 			return err
 		}
+
+		log.Infof("Successfully commissioned device: %s", cme.String())
 
 		return nil
 	},
@@ -80,14 +83,17 @@ var pairingCodeWifiCmd = &cobra.Command{ // nolint:exhaustruct
 			return err
 		}
 
-		comm := SharedCommissioner()
+		cmr := SharedCommissioner()
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		err = comm.Commission(ctx, pairingCode)
+		cme, err := cmr.Commission(ctx, pairingCode)
 		if err != nil {
+			log.Error(err)
 			return err
 		}
+
+		log.Infof("Successfully commissioned device: %s", cme.String())
 
 		return nil
 	},

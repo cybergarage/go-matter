@@ -35,11 +35,11 @@ type Commissioner interface {
 	Scannar() ble.Scanner
 	// Discoverer returns the mDNS discoverer.
 	Discoverer() mdns.Discoverer
-	// Discover discovers commissionable devices.
+	// Discover discovers commissionable devices with the given query.
 	// 5.4.3. Discovery by Commissioner
-	Discover(ctx context.Context) ([]CommissionableDevice, error)
+	Discover(ctx context.Context, query Query) ([]CommissionableDevice, error)
 	// Commission commissions a device with the given onboarding payload.
-	Commission(ctx context.Context, payload OnboardingPayload) error
+	Commission(ctx context.Context, payload OnboardingPayload) (Commissionee, error)
 	// Start starts the commissioner.
 	Start() error
 	// Stop stops the commissioner.

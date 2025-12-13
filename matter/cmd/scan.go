@@ -42,10 +42,10 @@ var scanCmd = &cobra.Command{ // nolint:exhaustruct
 			return err
 		}
 
-		comm := SharedCommissioner()
+		cmr := SharedCommissioner()
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		devs, err := comm.Discover(ctx)
+		devs, err := cmr.Discover(ctx, matter.NewQuery())
 		if err != nil {
 			return err
 		}

@@ -24,27 +24,30 @@ import (
 	"github.com/cybergarage/go-matter/matter/encoding"
 )
 
-func TestCommissionerBLE(t *testing.T) {
+func TestCommissioner(t *testing.T) {
 	tests := []struct {
 		paringCode string
 	}{
-		{
-			paringCode: "3035-750-7966",
-		},
 		// {
-		// 	paringCode: "3572-993-5174",
+		// 	paringCode: "3035-750-7966", // BLE
 		// },
+		// {
+		// 	paringCode: "3572-993-5174", // BLE
+		// },
+		{
+			paringCode: "2167-692-8175", // IP
+		},
 	}
 
-	comm := matter.NewCommissioner()
-	err := comm.Start()
+	cmr := matter.NewCommissioner()
+	err := cmr.Start()
 	if err != nil {
 		t.Errorf("Failed to start commissioner: %v", err)
 		return
 	}
 
 	defer func() {
-		err := comm.Stop()
+		err := cmr.Stop()
 		if err != nil {
 			t.Errorf("Failed to stop commissioner: %v", err)
 		}
@@ -61,11 +64,13 @@ func TestCommissionerBLE(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(5)*time.Second)
 			defer cancel()
 
-			err = comm.Commission(ctx, paringCode)
+			cme, err := cmr.Commission(ctx, paringCode)
 			if err != nil {
 				t.Skipf("Failed to commission device: %v", err)
 				return
 			}
+
+			t.Logf("Successfully commissioned device: %s", cme.String())
 		})
 	}
 }
