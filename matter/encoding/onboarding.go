@@ -47,4 +47,6 @@ type OnboardingPayload interface {
 	Discriminator() Discriminator
 	// Passcode returns the Passcode.
 	Passcode() Passcode
+	// String returns the string representation of the onboarding payload.
+	String() string
 }
