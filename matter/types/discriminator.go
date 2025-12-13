@@ -47,9 +47,19 @@ func (d Discriminator) IsShort() bool {
 	return ((d & upper4BitsMask) == d)
 }
 
+// Short returns the short version of the discriminator (upper 4 bits).
+func (d Discriminator) Short() Discriminator {
+	return Discriminator((uint16(d) >> 8) & 0x0F)
+}
+
 // IsFull returns true if the discriminator indicates full 12 bits are used for a QR code.
 func (d Discriminator) IsFull() bool {
 	return !d.IsShort()
+}
+
+// Full returns the full version of the discriminator (12 bits).
+func (d Discriminator) Full() Discriminator {
+	return d
 }
 
 // Equal returns true if the discriminator equals to the specified value.
