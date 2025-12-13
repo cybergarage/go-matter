@@ -23,6 +23,8 @@ var (
 	ErrInvalid = errors.New("invalid")
 	// ErrNotFound indicates that a requested resource was not found.
 	ErrNotFound = errors.New("not found")
+	// ErrFailed is returned when an operation fails.
+	ErrFailed = errors.New("failed")
 )
 
 // Is reports whether any error in err's chain matches target.

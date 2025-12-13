@@ -21,4 +21,6 @@ import (
 var (
 	// ErrNotFound is returned when a requested resource is not found.
 	ErrNotFound = errors.ErrNotFound
+	// ErrFailed is returned when an operation fails.
+	ErrFailed = errors.ErrFailed
 )
