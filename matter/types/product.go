@@ -33,6 +33,11 @@ func NewProductIDFrom(v any) (ProductID, error) {
 	return ProductID(vid), nil
 }
 
+// Equal returns true if the ProductID is equal to the given ProductID.
+func (pid ProductID) Equal(to ProductID) bool {
+	return pid == to
+}
+
 // String returns the string representation of the ProductID.
 func (pid ProductID) String() string {
 	return fmt.Sprintf("%d", uint(pid))

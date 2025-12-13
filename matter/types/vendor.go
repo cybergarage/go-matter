@@ -33,6 +33,11 @@ func NewVendorIDFrom(v any) (VendorID, error) {
 	return VendorID(vid), nil
 }
 
+// Equal returns true if the VendorID is equal to the given VendorID.
+func (vid VendorID) Equal(to VendorID) bool {
+	return vid == to
+}
+
 // String returns the string representation of the VendorID.
 func (vid VendorID) String() string {
 	return fmt.Sprintf("%d", uint(vid))
