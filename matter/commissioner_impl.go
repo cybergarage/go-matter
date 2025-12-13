@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/ble"
 	"github.com/cybergarage/go-matter/matter/errors"
 	"github.com/cybergarage/go-matter/matter/mdns"
@@ -49,67 +48,6 @@ func (com *commissioner) Discoverer() mdns.Discoverer {
 	return com.discoverer
 }
 
-func (com *commissioner) bleCommission(ctx context.Context, payload OnboardingPayload) error {
-	scanner := com.Scannar()
-	err := scanner.Scan(context.Background())
-	if err != nil {
-		return err
-	}
-
-	log.Infof("Discovered matter devices:")
-	for n, dev := range scanner.DiscoveredDevices() {
-		log.Infof("[%d] %s", n, dev.String())
-	}
-
-	dev, err := scanner.LookupDeviceByDiscriminator(payload.Discriminator())
-	if err != nil {
-		if errors.Is(err, errors.ErrNotFound) {
-			return fmt.Errorf("device not found: %d (%d)", payload.Passcode(), uint16(payload.Discriminator()))
-		} else {
-			return fmt.Errorf("failed to lookup device: %d (%d): %w", payload.Passcode(), uint16(payload.Discriminator()), err)
-		}
-	}
-
-	log.Infof("Found device: %s", dev.String())
-
-	if !dev.IsCommissionable() {
-		return fmt.Errorf("device is not commissionable: %s", dev.String())
-	}
-
-	if err := dev.Connect(ctx); err != nil {
-		return fmt.Errorf("failed to connect: %w", err)
-	}
-	defer func() {
-		if err := dev.Disconnect(); err != nil {
-			log.Errorf("Failed to disconnect: %v", err)
-		}
-	}()
-
-	log.Infof("Connected to device: %s", dev.String())
-
-	service, err := dev.Service()
-	if err != nil {
-		return fmt.Errorf("failed to get device service: %s: %w", dev.String(), err)
-	}
-
-	log.Infof("Device service: %s", service.String())
-
-	transport, err := service.Open()
-	if err != nil {
-		return fmt.Errorf("failed to open device transport: %s: %w", dev.String(), err)
-	}
-	defer transport.Close()
-
-	res, err := transport.Handshake(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to perform handshake: %s: %w", dev.String(), err)
-	}
-
-	log.Infof("Handshake response: %s", res.String())
-
-	return nil
-}
-
 // Discover discovers commissionable devices.
 // 5.4.3. Discovery by Commissioner.
 func (com *commissioner) Discover(ctx context.Context) ([]CommissionableDevice, error) {
@@ -134,7 +72,7 @@ func (com *commissioner) Discover(ctx context.Context) ([]CommissionableDevice, 
 			if err != nil {
 				continue
 			}
-			devs = append(devs, newBLEDevice(bleService))
+			devs = append(devs, newBLEDevice(bleDev, bleService))
 		}
 		return devs, nil
 	}
@@ -184,19 +122,30 @@ func (com *commissioner) Discover(ctx context.Context) ([]CommissionableDevice, 
 	return devs, nil
 }
 
-// Commission commissions a device with the given onboarding payload.
 // 5.5. Commissioning Flows.
 func (com *commissioner) Commission(ctx context.Context, payload OnboardingPayload) error {
-	if _, ok := ctx.Deadline(); !ok {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, DefaultCommissioningTimeout)
-		defer cancel()
-	}
-	err := com.bleCommission(ctx, payload)
+	devs, err := com.Discover(ctx)
 	if err != nil {
 		return err
 	}
-	return nil
+
+	isCommissionableDevicePayload := func(dev CommissionableDevice, payload OnboardingPayload) bool {
+		return dev.VendorID().Equal(VendorID(payload.VendorID())) &&
+			dev.ProductID().Equal(ProductID(payload.ProductID())) &&
+			dev.Discriminator().Equal(Discriminator(payload.Discriminator()))
+	}
+
+	for _, dev := range devs {
+		if isCommissionableDevicePayload(dev, payload) {
+			err = dev.Commission(ctx, payload)
+			if err != nil {
+				return fmt.Errorf("%w to commission device (%s): %w", ErrFailed, dev.String(), err)
+			}
+			return nil
+		}
+	}
+
+	return fmt.Errorf("%w: no matching commissionable device found (payload=%s)", ErrNotFound, payload.String())
 }
 
 // Start starts the commissioner.
