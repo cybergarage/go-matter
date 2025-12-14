@@ -20,11 +20,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter"
 	"github.com/cybergarage/go-matter/matter/encoding"
 )
 
 func TestCommissioner(t *testing.T) {
+	log.EnableStdoutDebug(true)
+	defer log.EnableStdoutDebug(false)
+
 	tests := []struct {
 		paringCode string
 	}{
