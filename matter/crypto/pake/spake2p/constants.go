@@ -1,0 +1,53 @@
+// Copyright (C) 2025 The go-matter Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package spake2p
+
+// PointM is the M constant used in SPAKE2+ for the Prover role.
+// This is a placeholder and must be replaced with the actual value from
+// Matter 1.5 Core specification section 3.9.
+// The point should be in SEC1 uncompressed form (0x04 || x || y) on the P-256 curve.
+// TODO: Replace with the actual M point from Matter 1.5 Core spec section 3.9.
+var PointM = []byte{
+	0x04, // SEC1 uncompressed point indicator
+	// TODO: Replace these placeholder bytes with actual x and y coordinates
+	// from Matter 1.5 Core specification
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // x coordinate (32 bytes)
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // y coordinate (32 bytes)
+}
+
+// PointN is the N constant used in SPAKE2+ for the Verifier role.
+// This is a placeholder and must be replaced with the actual value from
+// Matter 1.5 Core specification section 3.9.
+// The point should be in SEC1 uncompressed form (0x04 || x || y) on the P-256 curve.
+// TODO: Replace with the actual N point from Matter 1.5 Core spec section 3.9.
+var PointN = []byte{
+	0x04, // SEC1 uncompressed point indicator
+	// TODO: Replace these placeholder bytes with actual x and y coordinates
+	// from Matter 1.5 Core specification
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // x coordinate (32 bytes)
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // y coordinate (32 bytes)
+}
