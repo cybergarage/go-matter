@@ -16,9 +16,10 @@ package spake2p
 
 // PointM is the M constant used in SPAKE2+ for the Prover role.
 // This is a placeholder and must be replaced with the actual value from
-// Matter 1.5 Core specification section 3.9.
+// Matter 1.5 Core specification.
+// Reference: Matter Core Spec 1.5, Section 3.9 (SPAKE2+), Table 3.11 (SPAKE2+ Parameters)
 // The point should be in SEC1 uncompressed form (0x04 || x || y) on the P-256 curve.
-// TODO: Replace with the actual M point from Matter 1.5 Core spec section 3.9.
+// TODO: Replace with the actual M point from Matter Core Spec 1.5 Section 3.9, Table 3.11.
 // WARNING: These are INVALID placeholder values (all 0xFF) to prevent accidental use.
 var PointM = []byte{
 	0x04, // SEC1 uncompressed point indicator
@@ -35,9 +36,10 @@ var PointM = []byte{
 
 // PointN is the N constant used in SPAKE2+ for the Verifier role.
 // This is a placeholder and must be replaced with the actual value from
-// Matter 1.5 Core specification section 3.9.
+// Matter 1.5 Core specification.
+// Reference: Matter Core Spec 1.5, Section 3.9 (SPAKE2+), Table 3.11 (SPAKE2+ Parameters)
 // The point should be in SEC1 uncompressed form (0x04 || x || y) on the P-256 curve.
-// TODO: Replace with the actual N point from Matter 1.5 Core spec section 3.9.
+// TODO: Replace with the actual N point from Matter Core Spec 1.5 Section 3.9, Table 3.11.
 // WARNING: These are INVALID placeholder values (all 0xFF) to prevent accidental use.
 var PointN = []byte{
 	0x04, // SEC1 uncompressed point indicator

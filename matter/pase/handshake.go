@@ -52,6 +52,7 @@ type Handshake struct {
 
 // NewHandshake creates a new PASE handshake with the given role and options.
 // It derives w0 and w1 from the passcode using PBKDF2 and initializes the SPAKE2+ suite.
+// Reference: Matter Core Spec 1.5, Section 3.9 (PBKDF), Section 4.14.1 (PASE Protocol)
 func NewHandshake(role HandshakeRole, opts HandshakeOptions) *Handshake {
 	// Set default hash if not provided
 	if opts.Hash == nil {
@@ -60,10 +61,11 @@ func NewHandshake(role HandshakeRole, opts HandshakeOptions) *Handshake {
 
 	// Set default PBKDF iterations if not provided
 	if opts.PBKDFIter == 0 {
-		opts.PBKDFIter = 1000 // Default per Matter spec
+		opts.PBKDFIter = 1000 // Default per Matter Core Spec 1.5 Section 3.9
 	}
 
 	// Derive w0 and w1 using PBKDF2
+	// Reference: Matter Core Spec 1.5, Section 3.9 (PBKDF), Section 4.14.1 (PASE)
 	// According to Matter spec, we derive a 64-byte buffer and split it into two 32-byte halves
 	w0w1 := pbkdf.CryptoPBKDF(pbkdf.Params{
 		Password: opts.Passcode,
@@ -99,6 +101,7 @@ func NewHandshake(role HandshakeRole, opts HandshakeOptions) *Handshake {
 }
 
 // Start initiates the PASE handshake and returns the public value to send to the peer.
+// Reference: Matter Core Spec 1.5, Section 4.14.1 (PASE Protocol)
 // For client role, this returns X (Pake1 message).
 // For server role, this returns Y (part of Pake2 message).
 func (h *Handshake) Start() ([]byte, error) {
@@ -106,6 +109,7 @@ func (h *Handshake) Start() ([]byte, error) {
 }
 
 // ProcessPeer processes the peer's public value.
+// Reference: Matter Core Spec 1.5, Section 4.14.1.2 (PASE Message Flow)
 // For client role, this processes Y from Pake2.
 // For server role, this processes X from Pake1.
 func (h *Handshake) ProcessPeer(peerPublic []byte) error {
@@ -113,6 +117,7 @@ func (h *Handshake) ProcessPeer(peerPublic []byte) error {
 }
 
 // Verify verifies the peer's confirmation MAC.
+// Reference: Matter Core Spec 1.5, Section 4.14.1.3 (Key Confirmation)
 // For client role, this verifies the server's MAC (CMac from Pake2).
 // For server role, this verifies the client's MAC (SMac from Pake3).
 func (h *Handshake) Verify(peerMAC []byte) error {
@@ -120,6 +125,7 @@ func (h *Handshake) Verify(peerMAC []byte) error {
 }
 
 // GetConfirmation returns the local confirmation MAC to send to the peer.
+// Reference: Matter Core Spec 1.5, Section 4.14.1.3 (Key Confirmation)
 // For client role, this returns SMac (for Pake3).
 // For server role, this returns CMac (for Pake2).
 func (h *Handshake) GetConfirmation() ([]byte, error) {
@@ -127,6 +133,7 @@ func (h *Handshake) GetConfirmation() ([]byte, error) {
 }
 
 // ExportKeys derives the session keys after successful handshake completion.
+// Reference: Matter Core Spec 1.5, Section 4.14.1.4 (Session Key Generation)
 // Returns (I2R key, R2I key, error).
 func (h *Handshake) ExportKeys() ([]byte, []byte, error) {
 	return h.suite.ExportKeys()

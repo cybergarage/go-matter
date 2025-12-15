@@ -44,7 +44,7 @@ type Params struct {
 type Suite struct {
 	role   Role
 	params Params
-	// TODO: Add state for the protocol execution:
+	// TODO: Add state for the protocol execution per Matter Core Spec 1.5 Section 3.9.1:
 	// - private scalar x or y
 	// - peer's public point X or Y
 	// - shared secret K
@@ -64,16 +64,18 @@ func New(role Role, params Params) *Suite {
 
 // Start initiates the SPAKE2+ protocol and returns the public value to send to the peer.
 // TODO: Implement SPAKE2+ Start according to Matter 1.5 Core specification:
+// Reference: Matter Core Spec 1.5, Section 3.9 (SPAKE2+), Section 3.9.1 (Protocol Flow)
 // - Generate random scalar x (Prover) or y (Verifier)
 // - Compute X = x*P + w0*M (Prover) or Y = y*P + w0*N (Verifier)
 // - Return the point in SEC1 uncompressed form
 // - Update transcript TT with context and public values
 func (s *Suite) Start() ([]byte, error) {
-	return nil, errors.New("spake2p.Start: not implemented - TODO: implement SPAKE2+ Start per Matter 1.5 Core spec")
+	return nil, errors.New("spake2p.Start: not implemented - TODO: implement SPAKE2+ Start per Matter Core Spec 1.5 Section 3.9.1")
 }
 
 // ProcessPeer processes the peer's public value and computes the shared secret.
 // TODO: Implement SPAKE2+ ProcessPeer according to Matter 1.5 Core specification:
+// Reference: Matter Core Spec 1.5, Section 3.9.1 (Protocol Flow), Section 3.9.2 (Shared Secret Computation)
 // - Parse peer point from SEC1 uncompressed form
 // - Compute shared point:
 //   - Prover: K = x*(Y - w0*N)
@@ -82,32 +84,35 @@ func (s *Suite) Start() ([]byte, error) {
 // - Update transcript TT with peer public value
 // - Return error if point validation fails or computation fails
 func (s *Suite) ProcessPeer(peerPublic []byte) error {
-	return errors.New("spake2p.ProcessPeer: not implemented - TODO: implement SPAKE2+ ProcessPeer per Matter 1.5 Core spec")
+	return errors.New("spake2p.ProcessPeer: not implemented - TODO: implement SPAKE2+ ProcessPeer per Matter Core Spec 1.5 Section 3.9.2")
 }
 
 // VerifyConfirmation verifies the peer's confirmation MAC.
 // TODO: Implement confirmation verification according to Matter 1.5 Core specification:
+// Reference: Matter Core Spec 1.5, Section 3.9.3 (Key Confirmation), Section 4.14.1.3 (PASE Protocol)
 // - Compute expected MAC using HKDF and transcript TT
 // - Compare with received MAC using constant-time comparison
 // - Return error if verification fails
 func (s *Suite) VerifyConfirmation(peerMAC []byte) error {
-	return errors.New("spake2p.VerifyConfirmation: not implemented - TODO: implement confirmation MAC verification per Matter 1.5 Core spec")
+	return errors.New("spake2p.VerifyConfirmation: not implemented - TODO: implement confirmation MAC verification per Matter Core Spec 1.5 Section 3.9.3")
 }
 
 // ExportKeys derives session keys from the shared secret using HKDF.
 // TODO: Implement key export according to Matter 1.5 Core specification:
+// Reference: Matter Core Spec 1.5, Section 3.9.4 (Key Derivation), Section 4.14.1.4 (Session Key Generation)
 // - Use HKDF-Expand with the shared secret K and transcript TT
 // - Derive I2R (Initiator to Responder) and R2I (Responder to Initiator) keys
-// - Use proper labels as defined in Matter 1.5 Core spec section 3.9
+// - Use proper labels as defined in Matter Core Spec 1.5 Section 3.9.4
 // - Return (I2R key, R2I key, error)
 func (s *Suite) ExportKeys() ([]byte, []byte, error) {
-	return nil, nil, errors.New("spake2p.ExportKeys: not implemented - TODO: implement HKDF key derivation per Matter 1.5 Core spec")
+	return nil, nil, errors.New("spake2p.ExportKeys: not implemented - TODO: implement HKDF key derivation per Matter Core Spec 1.5 Section 3.9.4")
 }
 
 // GetConfirmation computes the local confirmation MAC to send to the peer.
 // TODO: Implement confirmation MAC computation according to Matter 1.5 Core specification:
+// Reference: Matter Core Spec 1.5, Section 3.9.3 (Key Confirmation), Section 4.14.1.3 (PASE Protocol)
 // - Compute MAC using HKDF and transcript TT
 // - Return MAC value
 func (s *Suite) GetConfirmation() ([]byte, error) {
-	return nil, errors.New("spake2p.GetConfirmation: not implemented - TODO: implement confirmation MAC generation per Matter 1.5 Core spec")
+	return nil, errors.New("spake2p.GetConfirmation: not implemented - TODO: implement confirmation MAC generation per Matter Core Spec 1.5 Section 3.9.3")
 }

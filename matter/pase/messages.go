@@ -15,6 +15,7 @@
 package pase
 
 // Pake1 represents the PASE PAKE1 message (first message in PASE handshake).
+// Reference: Matter Core Spec 1.5, Section 4.14.1.2 (PASE Message Flow)
 // This message contains the prover's (client's) public value X.
 type Pake1 struct {
 	// X is the prover's public value (SPAKE2+ X point in SEC1 uncompressed form).
@@ -30,7 +31,7 @@ func NewPake1(x []byte) *Pake1 {
 // Bytes returns the byte representation of the Pake1 message.
 // The message format is: opcode (1 byte) || X (typically 65 bytes for P-256 uncompressed point).
 // Note: X length is not validated here; validation should occur in SPAKE2+ implementation.
-// TODO: Migrate to encoding.tlv for proper TLV encoding per Matter specification.
+// TODO: Migrate to encoding.tlv for proper TLV encoding per Matter Core Spec 1.5 Section 4.14.1.2.
 func (p *Pake1) Bytes() []byte {
 	// Prefix with opPASEPake1 opcode
 	result := make([]byte, 1+len(p.X))
@@ -40,6 +41,7 @@ func (p *Pake1) Bytes() []byte {
 }
 
 // Pake2 represents the PASE PAKE2 message (second message in PASE handshake).
+// Reference: Matter Core Spec 1.5, Section 4.14.1.2 (PASE Message Flow)
 // This message contains the verifier's (server's) public value Y and confirmation MAC.
 type Pake2 struct {
 	// Y is the verifier's public value (SPAKE2+ Y point in SEC1 uncompressed form).
@@ -58,7 +60,7 @@ func NewPake2(y, cmac []byte) *Pake2 {
 // Bytes returns the byte representation of the Pake2 message.
 // The message format is: opcode (1 byte) || Y (typically 65 bytes) || CMac (typically 32 bytes).
 // Note: Field lengths are not validated here; validation should occur in SPAKE2+ implementation.
-// TODO: Migrate to encoding.tlv for proper TLV encoding per Matter specification.
+// TODO: Migrate to encoding.tlv for proper TLV encoding per Matter Core Spec 1.5 Section 4.14.1.2.
 func (p *Pake2) Bytes() []byte {
 	// Prefix with opPASEPake2 opcode
 	result := make([]byte, 1+len(p.Y)+len(p.CMac))
@@ -69,6 +71,7 @@ func (p *Pake2) Bytes() []byte {
 }
 
 // Pake3 represents the PASE PAKE3 message (third message in PASE handshake).
+// Reference: Matter Core Spec 1.5, Section 4.14.1.2 (PASE Message Flow)
 // This message contains the prover's (client's) confirmation MAC.
 type Pake3 struct {
 	// SMac is the prover's confirmation MAC.
@@ -84,7 +87,7 @@ func NewPake3(smac []byte) *Pake3 {
 // Bytes returns the byte representation of the Pake3 message.
 // The message format is: opcode (1 byte) || SMac (typically 32 bytes).
 // Note: SMac length is not validated here; validation should occur in SPAKE2+ implementation.
-// TODO: Migrate to encoding.tlv for proper TLV encoding per Matter specification.
+// TODO: Migrate to encoding.tlv for proper TLV encoding per Matter Core Spec 1.5 Section 4.14.1.2.
 func (p *Pake3) Bytes() []byte {
 	// Prefix with opPASEPake3 opcode
 	result := make([]byte, 1+len(p.SMac))
