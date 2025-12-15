@@ -18,6 +18,7 @@ package pase
 // This message contains the prover's (client's) public value X.
 type Pake1 struct {
 	// X is the prover's public value (SPAKE2+ X point in SEC1 uncompressed form).
+	// Expected size: 65 bytes for P-256 curve (0x04 || 32-byte x || 32-byte y).
 	X []byte
 }
 
@@ -27,7 +28,8 @@ func NewPake1(x []byte) *Pake1 {
 }
 
 // Bytes returns the byte representation of the Pake1 message.
-// The message format is: opcode (1 byte) || X (65 bytes for P-256 uncompressed point).
+// The message format is: opcode (1 byte) || X (typically 65 bytes for P-256 uncompressed point).
+// Note: X length is not validated here; validation should occur in SPAKE2+ implementation.
 // TODO: Migrate to encoding.tlv for proper TLV encoding per Matter specification.
 func (p *Pake1) Bytes() []byte {
 	// Prefix with opPASEPake1 opcode
@@ -41,8 +43,10 @@ func (p *Pake1) Bytes() []byte {
 // This message contains the verifier's (server's) public value Y and confirmation MAC.
 type Pake2 struct {
 	// Y is the verifier's public value (SPAKE2+ Y point in SEC1 uncompressed form).
+	// Expected size: 65 bytes for P-256 curve (0x04 || 32-byte x || 32-byte y).
 	Y []byte
 	// CMac is the verifier's confirmation MAC.
+	// Size depends on HKDF/HMAC output (typically 32 bytes for SHA-256).
 	CMac []byte
 }
 
@@ -52,7 +56,8 @@ func NewPake2(y, cmac []byte) *Pake2 {
 }
 
 // Bytes returns the byte representation of the Pake2 message.
-// The message format is: opcode (1 byte) || Y || CMac.
+// The message format is: opcode (1 byte) || Y (typically 65 bytes) || CMac (typically 32 bytes).
+// Note: Field lengths are not validated here; validation should occur in SPAKE2+ implementation.
 // TODO: Migrate to encoding.tlv for proper TLV encoding per Matter specification.
 func (p *Pake2) Bytes() []byte {
 	// Prefix with opPASEPake2 opcode
@@ -67,6 +72,7 @@ func (p *Pake2) Bytes() []byte {
 // This message contains the prover's (client's) confirmation MAC.
 type Pake3 struct {
 	// SMac is the prover's confirmation MAC.
+	// Size depends on HKDF/HMAC output (typically 32 bytes for SHA-256).
 	SMac []byte
 }
 
@@ -76,7 +82,8 @@ func NewPake3(smac []byte) *Pake3 {
 }
 
 // Bytes returns the byte representation of the Pake3 message.
-// The message format is: opcode (1 byte) || SMac.
+// The message format is: opcode (1 byte) || SMac (typically 32 bytes).
+// Note: SMac length is not validated here; validation should occur in SPAKE2+ implementation.
 // TODO: Migrate to encoding.tlv for proper TLV encoding per Matter specification.
 func (p *Pake3) Bytes() []byte {
 	// Prefix with opPASEPake3 opcode
