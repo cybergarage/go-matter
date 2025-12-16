@@ -1,0 +1,55 @@
+// Copyright (C) 2025 The go-matter Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package spake2p
+
+// PointM is the M constant used in SPAKE2+ for the Prover role.
+// This is a placeholder and must be replaced with the actual value from
+// Matter 1.5 Core specification.
+// Reference: Matter Core Spec 1.5, Section 3.9 (SPAKE2+), Table 3.11 (SPAKE2+ Parameters)
+// The point should be in SEC1 uncompressed form (0x04 || x || y) on the P-256 curve.
+// TODO: Replace with the actual M point from Matter Core Spec 1.5 Section 3.9, Table 3.11.
+// WARNING: These are INVALID placeholder values (all 0xFF) to prevent accidental use.
+var PointM = []byte{
+	0x04, // SEC1 uncompressed point indicator
+	// INVALID PLACEHOLDER: Replace with actual x and y coordinates from Matter 1.5 Core spec
+	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, // x coordinate (32 bytes)
+	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, // y coordinate (32 bytes)
+}
+
+// PointN is the N constant used in SPAKE2+ for the Verifier role.
+// This is a placeholder and must be replaced with the actual value from
+// Matter 1.5 Core specification.
+// Reference: Matter Core Spec 1.5, Section 3.9 (SPAKE2+), Table 3.11 (SPAKE2+ Parameters)
+// The point should be in SEC1 uncompressed form (0x04 || x || y) on the P-256 curve.
+// TODO: Replace with the actual N point from Matter Core Spec 1.5 Section 3.9, Table 3.11.
+// WARNING: These are INVALID placeholder values (all 0xFF) to prevent accidental use.
+var PointN = []byte{
+	0x04, // SEC1 uncompressed point indicator
+	// INVALID PLACEHOLDER: Replace with actual x and y coordinates from Matter 1.5 Core spec
+	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, // x coordinate (32 bytes)
+	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, // y coordinate (32 bytes)
+}
