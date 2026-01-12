@@ -35,7 +35,7 @@ func TestDiscoverer(t *testing.T) {
 	}
 
 	query := mdns.NewQuery(
-		mdns.WithQueryService("_matterc._udp"),
+		mdns.WithQueryService(mdns.CommissionableNodeService),
 	)
 
 	ctx, cancel := context.WithDeadline(

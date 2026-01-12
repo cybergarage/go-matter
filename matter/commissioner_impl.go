@@ -80,7 +80,9 @@ func (cmr *commissioner) Discover(ctx context.Context, query Query) ([]Commissio
 
 	discoverNodes := func(ctx context.Context) ([]CommissionableDevice, error) {
 		var devs []CommissionableDevice
-		dnsQueryOpts := []mdns.QueryOption{}
+		dnsQueryOpts := []mdns.QueryOption{
+			mdns.WithQueryService(mdns.CommissionableNodeService),
+		}
 		if payload, ok := query.OnboardingPayload(); ok {
 			dnsQueryOpts = append(dnsQueryOpts,
 				mdns.WithQueryOnboardingPayload(payload),
