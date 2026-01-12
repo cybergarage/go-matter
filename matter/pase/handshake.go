@@ -52,7 +52,7 @@ type Handshake struct {
 
 // NewHandshake creates a new PASE handshake with the given role and options.
 // It derives w0 and w1 from the passcode using PBKDF2 and initializes the SPAKE2+ suite.
-// Reference: Matter Core Spec 1.5, Section 3.9 (PBKDF), Section 4.14.1 (PASE Protocol)
+// Reference: Matter Core Spec 1.5, Section 3.9 (PBKDF), Section 4.14.1 (PASE Protocol).
 func NewHandshake(role HandshakeRole, opts HandshakeOptions) *Handshake {
 	// Set default hash if not provided
 	if opts.Hash == nil {

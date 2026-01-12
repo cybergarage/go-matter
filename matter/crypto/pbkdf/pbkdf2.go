@@ -30,7 +30,7 @@ type Params struct {
 }
 
 // CryptoPBKDF implements PBKDF2 as per RFC 2898
-// 3.9. Password-Based Key Derivation Function (PBKDF)
+// 3.9. Password-Based Key Derivation Function (PBKDF).
 func CryptoPBKDF(p Params) []byte {
 	h := p.Hash
 	if h == nil {

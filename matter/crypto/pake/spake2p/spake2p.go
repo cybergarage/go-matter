@@ -68,7 +68,7 @@ func New(role Role, params Params) *Suite {
 // - Generate random scalar x (Prover) or y (Verifier)
 // - Compute X = x*P + w0*M (Prover) or Y = y*P + w0*N (Verifier)
 // - Return the point in SEC1 uncompressed form
-// - Update transcript TT with context and public values
+// - Update transcript TT with context and public values.
 func (s *Suite) Start() ([]byte, error) {
 	return nil, errors.New("spake2p.Start: not implemented - TODO: implement SPAKE2+ Start per Matter Core Spec 1.5 Section 3.9.1")
 }
@@ -82,7 +82,7 @@ func (s *Suite) Start() ([]byte, error) {
 //   - Verifier: K = y*(X - w0*M)
 //
 // - Update transcript TT with peer public value
-// - Return error if point validation fails or computation fails
+// - Return error if point validation fails or computation fails.
 func (s *Suite) ProcessPeer(peerPublic []byte) error {
 	return errors.New("spake2p.ProcessPeer: not implemented - TODO: implement SPAKE2+ ProcessPeer per Matter Core Spec 1.5 Section 3.9.2")
 }
@@ -92,7 +92,7 @@ func (s *Suite) ProcessPeer(peerPublic []byte) error {
 // Reference: Matter Core Spec 1.5, Section 3.9.3 (Key Confirmation), Section 4.14.1.3 (PASE Protocol)
 // - Compute expected MAC using HKDF and transcript TT
 // - Compare with received MAC using constant-time comparison
-// - Return error if verification fails
+// - Return error if verification fails.
 func (s *Suite) VerifyConfirmation(peerMAC []byte) error {
 	return errors.New("spake2p.VerifyConfirmation: not implemented - TODO: implement confirmation MAC verification per Matter Core Spec 1.5 Section 3.9.3")
 }
@@ -103,7 +103,7 @@ func (s *Suite) VerifyConfirmation(peerMAC []byte) error {
 // - Use HKDF-Expand with the shared secret K and transcript TT
 // - Derive I2R (Initiator to Responder) and R2I (Responder to Initiator) keys
 // - Use proper labels as defined in Matter Core Spec 1.5 Section 3.9.4
-// - Return (I2R key, R2I key, error)
+// - Return (I2R key, R2I key, error).
 func (s *Suite) ExportKeys() ([]byte, []byte, error) {
 	return nil, nil, errors.New("spake2p.ExportKeys: not implemented - TODO: implement HKDF key derivation per Matter Core Spec 1.5 Section 3.9.4")
 }
@@ -112,7 +112,7 @@ func (s *Suite) ExportKeys() ([]byte, []byte, error) {
 // TODO: Implement confirmation MAC computation according to Matter 1.5 Core specification:
 // Reference: Matter Core Spec 1.5, Section 3.9.3 (Key Confirmation), Section 4.14.1.3 (PASE Protocol)
 // - Compute MAC using HKDF and transcript TT
-// - Return MAC value
+// - Return MAC value.
 func (s *Suite) GetConfirmation() ([]byte, error) {
 	return nil, errors.New("spake2p.GetConfirmation: not implemented - TODO: implement confirmation MAC generation per Matter Core Spec 1.5 Section 3.9.3")
 }
