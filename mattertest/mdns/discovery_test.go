@@ -19,10 +19,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/mdns"
 )
 
 func TestDiscoverer(t *testing.T) {
+	log.SetSharedLogger(log.NewStdoutLogger(log.LevelInfo))
+
 	disc := mdns.NewDiscoverer()
 
 	err := disc.Start()
@@ -48,7 +51,7 @@ func TestDiscoverer(t *testing.T) {
 	}
 
 	for _, node := range nodes {
-		t.Logf("Discovered Node: %+v", node)
+		log.Infof("Discovered Node: %+v", node)
 	}
 
 	err = disc.Stop()
