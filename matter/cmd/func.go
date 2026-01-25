@@ -16,8 +16,6 @@ package cmd
 
 import (
 	"fmt"
-
-	"github.com/cybergarage/go-logger/log"
 )
 
 func outputf(format string, args ...any) {
@@ -26,16 +24,4 @@ func outputf(format string, args ...any) {
 
 func errorf(format string, args ...any) {
 	fmt.Printf(format, args...)
-}
-
-func enableStdoutVerbose(verbose bool, debug bool) {
-	if verbose {
-		if debug {
-			log.SetSharedLogger(log.NewStdoutLogger(log.LevelDebug))
-		} else {
-			log.SetSharedLogger(log.NewStdoutLogger(log.LevelInfo))
-		}
-	} else {
-		log.SetSharedLogger(nil)
-	}
 }

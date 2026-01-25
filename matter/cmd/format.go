@@ -29,7 +29,6 @@ const (
 )
 
 var (
-	FormatParamStr = "format"
 	FormatTableStr = "table"
 	FormatJSONStr  = "json"
 	FormatCSVStr   = "csv"
