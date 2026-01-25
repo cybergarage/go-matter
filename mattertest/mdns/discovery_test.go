@@ -24,7 +24,7 @@ import (
 )
 
 func TestDiscoverer(t *testing.T) {
-	log.SetSharedLogger(log.NewStdoutLogger(log.LevelInfo))
+	log.SetSharedLogger(log.NewStdoutLogger(log.LevelDebug))
 
 	disc := mdns.NewDiscoverer()
 
@@ -50,13 +50,18 @@ func TestDiscoverer(t *testing.T) {
 		return
 	}
 
-	for _, node := range nodes {
-		log.Infof("Discovered Node: %+v", node)
-	}
-
 	err = disc.Stop()
 	if err != nil {
 		t.Error(err)
 		return
+	}
+
+	if len(nodes) == 0 {
+		t.Log("No nodes discovered")
+		return
+	}
+
+	for _, node := range nodes {
+		log.Infof("Discovered Node: %+v", node)
 	}
 }
