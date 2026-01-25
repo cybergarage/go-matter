@@ -1,4 +1,4 @@
-## matterctl
+matterctl version ..verbose:false, debug:false## matterctl
 
 
 
