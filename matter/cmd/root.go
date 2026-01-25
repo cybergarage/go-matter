@@ -19,25 +19,43 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-var (
+const (
+	ProgramName     = "matterctl"
 	VerboseParamStr = "verbose"
 	DebugParamStr   = "debug"
 )
 
 var rootCmd = &cobra.Command{ // nolint:exhaustruct
-	Use:               "matterctl",
+	Use:               ProgramName,
 	Version:           matter.Version,
 	Short:             "",
 	Long:              "",
 	DisableAutoGenTag: true,
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		verbose := viper.GetBool(VerboseParamStr)
+		debug := viper.GetBool(DebugParamStr)
+		if debug {
+			verbose = true
+		}
+		if verbose {
+			enableStdoutVerbose(verbose, debug)
+		}
+		if verbose {
+			log.Infof("%s version %s", ProgramName, matter.Version)
+			log.Infof("verbose:%t, debug:%t", verbose, debug)
+		}
+		return nil
+	},
 }
 
-func GetRootCommand() *cobra.Command {
+// RootCommand returns the root command.
+func RootCommand() *cobra.Command {
 	return rootCmd
 }
 
@@ -48,15 +66,6 @@ func SharedCommissioner() matter.Commissioner {
 }
 
 func Execute(commissioner matter.Commissioner) error {
-	verbose := viper.GetBool(VerboseParamStr)
-	debug := viper.GetBool(DebugParamStr)
-	if debug {
-		verbose = true
-	}
-	if verbose {
-		enableStdoutVerbose(verbose, debug)
-	}
-
 	sharedCommissioner = commissioner
 	if err := sharedCommissioner.Start(); err != nil {
 		return err
