@@ -33,6 +33,9 @@ type Address = ble.Address
 // UUID represents a Bluetooth UUID.
 type UUID = ble.UUID
 
+// BLEDevice represents the raw Bluetooth device.
+type BLEDevice = ble.Device
+
 // Device represents a matter BLE device.
 type Device interface {
 	// DeviceDescriptor returns the read-only device descriptor.

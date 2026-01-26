@@ -49,11 +49,21 @@ func (scn *scanner) onScanResult(bleDev ble.Device) {
 }
 
 // Scan starts scanning for Bluetooth devices.
-func (scn *scanner) Scan(ctx context.Context) error {
-	onScanResultlistener := ble.OnScanResult(func(bleDev ble.Device) {
+func (scn *scanner) Scan(ctx context.Context, opts ...ble.ScannerOption) error {
+	scanHandler := ScanHandler(func(bleDev ble.Device) {
 		scn.onScanResult(bleDev)
 	})
-	return scn.Scanner.Scan(ctx, onScanResultlistener)
+	hasScanHandler := false
+	for _, opt := range opts {
+		if _, ok := opt.(ScanHandler); ok {
+			hasScanHandler = true
+			break
+		}
+	}
+	if !hasScanHandler {
+		opts = append(opts, scanHandler)
+	}
+	return scn.Scanner.Scan(ctx, opts...)
 }
 
 // DiscoveredDevices returns the list of discovered devices.

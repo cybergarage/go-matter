@@ -17,6 +17,7 @@ package ble
 import (
 	"context"
 
+	"github.com/cybergarage/go-ble/ble"
 	"github.com/cybergarage/go-matter/matter/encoding"
 )
 
@@ -26,6 +27,12 @@ type OnboardingPayload = encoding.OnboardingPayload
 // Discriminator represents a Matter discriminator.
 type Discriminator = encoding.Discriminator
 
+// ScannerOption represents an option for the scanner.
+type ScannerOption = ble.ScannerOption
+
+// ScanHandler defines a handler function for scan results.
+type ScanHandler = ble.ScanHandler
+
 // Scanner represents a BLE scanner.
 type Scanner interface {
 	// DiscoveredDevices returns the list of discovered devices.
@@ -33,5 +40,5 @@ type Scanner interface {
 	// LookupDeviceByDiscriminator looks up a scanned device by a discriminator.
 	LookupDeviceByDiscriminator(v any) (Device, error)
 	// Scan starts scanning for Bluetooth devices.
-	Scan(ctx context.Context) error
+	Scan(ctx context.Context, opts ...ScannerOption) error
 }
