@@ -111,8 +111,9 @@ func (s *service) Open() (Transport, error) {
 
 // MarshalObject returns an object suitable for marshaling to JSON.
 func (s *service) MarshalObject() any {
-	charObjs := make([]any, 0)
-	for _, char := range s.Characteristics() {
+	chars := s.Characteristics()
+	charObjs := make([]any, 0, len(chars))
+	for _, char := range chars {
 		charObjs = append(charObjs, char.MarshalObject())
 	}
 	return struct {

@@ -107,7 +107,7 @@ var scanCmd = &cobra.Command{ // nolint:exhaustruct
 		}
 
 		printDevicesJSON := func(devs []matter.CommissionableDevice) error {
-			devObjs := make([]any, 0)
+			devObjs := make([]any, 0, len(devs))
 			for _, dev := range devs {
 				devObjs = append(devObjs, dev.MarshalObject())
 			}

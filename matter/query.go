@@ -16,6 +16,7 @@ package matter
 
 // Query represents a Matter query.
 type Query interface {
+	// OnboardingPayload returns the onboarding payload associated with the query, if any.
 	OnboardingPayload() (OnboardingPayload, bool)
 	// String returns the string representation of the query.
 	String() string
