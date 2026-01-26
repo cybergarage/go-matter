@@ -26,10 +26,10 @@ import (
 type OnboardingPayload = encoding.OnboardingPayload
 
 type query struct {
-	subtype        string
-	service        string
-	domain         string
-	messageHandler MessageHandler
+	subtype string
+	service string
+	domain  string
+	handler MessageHandler
 }
 
 // QueryOption represents an option for configuring a Query.
@@ -52,7 +52,7 @@ func WithQueryService(service string) QueryOption {
 // WithQueryMessageHandler sets the message handler for the query.
 func WithQueryMessageHandler(handler MessageHandler) QueryOption {
 	return func(q *query) {
-		q.messageHandler = handler
+		q.handler = handler
 	}
 }
 
@@ -80,6 +80,7 @@ func NewQuery(opts ...QueryOption) Query {
 		subtype: "",
 		service: "",
 		domain:  mdns.LocalDomain,
+		handler: nil,
 	}
 	for _, opt := range opts {
 		opt(q)
@@ -109,8 +110,8 @@ func (q *query) DomainName() string {
 
 // MessageHandler returns the message handler for the query if set.
 func (q *query) MessageHandler() (MessageHandler, bool) {
-	if q.messageHandler != nil {
-		return q.messageHandler, true
+	if q.handler != nil {
+		return q.handler, true
 	}
 	return nil, false
 }
