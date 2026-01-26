@@ -44,9 +44,9 @@ type Device interface {
 	String() string
 }
 
+// 5.4.3. Discovery by Commissioner.
 // Commission commissions the node with the given commissioning options.}
 // CommissionableDevice represents a commissionable device interface.
-// 5.4.3. Discovery by Commissioner.
 type CommissionableDevice interface {
 	Device
 	// Commission commissions the node with the given commissioning options.
