@@ -26,9 +26,10 @@ import (
 type OnboardingPayload = encoding.OnboardingPayload
 
 type query struct {
-	subtype string
-	service string
-	domain  string
+	subtype        string
+	service        string
+	domain         string
+	messageHandler MessageHandler
 }
 
 // QueryOption represents an option for configuring a Query.
@@ -45,6 +46,13 @@ func WithQuerySubtype(subtype string) QueryOption {
 func WithQueryService(service string) QueryOption {
 	return func(q *query) {
 		q.service = service
+	}
+}
+
+// WithQueryMessageHandler sets the message handler for the query.
+func WithQueryMessageHandler(handler MessageHandler) QueryOption {
+	return func(q *query) {
+		q.messageHandler = handler
 	}
 }
 
@@ -97,6 +105,14 @@ func (q *query) DomainName() string {
 	}
 	labels = append(labels, q.service, q.domain)
 	return dns.NewNameWithStrings(labels...)
+}
+
+// MessageHandler returns the message handler for the query if set.
+func (q *query) MessageHandler() (MessageHandler, bool) {
+	if q.messageHandler != nil {
+		return q.messageHandler, true
+	}
+	return nil, false
 }
 
 // String returns the string representation of the query.

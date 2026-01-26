@@ -14,6 +14,10 @@
 
 package mdns
 
+import (
+	"github.com/cybergarage/go-mdns/mdns"
+)
+
 const (
 	// CommissionableNodeService represents the mDNS service type for commissionable nodes.
 	// 4.3.1. Commissionable Node Discovery.
@@ -40,6 +44,12 @@ const (
 	QuerySubtypeCommissioningMode = "_CM"
 )
 
+// Message represents a mDNS message.
+type Message = mdns.Message
+
+// MessageHandler represents a mDNS message handler.
+type MessageHandler = mdns.MessageHandler
+
 // Query represents a mDNS query.
 type Query interface {
 	// Subtype returns the subtype for the query.
@@ -48,6 +58,8 @@ type Query interface {
 	Service() string
 	// DomainName returns the domain name for the query.
 	DomainName() string
+	// MessageHandler returns the message handler for the query if set.
+	MessageHandler() (MessageHandler, bool)
 	// String returns the string representation of the query.
 	String() string
 }
