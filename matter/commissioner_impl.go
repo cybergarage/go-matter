@@ -59,9 +59,12 @@ func (cmr *commissioner) Discover(ctx context.Context, query Query) ([]Commissio
 	}
 
 	scanNodes := func(ctx context.Context) ([]CommissionableDevice, error) {
+		scanHandler := ble.ScanHandler(func(bleDev ble.BLEDevice) {
+		})
+
 		var devs []CommissionableDevice
 		scanner := cmr.Scannar()
-		err := scanner.Scan(ctx)
+		err := scanner.Scan(ctx, scanHandler)
 		if err != nil {
 			return nil, err
 		}
@@ -79,9 +82,12 @@ func (cmr *commissioner) Discover(ctx context.Context, query Query) ([]Commissio
 	}
 
 	discoverNodes := func(ctx context.Context) ([]CommissionableDevice, error) {
+		msgHandler := mdns.MessageHandler(func(msg mdns.Message) {
+		})
 		var devs []CommissionableDevice
 		dnsQueryOpts := []mdns.QueryOption{
 			mdns.WithQueryService(mdns.CommissionableNodeService),
+			mdns.WithQueryMessageHandler(msgHandler),
 		}
 		if payload, ok := query.OnboardingPayload(); ok {
 			dnsQueryOpts = append(dnsQueryOpts,
