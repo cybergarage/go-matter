@@ -60,6 +60,7 @@ func (cmr *commissioner) Discover(ctx context.Context, query Query) ([]Commissio
 
 	scanNodes := func(ctx context.Context) ([]CommissionableDevice, error) {
 		scanHandler := ble.ScanHandler(func(bleDev ble.BLEDevice) {
+			log.Debugf("BLE device discovered: %s\n", bleDev.String())
 		})
 
 		var devs []CommissionableDevice
@@ -83,6 +84,7 @@ func (cmr *commissioner) Discover(ctx context.Context, query Query) ([]Commissio
 
 	discoverNodes := func(ctx context.Context) ([]CommissionableDevice, error) {
 		msgHandler := mdns.MessageHandler(func(msg mdns.Message) {
+			log.Debugf("mDNS message received: %s\n", msg.String())
 		})
 		var devs []CommissionableDevice
 		dnsQueryOpts := []mdns.QueryOption{
