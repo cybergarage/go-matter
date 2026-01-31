@@ -5,7 +5,7 @@ go 1.25
 require (
 	github.com/cybergarage/go-ble v0.0.0-20260126095619-11678e975025
 	github.com/cybergarage/go-logger v1.3.11
-	github.com/cybergarage/go-mdns v0.0.0-20260127071113-08eff53e5a6e
+	github.com/cybergarage/go-mdns v0.0.0-20260131033503-e2fbcc4592dd
 	github.com/cybergarage/go-safecast v1.3.5
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
