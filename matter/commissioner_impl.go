@@ -83,6 +83,7 @@ func (cmr *commissioner) Discover(ctx context.Context, query Query) ([]Commissio
 
 	discoverNodes := func(ctx context.Context) ([]CommissionableDevice, error) {
 		msgHandler := mdns.MessageHandler(func(msg mdns.Message) {
+			log.Debugf("mDNS device responded: %s", msg.String())
 			log.HexDebug(msg.Bytes())
 		})
 		var devs []CommissionableDevice
