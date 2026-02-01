@@ -106,7 +106,7 @@ func (node *commissioningNode) Hostname() (string, bool) {
 	if ok {
 		return hostname, true
 	}
-	for _, rr := range node.Service.ResourceRecords() {
+	for _, rr := range node.Service.ResourceRecordSet() {
 		switch v := rr.(type) {
 		case dns.PTRRecord:
 			hostname, ok := extractHostname(v.DomainName())
