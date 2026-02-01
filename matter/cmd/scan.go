@@ -17,6 +17,7 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -24,6 +25,7 @@ import (
 	"time"
 
 	"github.com/cybergarage/go-matter/matter"
+	"github.com/cybergarage/go-matter/matter/encoding"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -33,19 +35,31 @@ func init() {
 }
 
 var scanCmd = &cobra.Command{ // nolint:exhaustruct
-	Use:   "scan",
+	Use:   "scan [pairing code]",
 	Short: "Scan for Matter devices.",
-	Long:  "Scan for Matter devices.",
+	Long:  "Scan for Matter devices. Optionally filter devices using a manual pairing code.",
+	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		format, err := NewFormatFromString(viper.GetString(FormatParamStr))
 		if err != nil {
 			return err
 		}
 
+		opts := []matter.QueryOption{}
+		switch {
+		case len(args) == 1:
+			pairingCodeStr := args[0]
+			pairingCode, err := encoding.NewPairingCodeFromString(pairingCodeStr)
+			if err != nil {
+				return fmt.Errorf("%w: %s", err, pairingCodeStr)
+			}
+			opts = append(opts, matter.WithQueryOnboardingPayload(pairingCode))
+		}
+
 		cmr := SharedCommissioner()
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		devs, err := cmr.Discover(ctx, matter.NewQuery())
+		devs, err := cmr.Discover(ctx, matter.NewQuery(opts...))
 		if err != nil {
 			return err
 		}
