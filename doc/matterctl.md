@@ -410,8 +410,7 @@ matterctl scan [pairing code] [flags]
 ### Options
 
 ```
-  -h, --help                  help for scan
-  -p, --pairing-code string   Optional manual pairing code (11-digit or 21-digit)
+  -h, --help   help for scan
 ```
 
 ### Options inherited from parent commands
