@@ -6,6 +6,8 @@ github.com/cybergarage/go-logger v1.3.11 h1:NwnC7cD/IDkdwBYhSODXaMEBmAu3c/jK4Q2X
 github.com/cybergarage/go-logger v1.3.11/go.mod h1:SU5vzAFJOTs89JXk+Jn89RaNmcR07parcJgnW4e8aDw=
 github.com/cybergarage/go-mdns v0.0.0-20260201123538-c10385208a9f h1:vxJlNRLgPm4IBoCBYDNy5IzAxote/Wh84PRPJuI5kNA=
 github.com/cybergarage/go-mdns v0.0.0-20260201123538-c10385208a9f/go.mod h1:jzpxysP31xSfiUWPK4WAfU3Yr9XuBDuWEV3Z8N04uC0=
+github.com/cybergarage/go-mdns v0.0.0-20260201124804-563c7b788671 h1:uPER26BZzSe4bG0jq8TrUmkonPUc4ft8KW5U7G/6KpY=
+github.com/cybergarage/go-mdns v0.0.0-20260201124804-563c7b788671/go.mod h1:jzpxysP31xSfiUWPK4WAfU3Yr9XuBDuWEV3Z8N04uC0=
 github.com/cybergarage/go-safecast v1.3.5 h1:dCroj5TEEhwLVMGCzWQgQLBrtbSWTb8JNw/8UQMtt1E=
 github.com/cybergarage/go-safecast v1.3.5/go.mod h1:1Ds38TLydkKlIe7hXG3Zy/I1JmwaN9OuWLP0psFi3X0=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
