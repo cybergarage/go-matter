@@ -401,16 +401,17 @@ Scan for Matter devices.
 
 ### Synopsis
 
-Scan for Matter devices.
+Scan for Matter devices. Optionally filter devices using a manual pairing code.
 
 ```
-matterctl scan [flags]
+matterctl scan [pairing code] [flags]
 ```
 
 ### Options
 
 ```
-  -h, --help   help for scan
+  -h, --help                  help for scan
+  -p, --pairing-code string   Optional manual pairing code (11-digit or 21-digit)
 ```
 
 ### Options inherited from parent commands
