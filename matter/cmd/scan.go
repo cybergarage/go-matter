@@ -67,11 +67,11 @@ var scanCmd = &cobra.Command{ // nolint:exhaustruct
 			return nil
 		}
 
-		columns := []string{"Source", "Address", "VendorID", "ProductID", "Discriminator"}
+		columns := []string{"Address", "Source", "VendorID", "ProductID", "Discriminator"}
 		deviceColumns := func(dev matter.CommissionableDevice) ([]string, error) {
 			return []string{
-				dev.Source().String(),
 				dev.Address(),
+				dev.Source().String(),
 				strconv.Itoa(int(dev.VendorID())),
 				strconv.Itoa(int(dev.ProductID())),
 				strconv.Itoa(int(dev.Discriminator())),
