@@ -302,7 +302,7 @@ Pairing Matter devices.
 
 ### Synopsis
 
-Pairing Matter devices.
+Pairing Matter devices by specifying node ID and pairing code.
 
 ### Options
 
