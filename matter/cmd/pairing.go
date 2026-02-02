@@ -32,7 +32,7 @@ func init() {
 var pairingCmd = &cobra.Command{ // nolint:exhaustruct
 	Use:   "pairing",
 	Short: "Pairing Matter devices.",
-	Long:  "Pairing Matter devices.",
+	Long:  "Pairing Matter devices by specifying node ID and pairing code.",
 }
 
 var pairingCodeCmd = &cobra.Command{ // nolint:exhaustruct

@@ -44,11 +44,16 @@ type Device interface {
 	String() string
 }
 
+// DiscoverySource represents a discovery source.
+type DiscoverySource = types.DiscoverySource
+
 // 5.4.3. Discovery by Commissioner.
 // Commission commissions the node with the given commissioning options.}
 // CommissionableDevice represents a commissionable device interface.
 type CommissionableDevice interface {
 	Device
+	// Source returns the discovery source.
+	Source() DiscoverySource
 	// Commission commissions the node with the given commissioning options.
 	Commission(ctx context.Context, payload OnboardingPayload) error
 }

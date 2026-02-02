@@ -20,6 +20,7 @@ import (
 
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/ble"
+	"github.com/cybergarage/go-matter/matter/types"
 )
 
 type bleDevice struct {
@@ -34,6 +35,11 @@ func newBLEDevice(dev ble.Device, srv ble.Service) CommissionableDevice {
 		Device:     dev,
 		Service:    srv,
 	}
+}
+
+// Source returns the discovery source.
+func (dev *bleDevice) Source() DiscoverySource {
+	return types.DiscoverySourceBLE
 }
 
 // Commission commissions the node with the given commissioning options.

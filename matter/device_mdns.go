@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"github.com/cybergarage/go-matter/matter/mdns"
+	"github.com/cybergarage/go-matter/matter/types"
 )
 
 type mDNSDevice struct {
@@ -30,6 +31,11 @@ func newMDNSDevice(node mdns.CommissionableNode) CommissionableDevice {
 		baseDevice:         &baseDevice{},
 		CommissionableNode: node,
 	}
+}
+
+// Source returns the discovery source.
+func (d *mDNSDevice) Source() DiscoverySource {
+	return types.DiscoverySourceMDNS
 }
 
 // VendorID represents a vendor ID.
