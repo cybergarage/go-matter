@@ -42,6 +42,11 @@ func (dev *bleDevice) Source() DiscoverySource {
 	return types.DiscoverySourceBLE
 }
 
+// Address returns the device address.
+func (dev *bleDevice) Address() string {
+	return dev.Device.Address().String()
+}
+
 // Commission commissions the node with the given commissioning options.
 func (dev *bleDevice) Commission(ctx context.Context, payload OnboardingPayload) error {
 	if err := dev.Connect(ctx); err != nil {

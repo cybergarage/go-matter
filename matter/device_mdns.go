@@ -16,6 +16,7 @@ package matter
 
 import (
 	"context"
+	"strings"
 
 	"github.com/cybergarage/go-matter/matter/mdns"
 	"github.com/cybergarage/go-matter/matter/types"
@@ -36,6 +37,19 @@ func newMDNSDevice(node mdns.CommissionableNode) CommissionableDevice {
 // Source returns the discovery source.
 func (d *mDNSDevice) Source() DiscoverySource {
 	return types.DiscoverySourceMDNS
+}
+
+// Address returns the device address.
+func (d *mDNSDevice) Address() string {
+	addrs, ok := d.CommissionableNode.Addresses()
+	if !ok {
+		return ""
+	}
+	addStrs := make([]string, len(addrs))
+	for i, addr := range addrs {
+		addStrs[i] = addr.String()
+	}
+	return strings.Join(addStrs, ",")
 }
 
 // VendorID represents a vendor ID.

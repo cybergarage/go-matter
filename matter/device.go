@@ -54,6 +54,8 @@ type CommissionableDevice interface {
 	Device
 	// Source returns the discovery source.
 	Source() DiscoverySource
+	// Address returns the device address.
+	Address() string
 	// Commission commissions the node with the given commissioning options.
 	Commission(ctx context.Context, payload OnboardingPayload) error
 }
