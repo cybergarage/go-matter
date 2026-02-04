@@ -24,7 +24,7 @@ import (
 )
 
 func TestDiscoverer(t *testing.T) {
-	log.SetSharedLogger(log.NewStdoutLogger(log.LevelDebug))
+	log.SetDefault(log.NewStdoutLogger(log.LevelDebug))
 
 	disc := mdns.NewDiscoverer()
 
