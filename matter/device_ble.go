@@ -37,9 +37,9 @@ func newBLEDevice(dev ble.Device, srv ble.Service) CommissionableDevice {
 	}
 }
 
-// Source returns the discovery source.
-func (dev *bleDevice) Source() DiscoverySource {
-	return types.DiscoverySourceBLE
+// Type returns the device type.
+func (dev *bleDevice) Type() DeviceType {
+	return types.BLEDevice
 }
 
 // Address returns the device address.

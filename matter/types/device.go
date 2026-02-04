@@ -14,22 +14,22 @@
 
 package types
 
-// DiscoverySource represents a discovery source.
-type DiscoverySource int
+// DeviceType represents a device type.
+type DeviceType int
 
 const (
-	// DiscoverySourceMDNS represents the mDNS discovery source.
-	DiscoverySourceMDNS DiscoverySource = iota + 1
-	// DiscoverySourceBLE represents the BLE discovery source.
-	DiscoverySourceBLE
+	// DNSDevice represents the mDNS discovery source.
+	DNSDevice DeviceType = iota + 1
+	// BLEDevice represents the BLE discovery source.
+	BLEDevice DeviceType = iota + 1
 )
 
 // String returns the string representation of the discovery source.
-func (ds DiscoverySource) String() string {
+func (ds DeviceType) String() string {
 	switch ds {
-	case DiscoverySourceMDNS:
+	case DNSDevice:
 		return "mDNS"
-	case DiscoverySourceBLE:
+	case BLEDevice:
 		return "BLE"
 	default:
 		return "Unknown"

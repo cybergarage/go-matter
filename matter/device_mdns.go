@@ -34,9 +34,9 @@ func newMDNSDevice(node mdns.CommissionableNode) CommissionableDevice {
 	}
 }
 
-// Source returns the discovery source.
-func (d *mDNSDevice) Source() DiscoverySource {
-	return types.DiscoverySourceMDNS
+// Type returns the device type.
+func (dev *mDNSDevice) Type() DeviceType {
+	return types.DNSDevice
 }
 
 // Address returns the device address.

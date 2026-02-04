@@ -44,16 +44,16 @@ type Device interface {
 	String() string
 }
 
-// DiscoverySource represents a discovery source.
-type DiscoverySource = types.DiscoverySource
+// DeviceType represents a device type.
+type DeviceType = types.DeviceType
 
 // 5.4.3. Discovery by Commissioner.
 // Commission commissions the node with the given commissioning options.}
 // CommissionableDevice represents a commissionable device interface.
 type CommissionableDevice interface {
 	Device
-	// Source returns the discovery source.
-	Source() DiscoverySource
+	// Type returns the device type.
+	Type() DeviceType
 	// Address returns the device address.
 	Address() string
 	// Commission commissions the node with the given commissioning options.

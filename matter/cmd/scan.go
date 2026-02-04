@@ -70,7 +70,7 @@ var scanCmd = &cobra.Command{ // nolint:exhaustruct
 		columns := []string{"Source", "VendorID", "ProductID", "Discriminator", "Address"}
 		deviceColumns := func(dev matter.CommissionableDevice) ([]string, error) {
 			return []string{
-				dev.Source().String(),
+				dev.Type().String(),
 				strconv.Itoa(int(dev.VendorID())),
 				strconv.Itoa(int(dev.ProductID())),
 				strconv.Itoa(int(dev.Discriminator())),
