@@ -67,15 +67,29 @@ var scanCmd = &cobra.Command{ // nolint:exhaustruct
 			return nil
 		}
 
-		columns := []string{"Source", "VendorID", "ProductID", "Discriminator", "Address"}
+		columns := []string{"Source", "VendorID", "ProductID", "Discriminator", "Address", "Port"}
 		deviceColumns := func(dev matter.CommissionableDevice) ([]string, error) {
-			return []string{
+			colums := []string{
 				dev.Type().String(),
 				strconv.Itoa(int(dev.VendorID())),
 				strconv.Itoa(int(dev.ProductID())),
 				strconv.Itoa(int(dev.Discriminator())),
 				dev.Address(),
-			}, nil
+			}
+			type porter interface {
+				Port() (int, bool)
+			}
+			if node, ok := dev.(porter); ok {
+				port, ok := node.Port()
+				if ok {
+					colums = append(colums, strconv.Itoa(int(port)))
+				} else {
+					colums = append(colums, "")
+				}
+			} else {
+				colums = append(colums, "")
+			}
+			return colums, nil
 		}
 
 		printDevicesTable := func(devs []matter.CommissionableDevice) error {
