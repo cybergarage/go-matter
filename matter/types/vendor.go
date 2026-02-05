@@ -34,8 +34,11 @@ func NewVendorIDFrom(v any) (VendorID, error) {
 }
 
 // Equal returns true if the VendorID is equal to the given VendorID.
-func (vid VendorID) Equal(to VendorID) bool {
-	return vid == to
+func (vid VendorID) Equal(other VendorID) bool {
+	if vid == 0 || other == 0 {
+		return true
+	}
+	return vid == other
 }
 
 // String returns the string representation of the VendorID.

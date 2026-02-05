@@ -34,8 +34,11 @@ func NewProductIDFrom(v any) (ProductID, error) {
 }
 
 // Equal returns true if the ProductID is equal to the given ProductID.
-func (pid ProductID) Equal(to ProductID) bool {
-	return pid == to
+func (pid ProductID) Equal(other ProductID) bool {
+	if pid == 0 || other == 0 {
+		return true
+	}
+	return pid == other
 }
 
 // String returns the string representation of the ProductID.
