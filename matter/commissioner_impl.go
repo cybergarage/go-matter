@@ -161,7 +161,11 @@ func (cmr *commissioner) Commission(ctx context.Context, payload OnboardingPaylo
 			continue
 		}
 		log.Infof("Trying to commission device: %s", dev.String())
-		err = dev.Commission(ctx, payload)
+
+		ctxCommission, cancel := context.WithTimeout(context.Background(), DefaultCommissioningTimeout)
+		defer cancel()
+
+		err = dev.Commission(ctxCommission, payload)
 		if err != nil {
 			return nil, fmt.Errorf("%w to commission device (%s): %w", ErrFailed, dev.String(), err)
 		}

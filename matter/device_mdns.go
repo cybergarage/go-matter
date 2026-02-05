@@ -128,8 +128,13 @@ func (dev *mDNSDevice) openConn(ctx context.Context) (*net.UDPConn, error) {
 
 	deadline, ok := ctx.Deadline()
 	if !ok {
-		deadline = time.Now().Add((DefaultCommissioningTimeout))
+		deadline = time.Now().Add(DefaultCommissioningTimeout)
 	}
+
+	if time.Now().After(deadline) {
+		return nil, fmt.Errorf("context deadline exceeded: %s", deadline.String())
+	}
+
 	err = conn.SetWriteDeadline(deadline)
 	if err != nil {
 		return nil, err
