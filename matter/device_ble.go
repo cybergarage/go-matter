@@ -27,6 +27,7 @@ type bleDevice struct {
 	*baseDevice
 	ble.Device
 	ble.Service
+	transport ble.Transport
 }
 
 func newBLEDevice(dev ble.Device, srv ble.Service) CommissionableDevice {
@@ -34,6 +35,7 @@ func newBLEDevice(dev ble.Device, srv ble.Service) CommissionableDevice {
 		baseDevice: &baseDevice{},
 		Device:     dev,
 		Service:    srv,
+		transport:  nil,
 	}
 }
 
@@ -45,6 +47,23 @@ func (dev *bleDevice) Type() DeviceType {
 // Address returns the device address.
 func (dev *bleDevice) Address() string {
 	return dev.Device.Address().String()
+}
+
+// Transmit writes data to the transport.
+func (dev *bleDevice) Transmit(ctx context.Context, b []byte) error {
+	if dev.transport == nil {
+		return fmt.Errorf("transport is not opened")
+	}
+	_, err := dev.transport.Write(ctx, b)
+	return err
+}
+
+// Receive reads data from the transport.
+func (dev *bleDevice) Receive(ctx context.Context) ([]byte, error) {
+	if dev.transport == nil {
+		return nil, fmt.Errorf("transport is not opened")
+	}
+	return dev.transport.Read(ctx)
 }
 
 // Commission commissions the node with the given commissioning options.
@@ -59,16 +78,21 @@ func (dev *bleDevice) Commission(ctx context.Context, payload OnboardingPayload)
 	}()
 
 	log.Infof("Connected to device: %s", dev.String())
-
 	log.Infof("Device service: %s", dev.Service.String())
 
-	transport, err := dev.Service.Open()
+	var err error
+	dev.transport, err = dev.Service.Open()
 	if err != nil {
 		return fmt.Errorf("failed to open device transport: %s: %w", dev.String(), err)
 	}
-	defer transport.Close()
+	defer func() {
+		if err := dev.transport.Close(); err != nil {
+			log.Error(err)
+		}
+		dev.transport = nil
+	}()
 
-	res, err := transport.Handshake(ctx)
+	res, err := dev.transport.Handshake(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to perform handshake: %s: %w", dev.String(), err)
 	}

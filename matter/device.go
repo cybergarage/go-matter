@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"github.com/cybergarage/go-matter/matter/encoding"
+	"github.com/cybergarage/go-matter/matter/io"
 	"github.com/cybergarage/go-matter/matter/types"
 )
 
@@ -47,11 +48,17 @@ type Device interface {
 // DeviceType represents a device type.
 type DeviceType = types.DeviceType
 
+// Transport represents a transport.
+type Transport = io.Transport
+
 // 5.4.3. Discovery by Commissioner.
 // Commission commissions the node with the given commissioning options.}
 // CommissionableDevice represents a commissionable device interface.
 type CommissionableDevice interface {
+	// Device returns the underlying device.
 	Device
+	// Transport returns the transport.
+	Transport
 	// Type returns the device type.
 	Type() DeviceType
 	// Address returns the device address.

@@ -16,8 +16,12 @@ package matter
 
 import (
 	"context"
+	"fmt"
+	"net"
 	"strings"
+	"time"
 
+	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/mdns"
 	"github.com/cybergarage/go-matter/matter/types"
 )
@@ -25,12 +29,16 @@ import (
 type mDNSDevice struct {
 	*baseDevice
 	mdns.CommissionableNode
+	conn    *net.UDPConn
+	readBuf []byte
 }
 
 func newMDNSDevice(node mdns.CommissionableNode) CommissionableDevice {
 	return &mDNSDevice{
 		baseDevice:         &baseDevice{},
 		CommissionableNode: node,
+		conn:               nil,
+		readBuf:            make([]byte, 1500),
 	}
 }
 
@@ -82,8 +90,98 @@ func (dev *mDNSDevice) Discriminator() Discriminator {
 	return Discriminator(discriminator)
 }
 
+func (dev *mDNSDevice) openConn(ctx context.Context) (*net.UDPConn, error) {
+	lookupIPv4AddrPort := func() (net.IP, int, error) {
+		port, ok := dev.CommissionableNode.Port()
+		if !ok {
+			return nil, 0, fmt.Errorf("no port found for device: %s", dev.String())
+		}
+
+		addrs, ok := dev.CommissionableNode.Addresses()
+		if !ok || len(addrs) == 0 {
+			return nil, 0, fmt.Errorf("no addresses found for device: %s", dev.String())
+		}
+		for _, addr := range addrs {
+			if ipv4 := addr.To4(); ipv4 != nil {
+				return ipv4, port, nil
+			}
+		}
+		return nil, 0, fmt.Errorf("no IPv4 address found for device: %s", dev.String())
+	}
+
+	addr, port, err := lookupIPv4AddrPort()
+	if err != nil {
+		return nil, err
+	}
+
+	remote := &net.UDPAddr{
+		IP:   addr,
+		Port: port,
+		Zone: "",
+	}
+
+	conn, err := net.DialUDP("udp", nil, remote)
+	if err != nil {
+		return nil, err
+	}
+
+	deadline, ok := ctx.Deadline()
+	if !ok {
+		deadline = time.Now().Add((DefaultCommissioningTimeout))
+	}
+	err = conn.SetWriteDeadline(deadline)
+	if err != nil {
+		return nil, err
+	}
+	err = conn.SetReadDeadline(deadline)
+	if err != nil {
+		return nil, err
+	}
+
+	return conn, nil
+}
+
+// Transmit writes data to the transport.
+func (dev *mDNSDevice) Transmit(ctx context.Context, b []byte) error {
+	if dev.conn == nil {
+		return fmt.Errorf("connection is not opened")
+	}
+	n, err := dev.conn.Write(b)
+	if err != nil {
+		return err
+	}
+	if n != len(b) {
+		return fmt.Errorf("udp short write: %d/%d", n, len(b))
+	}
+	return nil
+}
+
+// Receive reads data from the transport.
+func (dev *mDNSDevice) Receive(ctx context.Context) ([]byte, error) {
+	if dev.conn == nil {
+		return nil, fmt.Errorf("connection is not opened")
+	}
+	n, err := dev.conn.Read(dev.readBuf)
+	if err != nil {
+		return nil, err
+	}
+	return dev.readBuf[:n], nil
+}
+
 // Commission commissions the node with the given commissioning options.
 func (dev *mDNSDevice) Commission(ctx context.Context, payload OnboardingPayload) error {
+	var err error
+	dev.conn, err = dev.openConn(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := dev.conn.Close(); err != nil {
+			log.Error(err)
+		}
+		dev.conn = nil
+	}()
+
 	return nil
 }
 
