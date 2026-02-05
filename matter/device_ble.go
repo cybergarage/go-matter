@@ -20,6 +20,7 @@ import (
 
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/ble"
+	"github.com/cybergarage/go-matter/matter/pase"
 	"github.com/cybergarage/go-matter/matter/types"
 )
 
@@ -98,6 +99,12 @@ func (dev *bleDevice) Commission(ctx context.Context, payload OnboardingPayload)
 	}
 
 	log.Infof("Handshake response: %s", res.String())
+
+	paseClient := pase.NewClient(dev, payload.Passcode())
+	_, err = paseClient.EstablishSession(ctx)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

@@ -84,8 +84,7 @@ func DecodePBKDFParamResponse(b []byte) (*PBKDFParamResponse, error) {
 	}
 
 	// If these are missing, it most likely means our assumed context tag numbers
-	// do not match the device/spec. Dump the full TLV (DebugTLV) to determine
-	// the correct mapping.
+	// do not match the device/spec. Dump the full TLV to determine the correct mapping.
 	if iter == 0 || len(salt) == 0 {
 		return nil, fmt.Errorf("PBKDFParamResponse missing fields: iter=%d saltLen=%d", iter, len(salt))
 	}

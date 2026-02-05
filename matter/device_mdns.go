@@ -23,6 +23,7 @@ import (
 
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/mdns"
+	"github.com/cybergarage/go-matter/matter/pase"
 	"github.com/cybergarage/go-matter/matter/types"
 )
 
@@ -181,6 +182,12 @@ func (dev *mDNSDevice) Commission(ctx context.Context, payload OnboardingPayload
 		}
 		dev.conn = nil
 	}()
+
+	paseClient := pase.NewClient(dev, payload.Passcode())
+	_, err = paseClient.EstablishSession(ctx)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
