@@ -3,9 +3,9 @@ module github.com/cybergarage/go-matter
 go 1.25
 
 require (
-	github.com/cybergarage/go-ble v0.0.0-20260203110219-06ce201f732c
+	github.com/cybergarage/go-ble v0.0.0-20260203124656-ea8db31d6389
 	github.com/cybergarage/go-logger v1.3.12
-	github.com/cybergarage/go-mdns v0.0.0-20260203103005-a357ed683db3
+	github.com/cybergarage/go-mdns v0.0.0-20260203124046-eb42ba92cd90
 	github.com/cybergarage/go-safecast v1.3.5
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
