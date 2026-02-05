@@ -83,8 +83,8 @@ func TestQRPayload(t *testing.T) {
 			if decodedPayload.Discriminator() != Discriminator(tt.expected.discriminator) {
 				t.Errorf("Discriminator: got=%d, want=%d", decodedPayload.Discriminator(), Discriminator(tt.expected.discriminator))
 			}
-			if decodedPayload.Passcode() != tt.expected.passcode {
-				t.Errorf("Passcode: got=%d, want=%d", decodedPayload.Passcode(), tt.expected.passcode)
+			if decodedPayload.Passcode() != Passcode(tt.expected.passcode) {
+				t.Errorf("Passcode: got=%d, want=%d", decodedPayload.Passcode(), Passcode(tt.expected.passcode))
 			}
 
 			encodedPayloadString := decodedPayload.String()

@@ -86,7 +86,7 @@ func TestPairingCode(t *testing.T) {
 			if decodedCode.Discriminator() != Discriminator(tt.expected.upperDesc) {
 				t.Errorf("Discriminator(): got=%d, want=%d", decodedCode.Discriminator(), Discriminator(tt.expected.upperDesc))
 			}
-			if decodedCode.Passcode() != tt.expected.passcode {
+			if decodedCode.Passcode() != Passcode(tt.expected.passcode) {
 				t.Errorf("Passcode(): got=%d, want=%d", decodedCode.Passcode(), tt.expected.passcode)
 			}
 
