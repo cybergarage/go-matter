@@ -14,19 +14,27 @@
 
 package matter
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type baseDevice struct {
 }
 
-func (d *baseDevice) String(dev CommissionableDevice) string {
-	return fmt.Sprintf("VendorID: %d, ProductID: %d, Discriminator: %d",
-		dev.VendorID(),
-		dev.ProductID(),
-		dev.Discriminator())
+func (baseDev *baseDevice) matchesOnboardingPayload(dev Device, payload OnboardingPayload) bool {
+	if !dev.VendorID().Equal(payload.VendorID()) {
+		return false
+	}
+	if !dev.ProductID().Equal(payload.ProductID()) {
+		return false
+	}
+	if !dev.Discriminator().Equal(payload.Discriminator()) {
+		return false
+	}
+	return true
 }
 
-func (d *baseDevice) MarshalObject(dev CommissionableDevice) any {
+func (baseDev *baseDevice) marshalObject(dev CommissionableDevice) any {
 	return struct {
 		Discriminator uint16 `json:"discriminator"`
 		VendorID      uint16 `json:"vendorId"`
@@ -36,4 +44,11 @@ func (d *baseDevice) MarshalObject(dev CommissionableDevice) any {
 		VendorID:      uint16(dev.VendorID()),
 		ProductID:     uint16(dev.ProductID()),
 	}
+}
+
+func (baseDev *baseDevice) string(dev CommissionableDevice) string {
+	return fmt.Sprintf("VendorID: %d, ProductID: %d, Discriminator: %d",
+		dev.VendorID(),
+		dev.ProductID(),
+		dev.Discriminator())
 }

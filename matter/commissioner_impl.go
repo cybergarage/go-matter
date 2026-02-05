@@ -154,20 +154,15 @@ func (cmr *commissioner) Commission(ctx context.Context, payload OnboardingPaylo
 		log.Infof("[%d] %s", n, dev.String())
 	}
 
-	isCommissionableDevicePayload := func(dev CommissionableDevice, payload OnboardingPayload) bool {
-		return dev.VendorID().Equal(VendorID(payload.VendorID())) &&
-			dev.ProductID().Equal(ProductID(payload.ProductID())) &&
-			dev.Discriminator().Equal(Discriminator(payload.Discriminator()))
-	}
-
 	for _, dev := range devs {
-		if isCommissionableDevicePayload(dev, payload) {
-			err = dev.Commission(ctx, payload)
-			if err != nil {
-				return nil, fmt.Errorf("%w to commission device (%s): %w", ErrFailed, dev.String(), err)
-			}
-			return newCommissioneeWithDevice(dev), nil
+		if !dev.MatchesOnboardingPayload(payload) {
+			continue
 		}
+		err = dev.Commission(ctx, payload)
+		if err != nil {
+			return nil, fmt.Errorf("%w to commission device (%s): %w", ErrFailed, dev.String(), err)
+		}
+		return newCommissioneeWithDevice(dev), nil
 	}
 
 	return nil, fmt.Errorf("%w: no matching commissionable device found (payload=%s)", ErrNotFound, payload.String())

@@ -192,12 +192,17 @@ func (dev *mDNSDevice) Commission(ctx context.Context, payload OnboardingPayload
 	return nil
 }
 
+// MatchesOnboardingPayload checks whether the device matches the given onboarding payload.
+func (dev *mDNSDevice) MatchesOnboardingPayload(payload OnboardingPayload) bool {
+	return dev.matchesOnboardingPayload(dev, payload)
+}
+
 // String returns the string representation of the mDNS device.
 func (dev *mDNSDevice) String() string {
-	return dev.baseDevice.String(dev)
+	return dev.baseDevice.string(dev)
 }
 
 // MarshalObject returns an object suitable for marshaling to JSON.
 func (dev *mDNSDevice) MarshalObject() any {
-	return dev.baseDevice.MarshalObject(dev)
+	return dev.baseDevice.marshalObject(dev)
 }

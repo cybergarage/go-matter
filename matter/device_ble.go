@@ -109,12 +109,17 @@ func (dev *bleDevice) Commission(ctx context.Context, payload OnboardingPayload)
 	return nil
 }
 
+// MatchesOnboardingPayload checks whether the device matches the given onboarding payload.
+func (dev *bleDevice) MatchesOnboardingPayload(payload OnboardingPayload) bool {
+	return dev.matchesOnboardingPayload(dev, payload)
+}
+
 // String returns the string representation of the BLE device.
 func (dev *bleDevice) String() string {
-	return dev.baseDevice.String(dev)
+	return dev.baseDevice.string(dev)
 }
 
 // MarshalObject returns an object suitable for marshaling to JSON.
 func (dev *bleDevice) MarshalObject() any {
-	return dev.baseDevice.MarshalObject(dev)
+	return dev.baseDevice.marshalObject(dev)
 }

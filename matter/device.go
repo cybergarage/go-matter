@@ -65,4 +65,11 @@ type CommissionableDevice interface {
 	Address() string
 	// Commission commissions the node with the given commissioning options.
 	Commission(ctx context.Context, payload OnboardingPayload) error
+	// CommissionableDeviceHelper represents a helper interface for commissionable devices.
+	CommissionableDeviceHelper
+}
+
+// CommissionableDeviceHelper represents a helper interface for commissionable devices.
+type CommissionableDeviceHelper interface {
+	MatchesOnboardingPayload(payload OnboardingPayload) bool
 }
