@@ -34,7 +34,7 @@ type PBKDFParamResponse struct {
 	Salt       []byte
 }
 
-// EncodePBKDFParamRequest encodes a PBKDF parameter request.
+// EncodePBKDFParamRequest encodes a PBKDFParamRequest TLV payload (TLV only; no opcode).
 func EncodePBKDFParamRequest() ([]byte, error) {
 	enc := tlv.NewEncoder()
 	enc.StartStructure(tlv.AnonymousTag())
@@ -47,16 +47,11 @@ func EncodePBKDFParamRequest() ([]byte, error) {
 		return nil, err
 	}
 	enc.MustEndAll()
-	return append([]byte{opPBKDFParamRequest}, enc.Bytes()...), nil
+	return enc.Bytes(), nil
 }
 
-// DecodePBKDFParamResponse decodes a PBKDF parameter response.
-func DecodePBKDFParamResponse(b []byte) (*PBKDFParamResponse, error) {
-	if len(b) < 1 || b[0] != opPBKDFParamResponse {
-		return nil, fmt.Errorf("unexpected opcode or empty response")
-	}
-	tlvBytes := b[1:]
-
+// DecodePBKDFParamResponse decodes a PBKDFParamResponse TLV payload (TLV only; no opcode).
+func DecodePBKDFParamResponse(tlvBytes []byte) (*PBKDFParamResponse, error) {
 	dec := tlv.NewDecoder(tlvBytes)
 	var (
 		iter uint32

@@ -62,12 +62,13 @@ func (c *Client) EstablishSession(ctx context.Context) (*Result, error) {
 
 	// 2) PBKDFParamResponse
 	resBytes, err := c.t.Receive(ctx)
-	log.Info("PBKDFParamResponse:")
-	log.HexInfo(resBytes)
 	if err != nil {
 		log.Errorf("Failed to receive PBKDFParamResponse: %v", err)
 		return nil, err
 	}
+	log.Info("PBKDFParamResponse:")
+	log.HexInfo(resBytes)
+
 	if len(resBytes) < 1 || resBytes[0] != opPBKDFParamResponse {
 		return nil, fmt.Errorf("unexpected opcode: %v", resBytes)
 	}
@@ -77,7 +78,7 @@ func (c *Client) EstablishSession(ctx context.Context) (*Result, error) {
 		return nil, err
 	}
 
-	// 3) SPAKE2+ (PASE)``
+	// 3) SPAKE2+ (PASE)
 	hs := NewHandshake(HandshakeRoleClient, HandshakeOptions{
 		Passcode:  c.passcode.Bytes(),
 		Salt:      pbkdfRes.Salt,
@@ -100,12 +101,8 @@ func (c *Client) EstablishSession(ctx context.Context) (*Result, error) {
 		log.Errorf("Failed to receive Pake2: %v", err)
 		return nil, err
 	}
-	// TODO: decode p2raw (currently opcode + raw bytes concatenated, so parsing is needed)
+	// TODO: decode p2raw
 	_ = p2raw
-
-	// 3-3) Pake3 ... (VerifyConfirmation/GetConfirmation/ExportKeys)
-	// Finally, derive session keys:
-	// i2r, r2i, err := hs.ExportKeys()
 
 	return nil, fmt.Errorf("PASE client flow is incomplete: requires spake2p + message parsing")
 }
