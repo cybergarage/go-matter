@@ -40,8 +40,8 @@ func (dev *mDNSDevice) Type() DeviceType {
 }
 
 // Address returns the device address.
-func (d *mDNSDevice) Address() string {
-	addrs, ok := d.CommissionableNode.Addresses()
+func (dev *mDNSDevice) Address() string {
+	addrs, ok := dev.CommissionableNode.Addresses()
 	if !ok {
 		return ""
 	}
@@ -54,8 +54,8 @@ func (d *mDNSDevice) Address() string {
 
 // VendorID represents a vendor ID.
 // 2.5.2. Vendor Identifier (Vendor ID, VID).
-func (d *mDNSDevice) VendorID() VendorID {
-	vid, ok := d.CommissionableNode.VendorID()
+func (dev *mDNSDevice) VendorID() VendorID {
+	vid, ok := dev.CommissionableNode.VendorID()
 	if !ok {
 		return 0
 	}
@@ -64,8 +64,8 @@ func (d *mDNSDevice) VendorID() VendorID {
 
 // ProductID represents a product ID.
 // 2.5.3. Product Identifier (Product ID, PID).
-func (d *mDNSDevice) ProductID() ProductID {
-	pid, ok := d.CommissionableNode.ProductID()
+func (dev *mDNSDevice) ProductID() ProductID {
+	pid, ok := dev.CommissionableNode.ProductID()
 	if !ok {
 		return 0
 	}
@@ -74,8 +74,8 @@ func (d *mDNSDevice) ProductID() ProductID {
 
 // Discriminator represents a discriminator.
 // 2.5.6. Discriminator.
-func (d *mDNSDevice) Discriminator() Discriminator {
-	discriminator, ok := d.CommissionableNode.Discriminator()
+func (dev *mDNSDevice) Discriminator() Discriminator {
+	discriminator, ok := dev.CommissionableNode.Discriminator()
 	if !ok {
 		return 0
 	}
@@ -83,16 +83,16 @@ func (d *mDNSDevice) Discriminator() Discriminator {
 }
 
 // Commission commissions the node with the given commissioning options.
-func (d *mDNSDevice) Commission(ctx context.Context, payload OnboardingPayload) error {
+func (dev *mDNSDevice) Commission(ctx context.Context, payload OnboardingPayload) error {
 	return nil
 }
 
 // String returns the string representation of the mDNS device.
-func (d *mDNSDevice) String() string {
-	return d.baseDevice.String(d)
+func (dev *mDNSDevice) String() string {
+	return dev.baseDevice.String(dev)
 }
 
 // MarshalObject returns an object suitable for marshaling to JSON.
-func (d *mDNSDevice) MarshalObject() any {
-	return d.baseDevice.MarshalObject(d)
+func (dev *mDNSDevice) MarshalObject() any {
+	return dev.baseDevice.MarshalObject(dev)
 }
