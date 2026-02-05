@@ -171,9 +171,12 @@ func (dev *mDNSDevice) Receive(ctx context.Context) ([]byte, error) {
 
 // Commission commissions the node with the given commissioning options.
 func (dev *mDNSDevice) Commission(ctx context.Context, payload OnboardingPayload) error {
+	log.Infof("Opening connection to mDNS device (%s)...", dev.String())
+
 	var err error
 	dev.conn, err = dev.openConn(ctx)
 	if err != nil {
+		log.Errorf("Failed to open connection to mDNS device (%s): %v", dev.String(), err)
 		return err
 	}
 	defer func() {
@@ -186,6 +189,7 @@ func (dev *mDNSDevice) Commission(ctx context.Context, payload OnboardingPayload
 	paseClient := pase.NewClient(dev, payload.Passcode())
 	_, err = paseClient.EstablishSession(ctx)
 	if err != nil {
+		log.Errorf("Failed to establish PASE session with mDNS device (%s): %v", dev.String(), err)
 		return err
 	}
 

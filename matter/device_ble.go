@@ -69,8 +69,10 @@ func (dev *bleDevice) Receive(ctx context.Context) ([]byte, error) {
 
 // Commission commissions the node with the given commissioning options.
 func (dev *bleDevice) Commission(ctx context.Context, payload OnboardingPayload) error {
+	log.Infof("Connected to device: %s", dev.String())
 	if err := dev.Connect(ctx); err != nil {
-		return fmt.Errorf("failed to connect: %w", err)
+		log.Errorf("Failed to connect to device (%s): %v", dev.String(), err)
+		return err
 	}
 	defer func() {
 		if err := dev.Disconnect(); err != nil {
@@ -78,13 +80,13 @@ func (dev *bleDevice) Commission(ctx context.Context, payload OnboardingPayload)
 		}
 	}()
 
-	log.Infof("Connected to device: %s", dev.String())
 	log.Infof("Device service: %s", dev.Service.String())
 
 	var err error
 	dev.transport, err = dev.Service.Open()
 	if err != nil {
-		return fmt.Errorf("failed to open device transport: %s: %w", dev.String(), err)
+		log.Errorf("Failed to open device transport (%s): %v", dev.String(), err)
+		return err
 	}
 	defer func() {
 		if err := dev.transport.Close(); err != nil {
@@ -95,7 +97,8 @@ func (dev *bleDevice) Commission(ctx context.Context, payload OnboardingPayload)
 
 	res, err := dev.transport.Handshake(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to perform handshake: %s: %w", dev.String(), err)
+		log.Errorf("Failed to perform handshake with device (%s): %v", dev.String(), err)
+		return err
 	}
 
 	log.Infof("Handshake response: %s", res.String())
@@ -103,6 +106,7 @@ func (dev *bleDevice) Commission(ctx context.Context, payload OnboardingPayload)
 	paseClient := pase.NewClient(dev, payload.Passcode())
 	_, err = paseClient.EstablishSession(ctx)
 	if err != nil {
+		log.Errorf("Failed to establish PASE session with device (%s): %v", dev.String(), err)
 		return err
 	}
 

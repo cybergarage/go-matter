@@ -56,6 +56,7 @@ func (c *Client) EstablishSession(ctx context.Context) (*Result, error) {
 	log.Info("PBKDFParamRequest:")
 	log.HexInfo(reqBytes)
 	if err := c.t.Transmit(ctx, reqBytes); err != nil {
+		log.Errorf("Failed to transmit PBKDFParamRequest: %v", err)
 		return nil, err
 	}
 
@@ -64,6 +65,7 @@ func (c *Client) EstablishSession(ctx context.Context) (*Result, error) {
 	log.Info("PBKDFParamResponse:")
 	log.HexInfo(resBytes)
 	if err != nil {
+		log.Errorf("Failed to receive PBKDFParamResponse: %v", err)
 		return nil, err
 	}
 	if len(resBytes) < 1 || resBytes[0] != opPBKDFParamResponse {
@@ -71,6 +73,7 @@ func (c *Client) EstablishSession(ctx context.Context) (*Result, error) {
 	}
 	pbkdfRes, err := DecodePBKDFParamResponse(resBytes[1:])
 	if err != nil {
+		log.Errorf("Failed to decode PBKDFParamResponse: %v", err)
 		return nil, err
 	}
 
@@ -87,12 +90,14 @@ func (c *Client) EstablishSession(ctx context.Context) (*Result, error) {
 		return nil, err
 	}
 	if err := c.t.Transmit(ctx, NewPake1(x).Bytes()); err != nil {
+		log.Errorf("Failed to transmit Pake1: %v", err)
 		return nil, err
 	}
 
 	// 3-2) Pake2
 	p2raw, err := c.t.Receive(ctx)
 	if err != nil {
+		log.Errorf("Failed to receive Pake2: %v", err)
 		return nil, err
 	}
 	// TODO: decode p2raw (currently opcode + raw bytes concatenated, so parsing is needed)

@@ -155,9 +155,12 @@ func (cmr *commissioner) Commission(ctx context.Context, payload OnboardingPaylo
 	}
 
 	for _, dev := range devs {
-		if !dev.MatchesOnboardingPayload(payload) {
+		isMatched := dev.MatchesOnboardingPayload(payload)
+		if !isMatched {
+			log.Infof("Skipping device (does not match payload): %s", dev.String())
 			continue
 		}
+		log.Infof("Trying to commission device: %s", dev.String())
 		err = dev.Commission(ctx, payload)
 		if err != nil {
 			return nil, fmt.Errorf("%w to commission device (%s): %w", ErrFailed, dev.String(), err)
