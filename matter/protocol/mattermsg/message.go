@@ -30,12 +30,12 @@ type Message struct {
 func (m *Message) Encode() []byte {
 	packetBytes := m.PacketHeader.Encode()
 	exchangeBytes := m.ExchangeHeader.Encode()
-	
+
 	result := make([]byte, 0, len(packetBytes)+len(exchangeBytes)+len(m.Payload))
 	result = append(result, packetBytes...)
 	result = append(result, exchangeBytes...)
 	result = append(result, m.Payload...)
-	
+
 	return result
 }
 

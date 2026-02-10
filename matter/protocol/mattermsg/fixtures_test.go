@@ -23,14 +23,14 @@ import (
 // that approximate real Matter message structures.
 func TestDecodeRealWorldPayloads(t *testing.T) {
 	tests := []struct {
-		name           string
-		hexPayload     string
-		expectError    bool
-		validateFunc   func(*testing.T, *Message)
-		description    string
+		name         string
+		hexPayload   string
+		expectError  bool
+		validateFunc func(*testing.T, *Message)
+		description  string
 	}{
 		{
-			name: "PBKDFParamRequest-like message",
+			name:        "PBKDFParamRequest-like message",
 			description: "Unsecured message with reliability flag requesting PBKDF parameters",
 			// Packet header: version=0, no node IDs, sessionID=0, securityFlags=0, msgCtr=1
 			// Exchange header: I|R flags, opcode=0x20, exchangeID=0x1234, protocolID=0x0000 (SecureChannel)
@@ -57,7 +57,7 @@ func TestDecodeRealWorldPayloads(t *testing.T) {
 			},
 		},
 		{
-			name: "Standalone ACK message",
+			name:        "Standalone ACK message",
 			description: "ACK message with ack counter",
 			// Packet header: version=0, sessionID=0x1234, msgCtr=100
 			// Exchange header: A flag, opcode=0x00, exchangeID=0x5678, ackCounter=42
@@ -80,7 +80,7 @@ func TestDecodeRealWorldPayloads(t *testing.T) {
 			},
 		},
 		{
-			name: "Message with vendor protocol",
+			name:        "Message with vendor protocol",
 			description: "Message using vendor-specific protocol",
 			// Exchange header with V flag and vendor ID
 			hexPayload: "00" + "0000" + "00" + "01000000" + // Packet header
@@ -152,8 +152,8 @@ func TestDecodeTruncatedPayloads(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name: "packet header only",
-			hexPayload: "00" + "0000" + "00" + "01000000", // 8 bytes
+			name:        "packet header only",
+			hexPayload:  "00" + "0000" + "00" + "01000000", // 8 bytes
 			expectError: true,
 		},
 		{

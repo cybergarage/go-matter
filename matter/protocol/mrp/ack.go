@@ -47,7 +47,7 @@ func BuildStandaloneAck(receivedMsg *mattermsg.Message, outboundCounter uint32) 
 	// - AckCounter field references the message being acknowledged
 	exchangeHeader := &mattermsg.ExchangeHeader{
 		ExchangeFlags: mattermsg.ExchangeFlagAck, // A flag only
-		Opcode:        0x00,                       // Standalone ACK has no opcode
+		Opcode:        0x00,                      // Standalone ACK has no opcode
 		ExchangeID:    receivedMsg.ExchangeHeader.ExchangeID,
 		ProtocolID:    receivedMsg.ExchangeHeader.ProtocolID,
 		AckCounter:    receivedMsg.PacketHeader.MessageCounter,
