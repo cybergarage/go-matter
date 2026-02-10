@@ -15,6 +15,8 @@
 package mrp
 
 import (
+	"sync/atomic"
+
 	"github.com/cybergarage/go-matter/matter/protocol/mattermsg"
 )
 
@@ -66,6 +68,7 @@ func IsAckRequested(msg *mattermsg.Message) bool {
 }
 
 // MessageCounter tracks outbound message counters for a session.
+// It is safe for concurrent use by multiple goroutines.
 type MessageCounter struct {
 	counter uint32
 }
@@ -76,13 +79,13 @@ func NewMessageCounter() *MessageCounter {
 }
 
 // Next returns the next message counter value and increments the internal counter.
+// This method is thread-safe using atomic operations.
 func (mc *MessageCounter) Next() uint32 {
-	current := mc.counter
-	mc.counter++
-	return current
+	return atomic.AddUint32(&mc.counter, 1) - 1
 }
 
 // Current returns the current counter value without incrementing.
+// This method is thread-safe using atomic operations.
 func (mc *MessageCounter) Current() uint32 {
-	return mc.counter
+	return atomic.LoadUint32(&mc.counter)
 }

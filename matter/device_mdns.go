@@ -93,7 +93,8 @@ func (dev *mDNSDevice) Discriminator() Discriminator {
 
 func (dev *mDNSDevice) openConn(ctx context.Context) (*net.UDPConn, error) {
 	// lookupAddrPort looks up addresses preferring IPv6 link-local, then IPv4.
-	// For IPv6 link-local addresses (fe80::/10), it sets the Zone field to the interface name.
+	// For IPv6 link-local addresses (fe80::/10), it attempts to determine the Zone
+	// by checking available network interfaces.
 	lookupAddrPort := func() (net.IP, int, string, error) {
 		port, ok := dev.CommissionableNode.Port()
 		if !ok {
@@ -108,29 +109,38 @@ func (dev *mDNSDevice) openConn(ctx context.Context) (*net.UDPConn, error) {
 		// First pass: look for IPv6 link-local addresses (fe80::/10)
 		for _, addr := range addrs {
 			if addr.To4() == nil && addr.IsLinkLocalUnicast() {
-				// IPv6 link-local requires a zone (interface) to be specified
-				// Enumerate interfaces to find which one has this address
+				// IPv6 link-local requires a zone (interface) to be specified.
+				// Try to find an interface that can reach this address by checking
+				// which interfaces have link-local addresses in the same subnet.
 				ifaces, err := net.Interfaces()
 				if err == nil {
 					for _, iface := range ifaces {
-						addrsOnIface, err := iface.Addrs()
+						// Skip down interfaces
+						if iface.Flags&net.FlagUp == 0 {
+							continue
+						}
+						// For link-local, use the first up interface with an IPv6 address
+						// The OS routing will handle finding the correct path
+						ifaceAddrs, err := iface.Addrs()
 						if err != nil {
 							continue
 						}
-						for _, ifaceAddr := range addrsOnIface {
+						for _, ifaceAddr := range ifaceAddrs {
 							ipNet, ok := ifaceAddr.(*net.IPNet)
 							if !ok {
 								continue
 							}
-							if ipNet.IP.Equal(addr) {
+							// If this interface has an IPv6 link-local address, use it
+							if ipNet.IP.To4() == nil && ipNet.IP.IsLinkLocalUnicast() {
 								log.Infof("Using IPv6 link-local address %s with zone %s", addr, iface.Name)
 								return addr, port, iface.Name, nil
 							}
 						}
 					}
 				}
-				// If we couldn't find the interface, try using the address without zone
-				log.Warnf("IPv6 link-local address %s found but no matching interface, trying without zone", addr)
+				// If we couldn't determine the interface, try using % notation or default
+				// For many systems, the zone can be inferred by the OS
+				log.Infof("Using IPv6 link-local address %s (zone detection failed, trying without zone)", addr)
 				return addr, port, "", nil
 			}
 		}

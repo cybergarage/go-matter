@@ -38,14 +38,16 @@ type PacketHeader struct {
 }
 
 // PacketHeaderFlags contains flag bit positions for the packet header flags field.
+// Reference: Matter Core Spec 1.5, Section 4.7.2
 const (
 	// VersionMask extracts the version field (bits 0-3)
 	VersionMask = 0x0F
-	// FlagSourceNodeIDPresent indicates source node ID is present (bit 4)
-	FlagSourceNodeIDPresent = 0x04
 	// FlagDestNodeIDPresent indicates destination node ID is present (bit 5)
 	FlagDestNodeIDPresent = 0x01
-	// DSIZ mask (bits 6-7) for destination node ID size encoding
+	// FlagSourceNodeIDPresent indicates source node ID is present (bit 6)
+	FlagSourceNodeIDPresent = 0x04
+	// DSIZ mask (bits 7-8, in second byte for extended format)
+	// Note: DSIZ is not used in this minimal implementation
 	DSIZMask  = 0xC0
 	DSIZShift = 6
 )
@@ -63,11 +65,6 @@ func (h *PacketHeader) HasSourceNodeID() bool {
 // HasDestNodeID returns true if the destination node ID is present.
 func (h *PacketHeader) HasDestNodeID() bool {
 	return (h.Flags & FlagDestNodeIDPresent) != 0
-}
-
-// DSIZ returns the destination node ID size encoding (0=none, 1=8B, 2=16B, 3=64B).
-func (h *PacketHeader) DSIZ() uint8 {
-	return (h.Flags & DSIZMask) >> DSIZShift
 }
 
 // Encode serializes the packet header to bytes (little-endian).

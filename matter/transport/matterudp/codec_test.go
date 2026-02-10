@@ -215,9 +215,9 @@ func TestCodecMessageCounter(t *testing.T) {
 	}
 
 	// Verify they increment
-	for i := range counters {
-		if counters[i] != uint32(i) {
-			t.Errorf("Expected counter value %d, got %d", i, counters[i])
+	for idx, counter := range counters {
+		if counter != uint32(idx) {
+			t.Errorf("Expected counter value %d, got %d", idx, counter)
 		}
 	}
 }
