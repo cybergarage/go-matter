@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mattermsg
+package protocol
 
 import (
 	"encoding/binary"
@@ -21,7 +21,7 @@ import (
 )
 
 // ExchangeHeader represents the Matter exchange layer header.
-// Reference: Matter Core Spec 1.5, Section 4.11 (Exchange Layer)
+// Reference: Matter Core Spec 1.5, Section 4.11 (Exchange Layer).
 type ExchangeHeader struct {
 	// ExchangeFlags contains control flags for this exchange
 	ExchangeFlags uint8
@@ -37,17 +37,17 @@ type ExchangeHeader struct {
 	AckCounter uint32
 }
 
-// Exchange flag bit positions (from Matter spec)
+// Exchange flag bit positions (from Matter spec).
 const (
-	// ExchangeFlagInitiator (I) indicates the sender is the initiator (bit 0)
+	// ExchangeFlagInitiator (I) indicates the sender is the initiator (bit 0).
 	ExchangeFlagInitiator = 0x01
-	// ExchangeFlagAck (A) indicates this is an acknowledgement (bit 1)
+	// ExchangeFlagAck (A) indicates this is an acknowledgement (bit 1).
 	ExchangeFlagAck = 0x02
-	// ExchangeFlagReliability (R) indicates reliable transmission is requested (bit 2)
+	// ExchangeFlagReliability (R) indicates reliable transmission is requested (bit 2).
 	ExchangeFlagReliability = 0x04
-	// ExchangeFlagSecuredExtensions (SX) indicates secured extensions are present (bit 3)
+	// ExchangeFlagSecuredExtensions (SX) indicates secured extensions are present (bit 3).
 	ExchangeFlagSecuredExtensions = 0x08
-	// ExchangeFlagVendor (V) indicates a vendor-specific protocol (bit 4)
+	// ExchangeFlagVendor (V) indicates a vendor-specific protocol (bit 4).
 	ExchangeFlagVendor = 0x10
 )
 

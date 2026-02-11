@@ -20,7 +20,7 @@ import (
 
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/io"
-	"github.com/cybergarage/go-matter/matter/protocol/mattermsg"
+	"github.com/cybergarage/go-matter/matter/protocol"
 	"github.com/cybergarage/go-matter/matter/protocol/mrp"
 )
 
@@ -43,7 +43,7 @@ func NewCodec(t io.Transport, autoAck bool) *Codec {
 }
 
 // Transmit encodes a Matter message and sends it over the transport.
-func (c *Codec) Transmit(ctx context.Context, msg *mattermsg.Message) error {
+func (c *Codec) Transmit(ctx context.Context, msg *protocol.Message) error {
 	encoded := msg.Encode()
 	log.Debugf("Transmit Matter message: %s", msg.String())
 	return c.transport.Transmit(ctx, encoded)
@@ -56,7 +56,7 @@ func (c *Codec) TransmitBytes(ctx context.Context, b []byte) error {
 
 // Receive reads a message from the transport, decodes it, and optionally sends an ACK.
 // Returns the decoded message or an error.
-func (c *Codec) Receive(ctx context.Context) (*mattermsg.Message, error) {
+func (c *Codec) Receive(ctx context.Context) (*protocol.Message, error) {
 	// Read raw bytes from transport
 	data, err := c.transport.Receive(ctx)
 	if err != nil {
@@ -64,7 +64,7 @@ func (c *Codec) Receive(ctx context.Context) (*mattermsg.Message, error) {
 	}
 
 	// Decode the message
-	msg, err := mattermsg.DecodeMessage(data)
+	msg, err := protocol.DecodeMessage(data)
 	if err != nil {
 		log.Warnf("Failed to decode Matter message (%d bytes): %v", len(data), err)
 		log.HexWarn(data)

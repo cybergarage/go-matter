@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mattermsg
+package protocol
 
 import (
 	"encoding/hex"
@@ -39,6 +39,7 @@ func TestDecodeRealWorldPayloads(t *testing.T) {
 				"05" + "20" + "3412" + "0000" + // Exchange header (6 bytes)
 				"153001", // Payload (sample TLV: 0x15 = struct, 0x30 = element, 0x01 = end)
 			validateFunc: func(t *testing.T, msg *Message) {
+				t.Helper()
 				if msg.PacketHeader.SessionID != 0x0000 {
 					t.Errorf("Expected sessionID 0x0000, got 0x%04X", msg.PacketHeader.SessionID)
 				}
@@ -65,6 +66,7 @@ func TestDecodeRealWorldPayloads(t *testing.T) {
 				"02" + "00" + "7856" + "0000" + "2a000000" + // Exchange header with ACK (10 bytes)
 				"", // No payload
 			validateFunc: func(t *testing.T, msg *Message) {
+				t.Helper()
 				if !msg.ExchangeHeader.IsAck() {
 					t.Error("Expected ACK flag to be set")
 				}
@@ -87,6 +89,7 @@ func TestDecodeRealWorldPayloads(t *testing.T) {
 				"11" + "40" + "9999" + "f1ff" + "3412" + // Exchange header with V flag (8 bytes)
 				"aabbcc", // Sample payload
 			validateFunc: func(t *testing.T, msg *Message) {
+				t.Helper()
 				if !msg.ExchangeHeader.HasVendorID() {
 					t.Error("Expected vendor flag to be set")
 				}

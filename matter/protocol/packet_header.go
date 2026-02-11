@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mattermsg
+package protocol
 
 import (
 	"encoding/binary"
@@ -21,7 +21,7 @@ import (
 )
 
 // PacketHeader represents the Matter message packet header.
-// Reference: Matter Core Spec 1.5, Section 4.7.2 (Message Format)
+// Reference: Matter Core Spec 1.5, Section 4.7.2 (Message Format).
 type PacketHeader struct {
 	// Flags contains version and control flags
 	Flags uint8
@@ -38,16 +38,16 @@ type PacketHeader struct {
 }
 
 // PacketHeaderFlags contains flag bit positions for the packet header flags field.
-// Reference: Matter Core Spec 1.5, Section 4.7.2
+// Reference: Matter Core Spec 1.5, Section 4.7.2.
 const (
-	// VersionMask extracts the version field (bits 0-3)
+	// VersionMask extracts the version field (bits 0-3).
 	VersionMask = 0x0F
-	// FlagDestNodeIDPresent indicates destination node ID is present (bit 5)
+	// FlagDestNodeIDPresent indicates destination node ID is present (bit 5).
 	FlagDestNodeIDPresent = 0x20
-	// FlagSourceNodeIDPresent indicates source node ID is present (bit 6)
+	// FlagSourceNodeIDPresent indicates source node ID is present (bit 6).
 	FlagSourceNodeIDPresent = 0x40
 	// DSIZ mask (bits 6-7, in second byte for extended format)
-	// Note: DSIZ is not used in this minimal implementation
+	// Note: DSIZ is not used in this minimal implementation.
 	DSIZMask  = 0xC0
 	DSIZShift = 6
 )
@@ -96,7 +96,7 @@ func (h *PacketHeader) Encode() []byte {
 	return buf
 }
 
-// Decode parses a packet header from bytes (little-endian).
+// DecodePacketHeader parses a packet header from bytes (little-endian).
 // Returns the header and the number of bytes consumed, or an error.
 func DecodePacketHeader(data []byte) (*PacketHeader, int, error) {
 	if len(data) < 8 {

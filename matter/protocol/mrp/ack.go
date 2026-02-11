@@ -17,15 +17,15 @@ package mrp
 import (
 	"sync/atomic"
 
-	"github.com/cybergarage/go-matter/matter/protocol/mattermsg"
+	"github.com/cybergarage/go-matter/matter/protocol"
 )
 
 // BuildStandaloneAck creates a standalone acknowledgement message for a received message.
 // The ACK references the message counter of the original message.
 // Reference: Matter Core Spec 1.5, Section 4.11.8 (Standalone Acknowledgement).
-func BuildStandaloneAck(receivedMsg *mattermsg.Message, outboundCounter uint32) *mattermsg.Message {
+func BuildStandaloneAck(receivedMsg *protocol.Message, outboundCounter uint32) *protocol.Message {
 	// Build packet header for ACK: preserve version/control and security context
-	packetHeader := &mattermsg.PacketHeader{
+	packetHeader := &protocol.PacketHeader{
 		Flags:          receivedMsg.PacketHeader.Flags,
 		SessionID:      receivedMsg.PacketHeader.SessionID,
 		SecurityFlags:  receivedMsg.PacketHeader.SecurityFlags,
@@ -34,7 +34,7 @@ func BuildStandaloneAck(receivedMsg *mattermsg.Message, outboundCounter uint32) 
 
 	// If received message had source node, send it back as destination
 	if receivedMsg.PacketHeader.HasSourceNodeID() {
-		packetHeader.Flags |= mattermsg.FlagDestNodeIDPresent
+		packetHeader.Flags |= protocol.FlagDestNodeIDPresent
 		packetHeader.DestNodeID = receivedMsg.PacketHeader.SourceNodeID
 	}
 
@@ -45,16 +45,16 @@ func BuildStandaloneAck(receivedMsg *mattermsg.Message, outboundCounter uint32) 
 	// - No R flag (reliability not requested for ACK itself)
 	// - Opcode can be 0x00 (no protocol operation, just ACK)
 	// - AckCounter field references the message being acknowledged
-	exchangeHeader := &mattermsg.ExchangeHeader{
-		ExchangeFlags: mattermsg.ExchangeFlagAck, // A flag only
-		Opcode:        0x00,                      // Standalone ACK has no opcode
+	exchangeHeader := &protocol.ExchangeHeader{
+		ExchangeFlags: protocol.ExchangeFlagAck, // A flag only
+		Opcode:        0x00,                     // Standalone ACK has no opcode
 		ExchangeID:    receivedMsg.ExchangeHeader.ExchangeID,
 		ProtocolID:    receivedMsg.ExchangeHeader.ProtocolID,
 		AckCounter:    receivedMsg.PacketHeader.MessageCounter,
 	}
 
 	// Standalone ACK has no payload
-	return &mattermsg.Message{
+	return &protocol.Message{
 		PacketHeader:   packetHeader,
 		ExchangeHeader: exchangeHeader,
 		Payload:        []byte{},
@@ -63,7 +63,7 @@ func BuildStandaloneAck(receivedMsg *mattermsg.Message, outboundCounter uint32) 
 
 // IsAckRequested checks if the received message has the reliability flag set,
 // indicating that an acknowledgement is requested.
-func IsAckRequested(msg *mattermsg.Message) bool {
+func IsAckRequested(msg *protocol.Message) bool {
 	return msg.ExchangeHeader.IsReliabilityRequested()
 }
 

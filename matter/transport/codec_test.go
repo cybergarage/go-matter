@@ -18,7 +18,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/cybergarage/go-matter/matter/protocol/mattermsg"
+	"github.com/cybergarage/go-matter/matter/protocol"
 	"github.com/cybergarage/go-matter/matter/protocol/mrp"
 )
 
@@ -49,15 +49,15 @@ func TestCodecTransmit(t *testing.T) {
 	mock := &mockTransport{}
 	codec := NewCodec(mock, false)
 
-	msg := &mattermsg.Message{
-		PacketHeader: &mattermsg.PacketHeader{
+	msg := &protocol.Message{
+		PacketHeader: &protocol.PacketHeader{
 			Flags:          0x00,
 			SessionID:      0x1234,
 			SecurityFlags:  0x00,
 			MessageCounter: 1,
 		},
-		ExchangeHeader: &mattermsg.ExchangeHeader{
-			ExchangeFlags: mattermsg.ExchangeFlagInitiator,
+		ExchangeHeader: &protocol.ExchangeHeader{
+			ExchangeFlags: protocol.ExchangeFlagInitiator,
 			Opcode:        0x20,
 			ExchangeID:    0x5678,
 			ProtocolID:    0x0000,
@@ -79,15 +79,15 @@ func TestCodecTransmit(t *testing.T) {
 }
 
 func TestCodecReceiveWithoutAck(t *testing.T) {
-	msg := &mattermsg.Message{
-		PacketHeader: &mattermsg.PacketHeader{
+	msg := &protocol.Message{
+		PacketHeader: &protocol.PacketHeader{
 			Flags:          0x00,
 			SessionID:      0x1234,
 			SecurityFlags:  0x00,
 			MessageCounter: 42,
 		},
-		ExchangeHeader: &mattermsg.ExchangeHeader{
-			ExchangeFlags: mattermsg.ExchangeFlagInitiator, // No reliability flag
+		ExchangeHeader: &protocol.ExchangeHeader{
+			ExchangeFlags: protocol.ExchangeFlagInitiator, // No reliability flag
 			Opcode:        0x20,
 			ExchangeID:    0x5678,
 			ProtocolID:    0x0000,
@@ -118,15 +118,15 @@ func TestCodecReceiveWithoutAck(t *testing.T) {
 }
 
 func TestCodecReceiveWithAutoAck(t *testing.T) {
-	msg := &mattermsg.Message{
-		PacketHeader: &mattermsg.PacketHeader{
+	msg := &protocol.Message{
+		PacketHeader: &protocol.PacketHeader{
 			Flags:          0x00,
 			SessionID:      0x1234,
 			SecurityFlags:  0x00,
 			MessageCounter: 42,
 		},
-		ExchangeHeader: &mattermsg.ExchangeHeader{
-			ExchangeFlags: mattermsg.ExchangeFlagInitiator | mattermsg.ExchangeFlagReliability,
+		ExchangeHeader: &protocol.ExchangeHeader{
+			ExchangeFlags: protocol.ExchangeFlagInitiator | protocol.ExchangeFlagReliability,
 			Opcode:        0x20,
 			ExchangeID:    0x5678,
 			ProtocolID:    0x0000,
@@ -156,7 +156,7 @@ func TestCodecReceiveWithAutoAck(t *testing.T) {
 	}
 
 	// Decode and verify ACK
-	ack, err := mattermsg.DecodeMessage(mock.sendData)
+	ack, err := protocol.DecodeMessage(mock.sendData)
 	if err != nil {
 		t.Fatalf("Failed to decode ACK: %v", err)
 	}
@@ -170,15 +170,15 @@ func TestCodecReceiveWithAutoAck(t *testing.T) {
 }
 
 func TestCodecReceiveWithAutoAckDisabled(t *testing.T) {
-	msg := &mattermsg.Message{
-		PacketHeader: &mattermsg.PacketHeader{
+	msg := &protocol.Message{
+		PacketHeader: &protocol.PacketHeader{
 			Flags:          0x00,
 			SessionID:      0x1234,
 			SecurityFlags:  0x00,
 			MessageCounter: 42,
 		},
-		ExchangeHeader: &mattermsg.ExchangeHeader{
-			ExchangeFlags: mattermsg.ExchangeFlagInitiator | mattermsg.ExchangeFlagReliability,
+		ExchangeHeader: &protocol.ExchangeHeader{
+			ExchangeFlags: protocol.ExchangeFlagInitiator | protocol.ExchangeFlagReliability,
 			Opcode:        0x20,
 			ExchangeID:    0x5678,
 			ProtocolID:    0x0000,
@@ -246,15 +246,15 @@ func TestCodecSetAutoAck(t *testing.T) {
 
 func TestIsAckRequestedIntegration(t *testing.T) {
 	// Create a message with reliability flag
-	msg := &mattermsg.Message{
-		PacketHeader: &mattermsg.PacketHeader{
+	msg := &protocol.Message{
+		PacketHeader: &protocol.PacketHeader{
 			Flags:          0x00,
 			SessionID:      0x0000,
 			SecurityFlags:  0x00,
 			MessageCounter: 1,
 		},
-		ExchangeHeader: &mattermsg.ExchangeHeader{
-			ExchangeFlags: mattermsg.ExchangeFlagReliability,
+		ExchangeHeader: &protocol.ExchangeHeader{
+			ExchangeFlags: protocol.ExchangeFlagReliability,
 			Opcode:        0x20,
 			ExchangeID:    0x1234,
 			ProtocolID:    0x0000,

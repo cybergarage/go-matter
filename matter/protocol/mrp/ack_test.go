@@ -17,20 +17,20 @@ package mrp
 import (
 	"testing"
 
-	"github.com/cybergarage/go-matter/matter/protocol/mattermsg"
+	"github.com/cybergarage/go-matter/matter/protocol"
 )
 
 func TestBuildStandaloneAck(t *testing.T) {
 	// Create a message that requests acknowledgement
-	receivedMsg := &mattermsg.Message{
-		PacketHeader: &mattermsg.PacketHeader{
+	receivedMsg := &protocol.Message{
+		PacketHeader: &protocol.PacketHeader{
 			Flags:          0x00,
 			SessionID:      0x1234,
 			SecurityFlags:  0x00,
 			MessageCounter: 42,
 		},
-		ExchangeHeader: &mattermsg.ExchangeHeader{
-			ExchangeFlags: mattermsg.ExchangeFlagInitiator | mattermsg.ExchangeFlagReliability,
+		ExchangeHeader: &protocol.ExchangeHeader{
+			ExchangeFlags: protocol.ExchangeFlagInitiator | protocol.ExchangeFlagReliability,
 			Opcode:        0x20,
 			ExchangeID:    0x5678,
 			ProtocolID:    0x0000,
@@ -71,16 +71,16 @@ func TestBuildStandaloneAck(t *testing.T) {
 
 func TestBuildStandaloneAckWithSourceNode(t *testing.T) {
 	// Create a message with source node ID
-	receivedMsg := &mattermsg.Message{
-		PacketHeader: &mattermsg.PacketHeader{
-			Flags:          mattermsg.FlagSourceNodeIDPresent,
+	receivedMsg := &protocol.Message{
+		PacketHeader: &protocol.PacketHeader{
+			Flags:          protocol.FlagSourceNodeIDPresent,
 			SessionID:      0x1234,
 			SecurityFlags:  0x00,
 			MessageCounter: 42,
 			SourceNodeID:   0xAABBCCDDEEFF0011,
 		},
-		ExchangeHeader: &mattermsg.ExchangeHeader{
-			ExchangeFlags: mattermsg.ExchangeFlagInitiator | mattermsg.ExchangeFlagReliability,
+		ExchangeHeader: &protocol.ExchangeHeader{
+			ExchangeFlags: protocol.ExchangeFlagInitiator | protocol.ExchangeFlagReliability,
 			Opcode:        0x20,
 			ExchangeID:    0x5678,
 			ProtocolID:    0x0000,
@@ -103,35 +103,35 @@ func TestBuildStandaloneAckWithSourceNode(t *testing.T) {
 func TestIsAckRequested(t *testing.T) {
 	tests := []struct {
 		name     string
-		msg      *mattermsg.Message
+		msg      *protocol.Message
 		expected bool
 	}{
 		{
 			name: "message with reliability flag",
-			msg: &mattermsg.Message{
-				PacketHeader: &mattermsg.PacketHeader{},
-				ExchangeHeader: &mattermsg.ExchangeHeader{
-					ExchangeFlags: mattermsg.ExchangeFlagReliability,
+			msg: &protocol.Message{
+				PacketHeader: &protocol.PacketHeader{},
+				ExchangeHeader: &protocol.ExchangeHeader{
+					ExchangeFlags: protocol.ExchangeFlagReliability,
 				},
 			},
 			expected: true,
 		},
 		{
 			name: "message without reliability flag",
-			msg: &mattermsg.Message{
-				PacketHeader: &mattermsg.PacketHeader{},
-				ExchangeHeader: &mattermsg.ExchangeHeader{
-					ExchangeFlags: mattermsg.ExchangeFlagInitiator,
+			msg: &protocol.Message{
+				PacketHeader: &protocol.PacketHeader{},
+				ExchangeHeader: &protocol.ExchangeHeader{
+					ExchangeFlags: protocol.ExchangeFlagInitiator,
 				},
 			},
 			expected: false,
 		},
 		{
 			name: "message with multiple flags including reliability",
-			msg: &mattermsg.Message{
-				PacketHeader: &mattermsg.PacketHeader{},
-				ExchangeHeader: &mattermsg.ExchangeHeader{
-					ExchangeFlags: mattermsg.ExchangeFlagInitiator | mattermsg.ExchangeFlagReliability,
+			msg: &protocol.Message{
+				PacketHeader: &protocol.PacketHeader{},
+				ExchangeHeader: &protocol.ExchangeHeader{
+					ExchangeFlags: protocol.ExchangeFlagInitiator | protocol.ExchangeFlagReliability,
 				},
 			},
 			expected: true,
@@ -172,15 +172,15 @@ func TestMessageCounter(t *testing.T) {
 
 func TestAckEncodeDecodeRoundtrip(t *testing.T) {
 	// Create a message that requests acknowledgement
-	receivedMsg := &mattermsg.Message{
-		PacketHeader: &mattermsg.PacketHeader{
+	receivedMsg := &protocol.Message{
+		PacketHeader: &protocol.PacketHeader{
 			Flags:          0x00,
 			SessionID:      0x1234,
 			SecurityFlags:  0x00,
 			MessageCounter: 42,
 		},
-		ExchangeHeader: &mattermsg.ExchangeHeader{
-			ExchangeFlags: mattermsg.ExchangeFlagInitiator | mattermsg.ExchangeFlagReliability,
+		ExchangeHeader: &protocol.ExchangeHeader{
+			ExchangeFlags: protocol.ExchangeFlagInitiator | protocol.ExchangeFlagReliability,
 			Opcode:        0x20,
 			ExchangeID:    0x5678,
 			ProtocolID:    0x0000,
@@ -195,7 +195,7 @@ func TestAckEncodeDecodeRoundtrip(t *testing.T) {
 	encoded := ackMsg.Encode()
 
 	// Decode ACK
-	decoded, err := mattermsg.DecodeMessage(encoded)
+	decoded, err := protocol.DecodeMessage(encoded)
 	if err != nil {
 		t.Fatalf("Failed to decode ACK: %v", err)
 	}
