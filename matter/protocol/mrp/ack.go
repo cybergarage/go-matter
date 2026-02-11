@@ -22,7 +22,7 @@ import (
 
 // BuildStandaloneAck creates a standalone acknowledgement message for a received message.
 // The ACK references the message counter of the original message.
-// Reference: Matter Core Spec 1.5, Section 4.11.8 (Standalone Acknowledgement)
+// Reference: Matter Core Spec 1.5, Section 4.11.8 (Standalone Acknowledgement).
 func BuildStandaloneAck(receivedMsg *mattermsg.Message, outboundCounter uint32) *mattermsg.Message {
 	// Build packet header for ACK: preserve version/control and security context
 	packetHeader := &mattermsg.PacketHeader{

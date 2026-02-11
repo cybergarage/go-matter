@@ -157,7 +157,7 @@ func TestMessageCounter(t *testing.T) {
 	}
 
 	// Test Next() increments
-	for i := uint32(0); i < 10; i++ {
+	for i := range uint32(10) {
 		val := counter.Next()
 		if val != i {
 			t.Errorf("Expected counter value %d, got %d", i, val)
