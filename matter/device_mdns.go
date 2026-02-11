@@ -92,25 +92,79 @@ func (dev *mDNSDevice) Discriminator() Discriminator {
 }
 
 func (dev *mDNSDevice) openConn(ctx context.Context) (*net.UDPConn, error) {
-	lookupIPv4AddrPort := func() (net.IP, int, error) {
+	// lookupAddrPort looks up addresses preferring IPv6 link-local, then IPv4.
+	// For IPv6 link-local addresses (fe80::/10), it attempts to determine the Zone
+	// by checking available network interfaces.
+	lookupAddrPort := func() (net.IP, int, string, error) {
 		port, ok := dev.CommissionableNode.Port()
 		if !ok {
-			return nil, 0, fmt.Errorf("no port found for device: %s", dev.String())
+			return nil, 0, "", fmt.Errorf("no port found for device: %s", dev.String())
 		}
 
 		addrs, ok := dev.CommissionableNode.Addresses()
 		if !ok || len(addrs) == 0 {
-			return nil, 0, fmt.Errorf("no addresses found for device: %s", dev.String())
+			return nil, 0, "", fmt.Errorf("no addresses found for device: %s", dev.String())
 		}
+
+		// First pass: look for IPv6 link-local addresses (fe80::/10)
 		for _, addr := range addrs {
-			if ipv4 := addr.To4(); ipv4 != nil {
-				return ipv4, port, nil
+			if addr.To4() == nil && addr.IsLinkLocalUnicast() {
+				// IPv6 link-local requires a zone (interface) to be specified.
+				// Try to find an interface that can reach this address by checking
+				// which interfaces have link-local addresses in the same subnet.
+				ifaces, err := net.Interfaces()
+				if err == nil {
+					for _, iface := range ifaces {
+						// Skip down interfaces
+						if iface.Flags&net.FlagUp == 0 {
+							continue
+						}
+						// For link-local, use the first up interface with an IPv6 address
+						// The OS routing will handle finding the correct path
+						ifaceAddrs, err := iface.Addrs()
+						if err != nil {
+							continue
+						}
+						for _, ifaceAddr := range ifaceAddrs {
+							ipNet, ok := ifaceAddr.(*net.IPNet)
+							if !ok {
+								continue
+							}
+							// If this interface has an IPv6 link-local address, use it
+							if ipNet.IP.To4() == nil && ipNet.IP.IsLinkLocalUnicast() {
+								log.Infof("Using IPv6 link-local address %s with zone %s", addr, iface.Name)
+								return addr, port, iface.Name, nil
+							}
+						}
+					}
+				}
+				// If we couldn't determine the interface, try using % notation or default
+				// For many systems, the zone can be inferred by the OS
+				log.Infof("Using IPv6 link-local address %s (zone detection failed, trying without zone)", addr)
+				return addr, port, "", nil
 			}
 		}
-		return nil, 0, fmt.Errorf("no IPv4 address found for device: %s", dev.String())
+
+		// Second pass: look for any IPv6 address
+		for _, addr := range addrs {
+			if addr.To4() == nil {
+				log.Infof("Using IPv6 address %s", addr)
+				return addr, port, "", nil
+			}
+		}
+
+		// Third pass: fallback to IPv4
+		for _, addr := range addrs {
+			if ipv4 := addr.To4(); ipv4 != nil {
+				log.Infof("Using IPv4 address %s", ipv4)
+				return ipv4, port, "", nil
+			}
+		}
+
+		return nil, 0, "", fmt.Errorf("no suitable address found for device: %s", dev.String())
 	}
 
-	addr, port, err := lookupIPv4AddrPort()
+	addr, port, zone, err := lookupAddrPort()
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +172,7 @@ func (dev *mDNSDevice) openConn(ctx context.Context) (*net.UDPConn, error) {
 	remote := &net.UDPAddr{
 		IP:   addr,
 		Port: port,
-		Zone: "",
+		Zone: zone,
 	}
 
 	conn, err := net.DialUDP("udp", nil, remote)
