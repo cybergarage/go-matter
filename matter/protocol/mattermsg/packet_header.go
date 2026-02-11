@@ -43,10 +43,10 @@ const (
 	// VersionMask extracts the version field (bits 0-3)
 	VersionMask = 0x0F
 	// FlagDestNodeIDPresent indicates destination node ID is present (bit 5)
-	FlagDestNodeIDPresent = 0x01
+	FlagDestNodeIDPresent = 0x20
 	// FlagSourceNodeIDPresent indicates source node ID is present (bit 6)
-	FlagSourceNodeIDPresent = 0x04
-	// DSIZ mask (bits 7-8, in second byte for extended format)
+	FlagSourceNodeIDPresent = 0x40
+	// DSIZ mask (bits 6-7, in second byte for extended format)
 	// Note: DSIZ is not used in this minimal implementation
 	DSIZMask  = 0xC0
 	DSIZShift = 6
