@@ -31,9 +31,9 @@ type PacketHeader struct {
 	SecurityFlags uint8
 	// MessageCounter is an incrementing counter for message ordering
 	MessageCounter uint32
-	// SourceNodeID is the sender's node identifier (optional, present if DSIZ != 0)
+	// SourceNodeID is the sender's node identifier (optional, present when the header indicates a source node ID is included; see HasSourceNodeID)
 	SourceNodeID uint64
-	// DestNodeID is the destination node identifier (optional, present if SrcPresent flag set)
+	// DestNodeID is the destination node identifier (optional, present when the header indicates a destination node ID is included; see HasDestNodeID)
 	DestNodeID uint64
 }
 
