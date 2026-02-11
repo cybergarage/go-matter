@@ -24,11 +24,11 @@ import (
 // The ACK references the message counter of the original message.
 // Reference: Matter Core Spec 1.5, Section 4.11.8 (Standalone Acknowledgement)
 func BuildStandaloneAck(receivedMsg *mattermsg.Message, outboundCounter uint32) *mattermsg.Message {
-	// Build packet header for ACK
+	// Build packet header for ACK: preserve version/control and security context
 	packetHeader := &mattermsg.PacketHeader{
-		Flags:          0x00, // No special flags for unsecured
+		Flags:          receivedMsg.PacketHeader.Flags,
 		SessionID:      receivedMsg.PacketHeader.SessionID,
-		SecurityFlags:  0x00,
+		SecurityFlags:  receivedMsg.PacketHeader.SecurityFlags,
 		MessageCounter: outboundCounter,
 	}
 
