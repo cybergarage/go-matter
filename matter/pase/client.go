@@ -49,7 +49,7 @@ func NewClient(t Transport, passcode Passcode) *Client {
 // EstablishSession establishes a PASE session.
 func (c *Client) EstablishSession(ctx context.Context) (*Result, error) {
 	// 1) PBKDFParamRequest
-	reqTLV, err := pbkdf.EncodePBKDFParamRequest()
+	reqTLV, err := pbkdf.NewParamRequest().Bytes()
 	if err != nil {
 		return nil, err
 	}

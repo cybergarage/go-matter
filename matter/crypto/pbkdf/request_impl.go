@@ -18,8 +18,16 @@ import (
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 )
 
-// EncodePBKDFParamRequest encodes a PBKDFParamRequest TLV payload (TLV only; no opcode).
-func EncodePBKDFParamRequest() ([]byte, error) {
+type paramRequest struct {
+}
+
+// NewParamRequest creates a new ParamRequest instance.
+func NewParamRequest() ParamRequest {
+	return &paramRequest{}
+}
+
+// Bytes encodes the ParamRequest into its byte representation for transmission.
+func (r *paramRequest) Bytes() ([]byte, error) {
 	enc := tlv.NewEncoder()
 	enc.StartStructure(tlv.AnonymousTag())
 
