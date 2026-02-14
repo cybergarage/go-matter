@@ -21,18 +21,18 @@ import (
 )
 
 func TestCryptoPBKDF(t *testing.T) {
-	p := Params{
-		Password: []byte("password"),
-		Salt:     []byte("salt"),
-		Iter:     1000,
-		KeyLen:   32,
-		Hash:     sha256.New,
-	}
+	p := NewParams(
+		WithParamsPassword([]byte("password")),
+		WithParamsSalt([]byte("salt")),
+		WithParamsIterations(1000),
+		WithParamsKeyLength(32),
+		WithParamsHash(sha256.New),
+	)
 	key := CryptoPBKDF(p)
-	if len(key) != p.KeyLen {
-		t.Fatalf("got len=%d, want=%d", len(key), p.KeyLen)
+	if len(key) != p.KeyLength() {
+		t.Fatalf("got len=%d, want=%d", len(key), p.KeyLength())
 	}
-	if bytes.Equal(key, make([]byte, p.KeyLen)) {
+	if bytes.Equal(key, make([]byte, p.KeyLength())) {
 		t.Fatalf("unexpected all-zero key")
 	}
 }

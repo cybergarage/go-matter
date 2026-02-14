@@ -67,13 +67,15 @@ func NewHandshake(role HandshakeRole, opts HandshakeOptions) *Handshake {
 	// Derive w0 and w1 using PBKDF2
 	// Reference: Matter Core Spec 1.5, Section 3.9 (PBKDF), Section 4.14.1 (PASE)
 	// According to Matter spec, we derive a 64-byte buffer and split it into two 32-byte halves
-	w0w1 := pbkdf.CryptoPBKDF(pbkdf.Params{
-		Password: opts.Passcode,
-		Salt:     opts.Salt,
-		Iter:     opts.PBKDFIter,
-		KeyLen:   64, // 64 bytes total: 32 for w0, 32 for w1
-		Hash:     opts.Hash,
-	})
+	w0w1 := pbkdf.CryptoPBKDF(
+		pbkdf.NewParams(
+			pbkdf.WithParamsPassword(opts.Passcode),
+			pbkdf.WithParamsSalt(opts.Salt),
+			pbkdf.WithParamsIterations(opts.PBKDFIter),
+			pbkdf.WithParamsHash(opts.Hash),
+			pbkdf.WithParamsKeyLength(64), // 64 bytes total: 32 for w0, 32 for w1
+		),
+	)
 
 	// Split into w0 (first 32 bytes) and w1 (last 32 bytes)
 	w0 := w0w1[:32]
