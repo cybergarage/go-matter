@@ -15,17 +15,20 @@
 package pbkdf
 
 import (
-	"crypto/sha256"
-
-	"golang.org/x/crypto/pbkdf2"
+	"hash"
 )
 
-// CryptoPBKDF implements PBKDF2 as per RFC 2898
-// 3.9. Password-Based Key Derivation Function (PBKDF).
-func CryptoPBKDF(p Params) []byte {
-	h := p.Hash
-	if h == nil {
-		h = sha256.New
-	}
-	return pbkdf2.Key(p.Password, p.Salt, p.Iter, p.KeyLen, h)
+// PBKDFParamRequest/Response fields are defined by the Matter specification using
+// context-specific tag numbers.
+const (
+	pbkdfTagIterations = 1
+	pbkdfTagSalt       = 2
+)
+
+type Params struct {
+	Password []byte
+	Salt     []byte
+	Iter     int
+	KeyLen   int
+	Hash     func() hash.Hash
 }

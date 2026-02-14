@@ -15,17 +15,21 @@
 package pbkdf
 
 import (
-	"crypto/sha256"
-
-	"golang.org/x/crypto/pbkdf2"
+	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 )
 
-// CryptoPBKDF implements PBKDF2 as per RFC 2898
-// 3.9. Password-Based Key Derivation Function (PBKDF).
-func CryptoPBKDF(p Params) []byte {
-	h := p.Hash
-	if h == nil {
-		h = sha256.New
+// EncodePBKDFParamRequest encodes a PBKDFParamRequest TLV payload (TLV only; no opcode).
+func EncodePBKDFParamRequest() ([]byte, error) {
+	enc := tlv.NewEncoder()
+	enc.StartStructure(tlv.AnonymousTag())
+
+	// TODO(spec): Add mandatory fields if the target device requires them
+	// (e.g., initiator random, session parameters, etc.).
+	// Keeping this structure empty is useful as a first connectivity probe.
+
+	if err := enc.EndContainer(); err != nil {
+		return nil, err
 	}
-	return pbkdf2.Key(p.Password, p.Salt, p.Iter, p.KeyLen, h)
+	enc.MustEndAll()
+	return enc.Bytes(), nil
 }

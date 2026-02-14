@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package pase
+package pbkdf
 
 import (
 	"fmt"
@@ -20,34 +20,10 @@ import (
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 )
 
-// PBKDFParamRequest/Response fields are defined by the Matter specification using
-// context-specific tag numbers. We will confirm the exact tag numbers by inspecting
-// the device response TLV (DebugTLV) and then locking these constants down.
-const (
-	pbkdfTagIterations = 1
-	pbkdfTagSalt       = 2
-)
-
 // PBKDFParamResponse represents a PBKDF parameter response.
 type PBKDFParamResponse struct {
 	Iterations uint32
 	Salt       []byte
-}
-
-// EncodePBKDFParamRequest encodes a PBKDFParamRequest TLV payload (TLV only; no opcode).
-func EncodePBKDFParamRequest() ([]byte, error) {
-	enc := tlv.NewEncoder()
-	enc.StartStructure(tlv.AnonymousTag())
-
-	// TODO(spec): Add mandatory fields if the target device requires them
-	// (e.g., initiator random, session parameters, etc.).
-	// Keeping this structure empty is useful as a first connectivity probe.
-
-	if err := enc.EndContainer(); err != nil {
-		return nil, err
-	}
-	enc.MustEndAll()
-	return enc.Bytes(), nil
 }
 
 // DecodePBKDFParamResponse decodes a PBKDFParamResponse TLV payload (TLV only; no opcode).

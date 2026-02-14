@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"github.com/cybergarage/go-logger/log"
+	"github.com/cybergarage/go-matter/matter/crypto/pbkdf"
 	"github.com/cybergarage/go-matter/matter/io"
 )
 
@@ -48,7 +49,7 @@ func NewClient(t Transport, passcode Passcode) *Client {
 // EstablishSession establishes a PASE session.
 func (c *Client) EstablishSession(ctx context.Context) (*Result, error) {
 	// 1) PBKDFParamRequest
-	reqTLV, err := EncodePBKDFParamRequest()
+	reqTLV, err := pbkdf.EncodePBKDFParamRequest()
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +73,7 @@ func (c *Client) EstablishSession(ctx context.Context) (*Result, error) {
 	if len(resBytes) < 1 || resBytes[0] != opPBKDFParamResponse {
 		return nil, fmt.Errorf("unexpected opcode: %v", resBytes)
 	}
-	pbkdfRes, err := DecodePBKDFParamResponse(resBytes[1:])
+	pbkdfRes, err := pbkdf.DecodePBKDFParamResponse(resBytes[1:])
 	if err != nil {
 		log.Errorf("Failed to decode PBKDFParamResponse: %v", err)
 		return nil, err
