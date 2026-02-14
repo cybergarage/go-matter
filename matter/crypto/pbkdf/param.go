@@ -14,13 +14,20 @@
 
 package pbkdf
 
-// 4.14.1. Passcode-Authenticated Session Establishment (PASE)
-// ParamResponse represents the PBKDF parameter response message sent by the responder during PASE handshake.
-type ParamResponse interface {
-	// Iterations returns the number of iterations specified in the PBKDFParamResponse.
-	Iterations() uint32
-	// Salt returns the salt value specified in the PBKDFParamResponse.
+import (
+	"hash"
+)
+
+// Parameters for PBKDF operations, as defined by the Matter specification. These.
+type Params interface {
+	// Password returns the password (e.g., the pairing code) used for PBKDF key derivation.
+	Password() []byte
+	// Salt returns the salt value used for PBKDF key derivation.
 	Salt() []byte
-	// Bytes returns the byte representation of the ParamResponse message, ready for transmission.
-	Bytes() ([]byte, error)
+	// Iterations returns the number of iterations used for PBKDF key derivation.
+	Iterations() int
+	// KeyLength returns the desired length of the derived key in bytes.
+	KeyLength() int
+	// Hash returns the hash function to be used for PBKDF key derivation.
+	Hash() hash.Hash
 }

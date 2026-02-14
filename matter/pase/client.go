@@ -73,7 +73,7 @@ func (c *Client) EstablishSession(ctx context.Context) (*Result, error) {
 	if len(resBytes) < 1 || resBytes[0] != opPBKDFParamResponse {
 		return nil, fmt.Errorf("unexpected opcode: %v", resBytes)
 	}
-	pbkdfRes, err := pbkdf.DecodePBKDFParamResponse(resBytes[1:])
+	pbkdfRes, err := pbkdf.NewParamResponseFromBytes(resBytes[1:])
 	if err != nil {
 		log.Errorf("Failed to decode PBKDFParamResponse: %v", err)
 		return nil, err
@@ -82,8 +82,8 @@ func (c *Client) EstablishSession(ctx context.Context) (*Result, error) {
 	// 3) SPAKE2+ (PASE)
 	hs := NewHandshake(HandshakeRoleClient, HandshakeOptions{
 		Passcode:  c.passcode.Bytes(),
-		Salt:      pbkdfRes.Salt,
-		PBKDFIter: int(pbkdfRes.Iterations),
+		Salt:      pbkdfRes.Salt(),
+		PBKDFIter: int(pbkdfRes.Iterations()),
 	})
 
 	// 3-1) Pake1

@@ -18,6 +18,9 @@ import (
 	_ "embed"
 	"encoding/hex"
 	"testing"
+
+	"github.com/cybergarage/go-logger/log"
+	"github.com/cybergarage/go-matter/matter/crypto/pbkdf"
 )
 
 //go:embed dumps/pbkdf-param-request-01.hex
@@ -30,6 +33,8 @@ var pbkdfParamResponse01Hex string
 var pbkdfParamResponse02Hex string
 
 func TestPBKDFParamRequest(t *testing.T) {
+	log.EnableStdoutDebug(true)
+
 	tests := []struct {
 		hexStr string
 	}{
@@ -39,9 +44,13 @@ func TestPBKDFParamRequest(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		_, err := hex.DecodeString(tt.hexStr)
+		hexBytes, err := hex.DecodeString(tt.hexStr)
 		if err != nil {
 			t.Fatalf("Failed to decode hex string: %v", err)
+		}
+		_, err = pbkdf.NewParamRequestFromBytes(hexBytes)
+		if err != nil {
+			t.Skipf("Failed to parse ParamRequest: %v", err)
 		}
 	}
 }

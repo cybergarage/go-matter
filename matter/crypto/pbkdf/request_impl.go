@@ -15,15 +15,45 @@
 package pbkdf
 
 import (
+	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 )
 
 type paramRequest struct {
 }
 
-// NewParamRequest creates a new ParamRequest instance.
+// NewParamRequest creates a new PBKDFParamRequest instance.
 func NewParamRequest() ParamRequest {
 	return &paramRequest{}
+}
+
+// NewParamRequestFromBytes returns a new PBKDFParamRequest instance parsed from the given byte slice.
+func NewParamRequestFromBytes(data []byte) (ParamRequest, error) {
+	r := &paramRequest{}
+	if err := r.ParseBytes(data); err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+// ParseBytes parses the given byte slice into the PBKDFParamRequest structure.
+func (r *paramRequest) ParseBytes(data []byte) error {
+	// 4.14.1.2. Protocol Details
+
+	dec := tlv.NewDecoder(data)
+
+	for dec.Next() {
+		elem := dec.Element()
+		// We can ignore the contents of the ParamRequest for now, as it's often empty.
+		// If needed, we can add parsing logic here to extract specific fields in the future.
+		log.Debugf("Parsed TLV element: Tag=%v, Type=%v", elem.Tag(), elem.Type())
+	}
+
+	if err := dec.Err(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Bytes encodes the ParamRequest into its byte representation for transmission.
