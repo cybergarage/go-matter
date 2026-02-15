@@ -17,18 +17,19 @@ package mrp
 import (
 	"testing"
 
+	"github.com/cybergarage/go-matter/matter/encoding/message"
 	"github.com/cybergarage/go-matter/matter/protocol"
 )
 
 func TestBuildStandaloneAck(t *testing.T) {
 	// Create a message that requests acknowledgement
 	receivedMsg := &protocol.Message{
-		PacketHeader: &protocol.PacketHeader{
-			Flags:          0x00,
-			SessionID:      0x1234,
-			SecurityFlags:  0x00,
-			MessageCounter: 42,
-		},
+		Header: message.NewHeader(
+			message.WithHeaderFlags(0x00),
+			message.WithHeaderSessionID(0x1234),
+			message.WithHeaderSecurityFlags(0x00),
+			message.WithHeaderMessageCounter(42),
+		),
 		ExchangeHeader: &protocol.ExchangeHeader{
 			ExchangeFlags: protocol.ExchangeFlagInitiator | protocol.ExchangeFlagReliability,
 			Opcode:        0x20,
@@ -42,11 +43,11 @@ func TestBuildStandaloneAck(t *testing.T) {
 	ackMsg := BuildStandaloneAck(receivedMsg, outboundCounter)
 
 	// Verify ACK packet header
-	if ackMsg.PacketHeader.SessionID != receivedMsg.PacketHeader.SessionID {
-		t.Errorf("ACK SessionID mismatch: got 0x%04X, want 0x%04X", ackMsg.PacketHeader.SessionID, receivedMsg.PacketHeader.SessionID)
+	if ackMsg.SessionID() != receivedMsg.SessionID() {
+		t.Errorf("ACK SessionID mismatch: got 0x%04X, want 0x%04X", ackMsg.SessionID(), receivedMsg.SessionID())
 	}
-	if ackMsg.PacketHeader.MessageCounter != outboundCounter {
-		t.Errorf("ACK MessageCounter mismatch: got %d, want %d", ackMsg.PacketHeader.MessageCounter, outboundCounter)
+	if ackMsg.MessageCounter() != outboundCounter {
+		t.Errorf("ACK MessageCounter mismatch: got %d, want %d", ackMsg.MessageCounter(), outboundCounter)
 	}
 
 	// Verify ACK exchange header
@@ -59,8 +60,8 @@ func TestBuildStandaloneAck(t *testing.T) {
 	if ackMsg.ExchangeHeader.ExchangeID != receivedMsg.ExchangeHeader.ExchangeID {
 		t.Errorf("ACK ExchangeID mismatch: got 0x%04X, want 0x%04X", ackMsg.ExchangeHeader.ExchangeID, receivedMsg.ExchangeHeader.ExchangeID)
 	}
-	if ackMsg.ExchangeHeader.AckCounter != receivedMsg.PacketHeader.MessageCounter {
-		t.Errorf("ACK AckCounter mismatch: got %d, want %d", ackMsg.ExchangeHeader.AckCounter, receivedMsg.PacketHeader.MessageCounter)
+	if ackMsg.ExchangeHeader.AckCounter != receivedMsg.MessageCounter() {
+		t.Errorf("ACK AckCounter mismatch: got %d, want %d", ackMsg.ExchangeHeader.AckCounter, receivedMsg.MessageCounter())
 	}
 
 	// Verify ACK has no payload
@@ -72,13 +73,13 @@ func TestBuildStandaloneAck(t *testing.T) {
 func TestBuildStandaloneAckWithSourceNode(t *testing.T) {
 	// Create a message with source node ID
 	receivedMsg := &protocol.Message{
-		PacketHeader: &protocol.PacketHeader{
-			Flags:          protocol.FlagSourceNodeIDPresent,
-			SessionID:      0x1234,
-			SecurityFlags:  0x00,
-			MessageCounter: 42,
-			SourceNodeID:   0xAABBCCDDEEFF0011,
-		},
+		Header: message.NewHeader(
+			message.WithHeaderFlags(message.FlagSourceNodeIDPresent),
+			message.WithHeaderSessionID(0x1234),
+			message.WithHeaderSecurityFlags(0x00),
+			message.WithHeaderMessageCounter(42),
+			message.WithHeaderSourceNodeID(0xAABBCCDDEEFF0011),
+		),
 		ExchangeHeader: &protocol.ExchangeHeader{
 			ExchangeFlags: protocol.ExchangeFlagInitiator | protocol.ExchangeFlagReliability,
 			Opcode:        0x20,
@@ -92,11 +93,11 @@ func TestBuildStandaloneAckWithSourceNode(t *testing.T) {
 	ackMsg := BuildStandaloneAck(receivedMsg, outboundCounter)
 
 	// Verify that the ACK has the destination node ID set to the source of the received message
-	if !ackMsg.PacketHeader.HasDestNodeID() {
+	if !ackMsg.HasDestNodeID() {
 		t.Error("Expected ACK to have destination node ID set")
 	}
-	if ackMsg.PacketHeader.DestNodeID != receivedMsg.PacketHeader.SourceNodeID {
-		t.Errorf("ACK DestNodeID mismatch: got 0x%016X, want 0x%016X", ackMsg.PacketHeader.DestNodeID, receivedMsg.PacketHeader.SourceNodeID)
+	if ackMsg.DestNodeID() != receivedMsg.SourceNodeID() {
+		t.Errorf("ACK DestNodeID mismatch: got 0x%016X, want 0x%016X", ackMsg.DestNodeID(), receivedMsg.SourceNodeID())
 	}
 }
 
@@ -109,7 +110,7 @@ func TestIsAckRequested(t *testing.T) {
 		{
 			name: "message with reliability flag",
 			msg: &protocol.Message{
-				PacketHeader: &protocol.PacketHeader{},
+				Header: message.NewHeader(),
 				ExchangeHeader: &protocol.ExchangeHeader{
 					ExchangeFlags: protocol.ExchangeFlagReliability,
 				},
@@ -119,7 +120,7 @@ func TestIsAckRequested(t *testing.T) {
 		{
 			name: "message without reliability flag",
 			msg: &protocol.Message{
-				PacketHeader: &protocol.PacketHeader{},
+				Header: message.NewHeader(),
 				ExchangeHeader: &protocol.ExchangeHeader{
 					ExchangeFlags: protocol.ExchangeFlagInitiator,
 				},
@@ -129,7 +130,7 @@ func TestIsAckRequested(t *testing.T) {
 		{
 			name: "message with multiple flags including reliability",
 			msg: &protocol.Message{
-				PacketHeader: &protocol.PacketHeader{},
+				Header: message.NewHeader(),
 				ExchangeHeader: &protocol.ExchangeHeader{
 					ExchangeFlags: protocol.ExchangeFlagInitiator | protocol.ExchangeFlagReliability,
 				},
@@ -173,12 +174,12 @@ func TestMessageCounter(t *testing.T) {
 func TestAckEncodeDecodeRoundtrip(t *testing.T) {
 	// Create a message that requests acknowledgement
 	receivedMsg := &protocol.Message{
-		PacketHeader: &protocol.PacketHeader{
-			Flags:          0x00,
-			SessionID:      0x1234,
-			SecurityFlags:  0x00,
-			MessageCounter: 42,
-		},
+		Header: message.NewHeader(
+			message.WithHeaderFlags(0x00),
+			message.WithHeaderSessionID(0x1234),
+			message.WithHeaderSecurityFlags(0x00),
+			message.WithHeaderMessageCounter(42),
+		),
 		ExchangeHeader: &protocol.ExchangeHeader{
 			ExchangeFlags: protocol.ExchangeFlagInitiator | protocol.ExchangeFlagReliability,
 			Opcode:        0x20,
@@ -204,7 +205,7 @@ func TestAckEncodeDecodeRoundtrip(t *testing.T) {
 	if !decoded.ExchangeHeader.IsAck() {
 		t.Error("Decoded message should have ACK flag set")
 	}
-	if decoded.ExchangeHeader.AckCounter != receivedMsg.PacketHeader.MessageCounter {
-		t.Errorf("Decoded AckCounter mismatch: got %d, want %d", decoded.ExchangeHeader.AckCounter, receivedMsg.PacketHeader.MessageCounter)
+	if decoded.ExchangeHeader.AckCounter != receivedMsg.MessageCounter() {
+		t.Errorf("Decoded AckCounter mismatch: got %d, want %d", decoded.ExchangeHeader.AckCounter, receivedMsg.MessageCounter())
 	}
 }

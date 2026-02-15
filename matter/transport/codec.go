@@ -75,7 +75,7 @@ func (c *Codec) Receive(ctx context.Context) (*protocol.Message, error) {
 
 	// Check if ACK is requested
 	if c.autoAck && mrp.IsAckRequested(msg) {
-		log.Debugf("ACK requested for message counter %d", msg.PacketHeader.MessageCounter)
+		log.Debugf("ACK requested for message counter %d", msg.MessageCounter())
 
 		// Build and send standalone ACK
 		ack := mrp.BuildStandaloneAck(msg, c.messageCounter.Next())

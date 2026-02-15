@@ -17,18 +17,20 @@ package protocol
 import (
 	"encoding/hex"
 	"fmt"
+
+	"github.com/cybergarage/go-matter/matter/encoding/message"
 )
 
 // Message represents a complete Matter message with packet header, exchange header, and payload.
 type Message struct {
-	PacketHeader   *PacketHeader
+	message.Header
 	ExchangeHeader *ExchangeHeader
 	Payload        []byte
 }
 
 // Encode serializes the complete message to bytes.
 func (m *Message) Encode() []byte {
-	packetBytes := m.PacketHeader.Encode()
+	packetBytes := m.Header.Encode()
 	exchangeBytes := m.ExchangeHeader.Encode()
 
 	result := make([]byte, 0, len(packetBytes)+len(exchangeBytes)+len(m.Payload))
@@ -43,31 +45,32 @@ func (m *Message) Encode() []byte {
 // Returns the message or an error.
 func DecodeMessage(data []byte) (*Message, error) {
 	if len(data) < 8 {
-		return nil, fmt.Errorf("message too short: need at least 8 bytes for packet header, got %d", len(data))
+		return nil, fmt.Errorf("message too short: need at least 8 bytes for message header, got %d", len(data))
 	}
 
-	// Decode packet header
-	packetHeader, packetSize, err := DecodePacketHeader(data)
+	// Decode message header
+	msgHeader, err := message.NewHeaderFromBytes(data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode packet header: %w", err)
+		return nil, fmt.Errorf("failed to decode message header: %w", err)
 	}
 
-	if len(data) < packetSize+6 {
-		return nil, fmt.Errorf("message too short: need at least %d bytes for headers, got %d", packetSize+6, len(data))
+	msgHeaderSize := msgHeader.Size()
+	if len(data) < msgHeaderSize+6 {
+		return nil, fmt.Errorf("message too short: need at least %d bytes for headers, got %d", msgHeaderSize+6, len(data))
 	}
 
 	// Decode exchange header
-	exchangeHeader, exchangeSize, err := DecodeExchangeHeader(data[packetSize:])
+	exchangeHeader, exchangeSize, err := DecodeExchangeHeader(data[msgHeaderSize:])
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode exchange header: %w", err)
 	}
 
 	// Extract payload (everything after headers)
-	headerSize := packetSize + exchangeSize
+	headerSize := msgHeaderSize + exchangeSize
 	payload := data[headerSize:]
 
 	return &Message{
-		PacketHeader:   packetHeader,
+		Header:         msgHeader,
 		ExchangeHeader: exchangeHeader,
 		Payload:        payload,
 	}, nil
@@ -76,7 +79,7 @@ func DecodeMessage(data []byte) (*Message, error) {
 // String returns a human-readable representation with hex dumps.
 func (m *Message) String() string {
 	return fmt.Sprintf("Message{\n  %s\n  %s\n  Payload: %d bytes [%s]\n}",
-		m.PacketHeader.String(),
+		m.Header.String(),
 		m.ExchangeHeader.String(),
 		len(m.Payload),
 		hex.EncodeToString(m.Payload))

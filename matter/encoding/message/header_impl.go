@@ -15,9 +15,11 @@
 package message
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"io"
 )
 
 type header struct {
@@ -179,6 +181,54 @@ func DecodeHeader(data []byte) (Header, int, error) {
 	}
 
 	return h, offset, nil
+}
+
+// NewHeaderFromReader reads a header from an io.Reader.
+func NewHeaderFromReader(r io.Reader) (Header, error) {
+	base := make([]byte, 8)
+	if _, err := io.ReadFull(r, base); err != nil {
+		return nil, err
+	}
+
+	flags := base[0]
+	need := 8
+	if (flags & FlagSourceNodeIDPresent) != 0 {
+		need += 8
+	}
+	if (flags & FlagDestNodeIDPresent) != 0 {
+		need += 8
+	}
+
+	if need == 8 {
+		h, _, err := DecodeHeader(base)
+		return h, err
+	}
+
+	buf := make([]byte, need)
+	copy(buf, base)
+	if _, err := io.ReadFull(r, buf[8:]); err != nil {
+		return nil, err
+	}
+
+	h, _, err := DecodeHeader(buf)
+	return h, err
+}
+
+// NewHeaderFromBytes reads a header from the provided byte slice.
+func NewHeaderFromBytes(b []byte) (Header, error) {
+	return NewHeaderFromReader(bytes.NewReader(b))
+}
+
+// Size returns the total size of the header in bytes, which depends on which optional fields are present.
+func (h *header) Size() int {
+	size := 8
+	if h.HasSourceNodeID() {
+		size += 8
+	}
+	if h.HasDestNodeID() {
+		size += 8
+	}
+	return size
 }
 
 func (h *header) String() string {

@@ -18,6 +18,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/cybergarage/go-matter/matter/encoding/message"
 	"github.com/cybergarage/go-matter/matter/protocol"
 	"github.com/cybergarage/go-matter/matter/protocol/mrp"
 )
@@ -50,12 +51,12 @@ func TestCodecTransmit(t *testing.T) {
 	codec := NewCodec(mock, false)
 
 	msg := &protocol.Message{
-		PacketHeader: &protocol.PacketHeader{
-			Flags:          0x00,
-			SessionID:      0x1234,
-			SecurityFlags:  0x00,
-			MessageCounter: 1,
-		},
+		Header: message.NewHeader(
+			message.WithHeaderFlags(0x00),
+			message.WithHeaderSessionID(0x1234),
+			message.WithHeaderSecurityFlags(0x00),
+			message.WithHeaderMessageCounter(1),
+		),
 		ExchangeHeader: &protocol.ExchangeHeader{
 			ExchangeFlags: protocol.ExchangeFlagInitiator,
 			Opcode:        0x20,
@@ -80,12 +81,12 @@ func TestCodecTransmit(t *testing.T) {
 
 func TestCodecReceiveWithoutAck(t *testing.T) {
 	msg := &protocol.Message{
-		PacketHeader: &protocol.PacketHeader{
-			Flags:          0x00,
-			SessionID:      0x1234,
-			SecurityFlags:  0x00,
-			MessageCounter: 42,
-		},
+		Header: message.NewHeader(
+			message.WithHeaderFlags(0x00),
+			message.WithHeaderSessionID(0x1234),
+			message.WithHeaderSecurityFlags(0x00),
+			message.WithHeaderMessageCounter(42),
+		),
 		ExchangeHeader: &protocol.ExchangeHeader{
 			ExchangeFlags: protocol.ExchangeFlagInitiator, // No reliability flag
 			Opcode:        0x20,
@@ -107,8 +108,8 @@ func TestCodecReceiveWithoutAck(t *testing.T) {
 	}
 
 	// Verify the received message matches
-	if receivedMsg.PacketHeader.MessageCounter != msg.PacketHeader.MessageCounter {
-		t.Errorf("MessageCounter mismatch: got %d, want %d", receivedMsg.PacketHeader.MessageCounter, msg.PacketHeader.MessageCounter)
+	if receivedMsg.MessageCounter() != msg.MessageCounter() {
+		t.Errorf("MessageCounter mismatch: got %d, want %d", receivedMsg.MessageCounter(), msg.MessageCounter())
 	}
 
 	// Verify no ACK was sent (no reliability flag)
@@ -119,12 +120,12 @@ func TestCodecReceiveWithoutAck(t *testing.T) {
 
 func TestCodecReceiveWithAutoAck(t *testing.T) {
 	msg := &protocol.Message{
-		PacketHeader: &protocol.PacketHeader{
-			Flags:          0x00,
-			SessionID:      0x1234,
-			SecurityFlags:  0x00,
-			MessageCounter: 42,
-		},
+		Header: message.NewHeader(
+			message.WithHeaderFlags(0x00),
+			message.WithHeaderSessionID(0x1234),
+			message.WithHeaderSecurityFlags(0x00),
+			message.WithHeaderMessageCounter(42),
+		),
 		ExchangeHeader: &protocol.ExchangeHeader{
 			ExchangeFlags: protocol.ExchangeFlagInitiator | protocol.ExchangeFlagReliability,
 			Opcode:        0x20,
@@ -146,8 +147,8 @@ func TestCodecReceiveWithAutoAck(t *testing.T) {
 	}
 
 	// Verify the received message matches
-	if receivedMsg.PacketHeader.MessageCounter != msg.PacketHeader.MessageCounter {
-		t.Errorf("MessageCounter mismatch: got %d, want %d", receivedMsg.PacketHeader.MessageCounter, msg.PacketHeader.MessageCounter)
+	if receivedMsg.MessageCounter() != msg.MessageCounter() {
+		t.Errorf("MessageCounter mismatch: got %d, want %d", receivedMsg.MessageCounter(), msg.MessageCounter())
 	}
 
 	// Verify ACK was sent
@@ -164,19 +165,19 @@ func TestCodecReceiveWithAutoAck(t *testing.T) {
 	if !ack.ExchangeHeader.IsAck() {
 		t.Error("Expected ACK flag to be set in sent message")
 	}
-	if ack.ExchangeHeader.AckCounter != msg.PacketHeader.MessageCounter {
-		t.Errorf("ACK counter mismatch: got %d, want %d", ack.ExchangeHeader.AckCounter, msg.PacketHeader.MessageCounter)
+	if ack.ExchangeHeader.AckCounter != msg.MessageCounter() {
+		t.Errorf("ACK counter mismatch: got %d, want %d", ack.ExchangeHeader.AckCounter, msg.MessageCounter())
 	}
 }
 
 func TestCodecReceiveWithAutoAckDisabled(t *testing.T) {
 	msg := &protocol.Message{
-		PacketHeader: &protocol.PacketHeader{
-			Flags:          0x00,
-			SessionID:      0x1234,
-			SecurityFlags:  0x00,
-			MessageCounter: 42,
-		},
+		Header: message.NewHeader(
+			message.WithHeaderFlags(0x00),
+			message.WithHeaderSessionID(0x1234),
+			message.WithHeaderSecurityFlags(0x00),
+			message.WithHeaderMessageCounter(42),
+		),
 		ExchangeHeader: &protocol.ExchangeHeader{
 			ExchangeFlags: protocol.ExchangeFlagInitiator | protocol.ExchangeFlagReliability,
 			Opcode:        0x20,
@@ -247,12 +248,12 @@ func TestCodecSetAutoAck(t *testing.T) {
 func TestIsAckRequestedIntegration(t *testing.T) {
 	// Create a message with reliability flag
 	msg := &protocol.Message{
-		PacketHeader: &protocol.PacketHeader{
-			Flags:          0x00,
-			SessionID:      0x0000,
-			SecurityFlags:  0x00,
-			MessageCounter: 1,
-		},
+		Header: message.NewHeader(
+			message.WithHeaderFlags(0x00),
+			message.WithHeaderSessionID(0x0000),
+			message.WithHeaderSecurityFlags(0x00),
+			message.WithHeaderMessageCounter(1),
+		),
 		ExchangeHeader: &protocol.ExchangeHeader{
 			ExchangeFlags: protocol.ExchangeFlagReliability,
 			Opcode:        0x20,

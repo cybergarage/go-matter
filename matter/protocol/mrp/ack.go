@@ -17,6 +17,7 @@ package mrp
 import (
 	"sync/atomic"
 
+	"github.com/cybergarage/go-matter/matter/encoding/message"
 	"github.com/cybergarage/go-matter/matter/protocol"
 )
 
@@ -24,19 +25,21 @@ import (
 // The ACK references the message counter of the original message.
 // Reference: Matter Core Spec 1.5, Section 4.11.8 (Standalone Acknowledgement).
 func BuildStandaloneAck(receivedMsg *protocol.Message, outboundCounter uint32) *protocol.Message {
-	// Build packet header for ACK: preserve version/control and security context
-	packetHeader := &protocol.PacketHeader{
-		Flags:          receivedMsg.PacketHeader.Flags,
-		SessionID:      receivedMsg.PacketHeader.SessionID,
-		SecurityFlags:  receivedMsg.PacketHeader.SecurityFlags,
-		MessageCounter: outboundCounter,
+	// Build message header for ACK: preserve version/control and security context
+	msgHeaderOpts := []message.HeaderOption{
+		message.WithHeaderFlags(receivedMsg.Flags()),
+		message.WithHeaderSessionID(receivedMsg.SessionID()),
+		message.WithHeaderSecurityFlags(receivedMsg.SecurityFlags()),
+		message.WithHeaderMessageCounter(outboundCounter),
 	}
 
 	// If received message had source node, send it back as destination
-	if receivedMsg.PacketHeader.HasSourceNodeID() {
-		packetHeader.Flags |= protocol.FlagDestNodeIDPresent
-		packetHeader.DestNodeID = receivedMsg.PacketHeader.SourceNodeID
+	if receivedMsg.HasSourceNodeID() {
+		msgHeaderOpts = append(msgHeaderOpts, message.WithHeaderFlags(receivedMsg.Flags()|message.FlagDestNodeIDPresent))
+		msgHeaderOpts = append(msgHeaderOpts, message.WithHeaderDestNodeID(receivedMsg.SourceNodeID()))
 	}
+
+	msgHeader := message.NewHeader(msgHeaderOpts...)
 
 	// Build exchange header for ACK
 	// Reference: Matter Core Spec 1.5, Section 4.11.8
@@ -50,12 +53,12 @@ func BuildStandaloneAck(receivedMsg *protocol.Message, outboundCounter uint32) *
 		Opcode:        0x00,                     // Standalone ACK has no opcode
 		ExchangeID:    receivedMsg.ExchangeHeader.ExchangeID,
 		ProtocolID:    receivedMsg.ExchangeHeader.ProtocolID,
-		AckCounter:    receivedMsg.PacketHeader.MessageCounter,
+		AckCounter:    receivedMsg.MessageCounter(),
 	}
 
 	// Standalone ACK has no payload
 	return &protocol.Message{
-		PacketHeader:   packetHeader,
+		Header:         msgHeader,
 		ExchangeHeader: exchangeHeader,
 		Payload:        []byte{},
 	}

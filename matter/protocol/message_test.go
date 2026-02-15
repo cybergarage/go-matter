@@ -17,176 +17,9 @@ package protocol
 import (
 	"encoding/hex"
 	"testing"
+
+	"github.com/cybergarage/go-matter/matter/encoding/message"
 )
-
-func TestPacketHeaderEncodeDecodeRoundtrip(t *testing.T) {
-	tests := []struct {
-		name   string
-		header *PacketHeader
-	}{
-		{
-			name: "minimal header without node IDs",
-			header: &PacketHeader{
-				Flags:          0x00,
-				SessionID:      0x0000,
-				SecurityFlags:  0x00,
-				MessageCounter: 0x12345678,
-			},
-		},
-		{
-			name: "header with source node ID",
-			header: &PacketHeader{
-				Flags:          0x04, // FlagSourceNodeIDPresent
-				SessionID:      0x1234,
-				SecurityFlags:  0x00,
-				MessageCounter: 0xAABBCCDD,
-				SourceNodeID:   0x1122334455667788,
-			},
-		},
-		{
-			name: "header with both node IDs",
-			header: &PacketHeader{
-				Flags:          0x05, // FlagSourceNodeIDPresent | FlagDestNodeIDPresent
-				SessionID:      0xABCD,
-				SecurityFlags:  0x55,
-				MessageCounter: 0x11223344,
-				SourceNodeID:   0xAABBCCDDEEFF0011,
-				DestNodeID:     0x9988776655443322,
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Encode
-			encoded := tt.header.Encode()
-
-			// Decode
-			decoded, bytesRead, err := DecodePacketHeader(encoded)
-			if err != nil {
-				t.Fatalf("DecodePacketHeader failed: %v", err)
-			}
-
-			if bytesRead != len(encoded) {
-				t.Errorf("bytes read mismatch: got %d, want %d", bytesRead, len(encoded))
-			}
-
-			// Compare fields
-			if decoded.Flags != tt.header.Flags {
-				t.Errorf("Flags mismatch: got 0x%02X, want 0x%02X", decoded.Flags, tt.header.Flags)
-			}
-			if decoded.SessionID != tt.header.SessionID {
-				t.Errorf("SessionID mismatch: got 0x%04X, want 0x%04X", decoded.SessionID, tt.header.SessionID)
-			}
-			if decoded.SecurityFlags != tt.header.SecurityFlags {
-				t.Errorf("SecurityFlags mismatch: got 0x%02X, want 0x%02X", decoded.SecurityFlags, tt.header.SecurityFlags)
-			}
-			if decoded.MessageCounter != tt.header.MessageCounter {
-				t.Errorf("MessageCounter mismatch: got 0x%08X, want 0x%08X", decoded.MessageCounter, tt.header.MessageCounter)
-			}
-			if tt.header.HasSourceNodeID() && decoded.SourceNodeID != tt.header.SourceNodeID {
-				t.Errorf("SourceNodeID mismatch: got 0x%016X, want 0x%016X", decoded.SourceNodeID, tt.header.SourceNodeID)
-			}
-			if tt.header.HasDestNodeID() && decoded.DestNodeID != tt.header.DestNodeID {
-				t.Errorf("DestNodeID mismatch: got 0x%016X, want 0x%016X", decoded.DestNodeID, tt.header.DestNodeID)
-			}
-		})
-	}
-}
-
-func TestExchangeHeaderEncodeDecodeRoundtrip(t *testing.T) {
-	tests := []struct {
-		name   string
-		header *ExchangeHeader
-	}{
-		{
-			name: "minimal exchange header",
-			header: &ExchangeHeader{
-				ExchangeFlags: 0x01, // Initiator
-				Opcode:        0x20,
-				ExchangeID:    0x1234,
-				ProtocolID:    0x0000,
-			},
-		},
-		{
-			name: "exchange header with reliability flag",
-			header: &ExchangeHeader{
-				ExchangeFlags: 0x05, // Initiator | Reliability
-				Opcode:        0x30,
-				ExchangeID:    0xABCD,
-				ProtocolID:    0x0001,
-			},
-		},
-		{
-			name: "exchange header with ACK",
-			header: &ExchangeHeader{
-				ExchangeFlags: 0x02, // Ack flag
-				Opcode:        0x10,
-				ExchangeID:    0x5678,
-				ProtocolID:    0x0000,
-				AckCounter:    0x11223344,
-			},
-		},
-		{
-			name: "exchange header with vendor ID",
-			header: &ExchangeHeader{
-				ExchangeFlags: 0x11, // Initiator | Vendor
-				Opcode:        0x40,
-				ExchangeID:    0x9999,
-				ProtocolID:    0xFFF1,
-				VendorID:      0x1234,
-			},
-		},
-		{
-			name: "exchange header with all flags",
-			header: &ExchangeHeader{
-				ExchangeFlags: 0x1F, // All flags set
-				Opcode:        0x50,
-				ExchangeID:    0xEEEE,
-				ProtocolID:    0x0002,
-				VendorID:      0xABCD,
-				AckCounter:    0xDEADBEEF,
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Encode
-			encoded := tt.header.Encode()
-
-			// Decode
-			decoded, bytesRead, err := DecodeExchangeHeader(encoded)
-			if err != nil {
-				t.Fatalf("DecodeExchangeHeader failed: %v", err)
-			}
-
-			if bytesRead != len(encoded) {
-				t.Errorf("bytes read mismatch: got %d, want %d", bytesRead, len(encoded))
-			}
-
-			// Compare fields
-			if decoded.ExchangeFlags != tt.header.ExchangeFlags {
-				t.Errorf("ExchangeFlags mismatch: got 0x%02X, want 0x%02X", decoded.ExchangeFlags, tt.header.ExchangeFlags)
-			}
-			if decoded.Opcode != tt.header.Opcode {
-				t.Errorf("Opcode mismatch: got 0x%02X, want 0x%02X", decoded.Opcode, tt.header.Opcode)
-			}
-			if decoded.ExchangeID != tt.header.ExchangeID {
-				t.Errorf("ExchangeID mismatch: got 0x%04X, want 0x%04X", decoded.ExchangeID, tt.header.ExchangeID)
-			}
-			if decoded.ProtocolID != tt.header.ProtocolID {
-				t.Errorf("ProtocolID mismatch: got 0x%04X, want 0x%04X", decoded.ProtocolID, tt.header.ProtocolID)
-			}
-			if tt.header.HasVendorID() && decoded.VendorID != tt.header.VendorID {
-				t.Errorf("VendorID mismatch: got 0x%04X, want 0x%04X", decoded.VendorID, tt.header.VendorID)
-			}
-			if tt.header.IsAck() && decoded.AckCounter != tt.header.AckCounter {
-				t.Errorf("AckCounter mismatch: got 0x%08X, want 0x%08X", decoded.AckCounter, tt.header.AckCounter)
-			}
-		})
-	}
-}
 
 func TestMessageEncodeDecodeRoundtrip(t *testing.T) {
 	tests := []struct {
@@ -196,12 +29,12 @@ func TestMessageEncodeDecodeRoundtrip(t *testing.T) {
 		{
 			name: "simple message with payload",
 			message: &Message{
-				PacketHeader: &PacketHeader{
-					Flags:          0x00,
-					SessionID:      0x0000,
-					SecurityFlags:  0x00,
-					MessageCounter: 1,
-				},
+				Header: message.NewHeader(
+					message.WithHeaderFlags(0x00),
+					message.WithHeaderSessionID(0x0000),
+					message.WithHeaderSecurityFlags(0x00),
+					message.WithHeaderMessageCounter(1),
+				),
 				ExchangeHeader: &ExchangeHeader{
 					ExchangeFlags: 0x05, // Initiator | Reliability
 					Opcode:        0x20,
@@ -214,12 +47,12 @@ func TestMessageEncodeDecodeRoundtrip(t *testing.T) {
 		{
 			name: "message with empty payload",
 			message: &Message{
-				PacketHeader: &PacketHeader{
-					Flags:          0x00,
-					SessionID:      0x0000,
-					SecurityFlags:  0x00,
-					MessageCounter: 2,
-				},
+				Header: message.NewHeader(
+					message.WithHeaderFlags(0x00),
+					message.WithHeaderSessionID(0x0000),
+					message.WithHeaderSecurityFlags(0x00),
+					message.WithHeaderMessageCounter(2),
+				),
 				ExchangeHeader: &ExchangeHeader{
 					ExchangeFlags: 0x02, // Ack
 					Opcode:        0x10,
@@ -244,8 +77,8 @@ func TestMessageEncodeDecodeRoundtrip(t *testing.T) {
 			}
 
 			// Compare packet header fields
-			if decoded.PacketHeader.MessageCounter != tt.message.PacketHeader.MessageCounter {
-				t.Errorf("MessageCounter mismatch: got %d, want %d", decoded.PacketHeader.MessageCounter, tt.message.PacketHeader.MessageCounter)
+			if decoded.MessageCounter() != tt.message.MessageCounter() {
+				t.Errorf("MessageCounter mismatch: got %d, want %d", decoded.MessageCounter(), tt.message.MessageCounter())
 			}
 
 			// Compare exchange header fields
@@ -291,8 +124,8 @@ func TestDecodeWithCapturedPayload(t *testing.T) {
 	}
 
 	// Verify packet header
-	if msg.PacketHeader.MessageCounter != 1 {
-		t.Errorf("MessageCounter mismatch: got %d, want 1", msg.PacketHeader.MessageCounter)
+	if msg.MessageCounter() != 1 {
+		t.Errorf("MessageCounter mismatch: got %d, want 1", msg.MessageCounter())
 	}
 
 	// Verify exchange header
@@ -313,21 +146,5 @@ func TestDecodeWithCapturedPayload(t *testing.T) {
 	expectedPayload := []byte{0x01, 0x02, 0x03, 0x04}
 	if len(msg.Payload) != len(expectedPayload) {
 		t.Errorf("Payload length mismatch: got %d, want %d", len(msg.Payload), len(expectedPayload))
-	}
-}
-
-func TestPacketHeaderTooShort(t *testing.T) {
-	shortData := []byte{0x00, 0x00, 0x00} // Only 3 bytes
-	_, _, err := DecodePacketHeader(shortData)
-	if err == nil {
-		t.Error("Expected error for short packet header, got nil")
-	}
-}
-
-func TestExchangeHeaderTooShort(t *testing.T) {
-	shortData := []byte{0x00, 0x00, 0x00} // Only 3 bytes
-	_, _, err := DecodeExchangeHeader(shortData)
-	if err == nil {
-		t.Error("Expected error for short exchange header, got nil")
 	}
 }

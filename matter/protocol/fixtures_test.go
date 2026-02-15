@@ -40,8 +40,8 @@ func TestDecodeRealWorldPayloads(t *testing.T) {
 				"153001", // Payload (sample TLV: 0x15 = struct, 0x30 = element, 0x01 = end)
 			validateFunc: func(t *testing.T, msg *Message) {
 				t.Helper()
-				if msg.PacketHeader.SessionID != 0x0000 {
-					t.Errorf("Expected sessionID 0x0000, got 0x%04X", msg.PacketHeader.SessionID)
+				if msg.SessionID() != 0x0000 {
+					t.Errorf("Expected sessionID 0x0000, got 0x%04X", msg.SessionID())
 				}
 				if !msg.ExchangeHeader.IsInitiator() {
 					t.Error("Expected initiator flag to be set")
@@ -73,8 +73,8 @@ func TestDecodeRealWorldPayloads(t *testing.T) {
 				if msg.ExchangeHeader.AckCounter != 42 {
 					t.Errorf("Expected ackCounter 42, got %d", msg.ExchangeHeader.AckCounter)
 				}
-				if msg.PacketHeader.MessageCounter != 100 {
-					t.Errorf("Expected messageCounter 100, got %d", msg.PacketHeader.MessageCounter)
+				if msg.MessageCounter() != 100 {
+					t.Errorf("Expected messageCounter 100, got %d", msg.MessageCounter())
 				}
 				if len(msg.Payload) != 0 {
 					t.Errorf("Expected empty payload for standalone ACK, got %d bytes", len(msg.Payload))

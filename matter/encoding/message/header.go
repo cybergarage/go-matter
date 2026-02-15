@@ -51,6 +51,8 @@ type Header interface {
 	HasSourceNodeID() bool
 	// HasDestNodeID indicates whether the destination node ID is present.
 	HasDestNodeID() bool
+	// Size returns the total size of the header in bytes, which depends on which optional fields are present.
+	Size() int
 	// Encode returns the byte representation of the header, ready for transmission.
 	Encode() []byte
 	// String returns a human-readable string representation of the header for debugging purposes.
