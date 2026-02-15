@@ -24,19 +24,22 @@ import (
 func TestBuildStandaloneAck(t *testing.T) {
 	// Create a message that requests acknowledgement
 	receivedMsg := protocol.NewMessage(
-		message.NewHeader(
-			message.WithHeaderFlags(0x00),
-			message.WithHeaderSessionID(0x1234),
-			message.WithHeaderSecurityFlags(0x00),
-			message.WithHeaderMessageCounter(42),
+		protocol.WithMessageFrameHeader(
+			message.NewHeader(
+				message.WithHeaderFlags(0x00),
+				message.WithHeaderSessionID(0x1234),
+				message.WithHeaderSecurityFlags(0x00),
+				message.WithHeaderMessageCounter(42),
+			)),
+		protocol.WithMessageProtocolHeader(
+			protocol.NewHeader(
+				protocol.WithHeaderExchangeFlags(protocol.ExchangeFlagInitiator|protocol.ExchangeFlagReliability),
+				protocol.WithHeaderOpcode(0x20),
+				protocol.WithHeaderExchangeID(0x5678),
+				protocol.WithHeaderProtocolID(0x0000),
+			),
 		),
-		protocol.NewHeader(
-			protocol.WithHeaderExchangeFlags(protocol.ExchangeFlagInitiator|protocol.ExchangeFlagReliability),
-			protocol.WithHeaderOpcode(0x20),
-			protocol.WithHeaderExchangeID(0x5678),
-			protocol.WithHeaderProtocolID(0x0000),
-		),
-		[]byte{0x01, 0x02, 0x03},
+		protocol.WithMessagePayload([]byte{0x01, 0x02, 0x03}),
 	)
 
 	outboundCounter := uint32(100)
@@ -73,20 +76,23 @@ func TestBuildStandaloneAck(t *testing.T) {
 func TestBuildStandaloneAckWithSourceNode(t *testing.T) {
 	// Create a message with source node ID
 	receivedMsg := protocol.NewMessage(
-		message.NewHeader(
-			message.WithHeaderFlags(message.FlagSourceNodeIDPresent),
-			message.WithHeaderSessionID(0x1234),
-			message.WithHeaderSecurityFlags(0x00),
-			message.WithHeaderMessageCounter(42),
-			message.WithHeaderSourceNodeID(0xAABBCCDDEEFF0011),
+		protocol.WithMessageFrameHeader(
+			message.NewHeader(
+				message.WithHeaderFlags(message.FlagSourceNodeIDPresent),
+				message.WithHeaderSessionID(0x1234),
+				message.WithHeaderSecurityFlags(0x00),
+				message.WithHeaderMessageCounter(42),
+				message.WithHeaderSourceNodeID(0xAABBCCDDEEFF0011),
+			),
 		),
-		protocol.NewHeader(
-			protocol.WithHeaderExchangeFlags(protocol.ExchangeFlagInitiator|protocol.ExchangeFlagReliability),
-			protocol.WithHeaderOpcode(0x20),
-			protocol.WithHeaderExchangeID(0x5678),
-			protocol.WithHeaderProtocolID(0x0000),
-		),
-		[]byte{0x01, 0x02, 0x03},
+		protocol.WithMessageProtocolHeader(
+			protocol.NewHeader(
+				protocol.WithHeaderExchangeFlags(protocol.ExchangeFlagInitiator|protocol.ExchangeFlagReliability),
+				protocol.WithHeaderOpcode(0x20),
+				protocol.WithHeaderExchangeID(0x5678),
+				protocol.WithHeaderProtocolID(0x0000),
+			)),
+		protocol.WithMessagePayload([]byte{0x01, 0x02, 0x03}),
 	)
 
 	outboundCounter := uint32(100)
@@ -110,33 +116,45 @@ func TestIsAckRequested(t *testing.T) {
 		{
 			name: "message with reliability flag",
 			msg: protocol.NewMessage(
-				message.NewHeader(),
-				protocol.NewHeader(
-					protocol.WithHeaderExchangeFlags(protocol.ExchangeFlagReliability),
+				protocol.WithMessageFrameHeader(
+					message.NewHeader(),
 				),
-				nil,
+				protocol.WithMessageProtocolHeader(
+					protocol.NewHeader(
+						protocol.WithHeaderExchangeFlags(protocol.ExchangeFlagReliability),
+					),
+				),
+				protocol.WithMessagePayload(nil),
 			),
 			expected: true,
 		},
 		{
 			name: "message without reliability flag",
 			msg: protocol.NewMessage(
-				message.NewHeader(),
-				protocol.NewHeader(
-					protocol.WithHeaderExchangeFlags(protocol.ExchangeFlagInitiator),
+				protocol.WithMessageFrameHeader(
+					message.NewHeader(),
 				),
-				nil,
+				protocol.WithMessageProtocolHeader(
+					protocol.NewHeader(
+						protocol.WithHeaderExchangeFlags(protocol.ExchangeFlagInitiator),
+					),
+				),
+				protocol.WithMessagePayload(nil),
 			),
 			expected: false,
 		},
 		{
 			name: "message with multiple flags including reliability",
 			msg: protocol.NewMessage(
-				message.NewHeader(),
-				protocol.NewHeader(
-					protocol.WithHeaderExchangeFlags(protocol.ExchangeFlagInitiator|protocol.ExchangeFlagReliability),
+				protocol.WithMessageFrameHeader(
+					message.NewHeader(),
 				),
-				nil,
+				protocol.WithMessageProtocolHeader(
+					protocol.NewHeader(
+						protocol.WithHeaderExchangeFlags(protocol.ExchangeFlagInitiator|protocol.ExchangeFlagReliability),
+					),
+				),
+				protocol.WithMessagePayload(nil),
 			),
 			expected: true,
 		},
@@ -177,23 +195,25 @@ func TestMessageCounter(t *testing.T) {
 func TestAckEncodeDecodeRoundtrip(t *testing.T) {
 	// Create a message that requests acknowledgement
 	receivedMsg := protocol.NewMessage(
-		message.NewHeader(
-			message.WithHeaderFlags(0x00),
-			message.WithHeaderSessionID(0x1234),
-			message.WithHeaderSecurityFlags(0x00),
-			message.WithHeaderMessageCounter(42),
-		),
-		protocol.NewHeader(
-			protocol.WithHeaderExchangeFlags(protocol.ExchangeFlagInitiator|protocol.ExchangeFlagReliability),
-			protocol.WithHeaderOpcode(0x20),
-			protocol.WithHeaderExchangeID(0x5678),
-			protocol.WithHeaderProtocolID(0x0000),
-		),
-		[]byte{0x01, 0x02, 0x03},
+		protocol.WithMessageFrameHeader(
+			message.NewHeader(
+				message.WithHeaderFlags(0x00),
+				message.WithHeaderSessionID(0x1234),
+				message.WithHeaderSecurityFlags(0x00),
+				message.WithHeaderMessageCounter(42),
+			)),
+		protocol.WithMessageProtocolHeader(
+			protocol.NewHeader(
+				protocol.WithHeaderExchangeFlags(protocol.ExchangeFlagInitiator|protocol.ExchangeFlagReliability),
+				protocol.WithHeaderOpcode(0x20),
+				protocol.WithHeaderExchangeID(0x5678),
+				protocol.WithHeaderProtocolID(0x0000),
+			)),
+		protocol.WithMessagePayload([]byte{0x01, 0x02, 0x03}),
 	)
 
-	// Build ACK
-	ackMsg := BuildStandaloneAck(receivedMsg, 100)
+	outboundCounter := uint32(100)
+	ackMsg := BuildStandaloneAck(receivedMsg, outboundCounter)
 
 	// Encode ACK
 	encoded := ackMsg.Bytes()

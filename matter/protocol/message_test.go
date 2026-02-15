@@ -29,38 +29,38 @@ func TestMessageEncodeDecodeRoundtrip(t *testing.T) {
 		{
 			name: "simple message with payload",
 			message: NewMessage(
-				message.NewHeader(
+				WithMessageFrameHeader(message.NewHeader(
 					message.WithHeaderFlags(0x00),
 					message.WithHeaderSessionID(0x0000),
 					message.WithHeaderSecurityFlags(0x00),
 					message.WithHeaderMessageCounter(1),
-				),
-				NewHeader(
+				)),
+				WithMessageProtocolHeader(NewHeader(
 					WithHeaderExchangeFlags(0x05), // Initiator | Reliability
 					WithHeaderOpcode(0x20),
 					WithHeaderExchangeID(0x1234),
 					WithHeaderProtocolID(0x0000),
-				),
-				[]byte{0x01, 0x02, 0x03, 0x04},
+				)),
+				WithMessagePayload([]byte{0x01, 0x02, 0x03, 0x04}),
 			),
 		},
 		{
 			name: "message with empty payload",
 			message: NewMessage(
-				message.NewHeader(
+				WithMessageFrameHeader(message.NewHeader(
 					message.WithHeaderFlags(0x00),
 					message.WithHeaderSessionID(0x0000),
 					message.WithHeaderSecurityFlags(0x00),
 					message.WithHeaderMessageCounter(2),
-				),
-				NewHeader(
+				)),
+				WithMessageProtocolHeader(NewHeader(
 					WithHeaderExchangeFlags(0x02), // Ack
 					WithHeaderOpcode(0x10),
 					WithHeaderExchangeID(0x5678),
 					WithHeaderProtocolID(0x0000),
 					WithHeaderAckCounter(1),
-				),
-				[]byte{},
+				)),
+				WithMessagePayload([]byte{}),
 			),
 		},
 	}

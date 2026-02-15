@@ -57,7 +57,11 @@ func BuildStandaloneAck(receivedMsg protocol.Message, outboundCounter uint32) pr
 	)
 
 	// Standalone ACK has no payload
-	return protocol.NewMessage(msgHeader, exchangeHeader, []byte{})
+	return protocol.NewMessage(
+		protocol.WithMessageFrameHeader(msgHeader),
+		protocol.WithMessageProtocolHeader(exchangeHeader),
+		protocol.WithMessagePayload([]byte{}),
+	)
 }
 
 // IsAckRequested checks if the received message has the reliability flag set,

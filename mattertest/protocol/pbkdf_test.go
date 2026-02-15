@@ -21,6 +21,7 @@ import (
 
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/crypto/pbkdf"
+	"github.com/cybergarage/go-matter/matter/protocol"
 )
 
 //go:embed dumps/pbkdf-param-request-01.hex
@@ -32,7 +33,7 @@ var pbkdfParamResponse01Hex string
 //go:embed dumps/pbkdf-param-response-02.hex
 var pbkdfParamResponse02Hex string
 
-func TestPBKDFParamRequest(t *testing.T) {
+func TestPBKDFParamRequestMessage(t *testing.T) {
 	log.EnableStdoutDebug(true)
 
 	tests := []struct {
@@ -48,14 +49,27 @@ func TestPBKDFParamRequest(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to decode hex string: %v", err)
 		}
-		_, err = pbkdf.NewParamRequestFromBytes(hexBytes)
+		msg, err := protocol.NewMessageFromBytes(hexBytes)
+		if err != nil {
+			t.Fatalf("Failed to parse Message: %v", err)
+		}
+
+		// 4.14.1.2. Protocol Details
+		if msg.SessionID() != 0x0000 {
+			t.Errorf("Expected SessionID 0x0000, got 0x%04X", msg.SessionID())
+		}
+		if msg.SecurityFlags() != 0x00 {
+			t.Errorf("Expected SecurityFlags 0x00, got 0x%02X", msg.SecurityFlags())
+		}
+
+		_, err = pbkdf.NewParamRequestFromBytes(msg.Payload())
 		if err != nil {
 			t.Skipf("Failed to parse ParamRequest: %v", err)
 		}
 	}
 }
 
-func TestPBKDFParamResponse(t *testing.T) {
+func TestPBKDFParamResponseMessage(t *testing.T) {
 	tests := []struct {
 		hexStr string
 	}{
@@ -68,9 +82,26 @@ func TestPBKDFParamResponse(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		_, err := hex.DecodeString(tt.hexStr)
+		hexBytes, err := hex.DecodeString(tt.hexStr)
 		if err != nil {
 			t.Fatalf("Failed to decode hex string: %v", err)
+		}
+		msg, err := protocol.NewMessageFromBytes(hexBytes)
+		if err != nil {
+			t.Fatalf("Failed to parse Message: %v", err)
+		}
+
+		// 4.14.1.2. Protocol Details
+		if msg.SessionID() != 0x0000 {
+			t.Errorf("Expected SessionID 0x0000, got 0x%04X", msg.SessionID())
+		}
+		if msg.SecurityFlags() != 0x00 {
+			t.Errorf("Expected SecurityFlags 0x00, got 0x%02X", msg.SecurityFlags())
+		}
+
+		_, err = pbkdf.NewParamResponseFromBytes(msg.Payload())
+		if err != nil {
+			t.Skipf("Failed to parse ParamResponse: %v", err)
 		}
 	}
 }

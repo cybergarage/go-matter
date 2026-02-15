@@ -14,14 +14,12 @@
 
 package protocol
 
-import (
-	"github.com/cybergarage/go-matter/matter/encoding/message"
-)
+import "github.com/cybergarage/go-matter/matter/encoding/message"
 
 // 4.4. Message Frame Format
-// Message represents a complete Matter message with packet header, protocol header, and payload.
+// Message represents a complete message with frame header, protocol header, and payload.
 type Message interface {
-	// Header represents the packet header of the message.
+	// FrameHeader represents the frame header of the message.
 	message.Header
 	// Header represents the protocol header of the message.
 	Header

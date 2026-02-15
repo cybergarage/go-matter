@@ -21,22 +21,50 @@ import (
 	"github.com/cybergarage/go-matter/matter/encoding/message"
 )
 
-type messageHeader = message.Header
+type frameHeader = message.Header
 type protocolHeader = Header
 
 type messageImpl struct {
-	messageHeader
+	frameHeader
 	protocolHeader
 	payload []byte
 }
 
-// NewMessage creates a new Message instance.
-func NewMessage(header message.Header, protocolHeader Header, payload []byte) Message {
-	return &messageImpl{
-		messageHeader:  header,
-		protocolHeader: protocolHeader,
-		payload:        payload,
+// MessageOption represents a functional option for configuring a Message.
+type MessageOption func(*messageImpl)
+
+// WithMessageFrameHeader sets the message header of the Message.
+func WithMessageFrameHeader(header message.Header) MessageOption {
+	return func(m *messageImpl) {
+		m.frameHeader = header
 	}
+}
+
+// WithMessageProtocolHeader sets the protocol header of the Message.
+func WithMessageProtocolHeader(header Header) MessageOption {
+	return func(m *messageImpl) {
+		m.protocolHeader = header
+	}
+}
+
+// WithMessagePayload sets the payload of the Message.
+func WithMessagePayload(payload []byte) MessageOption {
+	return func(m *messageImpl) {
+		m.payload = payload
+	}
+}
+
+// NewMessage creates a new Message instance with the provided options.
+func NewMessage(opts ...MessageOption) Message {
+	m := &messageImpl{
+		frameHeader:    message.NewHeader(), // Default empty header
+		protocolHeader: NewHeader(),         // Default empty header
+		payload:        []byte{},            // Default empty payload
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
 }
 
 // NewMessageFromBytes parses a complete Matter message from bytes.
@@ -68,19 +96,20 @@ func NewMessageFromBytes(data []byte) (Message, error) {
 	payload := data[headerSize:]
 
 	return &messageImpl{
-		messageHeader:  msgHeader,
+		frameHeader:    msgHeader,
 		protocolHeader: protocolHeader,
 		payload:        payload,
 	}, nil
 }
 
+// Payload returns the message payload bytes.
 func (m *messageImpl) Payload() []byte {
 	return m.payload
 }
 
 // Bytes serializes the complete message to bytes.
 func (m *messageImpl) Bytes() []byte {
-	packetBytes := m.messageHeader.Bytes()
+	packetBytes := m.frameHeader.Bytes()
 	protocolBytes := m.protocolHeader.Bytes()
 
 	result := make([]byte, 0, len(packetBytes)+len(protocolBytes)+len(m.payload))
@@ -94,7 +123,7 @@ func (m *messageImpl) Bytes() []byte {
 // String returns a human-readable representation with hex dumps.
 func (m *messageImpl) String() string {
 	return fmt.Sprintf("Message{\n  %s\n  %s\n  Payload: %d bytes [%s]\n}",
-		m.messageHeader.String(),
+		m.frameHeader.String(),
 		m.protocolHeader.String(),
 		len(m.payload),
 		hex.EncodeToString(m.payload))
