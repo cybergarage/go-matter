@@ -15,6 +15,21 @@
 package message
 
 // 4.4.1. Message Header Field Descriptions
+// HeaderFlags contains flag bit positions for the header flags field.
+const (
+	// VersionMask extracts the version field (bits 0-3).
+	VersionMask = 0x0F
+	// FlagDestNodeIDPresent indicates destination node ID is present (bit 5).
+	FlagDestNodeIDPresent = 0x20
+	// FlagSourceNodeIDPresent indicates source node ID is present (bit 6).
+	FlagSourceNodeIDPresent = 0x40
+	// DSIZ mask (bits 6-7, in second byte for extended format).
+	// Note: DSIZ is not used in this minimal implementation.
+	DSIZMask  = 0xC0
+	DSIZShift = 6
+)
+
+// 4.4.1. Message Header Field Descriptions
 // Header represents the Matter message frame header.
 // Reference: Matter Core Spec 1.5, Section 4.4 (Message Frame Format).
 type Header interface {
@@ -40,73 +55,4 @@ type Header interface {
 	Encode() []byte
 	// String returns a human-readable string representation of the header for debugging purposes.
 	String() string
-}
-
-// HeaderFlags contains flag bit positions for the header flags field.
-// Reference: Matter Core Spec 1.5, Section 4.4.
-const (
-	// VersionMask extracts the version field (bits 0-3).
-	VersionMask = 0x0F
-	// FlagDestNodeIDPresent indicates destination node ID is present (bit 5).
-	FlagDestNodeIDPresent = 0x20
-	// FlagSourceNodeIDPresent indicates source node ID is present (bit 6).
-	FlagSourceNodeIDPresent = 0x40
-	// DSIZ mask (bits 6-7, in second byte for extended format).
-	// Note: DSIZ is not used in this minimal implementation.
-	DSIZMask  = 0xC0
-	DSIZShift = 6
-)
-
-// HeaderOption configures a Header instance.
-type HeaderOption func(*header)
-
-// NewHeader creates a new Header instance with the provided options.
-func NewHeader(opts ...HeaderOption) Header {
-	h := &header{}
-	for _, opt := range opts {
-		opt(h)
-	}
-	return h
-}
-
-// WithHeaderFlags sets the header flags.
-func WithHeaderFlags(flags uint8) HeaderOption {
-	return func(h *header) {
-		h.flags = flags
-	}
-}
-
-// WithHeaderSessionID sets the session ID.
-func WithHeaderSessionID(sessionID uint16) HeaderOption {
-	return func(h *header) {
-		h.sessionID = sessionID
-	}
-}
-
-// WithHeaderSecurityFlags sets the security flags.
-func WithHeaderSecurityFlags(flags uint8) HeaderOption {
-	return func(h *header) {
-		h.securityFlags = flags
-	}
-}
-
-// WithHeaderMessageCounter sets the message counter.
-func WithHeaderMessageCounter(counter uint32) HeaderOption {
-	return func(h *header) {
-		h.messageCounter = counter
-	}
-}
-
-// WithHeaderSourceNodeID sets the source node ID.
-func WithHeaderSourceNodeID(nodeID uint64) HeaderOption {
-	return func(h *header) {
-		h.sourceNodeID = nodeID
-	}
-}
-
-// WithHeaderDestNodeID sets the destination node ID.
-func WithHeaderDestNodeID(nodeID uint64) HeaderOption {
-	return func(h *header) {
-		h.destNodeID = nodeID
-	}
 }

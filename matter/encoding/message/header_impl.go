@@ -29,6 +29,60 @@ type header struct {
 	destNodeID     uint64
 }
 
+// HeaderOption configures a Header instance.
+type HeaderOption func(*header)
+
+// NewHeader creates a new Header instance with the provided options.
+func NewHeader(opts ...HeaderOption) Header {
+	h := &header{}
+	for _, opt := range opts {
+		opt(h)
+	}
+	return h
+}
+
+// WithHeaderFlags sets the header flags.
+func WithHeaderFlags(flags uint8) HeaderOption {
+	return func(h *header) {
+		h.flags = flags
+	}
+}
+
+// WithHeaderSessionID sets the session ID.
+func WithHeaderSessionID(sessionID uint16) HeaderOption {
+	return func(h *header) {
+		h.sessionID = sessionID
+	}
+}
+
+// WithHeaderSecurityFlags sets the security flags.
+func WithHeaderSecurityFlags(flags uint8) HeaderOption {
+	return func(h *header) {
+		h.securityFlags = flags
+	}
+}
+
+// WithHeaderMessageCounter sets the message counter.
+func WithHeaderMessageCounter(counter uint32) HeaderOption {
+	return func(h *header) {
+		h.messageCounter = counter
+	}
+}
+
+// WithHeaderSourceNodeID sets the source node ID.
+func WithHeaderSourceNodeID(nodeID uint64) HeaderOption {
+	return func(h *header) {
+		h.sourceNodeID = nodeID
+	}
+}
+
+// WithHeaderDestNodeID sets the destination node ID.
+func WithHeaderDestNodeID(nodeID uint64) HeaderOption {
+	return func(h *header) {
+		h.destNodeID = nodeID
+	}
+}
+
 func (h *header) Flags() uint8 {
 	return h.flags
 }
