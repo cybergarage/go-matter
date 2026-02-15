@@ -29,56 +29,56 @@ func TestHeaderTooShort(t *testing.T) {
 func TestHeaderEncodeDecodeRoundtrip(t *testing.T) {
 	tests := []struct {
 		name   string
-		header *Header
+		header Header
 	}{
 		{
 			name: "minimal exchange header",
-			header: &Header{
-				ExchangeFlags: 0x01, // Initiator
-				Opcode:        0x20,
-				ExchangeID:    0x1234,
-				ProtocolID:    0x0000,
-			},
+			header: NewHeader(
+				WithHeaderExchangeFlags(0x01), // Initiator
+				WithHeaderOpcode(0x20),
+				WithHeaderExchangeID(0x1234),
+				WithHeaderProtocolID(0x0000),
+			),
 		},
 		{
 			name: "exchange header with reliability flag",
-			header: &Header{
-				ExchangeFlags: 0x05, // Initiator | Reliability
-				Opcode:        0x30,
-				ExchangeID:    0xABCD,
-				ProtocolID:    0x0001,
-			},
+			header: NewHeader(
+				WithHeaderExchangeFlags(0x05), // Initiator | Reliability
+				WithHeaderOpcode(0x30),
+				WithHeaderExchangeID(0xABCD),
+				WithHeaderProtocolID(0x0001),
+			),
 		},
 		{
 			name: "exchange header with ACK",
-			header: &Header{
-				ExchangeFlags: 0x02, // Ack flag
-				Opcode:        0x10,
-				ExchangeID:    0x5678,
-				ProtocolID:    0x0000,
-				AckCounter:    0x11223344,
-			},
+			header: NewHeader(
+				WithHeaderExchangeFlags(0x02), // Ack flag
+				WithHeaderOpcode(0x10),
+				WithHeaderExchangeID(0x5678),
+				WithHeaderProtocolID(0x0000),
+				WithHeaderAckCounter(0x11223344),
+			),
 		},
 		{
 			name: "exchange header with vendor ID",
-			header: &Header{
-				ExchangeFlags: 0x11, // Initiator | Vendor
-				Opcode:        0x40,
-				ExchangeID:    0x9999,
-				ProtocolID:    0xFFF1,
-				VendorID:      0x1234,
-			},
+			header: NewHeader(
+				WithHeaderExchangeFlags(0x11), // Initiator | Vendor
+				WithHeaderOpcode(0x40),
+				WithHeaderExchangeID(0x9999),
+				WithHeaderProtocolID(0xFFF1),
+				WithHeaderVendorID(0x1234),
+			),
 		},
 		{
 			name: "exchange header with all flags",
-			header: &Header{
-				ExchangeFlags: 0x1F, // All flags set
-				Opcode:        0x50,
-				ExchangeID:    0xEEEE,
-				ProtocolID:    0x0002,
-				VendorID:      0xABCD,
-				AckCounter:    0xDEADBEEF,
-			},
+			header: NewHeader(
+				WithHeaderExchangeFlags(0x1F), // All flags set
+				WithHeaderOpcode(0x50),
+				WithHeaderExchangeID(0xEEEE),
+				WithHeaderProtocolID(0x0002),
+				WithHeaderVendorID(0xABCD),
+				WithHeaderAckCounter(0xDEADBEEF),
+			),
 		},
 	}
 
@@ -98,23 +98,23 @@ func TestHeaderEncodeDecodeRoundtrip(t *testing.T) {
 			}
 
 			// Compare fields
-			if decoded.ExchangeFlags != tt.header.ExchangeFlags {
-				t.Errorf("ExchangeFlags mismatch: got 0x%02X, want 0x%02X", decoded.ExchangeFlags, tt.header.ExchangeFlags)
+			if decoded.ExchangeFlags() != tt.header.ExchangeFlags() {
+				t.Errorf("ExchangeFlags mismatch: got 0x%02X, want 0x%02X", decoded.ExchangeFlags(), tt.header.ExchangeFlags())
 			}
-			if decoded.Opcode != tt.header.Opcode {
-				t.Errorf("Opcode mismatch: got 0x%02X, want 0x%02X", decoded.Opcode, tt.header.Opcode)
+			if decoded.Opcode() != tt.header.Opcode() {
+				t.Errorf("Opcode mismatch: got 0x%02X, want 0x%02X", decoded.Opcode(), tt.header.Opcode())
 			}
-			if decoded.ExchangeID != tt.header.ExchangeID {
-				t.Errorf("ExchangeID mismatch: got 0x%04X, want 0x%04X", decoded.ExchangeID, tt.header.ExchangeID)
+			if decoded.ExchangeID() != tt.header.ExchangeID() {
+				t.Errorf("ExchangeID mismatch: got 0x%04X, want 0x%04X", decoded.ExchangeID(), tt.header.ExchangeID())
 			}
-			if decoded.ProtocolID != tt.header.ProtocolID {
-				t.Errorf("ProtocolID mismatch: got 0x%04X, want 0x%04X", decoded.ProtocolID, tt.header.ProtocolID)
+			if decoded.ProtocolID() != tt.header.ProtocolID() {
+				t.Errorf("ProtocolID mismatch: got 0x%04X, want 0x%04X", decoded.ProtocolID(), tt.header.ProtocolID())
 			}
-			if tt.header.HasVendorID() && decoded.VendorID != tt.header.VendorID {
-				t.Errorf("VendorID mismatch: got 0x%04X, want 0x%04X", decoded.VendorID, tt.header.VendorID)
+			if tt.header.HasVendorID() && decoded.VendorID() != tt.header.VendorID() {
+				t.Errorf("VendorID mismatch: got 0x%04X, want 0x%04X", decoded.VendorID(), tt.header.VendorID())
 			}
-			if tt.header.IsAck() && decoded.AckCounter != tt.header.AckCounter {
-				t.Errorf("AckCounter mismatch: got 0x%08X, want 0x%08X", decoded.AckCounter, tt.header.AckCounter)
+			if tt.header.IsAck() && decoded.AckCounter() != tt.header.AckCounter() {
+				t.Errorf("AckCounter mismatch: got 0x%08X, want 0x%08X", decoded.AckCounter(), tt.header.AckCounter())
 			}
 		})
 	}

@@ -43,17 +43,17 @@ func TestDecodeRealWorldPayloads(t *testing.T) {
 				if msg.SessionID() != 0x0000 {
 					t.Errorf("Expected sessionID 0x0000, got 0x%04X", msg.SessionID())
 				}
-				if !msg.ExchangeHeader.IsInitiator() {
+				if !msg.ProtocolHeader.IsInitiator() {
 					t.Error("Expected initiator flag to be set")
 				}
-				if !msg.ExchangeHeader.IsReliabilityRequested() {
+				if !msg.ProtocolHeader.IsReliabilityRequested() {
 					t.Error("Expected reliability flag to be set")
 				}
-				if msg.ExchangeHeader.Opcode != 0x20 {
-					t.Errorf("Expected opcode 0x20, got 0x%02X", msg.ExchangeHeader.Opcode)
+				if msg.ProtocolHeader.Opcode() != 0x20 {
+					t.Errorf("Expected opcode 0x20, got 0x%02X", msg.ProtocolHeader.Opcode())
 				}
-				if msg.ExchangeHeader.ProtocolID != 0x0000 {
-					t.Errorf("Expected protocolID 0x0000 (SecureChannel), got 0x%04X", msg.ExchangeHeader.ProtocolID)
+				if msg.ProtocolHeader.ProtocolID() != 0x0000 {
+					t.Errorf("Expected protocolID 0x0000 (SecureChannel), got 0x%04X", msg.ProtocolHeader.ProtocolID())
 				}
 			},
 		},
@@ -67,11 +67,11 @@ func TestDecodeRealWorldPayloads(t *testing.T) {
 				"", // No payload
 			validateFunc: func(t *testing.T, msg *Message) {
 				t.Helper()
-				if !msg.ExchangeHeader.IsAck() {
+				if !msg.ProtocolHeader.IsAck() {
 					t.Error("Expected ACK flag to be set")
 				}
-				if msg.ExchangeHeader.AckCounter != 42 {
-					t.Errorf("Expected ackCounter 42, got %d", msg.ExchangeHeader.AckCounter)
+				if msg.ProtocolHeader.AckCounter() != 42 {
+					t.Errorf("Expected ackCounter 42, got %d", msg.ProtocolHeader.AckCounter())
 				}
 				if msg.MessageCounter() != 100 {
 					t.Errorf("Expected messageCounter 100, got %d", msg.MessageCounter())
@@ -90,14 +90,14 @@ func TestDecodeRealWorldPayloads(t *testing.T) {
 				"aabbcc", // Sample payload
 			validateFunc: func(t *testing.T, msg *Message) {
 				t.Helper()
-				if !msg.ExchangeHeader.HasVendorID() {
+				if !msg.ProtocolHeader.HasVendorID() {
 					t.Error("Expected vendor flag to be set")
 				}
-				if msg.ExchangeHeader.VendorID != 0x1234 {
-					t.Errorf("Expected vendorID 0x1234, got 0x%04X", msg.ExchangeHeader.VendorID)
+				if msg.ProtocolHeader.VendorID() != 0x1234 {
+					t.Errorf("Expected vendorID 0x1234, got 0x%04X", msg.ProtocolHeader.VendorID())
 				}
-				if msg.ExchangeHeader.ProtocolID != 0xfff1 {
-					t.Errorf("Expected protocolID 0xfff1, got 0x%04X", msg.ExchangeHeader.ProtocolID)
+				if msg.ProtocolHeader.ProtocolID() != 0xfff1 {
+					t.Errorf("Expected protocolID 0xfff1, got 0x%04X", msg.ProtocolHeader.ProtocolID())
 				}
 			},
 		},

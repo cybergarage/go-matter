@@ -24,18 +24,18 @@ import (
 // Message represents a complete Matter message with packet header, exchange header, and payload.
 type Message struct {
 	message.Header
-	ExchangeHeader *Header
+	ProtocolHeader Header
 	Payload        []byte
 }
 
 // Encode serializes the complete message to bytes.
 func (m *Message) Encode() []byte {
 	packetBytes := m.Header.Encode()
-	exchangeBytes := m.ExchangeHeader.Encode()
+	protocolBytes := m.ProtocolHeader.Encode()
 
-	result := make([]byte, 0, len(packetBytes)+len(exchangeBytes)+len(m.Payload))
+	result := make([]byte, 0, len(packetBytes)+len(protocolBytes)+len(m.Payload))
 	result = append(result, packetBytes...)
-	result = append(result, exchangeBytes...)
+	result = append(result, protocolBytes...)
 	result = append(result, m.Payload...)
 
 	return result
@@ -59,19 +59,19 @@ func DecodeMessage(data []byte) (*Message, error) {
 		return nil, fmt.Errorf("message too short: need at least %d bytes for headers, got %d", msgHeaderSize+6, len(data))
 	}
 
-	// Decode exchange header
-	exchangeHeader, exchangeSize, err := DecodeExchangeHeader(data[msgHeaderSize:])
+	// Decode protocol header
+	protocolHeader, protocolSize, err := DecodeExchangeHeader(data[msgHeaderSize:])
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode exchange header: %w", err)
+		return nil, fmt.Errorf("failed to decode protocol header: %w", err)
 	}
 
 	// Extract payload (everything after headers)
-	headerSize := msgHeaderSize + exchangeSize
+	headerSize := msgHeaderSize + protocolSize
 	payload := data[headerSize:]
 
 	return &Message{
 		Header:         msgHeader,
-		ExchangeHeader: exchangeHeader,
+		ProtocolHeader: protocolHeader,
 		Payload:        payload,
 	}, nil
 }
@@ -80,7 +80,7 @@ func DecodeMessage(data []byte) (*Message, error) {
 func (m *Message) String() string {
 	return fmt.Sprintf("Message{\n  %s\n  %s\n  Payload: %d bytes [%s]\n}",
 		m.Header.String(),
-		m.ExchangeHeader.String(),
+		m.ProtocolHeader.String(),
 		len(m.Payload),
 		hex.EncodeToString(m.Payload))
 }

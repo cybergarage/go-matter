@@ -48,18 +48,18 @@ func BuildStandaloneAck(receivedMsg *protocol.Message, outboundCounter uint32) *
 	// - No R flag (reliability not requested for ACK itself)
 	// - Opcode can be 0x00 (no protocol operation, just ACK)
 	// - AckCounter field references the message being acknowledged
-	exchangeHeader := &protocol.Header{
-		ExchangeFlags: protocol.ExchangeFlagAck, // A flag only
-		Opcode:        0x00,                     // Standalone ACK has no opcode
-		ExchangeID:    receivedMsg.ExchangeHeader.ExchangeID,
-		ProtocolID:    receivedMsg.ExchangeHeader.ProtocolID,
-		AckCounter:    receivedMsg.MessageCounter(),
-	}
+	exchangeHeader := protocol.NewHeader(
+		protocol.WithHeaderExchangeFlags(protocol.ExchangeFlagAck), // A flag only
+		protocol.WithHeaderOpcode(0x00),                            // Standalone ACK has no opcode
+		protocol.WithHeaderExchangeID(receivedMsg.ProtocolHeader.ExchangeID()),
+		protocol.WithHeaderProtocolID(receivedMsg.ProtocolHeader.ProtocolID()),
+		protocol.WithHeaderAckCounter(receivedMsg.MessageCounter()),
+	)
 
 	// Standalone ACK has no payload
 	return &protocol.Message{
 		Header:         msgHeader,
-		ExchangeHeader: exchangeHeader,
+		ProtocolHeader: exchangeHeader,
 		Payload:        []byte{},
 	}
 }
@@ -67,7 +67,7 @@ func BuildStandaloneAck(receivedMsg *protocol.Message, outboundCounter uint32) *
 // IsAckRequested checks if the received message has the reliability flag set,
 // indicating that an acknowledgement is requested.
 func IsAckRequested(msg *protocol.Message) bool {
-	return msg.ExchangeHeader.IsReliabilityRequested()
+	return msg.ProtocolHeader.IsReliabilityRequested()
 }
 
 // MessageCounter tracks outbound message counters for a session.
