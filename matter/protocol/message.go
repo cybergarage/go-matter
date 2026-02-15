@@ -14,13 +14,20 @@
 
 package protocol
 
-import "github.com/cybergarage/go-matter/matter/encoding/message"
+import (
+	"github.com/cybergarage/go-matter/matter/encoding/message"
+)
 
 // Message represents a complete Matter message with packet header, protocol header, and payload.
 type Message interface {
+	// Header represents the packet header of the message.
 	message.Header
-	ProtocolHeader() Header
+	// Header represents the protocol header of the message.
+	Header
+	// Payload returns the payload of the message.
 	Payload() []byte
+	// Encode serializes the complete message to bytes.
 	Encode() []byte
+	// String returns a human-readable representation of the message for debugging purposes.
 	String() string
 }

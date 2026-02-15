@@ -51,17 +51,17 @@ func TestBuildStandaloneAck(t *testing.T) {
 	}
 
 	// Verify ACK exchange header
-	if !ackMsg.ProtocolHeader().IsAck() {
+	if !ackMsg.IsAck() {
 		t.Error("Expected ACK flag to be set")
 	}
-	if ackMsg.ProtocolHeader().IsReliabilityRequested() {
+	if ackMsg.IsReliabilityRequested() {
 		t.Error("ACK should not have reliability flag set")
 	}
-	if ackMsg.ProtocolHeader().ExchangeID() != receivedMsg.ProtocolHeader().ExchangeID() {
-		t.Errorf("ACK ExchangeID mismatch: got 0x%04X, want 0x%04X", ackMsg.ProtocolHeader().ExchangeID(), receivedMsg.ProtocolHeader().ExchangeID())
+	if ackMsg.ExchangeID() != receivedMsg.ExchangeID() {
+		t.Errorf("ACK ExchangeID mismatch: got 0x%04X, want 0x%04X", ackMsg.ExchangeID(), receivedMsg.ExchangeID())
 	}
-	if ackMsg.ProtocolHeader().AckCounter() != receivedMsg.MessageCounter() {
-		t.Errorf("ACK AckCounter mismatch: got %d, want %d", ackMsg.ProtocolHeader().AckCounter(), receivedMsg.MessageCounter())
+	if ackMsg.AckCounter() != receivedMsg.MessageCounter() {
+		t.Errorf("ACK AckCounter mismatch: got %d, want %d", ackMsg.AckCounter(), receivedMsg.MessageCounter())
 	}
 
 	// Verify ACK has no payload
@@ -205,10 +205,10 @@ func TestAckEncodeDecodeRoundtrip(t *testing.T) {
 	}
 
 	// Verify decoded ACK matches original
-	if !decoded.ProtocolHeader().IsAck() {
+	if !decoded.IsAck() {
 		t.Error("Decoded message should have ACK flag set")
 	}
-	if decoded.ProtocolHeader().AckCounter() != receivedMsg.MessageCounter() {
-		t.Errorf("Decoded AckCounter mismatch: got %d, want %d", decoded.ProtocolHeader().AckCounter(), receivedMsg.MessageCounter())
+	if decoded.AckCounter() != receivedMsg.MessageCounter() {
+		t.Errorf("Decoded AckCounter mismatch: got %d, want %d", decoded.AckCounter(), receivedMsg.MessageCounter())
 	}
 }

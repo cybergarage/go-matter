@@ -21,23 +21,22 @@ import (
 	"github.com/cybergarage/go-matter/matter/encoding/message"
 )
 
+type messageHeader = message.Header
+type protocolHeader = Header
+
 type messageImpl struct {
-	message.Header
-	protocolHeader Header
-	payload        []byte
+	messageHeader
+	protocolHeader
+	payload []byte
 }
 
 // NewMessage creates a new Message instance.
 func NewMessage(header message.Header, protocolHeader Header, payload []byte) Message {
 	return &messageImpl{
-		Header:         header,
+		messageHeader:  header,
 		protocolHeader: protocolHeader,
 		payload:        payload,
 	}
-}
-
-func (m *messageImpl) ProtocolHeader() Header {
-	return m.protocolHeader
 }
 
 func (m *messageImpl) Payload() []byte {
@@ -46,7 +45,7 @@ func (m *messageImpl) Payload() []byte {
 
 // Encode serializes the complete message to bytes.
 func (m *messageImpl) Encode() []byte {
-	packetBytes := m.Header.Encode()
+	packetBytes := m.messageHeader.Encode()
 	protocolBytes := m.protocolHeader.Encode()
 
 	result := make([]byte, 0, len(packetBytes)+len(protocolBytes)+len(m.payload))
@@ -86,7 +85,7 @@ func DecodeMessage(data []byte) (Message, error) {
 	payload := data[headerSize:]
 
 	return &messageImpl{
-		Header:         msgHeader,
+		messageHeader:  msgHeader,
 		protocolHeader: protocolHeader,
 		payload:        payload,
 	}, nil
@@ -95,7 +94,7 @@ func DecodeMessage(data []byte) (Message, error) {
 // String returns a human-readable representation with hex dumps.
 func (m *messageImpl) String() string {
 	return fmt.Sprintf("Message{\n  %s\n  %s\n  Payload: %d bytes [%s]\n}",
-		m.Header.String(),
+		m.messageHeader.String(),
 		m.protocolHeader.String(),
 		len(m.payload),
 		hex.EncodeToString(m.payload))

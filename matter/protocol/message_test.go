@@ -82,11 +82,11 @@ func TestMessageEncodeDecodeRoundtrip(t *testing.T) {
 			}
 
 			// Compare exchange header fields
-			if decoded.ProtocolHeader().Opcode() != tt.message.ProtocolHeader().Opcode() {
-				t.Errorf("Opcode mismatch: got 0x%02X, want 0x%02X", decoded.ProtocolHeader().Opcode(), tt.message.ProtocolHeader().Opcode())
+			if decoded.Opcode() != tt.message.Opcode() {
+				t.Errorf("Opcode mismatch: got 0x%02X, want 0x%02X", decoded.Opcode(), tt.message.Opcode())
 			}
-			if decoded.ProtocolHeader().ExchangeID() != tt.message.ProtocolHeader().ExchangeID() {
-				t.Errorf("ExchangeID mismatch: got 0x%04X, want 0x%04X", decoded.ProtocolHeader().ExchangeID(), tt.message.ProtocolHeader().ExchangeID())
+			if decoded.ExchangeID() != tt.message.ExchangeID() {
+				t.Errorf("ExchangeID mismatch: got 0x%04X, want 0x%04X", decoded.ExchangeID(), tt.message.ExchangeID())
 			}
 
 			// Compare payload
@@ -129,16 +129,16 @@ func TestDecodeWithCapturedPayload(t *testing.T) {
 	}
 
 	// Verify exchange header
-	if msg.ProtocolHeader().Opcode() != 0x20 {
-		t.Errorf("Opcode mismatch: got 0x%02X, want 0x20", msg.ProtocolHeader().Opcode())
+	if msg.Opcode() != 0x20 {
+		t.Errorf("Opcode mismatch: got 0x%02X, want 0x20", msg.Opcode())
 	}
-	if msg.ProtocolHeader().ExchangeID() != 0x1234 {
-		t.Errorf("ExchangeID mismatch: got 0x%04X, want 0x1234", msg.ProtocolHeader().ExchangeID())
+	if msg.ExchangeID() != 0x1234 {
+		t.Errorf("ExchangeID mismatch: got 0x%04X, want 0x1234", msg.ExchangeID())
 	}
-	if !msg.ProtocolHeader().IsInitiator() {
+	if !msg.IsInitiator() {
 		t.Error("Expected initiator flag to be set")
 	}
-	if !msg.ProtocolHeader().IsReliabilityRequested() {
+	if !msg.IsReliabilityRequested() {
 		t.Error("Expected reliability flag to be set")
 	}
 

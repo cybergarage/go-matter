@@ -162,11 +162,11 @@ func TestCodecReceiveWithAutoAck(t *testing.T) {
 		t.Fatalf("Failed to decode ACK: %v", err)
 	}
 
-	if !ack.ProtocolHeader().IsAck() {
+	if !ack.IsAck() {
 		t.Error("Expected ACK flag to be set in sent message")
 	}
-	if ack.ProtocolHeader().AckCounter() != msg.MessageCounter() {
-		t.Errorf("ACK counter mismatch: got %d, want %d", ack.ProtocolHeader().AckCounter(), msg.MessageCounter())
+	if ack.AckCounter() != msg.MessageCounter() {
+		t.Errorf("ACK counter mismatch: got %d, want %d", ack.AckCounter(), msg.MessageCounter())
 	}
 }
 
