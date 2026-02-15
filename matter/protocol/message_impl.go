@@ -21,6 +21,10 @@ import (
 	"github.com/cybergarage/go-matter/matter/encoding/message"
 )
 
+const (
+	minHeaderSize = 6
+)
+
 type frameHeader = message.Header
 type protocolHeader = Header
 
@@ -76,8 +80,8 @@ func NewMessageFromBytes(data []byte) (Message, error) {
 		return nil, fmt.Errorf("failed to decode message header: %w", err)
 	}
 
-	if len(data) < msgHeaderSize+6 {
-		return nil, fmt.Errorf("message too short: need at least %d bytes for headers, got %d", msgHeaderSize+6, len(data))
+	if len(data) < msgHeaderSize+minHeaderSize {
+		return nil, fmt.Errorf("message too short: need at least %d bytes for headers, got %d", msgHeaderSize+minHeaderSize, len(data))
 	}
 
 	// Decode protocol header
