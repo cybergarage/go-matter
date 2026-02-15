@@ -24,7 +24,7 @@ import (
 // BuildStandaloneAck creates a standalone acknowledgement message for a received message.
 // The ACK references the message counter of the original message.
 // Reference: Matter Core Spec 1.5, Section 4.11.8 (Standalone Acknowledgement).
-func BuildStandaloneAck(receivedMsg *protocol.Message, outboundCounter uint32) *protocol.Message {
+func BuildStandaloneAck(receivedMsg protocol.Message, outboundCounter uint32) protocol.Message {
 	// Build message header for ACK: preserve version/control and security context
 	msgHeaderOpts := []message.HeaderOption{
 		message.WithHeaderFlags(receivedMsg.Flags()),
@@ -51,23 +51,19 @@ func BuildStandaloneAck(receivedMsg *protocol.Message, outboundCounter uint32) *
 	exchangeHeader := protocol.NewHeader(
 		protocol.WithHeaderExchangeFlags(protocol.ExchangeFlagAck), // A flag only
 		protocol.WithHeaderOpcode(0x00),                            // Standalone ACK has no opcode
-		protocol.WithHeaderExchangeID(receivedMsg.ProtocolHeader.ExchangeID()),
-		protocol.WithHeaderProtocolID(receivedMsg.ProtocolHeader.ProtocolID()),
+		protocol.WithHeaderExchangeID(receivedMsg.ProtocolHeader().ExchangeID()),
+		protocol.WithHeaderProtocolID(receivedMsg.ProtocolHeader().ProtocolID()),
 		protocol.WithHeaderAckCounter(receivedMsg.MessageCounter()),
 	)
 
 	// Standalone ACK has no payload
-	return &protocol.Message{
-		Header:         msgHeader,
-		ProtocolHeader: exchangeHeader,
-		Payload:        []byte{},
-	}
+	return protocol.NewMessage(msgHeader, exchangeHeader, []byte{})
 }
 
 // IsAckRequested checks if the received message has the reliability flag set,
 // indicating that an acknowledgement is requested.
-func IsAckRequested(msg *protocol.Message) bool {
-	return msg.ProtocolHeader.IsReliabilityRequested()
+func IsAckRequested(msg protocol.Message) bool {
+	return msg.ProtocolHeader().IsReliabilityRequested()
 }
 
 // MessageCounter tracks outbound message counters for a session.

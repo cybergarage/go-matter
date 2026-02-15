@@ -14,73 +14,13 @@
 
 package protocol
 
-import (
-	"encoding/hex"
-	"fmt"
+import "github.com/cybergarage/go-matter/matter/encoding/message"
 
-	"github.com/cybergarage/go-matter/matter/encoding/message"
-)
-
-// Message represents a complete Matter message with packet header, exchange header, and payload.
-type Message struct {
+// Message represents a complete Matter message with packet header, protocol header, and payload.
+type Message interface {
 	message.Header
-	ProtocolHeader Header
-	Payload        []byte
-}
-
-// Encode serializes the complete message to bytes.
-func (m *Message) Encode() []byte {
-	packetBytes := m.Header.Encode()
-	protocolBytes := m.ProtocolHeader.Encode()
-
-	result := make([]byte, 0, len(packetBytes)+len(protocolBytes)+len(m.Payload))
-	result = append(result, packetBytes...)
-	result = append(result, protocolBytes...)
-	result = append(result, m.Payload...)
-
-	return result
-}
-
-// DecodeMessage parses a complete Matter message from bytes.
-// Returns the message or an error.
-func DecodeMessage(data []byte) (*Message, error) {
-	if len(data) < 8 {
-		return nil, fmt.Errorf("message too short: need at least 8 bytes for message header, got %d", len(data))
-	}
-
-	// Decode message header
-	msgHeader, err := message.NewHeaderFromBytes(data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode message header: %w", err)
-	}
-
-	msgHeaderSize := msgHeader.Size()
-	if len(data) < msgHeaderSize+6 {
-		return nil, fmt.Errorf("message too short: need at least %d bytes for headers, got %d", msgHeaderSize+6, len(data))
-	}
-
-	// Decode protocol header
-	protocolHeader, protocolSize, err := DecodeExchangeHeader(data[msgHeaderSize:])
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode protocol header: %w", err)
-	}
-
-	// Extract payload (everything after headers)
-	headerSize := msgHeaderSize + protocolSize
-	payload := data[headerSize:]
-
-	return &Message{
-		Header:         msgHeader,
-		ProtocolHeader: protocolHeader,
-		Payload:        payload,
-	}, nil
-}
-
-// String returns a human-readable representation with hex dumps.
-func (m *Message) String() string {
-	return fmt.Sprintf("Message{\n  %s\n  %s\n  Payload: %d bytes [%s]\n}",
-		m.Header.String(),
-		m.ProtocolHeader.String(),
-		len(m.Payload),
-		hex.EncodeToString(m.Payload))
+	ProtocolHeader() Header
+	Payload() []byte
+	Encode() []byte
+	String() string
 }

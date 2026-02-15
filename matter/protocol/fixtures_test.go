@@ -26,7 +26,7 @@ func TestDecodeRealWorldPayloads(t *testing.T) {
 		name         string
 		hexPayload   string
 		expectError  bool
-		validateFunc func(*testing.T, *Message)
+		validateFunc func(*testing.T, Message)
 		description  string
 	}{
 		{
@@ -38,22 +38,22 @@ func TestDecodeRealWorldPayloads(t *testing.T) {
 			hexPayload: "00" + "0000" + "00" + "01000000" + // Packet header (8 bytes)
 				"05" + "20" + "3412" + "0000" + // Exchange header (6 bytes)
 				"153001", // Payload (sample TLV: 0x15 = struct, 0x30 = element, 0x01 = end)
-			validateFunc: func(t *testing.T, msg *Message) {
+			validateFunc: func(t *testing.T, msg Message) {
 				t.Helper()
 				if msg.SessionID() != 0x0000 {
 					t.Errorf("Expected sessionID 0x0000, got 0x%04X", msg.SessionID())
 				}
-				if !msg.ProtocolHeader.IsInitiator() {
+				if !msg.ProtocolHeader().IsInitiator() {
 					t.Error("Expected initiator flag to be set")
 				}
-				if !msg.ProtocolHeader.IsReliabilityRequested() {
+				if !msg.ProtocolHeader().IsReliabilityRequested() {
 					t.Error("Expected reliability flag to be set")
 				}
-				if msg.ProtocolHeader.Opcode() != 0x20 {
-					t.Errorf("Expected opcode 0x20, got 0x%02X", msg.ProtocolHeader.Opcode())
+				if msg.ProtocolHeader().Opcode() != 0x20 {
+					t.Errorf("Expected opcode 0x20, got 0x%02X", msg.ProtocolHeader().Opcode())
 				}
-				if msg.ProtocolHeader.ProtocolID() != 0x0000 {
-					t.Errorf("Expected protocolID 0x0000 (SecureChannel), got 0x%04X", msg.ProtocolHeader.ProtocolID())
+				if msg.ProtocolHeader().ProtocolID() != 0x0000 {
+					t.Errorf("Expected protocolID 0x0000 (SecureChannel), got 0x%04X", msg.ProtocolHeader().ProtocolID())
 				}
 			},
 		},
@@ -65,19 +65,19 @@ func TestDecodeRealWorldPayloads(t *testing.T) {
 			hexPayload: "00" + "3412" + "00" + "64000000" + // Packet header
 				"02" + "00" + "7856" + "0000" + "2a000000" + // Exchange header with ACK (10 bytes)
 				"", // No payload
-			validateFunc: func(t *testing.T, msg *Message) {
+			validateFunc: func(t *testing.T, msg Message) {
 				t.Helper()
-				if !msg.ProtocolHeader.IsAck() {
+				if !msg.ProtocolHeader().IsAck() {
 					t.Error("Expected ACK flag to be set")
 				}
-				if msg.ProtocolHeader.AckCounter() != 42 {
-					t.Errorf("Expected ackCounter 42, got %d", msg.ProtocolHeader.AckCounter())
+				if msg.ProtocolHeader().AckCounter() != 42 {
+					t.Errorf("Expected ackCounter 42, got %d", msg.ProtocolHeader().AckCounter())
 				}
 				if msg.MessageCounter() != 100 {
 					t.Errorf("Expected messageCounter 100, got %d", msg.MessageCounter())
 				}
-				if len(msg.Payload) != 0 {
-					t.Errorf("Expected empty payload for standalone ACK, got %d bytes", len(msg.Payload))
+				if len(msg.Payload()) != 0 {
+					t.Errorf("Expected empty payload for standalone ACK, got %d bytes", len(msg.Payload()))
 				}
 			},
 		},
@@ -88,16 +88,16 @@ func TestDecodeRealWorldPayloads(t *testing.T) {
 			hexPayload: "00" + "0000" + "00" + "01000000" + // Packet header
 				"11" + "40" + "9999" + "f1ff" + "3412" + // Exchange header with V flag (8 bytes)
 				"aabbcc", // Sample payload
-			validateFunc: func(t *testing.T, msg *Message) {
+			validateFunc: func(t *testing.T, msg Message) {
 				t.Helper()
-				if !msg.ProtocolHeader.HasVendorID() {
+				if !msg.ProtocolHeader().HasVendorID() {
 					t.Error("Expected vendor flag to be set")
 				}
-				if msg.ProtocolHeader.VendorID() != 0x1234 {
-					t.Errorf("Expected vendorID 0x1234, got 0x%04X", msg.ProtocolHeader.VendorID())
+				if msg.ProtocolHeader().VendorID() != 0x1234 {
+					t.Errorf("Expected vendorID 0x1234, got 0x%04X", msg.ProtocolHeader().VendorID())
 				}
-				if msg.ProtocolHeader.ProtocolID() != 0xfff1 {
-					t.Errorf("Expected protocolID 0xfff1, got 0x%04X", msg.ProtocolHeader.ProtocolID())
+				if msg.ProtocolHeader().ProtocolID() != 0xfff1 {
+					t.Errorf("Expected protocolID 0xfff1, got 0x%04X", msg.ProtocolHeader().ProtocolID())
 				}
 			},
 		},

@@ -50,21 +50,21 @@ func TestCodecTransmit(t *testing.T) {
 	mock := &mockTransport{}
 	codec := NewCodec(mock, false)
 
-	msg := &protocol.Message{
-		Header: message.NewHeader(
+	msg := protocol.NewMessage(
+		message.NewHeader(
 			message.WithHeaderFlags(0x00),
 			message.WithHeaderSessionID(0x1234),
 			message.WithHeaderSecurityFlags(0x00),
 			message.WithHeaderMessageCounter(1),
 		),
-		ProtocolHeader: protocol.NewHeader(
+		protocol.NewHeader(
 			protocol.WithHeaderExchangeFlags(protocol.ExchangeFlagInitiator),
 			protocol.WithHeaderOpcode(0x20),
 			protocol.WithHeaderExchangeID(0x5678),
 			protocol.WithHeaderProtocolID(0x0000),
 		),
-		Payload: []byte{0x01, 0x02, 0x03},
-	}
+		[]byte{0x01, 0x02, 0x03},
+	)
 
 	ctx := context.Background()
 	err := codec.Transmit(ctx, msg)
@@ -80,21 +80,21 @@ func TestCodecTransmit(t *testing.T) {
 }
 
 func TestCodecReceiveWithoutAck(t *testing.T) {
-	msg := &protocol.Message{
-		Header: message.NewHeader(
+	msg := protocol.NewMessage(
+		message.NewHeader(
 			message.WithHeaderFlags(0x00),
 			message.WithHeaderSessionID(0x1234),
 			message.WithHeaderSecurityFlags(0x00),
 			message.WithHeaderMessageCounter(42),
 		),
-		ProtocolHeader: protocol.NewHeader(
+		protocol.NewHeader(
 			protocol.WithHeaderExchangeFlags(protocol.ExchangeFlagInitiator), // No reliability flag
 			protocol.WithHeaderOpcode(0x20),
 			protocol.WithHeaderExchangeID(0x5678),
 			protocol.WithHeaderProtocolID(0x0000),
 		),
-		Payload: []byte{0x01, 0x02, 0x03},
-	}
+		[]byte{0x01, 0x02, 0x03},
+	)
 
 	mock := &mockTransport{
 		receiveData: msg.Encode(),
@@ -119,21 +119,21 @@ func TestCodecReceiveWithoutAck(t *testing.T) {
 }
 
 func TestCodecReceiveWithAutoAck(t *testing.T) {
-	msg := &protocol.Message{
-		Header: message.NewHeader(
+	msg := protocol.NewMessage(
+		message.NewHeader(
 			message.WithHeaderFlags(0x00),
 			message.WithHeaderSessionID(0x1234),
 			message.WithHeaderSecurityFlags(0x00),
 			message.WithHeaderMessageCounter(42),
 		),
-		ProtocolHeader: protocol.NewHeader(
+		protocol.NewHeader(
 			protocol.WithHeaderExchangeFlags(protocol.ExchangeFlagInitiator|protocol.ExchangeFlagReliability),
 			protocol.WithHeaderOpcode(0x20),
 			protocol.WithHeaderExchangeID(0x5678),
 			protocol.WithHeaderProtocolID(0x0000),
 		),
-		Payload: []byte{0x01, 0x02, 0x03},
-	}
+		[]byte{0x01, 0x02, 0x03},
+	)
 
 	mock := &mockTransport{
 		receiveData: msg.Encode(),
@@ -162,30 +162,30 @@ func TestCodecReceiveWithAutoAck(t *testing.T) {
 		t.Fatalf("Failed to decode ACK: %v", err)
 	}
 
-	if !ack.ProtocolHeader.IsAck() {
+	if !ack.ProtocolHeader().IsAck() {
 		t.Error("Expected ACK flag to be set in sent message")
 	}
-	if ack.ProtocolHeader.AckCounter() != msg.MessageCounter() {
-		t.Errorf("ACK counter mismatch: got %d, want %d", ack.ProtocolHeader.AckCounter(), msg.MessageCounter())
+	if ack.ProtocolHeader().AckCounter() != msg.MessageCounter() {
+		t.Errorf("ACK counter mismatch: got %d, want %d", ack.ProtocolHeader().AckCounter(), msg.MessageCounter())
 	}
 }
 
 func TestCodecReceiveWithAutoAckDisabled(t *testing.T) {
-	msg := &protocol.Message{
-		Header: message.NewHeader(
+	msg := protocol.NewMessage(
+		message.NewHeader(
 			message.WithHeaderFlags(0x00),
 			message.WithHeaderSessionID(0x1234),
 			message.WithHeaderSecurityFlags(0x00),
 			message.WithHeaderMessageCounter(42),
 		),
-		ProtocolHeader: protocol.NewHeader(
+		protocol.NewHeader(
 			protocol.WithHeaderExchangeFlags(protocol.ExchangeFlagInitiator|protocol.ExchangeFlagReliability),
 			protocol.WithHeaderOpcode(0x20),
 			protocol.WithHeaderExchangeID(0x5678),
 			protocol.WithHeaderProtocolID(0x0000),
 		),
-		Payload: []byte{0x01, 0x02, 0x03},
-	}
+		[]byte{0x01, 0x02, 0x03},
+	)
 
 	mock := &mockTransport{
 		receiveData: msg.Encode(),
@@ -247,21 +247,21 @@ func TestCodecSetAutoAck(t *testing.T) {
 
 func TestIsAckRequestedIntegration(t *testing.T) {
 	// Create a message with reliability flag
-	msg := &protocol.Message{
-		Header: message.NewHeader(
+	msg := protocol.NewMessage(
+		message.NewHeader(
 			message.WithHeaderFlags(0x00),
 			message.WithHeaderSessionID(0x0000),
 			message.WithHeaderSecurityFlags(0x00),
 			message.WithHeaderMessageCounter(1),
 		),
-		ProtocolHeader: protocol.NewHeader(
+		protocol.NewHeader(
 			protocol.WithHeaderExchangeFlags(protocol.ExchangeFlagReliability),
 			protocol.WithHeaderOpcode(0x20),
 			protocol.WithHeaderExchangeID(0x1234),
 			protocol.WithHeaderProtocolID(0x0000),
 		),
-		Payload: []byte{},
-	}
+		[]byte{},
+	)
 
 	if !mrp.IsAckRequested(msg) {
 		t.Error("Expected ACK to be requested for message with reliability flag")
