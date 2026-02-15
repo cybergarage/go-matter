@@ -36,7 +36,14 @@ type HeaderOption func(*header)
 
 // NewHeader creates a new Header instance with the provided options.
 func NewHeader(opts ...HeaderOption) Header {
-	h := &header{}
+	h := &header{
+		flags:          0x00,
+		sessionID:      0x0000,
+		securityFlags:  0x00,
+		messageCounter: 0,
+		sourceNodeID:   0,
+		destNodeID:     0,
+	}
 	for _, opt := range opts {
 		opt(h)
 	}
