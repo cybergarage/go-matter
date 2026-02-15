@@ -53,9 +53,8 @@ type Element interface {
 	UTF8() (string, bool)
 	// Bytes returns a copy of the underlying byte slice if this is a byte string type.
 	Bytes() ([]byte, bool)
-
-	// DebugString returns a human-readable description (for logging/debugging).
-	DebugString() string
+	// String returns a human-readable description (for logging/debugging).
+	String() string
 }
 
 // elementImpl is the concrete (private) implementation of Element.
@@ -73,54 +72,64 @@ type elementImpl struct {
 
 var _ Element = (*elementImpl)(nil)
 
-func (e *elementImpl) Tag() Tag          { return e.tag }
+func (e *elementImpl) Tag() Tag { return e.tag }
+
 func (e *elementImpl) Type() ElementType { return e.et }
+
 func (e *elementImpl) IsEndOfContainer() bool {
 	return e.et == ETEndOfContainer
 }
+
 func (e *elementImpl) ContainerKind() (ElementType, bool) {
 	if e.et == ETStructure || e.et == ETArray || e.et == ETList || e.et == ETEndOfContainer {
 		return e.et, true
 	}
 	return 0, false
 }
+
 func (e *elementImpl) Signed() (int64, bool) {
 	if e.signedValue != nil {
 		return *e.signedValue, true
 	}
 	return 0, false
 }
+
 func (e *elementImpl) Unsigned() (uint64, bool) {
 	if e.unsignedValue != nil {
 		return *e.unsignedValue, true
 	}
 	return 0, false
 }
+
 func (e *elementImpl) Bool() (bool, bool) {
 	if e.boolValue != nil {
 		return *e.boolValue, true
 	}
 	return false, false
 }
+
 func (e *elementImpl) Float() (float64, bool) {
 	if e.floatValue != nil {
 		return *e.floatValue, true
 	}
 	return 0, false
 }
+
 func (e *elementImpl) UTF8() (string, bool) {
 	if e.strValue != nil {
 		return *e.strValue, true
 	}
 	return "", false
 }
+
 func (e *elementImpl) Bytes() ([]byte, bool) {
 	if e.bytesValue != nil {
 		return *e.bytesValue, true
 	}
 	return nil, false
 }
-func (e *elementImpl) DebugString() string {
+
+func (e *elementImpl) String() string {
 	switch e.et {
 	case ETSignedInt1, ETSignedInt2, ETSignedInt4, ETSignedInt8:
 		if v, ok := e.Signed(); ok {
@@ -138,11 +147,11 @@ func (e *elementImpl) DebugString() string {
 		if v, ok := e.Float(); ok {
 			return fmt.Sprintf("%s Float=%v", e.tag, v)
 		}
-	case ETUtf8String1, ETUtf8String2, ETUtf8String4, ETUtf8String8:
+	case ETUTF8String1, ETUTF8String2, ETUTF8String4, ETUTF8String8:
 		if s, ok := e.UTF8(); ok {
 			return fmt.Sprintf("%s UTF8=%q", e.tag, s)
 		}
-	case ETByteString1, ETByteString2, ETByteString4, ETByteString8:
+	case ETOctetString1, ETOctetString2, ETOctetString4, ETOctetString8:
 		if b, ok := e.Bytes(); ok {
 			return fmt.Sprintf("%s Bytes(%d)", e.tag, len(b))
 		}

@@ -228,24 +228,24 @@ func pickStringElementType(length int, utf8 bool) (ElementType, int, error) {
 	switch {
 	case length <= 0xFF:
 		if utf8 {
-			return ETUtf8String1, 1, nil
+			return ETUTF8String1, 1, nil
 		}
-		return ETByteString1, 1, nil
+		return ETOctetString1, 1, nil
 	case length <= 0xFFFF:
 		if utf8 {
-			return ETUtf8String2, 2, nil
+			return ETUTF8String2, 2, nil
 		}
-		return ETByteString2, 2, nil
+		return ETOctetString2, 2, nil
 	case length <= 0xFFFFFFFF:
 		if utf8 {
-			return ETUtf8String4, 4, nil
+			return ETUTF8String4, 4, nil
 		}
-		return ETByteString4, 4, nil
+		return ETOctetString4, 4, nil
 	default:
 		if utf8 {
-			return ETUtf8String8, 8, nil
+			return ETUTF8String8, 8, nil
 		}
-		return ETByteString8, 8, nil
+		return ETOctetString8, 8, nil
 	}
 }
 

@@ -46,7 +46,7 @@ func (r *paramRequest) ParseBytes(data []byte) error {
 		elem := dec.Element()
 		// We can ignore the contents of the ParamRequest for now, as it's often empty.
 		// If needed, we can add parsing logic here to extract specific fields in the future.
-		log.Debugf("Parsed TLV element: Tag=%v, Type=%v", elem.Tag(), elem.Type())
+		log.Debugf("Parsed TLV element: %s", elem.String())
 	}
 
 	if err := dec.Err(); err != nil {

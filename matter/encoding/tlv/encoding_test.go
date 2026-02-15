@@ -86,7 +86,7 @@ func TestRoundTrip(t *testing.T) {
 	var out bytes.Buffer
 	count := 0
 	for dec.Next() {
-		out.WriteString(dec.Element().DebugString())
+		out.WriteString(dec.Element().String())
 		out.WriteByte('\n')
 		count++
 	}
