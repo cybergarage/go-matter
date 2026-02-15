@@ -12,31 +12,37 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package frame
+package message
 
 import (
 	"encoding/hex"
 	"fmt"
 )
 
-// Frame represents a complete Matter message frame (header + payload).
-type Frame struct {
-	Header  *Header
-	Payload []byte
+type frame struct {
+	header  Header
+	payload []byte
 }
 
-// Encode serializes the frame to bytes.
-func (f *Frame) Encode() []byte {
-	headerBytes := f.Header.Encode()
-	result := make([]byte, 0, len(headerBytes)+len(f.Payload))
+func (f *frame) Header() Header {
+	return f.header
+}
+
+func (f *frame) Payload() []byte {
+	return f.payload
+}
+
+func (f *frame) Encode() []byte {
+	headerBytes := f.header.Encode()
+	result := make([]byte, 0, len(headerBytes)+len(f.payload))
 	result = append(result, headerBytes...)
-	result = append(result, f.Payload...)
+	result = append(result, f.payload...)
 	return result
 }
 
 // DecodeFrame parses a complete Matter message frame from bytes.
 // Returns the frame or an error.
-func DecodeFrame(data []byte) (*Frame, error) {
+func DecodeFrame(data []byte) (Frame, error) {
 	if len(data) < 8 {
 		return nil, fmt.Errorf("frame too short: need at least 8 bytes for header, got %d", len(data))
 	}
@@ -48,16 +54,15 @@ func DecodeFrame(data []byte) (*Frame, error) {
 
 	payload := data[headerSize:]
 
-	return &Frame{
-		Header:  header,
-		Payload: payload,
+	return &frame{
+		header:  header,
+		payload: payload,
 	}, nil
 }
 
-// String returns a human-readable representation with hex dumps.
-func (f *Frame) String() string {
+func (f *frame) String() string {
 	return fmt.Sprintf("Frame{\n  %s\n  Payload: %d bytes [%s]\n}",
-		f.Header.String(),
-		len(f.Payload),
-		hex.EncodeToString(f.Payload))
+		f.header.String(),
+		len(f.payload),
+		hex.EncodeToString(f.payload))
 }

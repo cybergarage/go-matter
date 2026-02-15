@@ -50,7 +50,7 @@ func TestPBKDFParamRequest(t *testing.T) {
 		}
 		_, err = pbkdf.NewParamRequestFromBytes(hexBytes)
 		if err != nil {
-			t.Skipf("Failed to parse ParamRequest: %v", err)
+			t.Fatalf("Failed to parse ParamRequest: %v", err)
 		}
 	}
 }
