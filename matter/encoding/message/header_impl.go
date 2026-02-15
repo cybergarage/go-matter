@@ -167,6 +167,8 @@ func DecodeHeader(data []byte) (Header, int, error) {
 		sessionID:      binary.LittleEndian.Uint16(data[1:3]),
 		securityFlags:  data[3],
 		messageCounter: binary.LittleEndian.Uint32(data[4:8]),
+		sourceNodeID:   0,
+		destNodeID:     0,
 	}
 
 	offset := 8
