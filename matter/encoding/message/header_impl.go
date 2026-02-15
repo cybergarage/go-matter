@@ -20,6 +20,10 @@ import (
 	"fmt"
 )
 
+const (
+	minHeaderSize = 8
+)
+
 type header struct {
 	flags          uint8
 	sessionID      uint16
@@ -93,8 +97,8 @@ func NewHeader(opts ...HeaderOption) Header {
 // NewHeaderFromBytes reads a header from the provided byte slice.
 // Returns the header and the number of bytes consumed, or an error.
 func NewHeaderFromBytes(data []byte) (Header, int, error) {
-	if len(data) < 8 {
-		return nil, 0, fmt.Errorf("header too short: need at least 8 bytes, got %d", len(data))
+	if len(data) < minHeaderSize {
+		return nil, 0, fmt.Errorf("header too short: need at least %d bytes, got %d", minHeaderSize, len(data))
 	}
 
 	h := &header{
@@ -106,7 +110,7 @@ func NewHeaderFromBytes(data []byte) (Header, int, error) {
 		destNodeID:     0,
 	}
 
-	offset := 8
+	offset := minHeaderSize
 
 	if h.HasSourceNodeID() {
 		if len(data) < offset+8 {
@@ -164,7 +168,7 @@ func (h *header) HasDestNodeID() bool {
 }
 
 func (h *header) Bytes() []byte {
-	size := 8
+	size := minHeaderSize
 	if h.HasSourceNodeID() {
 		size += 8
 	}
@@ -178,7 +182,7 @@ func (h *header) Bytes() []byte {
 	buf[3] = h.securityFlags
 	binary.LittleEndian.PutUint32(buf[4:8], h.messageCounter)
 
-	offset := 8
+	offset := minHeaderSize
 	if h.HasSourceNodeID() {
 		binary.LittleEndian.PutUint64(buf[offset:offset+8], h.sourceNodeID)
 		offset += 8
@@ -192,7 +196,7 @@ func (h *header) Bytes() []byte {
 
 // Size returns the total size of the header in bytes, which depends on which optional fields are present.
 func (h *header) Size() int {
-	size := 8
+	size := minHeaderSize
 	if h.HasSourceNodeID() {
 		size += 8
 	}

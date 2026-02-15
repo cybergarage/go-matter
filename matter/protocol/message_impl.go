@@ -70,10 +70,6 @@ func NewMessage(opts ...MessageOption) Message {
 // NewMessageFromBytes parses a complete Matter message from bytes.
 // Returns the message or an error.
 func NewMessageFromBytes(data []byte) (Message, error) {
-	if len(data) < 8 {
-		return nil, fmt.Errorf("message too short: need at least 8 bytes for message header, got %d", len(data))
-	}
-
 	// Decode message header
 	msgHeader, msgHeaderSize, err := message.NewHeaderFromBytes(data)
 	if err != nil {
