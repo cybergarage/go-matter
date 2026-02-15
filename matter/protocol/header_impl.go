@@ -34,7 +34,14 @@ type HeaderOption func(*header)
 
 // NewHeader creates a new Header instance with the provided options.
 func NewHeader(opts ...HeaderOption) Header {
-	h := &header{}
+	h := &header{
+		exchangeFlags: 0x00,
+		opcode:        0x00,
+		exchangeID:    0x0000,
+		protocolID:    0x0000,
+		vendorID:      0x0000,
+		ackCounter:    0,
+	}
 	for _, opt := range opts {
 		opt(h)
 	}
@@ -178,6 +185,8 @@ func DecodeExchangeHeader(data []byte) (Header, int, error) {
 		opcode:        data[1],
 		exchangeID:    binary.LittleEndian.Uint16(data[2:4]),
 		protocolID:    binary.LittleEndian.Uint16(data[4:6]),
+		vendorID:      0x0000,
+		ackCounter:    0,
 	}
 
 	offset := 6
