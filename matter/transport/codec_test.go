@@ -57,7 +57,7 @@ func TestCodecTransmit(t *testing.T) {
 			message.WithHeaderSecurityFlags(0x00),
 			message.WithHeaderMessageCounter(1),
 		),
-		ExchangeHeader: &protocol.ExchangeHeader{
+		ExchangeHeader: &protocol.Header{
 			ExchangeFlags: protocol.ExchangeFlagInitiator,
 			Opcode:        0x20,
 			ExchangeID:    0x5678,
@@ -87,7 +87,7 @@ func TestCodecReceiveWithoutAck(t *testing.T) {
 			message.WithHeaderSecurityFlags(0x00),
 			message.WithHeaderMessageCounter(42),
 		),
-		ExchangeHeader: &protocol.ExchangeHeader{
+		ExchangeHeader: &protocol.Header{
 			ExchangeFlags: protocol.ExchangeFlagInitiator, // No reliability flag
 			Opcode:        0x20,
 			ExchangeID:    0x5678,
@@ -126,7 +126,7 @@ func TestCodecReceiveWithAutoAck(t *testing.T) {
 			message.WithHeaderSecurityFlags(0x00),
 			message.WithHeaderMessageCounter(42),
 		),
-		ExchangeHeader: &protocol.ExchangeHeader{
+		ExchangeHeader: &protocol.Header{
 			ExchangeFlags: protocol.ExchangeFlagInitiator | protocol.ExchangeFlagReliability,
 			Opcode:        0x20,
 			ExchangeID:    0x5678,
@@ -178,7 +178,7 @@ func TestCodecReceiveWithAutoAckDisabled(t *testing.T) {
 			message.WithHeaderSecurityFlags(0x00),
 			message.WithHeaderMessageCounter(42),
 		),
-		ExchangeHeader: &protocol.ExchangeHeader{
+		ExchangeHeader: &protocol.Header{
 			ExchangeFlags: protocol.ExchangeFlagInitiator | protocol.ExchangeFlagReliability,
 			Opcode:        0x20,
 			ExchangeID:    0x5678,
@@ -254,7 +254,7 @@ func TestIsAckRequestedIntegration(t *testing.T) {
 			message.WithHeaderSecurityFlags(0x00),
 			message.WithHeaderMessageCounter(1),
 		),
-		ExchangeHeader: &protocol.ExchangeHeader{
+		ExchangeHeader: &protocol.Header{
 			ExchangeFlags: protocol.ExchangeFlagReliability,
 			Opcode:        0x20,
 			ExchangeID:    0x1234,

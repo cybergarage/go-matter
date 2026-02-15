@@ -35,7 +35,7 @@ func TestMessageEncodeDecodeRoundtrip(t *testing.T) {
 					message.WithHeaderSecurityFlags(0x00),
 					message.WithHeaderMessageCounter(1),
 				),
-				ExchangeHeader: &ExchangeHeader{
+				ExchangeHeader: &Header{
 					ExchangeFlags: 0x05, // Initiator | Reliability
 					Opcode:        0x20,
 					ExchangeID:    0x1234,
@@ -53,7 +53,7 @@ func TestMessageEncodeDecodeRoundtrip(t *testing.T) {
 					message.WithHeaderSecurityFlags(0x00),
 					message.WithHeaderMessageCounter(2),
 				),
-				ExchangeHeader: &ExchangeHeader{
+				ExchangeHeader: &Header{
 					ExchangeFlags: 0x02, // Ack
 					Opcode:        0x10,
 					ExchangeID:    0x5678,

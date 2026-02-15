@@ -30,7 +30,7 @@ func TestBuildStandaloneAck(t *testing.T) {
 			message.WithHeaderSecurityFlags(0x00),
 			message.WithHeaderMessageCounter(42),
 		),
-		ExchangeHeader: &protocol.ExchangeHeader{
+		ExchangeHeader: &protocol.Header{
 			ExchangeFlags: protocol.ExchangeFlagInitiator | protocol.ExchangeFlagReliability,
 			Opcode:        0x20,
 			ExchangeID:    0x5678,
@@ -80,7 +80,7 @@ func TestBuildStandaloneAckWithSourceNode(t *testing.T) {
 			message.WithHeaderMessageCounter(42),
 			message.WithHeaderSourceNodeID(0xAABBCCDDEEFF0011),
 		),
-		ExchangeHeader: &protocol.ExchangeHeader{
+		ExchangeHeader: &protocol.Header{
 			ExchangeFlags: protocol.ExchangeFlagInitiator | protocol.ExchangeFlagReliability,
 			Opcode:        0x20,
 			ExchangeID:    0x5678,
@@ -111,7 +111,7 @@ func TestIsAckRequested(t *testing.T) {
 			name: "message with reliability flag",
 			msg: &protocol.Message{
 				Header: message.NewHeader(),
-				ExchangeHeader: &protocol.ExchangeHeader{
+				ExchangeHeader: &protocol.Header{
 					ExchangeFlags: protocol.ExchangeFlagReliability,
 				},
 			},
@@ -121,7 +121,7 @@ func TestIsAckRequested(t *testing.T) {
 			name: "message without reliability flag",
 			msg: &protocol.Message{
 				Header: message.NewHeader(),
-				ExchangeHeader: &protocol.ExchangeHeader{
+				ExchangeHeader: &protocol.Header{
 					ExchangeFlags: protocol.ExchangeFlagInitiator,
 				},
 			},
@@ -131,7 +131,7 @@ func TestIsAckRequested(t *testing.T) {
 			name: "message with multiple flags including reliability",
 			msg: &protocol.Message{
 				Header: message.NewHeader(),
-				ExchangeHeader: &protocol.ExchangeHeader{
+				ExchangeHeader: &protocol.Header{
 					ExchangeFlags: protocol.ExchangeFlagInitiator | protocol.ExchangeFlagReliability,
 				},
 			},
@@ -180,7 +180,7 @@ func TestAckEncodeDecodeRoundtrip(t *testing.T) {
 			message.WithHeaderSecurityFlags(0x00),
 			message.WithHeaderMessageCounter(42),
 		),
-		ExchangeHeader: &protocol.ExchangeHeader{
+		ExchangeHeader: &protocol.Header{
 			ExchangeFlags: protocol.ExchangeFlagInitiator | protocol.ExchangeFlagReliability,
 			Opcode:        0x20,
 			ExchangeID:    0x5678,

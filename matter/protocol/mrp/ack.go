@@ -48,7 +48,7 @@ func BuildStandaloneAck(receivedMsg *protocol.Message, outboundCounter uint32) *
 	// - No R flag (reliability not requested for ACK itself)
 	// - Opcode can be 0x00 (no protocol operation, just ACK)
 	// - AckCounter field references the message being acknowledged
-	exchangeHeader := &protocol.ExchangeHeader{
+	exchangeHeader := &protocol.Header{
 		ExchangeFlags: protocol.ExchangeFlagAck, // A flag only
 		Opcode:        0x00,                     // Standalone ACK has no opcode
 		ExchangeID:    receivedMsg.ExchangeHeader.ExchangeID,

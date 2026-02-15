@@ -14,33 +14,50 @@
 
 package protocol
 
-// ExchangeFlag represents a exchange flag.
-type ExchangeFlag uint8
-
+// 4.4.3. Protocol Header Field Descriptions
+// 4.4.3.3. Exchange ID (16 bits)
 // ExchangeID represents a exchange ID.
 type ExchangeID uint16
 
+// 4.4.3. Protocol Header Field Descriptions
+// 4.4.3.1. Exchange Flags (8 bits)
+// ExchangeFlag represents a exchange flag.
+type ExchangeFlag uint8
+
+const (
+	// ExchangeFlagInitiator (I) indicates the sender is the initiator (bit 0).
+	ExchangeFlagInitiator = 0x01
+	// ExchangeFlagAck (A) indicates this is an acknowledgement (bit 1).
+	ExchangeFlagAck = 0x02
+	// ExchangeFlagReliability (R) indicates reliable transmission is requested (bit 2).
+	ExchangeFlagReliability = 0x04
+	// ExchangeFlagSecuredExtensions (SX) indicates secured extensions are present (bit 3).
+	ExchangeFlagSecuredExtensions = 0x08
+	// ExchangeFlagVendor (V) indicates a vendor-specific protocol (bit 4).
+	ExchangeFlagVendor = 0x10
+)
+
 // IsInitiator returns true if the flag is initiator.
 func (flag ExchangeFlag) IsInitiator() bool {
-	return (flag & 0x01) != 0
+	return (flag & ExchangeFlagInitiator) != 0
 }
 
 // IsAcknowledgement returns true if the flag is acknowledgement.
 func (flag ExchangeFlag) IsAcknowledgement() bool {
-	return (flag & 0x20) != 0
+	return (flag & ExchangeFlagAck) != 0
 }
 
 // IsReliability returns true if the flag is reliability.
 func (flag ExchangeFlag) IsReliability() bool {
-	return (flag & 0x40) != 0
+	return (flag & ExchangeFlagReliability) != 0
 }
 
 // IsSecuredExtension returns true if the flag is secured extension.
 func (flag ExchangeFlag) IsSecuredExtension() bool {
-	return (flag & 0x80) != 0
+	return (flag & ExchangeFlagSecuredExtensions) != 0
 }
 
 // IsVendor returns true if the flag is vendor.
 func (flag ExchangeFlag) IsVendor() bool {
-	return (flag & 0x10) != 0
+	return (flag & ExchangeFlagVendor) != 0
 }

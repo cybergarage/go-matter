@@ -24,7 +24,7 @@ import (
 // Message represents a complete Matter message with packet header, exchange header, and payload.
 type Message struct {
 	message.Header
-	ExchangeHeader *ExchangeHeader
+	ExchangeHeader *Header
 	Payload        []byte
 }
 

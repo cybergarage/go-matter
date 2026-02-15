@@ -18,7 +18,7 @@ import (
 	"testing"
 )
 
-func TestExchangeHeaderTooShort(t *testing.T) {
+func TestHeaderTooShort(t *testing.T) {
 	shortData := []byte{0x00, 0x00, 0x00} // Only 3 bytes
 	_, _, err := DecodeExchangeHeader(shortData)
 	if err == nil {
@@ -26,14 +26,14 @@ func TestExchangeHeaderTooShort(t *testing.T) {
 	}
 }
 
-func TestExchangeHeaderEncodeDecodeRoundtrip(t *testing.T) {
+func TestHeaderEncodeDecodeRoundtrip(t *testing.T) {
 	tests := []struct {
 		name   string
-		header *ExchangeHeader
+		header *Header
 	}{
 		{
 			name: "minimal exchange header",
-			header: &ExchangeHeader{
+			header: &Header{
 				ExchangeFlags: 0x01, // Initiator
 				Opcode:        0x20,
 				ExchangeID:    0x1234,
@@ -42,7 +42,7 @@ func TestExchangeHeaderEncodeDecodeRoundtrip(t *testing.T) {
 		},
 		{
 			name: "exchange header with reliability flag",
-			header: &ExchangeHeader{
+			header: &Header{
 				ExchangeFlags: 0x05, // Initiator | Reliability
 				Opcode:        0x30,
 				ExchangeID:    0xABCD,
@@ -51,7 +51,7 @@ func TestExchangeHeaderEncodeDecodeRoundtrip(t *testing.T) {
 		},
 		{
 			name: "exchange header with ACK",
-			header: &ExchangeHeader{
+			header: &Header{
 				ExchangeFlags: 0x02, // Ack flag
 				Opcode:        0x10,
 				ExchangeID:    0x5678,
@@ -61,7 +61,7 @@ func TestExchangeHeaderEncodeDecodeRoundtrip(t *testing.T) {
 		},
 		{
 			name: "exchange header with vendor ID",
-			header: &ExchangeHeader{
+			header: &Header{
 				ExchangeFlags: 0x11, // Initiator | Vendor
 				Opcode:        0x40,
 				ExchangeID:    0x9999,
@@ -71,7 +71,7 @@ func TestExchangeHeaderEncodeDecodeRoundtrip(t *testing.T) {
 		},
 		{
 			name: "exchange header with all flags",
-			header: &ExchangeHeader{
+			header: &Header{
 				ExchangeFlags: 0x1F, // All flags set
 				Opcode:        0x50,
 				ExchangeID:    0xEEEE,
