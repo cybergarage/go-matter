@@ -14,8 +14,8 @@
 
 package protocol
 
-// 4.4.3. Protocol Header Field Descriptions
 // Header represents the protocol layer header.
+// 4.4.3. Protocol Header Field Descriptions.
 type Header interface {
 	// ExchangeFlags returns the exchange flags.
 	ExchangeFlags() uint8

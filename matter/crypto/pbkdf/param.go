@@ -18,7 +18,7 @@ import (
 	"hash"
 )
 
-// Parameters for PBKDF operations, as defined by the Matter specification. These.
+// Params for PBKDF operations, as defined by the Matter specification. These.
 type Params interface {
 	// Password returns the password (e.g., the pairing code) used for PBKDF key derivation.
 	Password() []byte

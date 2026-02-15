@@ -84,6 +84,7 @@ func (c *Client) EstablishSession(ctx context.Context) (*Result, error) {
 		Passcode:  c.passcode.Bytes(),
 		Salt:      pbkdfRes.Salt(),
 		PBKDFIter: int(pbkdfRes.Iterations()),
+		Hash:      nil, // TODO: support different hash algorithms
 	})
 
 	// 3-1) Pake1

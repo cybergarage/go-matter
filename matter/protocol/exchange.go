@@ -14,14 +14,14 @@
 
 package protocol
 
-// 4.4.3. Protocol Header Field Descriptions
-// 4.4.3.3. Exchange ID (16 bits)
 // ExchangeID represents a exchange ID.
+// 4.4.3. Protocol Header Field Descriptions
+// 4.4.3.3. Exchange ID (16 bits).
 type ExchangeID uint16
 
-// 4.4.3. Protocol Header Field Descriptions
-// 4.4.3.1. Exchange Flags (8 bits)
 // ExchangeFlag represents a exchange flag.
+// 4.4.3. Protocol Header Field Descriptions
+// 4.4.3.1. Exchange Flags (8 bits).
 type ExchangeFlag uint8
 
 const (

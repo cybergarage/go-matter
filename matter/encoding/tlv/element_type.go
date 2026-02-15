@@ -14,50 +14,65 @@
 
 package tlv
 
+// ElementType (5 bits). Each size variant is a distinct constant.
 // A.7. Control Octet Encoding
 //
 //	Bits 7..5 : TagControl (3 bits)
 //	Bits 4..0 : ElementType (5 bits)
 //
-// A.7.1. Element Type Field
-// ElementType (5 bits). Each size variant is a distinct constant.
-// Only a subset of Matter element types/variants is modeled here for illustration.
+// A.7.1. Element Type Field.
 type ElementType uint8
 
 const (
 	// Signed integers (little-endian).
+
 	ETSignedInt1 ElementType = 0x00
 	ETSignedInt2 ElementType = 0x01
 	ETSignedInt4 ElementType = 0x02
 	ETSignedInt8 ElementType = 0x03
+
 	// Unsigned integers (little-endian).
+
 	ETUnsignedInt1 ElementType = 0x04
 	ETUnsignedInt2 ElementType = 0x05
 	ETUnsignedInt4 ElementType = 0x06
 	ETUnsignedInt8 ElementType = 0x07
+
 	// Boolean values (no payload).
+
 	ETBoolFalse ElementType = 0x08
 	ETBoolTrue  ElementType = 0x09
+
 	// UTF-8 string (length-of-length = 1/2/4/8 bytes).
+
 	ETUtf8String1 ElementType = 0x0A
 	ETUtf8String2 ElementType = 0x0B
 	ETUtf8String4 ElementType = 0x0C
 	ETUtf8String8 ElementType = 0x0D
+
 	// Byte string (length-of-length = 1/2/4/8 bytes).
+
 	ETByteString1 ElementType = 0x0E
 	ETByteString2 ElementType = 0x0F
 	ETByteString4 ElementType = 0x10
 	ETByteString8 ElementType = 0x11
+
 	// Null (no payload).
+
 	ETNull ElementType = 0x12
+
 	// Containers & end marker.
+
 	ETStructure      ElementType = 0x13
 	ETArray          ElementType = 0x14
 	ETList           ElementType = 0x15
 	ETEndOfContainer ElementType = 0x16
+
 	// Floating point.
+
 	ETFloat32 ElementType = 0x17
 	ETFloat64 ElementType = 0x18
+
 	// 0x19..0x1F reserved.
 )
 

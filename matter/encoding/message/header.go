@@ -14,8 +14,8 @@
 
 package message
 
-// 4.4.1. Message Header Field Descriptions
 // HeaderFlags contains flag bit positions for the header flags field.
+// 4.4.1. Message Header Field Descriptions.
 const (
 	// VersionMask extracts the version field (bits 0-3).
 	VersionMask = 0x0F
@@ -23,15 +23,16 @@ const (
 	FlagDestNodeIDPresent = 0x20
 	// FlagSourceNodeIDPresent indicates source node ID is present (bit 6).
 	FlagSourceNodeIDPresent = 0x40
+	// DSIZMask extracts the DSIZ field (bits 6-7 in second byte for extended format).
 	// DSIZ mask (bits 6-7, in second byte for extended format).
 	// Note: DSIZ is not used in this minimal implementation.
-	DSIZMask  = 0xC0
+	DSIZMask = 0xC0
+	// DSIZShift is the bit position shift for the DSIZ field (bits 6-7).
 	DSIZShift = 6
 )
 
-// 4.4.1. Message Header Field Descriptions
 // Header represents the Matter message frame header.
-// Reference: Matter Core Spec 1.5, Section 4.4 (Message Frame Format).
+// 4.4.1. Message Header Field Descriptions.
 type Header interface {
 	// Flags returns the header flags byte, which contains version and presence flags.
 	Flags() uint8

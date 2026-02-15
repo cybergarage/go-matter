@@ -14,8 +14,8 @@
 
 package pbkdf
 
-// 4.14.1. Passcode-Authenticated Session Establishment (PASE)
 // ParamResponse represents the PBKDF parameter response message sent by the responder during PASE handshake.
+// 4.14.1. Passcode-Authenticated Session Establishment (PASE).
 type ParamResponse interface {
 	// Iterations returns the number of iterations specified in the PBKDFParamResponse.
 	Iterations() uint32

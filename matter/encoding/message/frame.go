@@ -14,8 +14,8 @@
 
 package message
 
-// 4.4. Message Frame Format
 // Frame represents a complete Matter message frame (header + payload).
+// 4.4. Message Frame Format.
 type Frame interface {
 	// Header returns the header of the frame.
 	Header() Header

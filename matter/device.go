@@ -51,9 +51,8 @@ type DeviceType = types.DeviceType
 // Transport represents a transport.
 type Transport = io.Transport
 
-// 5.4.3. Discovery by Commissioner.
-// Commission commissions the node with the given commissioning options.}
 // CommissionableDevice represents a commissionable device interface.
+// 5.4.3. Discovery by Commissioner.
 type CommissionableDevice interface {
 	// Device returns the underlying device.
 	Device

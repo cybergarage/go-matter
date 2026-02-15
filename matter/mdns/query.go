@@ -19,14 +19,14 @@ import (
 )
 
 const (
-	// 4.3.1. Commissionable Node Discovery.
 	// CommissionableNodeService represents the mDNS service type for commissionable nodes.
+	// 4.3.1. Commissionable Node Discovery.
 	CommissionableNodeService = "_matterc._udp"
+	// CommissionerDiscoveryService represents the mDNS service type for commissioners.
 	// 4.3.3. Commissioner Discovery.
-	// Commissioner Discovery Service represents the mDNS service type for commissioners.
 	CommissionerDiscoveryService = "_matterd._udp"
-	// 4.3.2.3. Operational Service Type.
 	// OperationalNodeService represents the mDNS service type for operational nodes.
+	// 4.3.2.3. Operational Service Type.
 	OperationalNodeService = "_matter._tcp"
 )
 

@@ -14,8 +14,8 @@
 
 package pbkdf
 
-// 4.14.1. Passcode-Authenticated Session Establishment (PASE)
 // ParamRequest represents the PBKDF parameter request message sent by the initiator during PASE handshake.
+// 4.14.1. Passcode-Authenticated Session Establishment (PASE).
 type ParamRequest interface {
 	// Bytes returns the byte representation of the ParamRequest message, ready for transmission.
 	Bytes() ([]byte, error)
