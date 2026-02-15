@@ -86,7 +86,7 @@ func NewMessageFromBytes(data []byte) (Message, error) {
 	}
 
 	// Decode protocol header
-	protocolHeader, protocolSize, err := DecodeExchangeHeader(data[msgHeaderSize:])
+	protocolHeader, protocolSize, err := NewHeaderFromBytes(data[msgHeaderSize:])
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode protocol header: %w", err)
 	}

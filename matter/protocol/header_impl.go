@@ -32,22 +32,6 @@ type header struct {
 // HeaderOption configures a Header instance.
 type HeaderOption func(*header)
 
-// NewHeader creates a new Header instance with the provided options.
-func NewHeader(opts ...HeaderOption) Header {
-	h := &header{
-		exchangeFlags: 0x00,
-		opcode:        0x00,
-		exchangeID:    0x0000,
-		protocolID:    0x0000,
-		vendorID:      0x0000,
-		ackCounter:    0,
-	}
-	for _, opt := range opts {
-		opt(h)
-	}
-	return h
-}
-
 // WithHeaderExchangeFlags sets the exchange flags.
 func WithHeaderExchangeFlags(flags uint8) HeaderOption {
 	return func(h *header) {
@@ -88,6 +72,59 @@ func WithHeaderAckCounter(counter uint32) HeaderOption {
 	return func(h *header) {
 		h.ackCounter = counter
 	}
+}
+
+// NewHeader creates a new Header instance with the provided options.
+func NewHeader(opts ...HeaderOption) Header {
+	h := &header{
+		exchangeFlags: 0x00,
+		opcode:        0x00,
+		exchangeID:    0x0000,
+		protocolID:    0x0000,
+		vendorID:      0x0000,
+		ackCounter:    0,
+	}
+	for _, opt := range opts {
+		opt(h)
+	}
+	return h
+}
+
+// NewHeaderFromBytes parses an exchange header from bytes (little-endian).
+// Returns the header and the number of bytes consumed, or an error.
+func NewHeaderFromBytes(data []byte) (Header, int, error) {
+	if len(data) < 6 {
+		return nil, 0, fmt.Errorf("exchange header too short: need at least 6 bytes, got %d", len(data))
+	}
+
+	h := &header{
+		exchangeFlags: data[0],
+		opcode:        data[1],
+		exchangeID:    binary.LittleEndian.Uint16(data[2:4]),
+		protocolID:    binary.LittleEndian.Uint16(data[4:6]),
+		vendorID:      0x0000,
+		ackCounter:    0,
+	}
+
+	offset := 6
+
+	if h.HasVendorID() {
+		if len(data) < offset+2 {
+			return nil, 0, fmt.Errorf("exchange header truncated: vendor ID expected but only %d bytes remain", len(data)-offset)
+		}
+		h.vendorID = binary.LittleEndian.Uint16(data[offset : offset+2])
+		offset += 2
+	}
+
+	if h.IsAck() {
+		if len(data) < offset+4 {
+			return nil, 0, fmt.Errorf("exchange header truncated: ack counter expected but only %d bytes remain", len(data)-offset)
+		}
+		h.ackCounter = binary.LittleEndian.Uint32(data[offset : offset+4])
+		offset += 4
+	}
+
+	return h, offset, nil
 }
 
 // ExchangeFlags returns the exchange flags.
@@ -171,43 +208,6 @@ func (h *header) Bytes() []byte {
 	}
 
 	return buf
-}
-
-// DecodeExchangeHeader parses an exchange header from bytes (little-endian).
-// Returns the header and the number of bytes consumed, or an error.
-func DecodeExchangeHeader(data []byte) (Header, int, error) {
-	if len(data) < 6 {
-		return nil, 0, fmt.Errorf("exchange header too short: need at least 6 bytes, got %d", len(data))
-	}
-
-	h := &header{
-		exchangeFlags: data[0],
-		opcode:        data[1],
-		exchangeID:    binary.LittleEndian.Uint16(data[2:4]),
-		protocolID:    binary.LittleEndian.Uint16(data[4:6]),
-		vendorID:      0x0000,
-		ackCounter:    0,
-	}
-
-	offset := 6
-
-	if h.HasVendorID() {
-		if len(data) < offset+2 {
-			return nil, 0, fmt.Errorf("exchange header truncated: vendor ID expected but only %d bytes remain", len(data)-offset)
-		}
-		h.vendorID = binary.LittleEndian.Uint16(data[offset : offset+2])
-		offset += 2
-	}
-
-	if h.IsAck() {
-		if len(data) < offset+4 {
-			return nil, 0, fmt.Errorf("exchange header truncated: ack counter expected but only %d bytes remain", len(data)-offset)
-		}
-		h.ackCounter = binary.LittleEndian.Uint32(data[offset : offset+4])
-		offset += 4
-	}
-
-	return h, offset, nil
 }
 
 // String returns a human-readable representation with hex dump.
