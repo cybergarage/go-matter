@@ -75,12 +75,11 @@ func NewMessageFromBytes(data []byte) (Message, error) {
 	}
 
 	// Decode message header
-	msgHeader, err := message.NewHeaderFromBytes(data)
+	msgHeader, msgHeaderSize, err := message.NewHeaderFromBytes(data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode message header: %w", err)
 	}
 
-	msgHeaderSize := msgHeader.Size()
 	if len(data) < msgHeaderSize+6 {
 		return nil, fmt.Errorf("message too short: need at least %d bytes for headers, got %d", msgHeaderSize+6, len(data))
 	}

@@ -47,7 +47,7 @@ func DecodeFrame(data []byte) (Frame, error) {
 		return nil, fmt.Errorf("frame too short: need at least 8 bytes for header, got %d", len(data))
 	}
 
-	header, headerSize, err := DecodeHeader(data)
+	header, headerSize, err := NewHeaderFromBytes(data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode header: %w", err)
 	}
