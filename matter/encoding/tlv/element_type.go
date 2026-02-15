@@ -185,26 +185,26 @@ func floatSize(et ElementType) int {
 	}
 }
 
-// stringLenFieldSize returns (lengthOfLengthBytes, isUTF8, ok) for string/bytes types.
-func stringLenFieldSize(et ElementType) (int, bool, bool) {
+// stringLenFieldSize returns (lengthOfLengthBytes, isUTF8) for string/bytes types.
+func stringLenFieldSize(et ElementType) (int, bool) {
 	switch et {
 	case ETUTF8String1:
-		return 1, true, true
+		return 1, true
 	case ETUTF8String2:
-		return 2, true, true
+		return 2, true
 	case ETUTF8String4:
-		return 4, true, true
+		return 4, true
 	case ETUTF8String8:
-		return 8, true, true
+		return 8, true
 	case ETOctetString1:
-		return 1, false, true
+		return 1, false
 	case ETOctetString2:
-		return 2, false, true
+		return 2, false
 	case ETOctetString4:
-		return 4, false, true
+		return 4, false
 	case ETOctetString8:
-		return 8, false, true
+		return 8, false
 	default:
-		return 0, false, false
+		return 0, false
 	}
 }

@@ -128,7 +128,9 @@ func (d *decoderImpl) readElement() (Element, error) {
 		bytesValue:    nil,
 	}
 
-	if sBytes := numericSigned(et); sBytes > 0 {
+	switch et {
+	case ETSignedInt1, ETSignedInt2, ETSignedInt4, ETSignedInt8:
+		sBytes := numericSigned(et)
 		raw, err := d.read(sBytes)
 		if err != nil {
 			return nil, err
@@ -136,8 +138,8 @@ func (d *decoderImpl) readElement() (Element, error) {
 		val := decodeSigned(raw)
 		e.signedValue = &val
 		return e, nil
-	}
-	if uBytes := numericUnsigned(et); uBytes > 0 {
+	case ETUnsignedInt1, ETUnsignedInt2, ETUnsignedInt4, ETUnsignedInt8:
+		uBytes := numericUnsigned(et)
 		raw, err := d.read(uBytes)
 		if err != nil {
 			return nil, err
@@ -145,18 +147,16 @@ func (d *decoderImpl) readElement() (Element, error) {
 		val := decodeUnsigned(raw)
 		e.unsignedValue = &val
 		return e, nil
-	}
-	switch et {
-	case ETBoolFalse:
-		v := false
-		e.boolValue = &v
-		return e, nil
 	case ETBoolTrue:
 		v := true
 		e.boolValue = &v
 		return e, nil
-	}
-	if fs := floatSize(et); fs > 0 {
+	case ETBoolFalse:
+		v := false
+		e.boolValue = &v
+		return e, nil
+	case ETFloat32, ETFloat64:
+		fs := floatSize(et)
 		raw, err := d.read(fs)
 		if err != nil {
 			return nil, err
@@ -164,8 +164,9 @@ func (d *decoderImpl) readElement() (Element, error) {
 		fv := decodeFloat(raw)
 		e.floatValue = &fv
 		return e, nil
-	}
-	if lfs, isUTF8, ok := stringLenFieldSize(et); ok {
+	case ETUTF8String1, ETUTF8String2, ETUTF8String4, ETUTF8String8,
+		ETOctetString1, ETOctetString2, ETOctetString4, ETOctetString8:
+		lfs, isUTF8 := stringLenFieldSize(et)
 		lenBytes, err := d.read(lfs)
 		if err != nil {
 			return nil, err
@@ -197,8 +198,6 @@ func (d *decoderImpl) readElement() (Element, error) {
 			e.bytesValue = &cp
 		}
 		return e, nil
-	}
-	switch et {
 	case ETNull:
 		return e, nil
 	case ETStructure, ETArray, ETList, ETEndOfContainer:
