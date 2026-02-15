@@ -39,26 +39,9 @@ func NewMessage(header message.Header, protocolHeader Header, payload []byte) Me
 	}
 }
 
-func (m *messageImpl) Payload() []byte {
-	return m.payload
-}
-
-// Bytes serializes the complete message to bytes.
-func (m *messageImpl) Bytes() []byte {
-	packetBytes := m.messageHeader.Bytes()
-	protocolBytes := m.protocolHeader.Bytes()
-
-	result := make([]byte, 0, len(packetBytes)+len(protocolBytes)+len(m.payload))
-	result = append(result, packetBytes...)
-	result = append(result, protocolBytes...)
-	result = append(result, m.payload...)
-
-	return result
-}
-
-// DecodeMessage parses a complete Matter message from bytes.
+// NewMessageFromBytes parses a complete Matter message from bytes.
 // Returns the message or an error.
-func DecodeMessage(data []byte) (Message, error) {
+func NewMessageFromBytes(data []byte) (Message, error) {
 	if len(data) < 8 {
 		return nil, fmt.Errorf("message too short: need at least 8 bytes for message header, got %d", len(data))
 	}
@@ -89,6 +72,23 @@ func DecodeMessage(data []byte) (Message, error) {
 		protocolHeader: protocolHeader,
 		payload:        payload,
 	}, nil
+}
+
+func (m *messageImpl) Payload() []byte {
+	return m.payload
+}
+
+// Bytes serializes the complete message to bytes.
+func (m *messageImpl) Bytes() []byte {
+	packetBytes := m.messageHeader.Bytes()
+	protocolBytes := m.protocolHeader.Bytes()
+
+	result := make([]byte, 0, len(packetBytes)+len(protocolBytes)+len(m.payload))
+	result = append(result, packetBytes...)
+	result = append(result, protocolBytes...)
+	result = append(result, m.payload...)
+
+	return result
 }
 
 // String returns a human-readable representation with hex dumps.

@@ -157,7 +157,7 @@ func TestCodecReceiveWithAutoAck(t *testing.T) {
 	}
 
 	// Decode and verify ACK
-	ack, err := protocol.DecodeMessage(mock.sendData)
+	ack, err := protocol.NewMessageFromBytes(mock.sendData)
 	if err != nil {
 		t.Fatalf("Failed to decode ACK: %v", err)
 	}

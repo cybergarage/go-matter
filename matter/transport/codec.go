@@ -64,7 +64,7 @@ func (c *Codec) Receive(ctx context.Context) (protocol.Message, error) {
 	}
 
 	// Decode the message
-	msg, err := protocol.DecodeMessage(data)
+	msg, err := protocol.NewMessageFromBytes(data)
 	if err != nil {
 		log.Warnf("Failed to decode Matter message (%d bytes): %v", len(data), err)
 		log.HexWarn(data)

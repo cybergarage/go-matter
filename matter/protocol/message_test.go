@@ -71,9 +71,9 @@ func TestMessageEncodeDecodeRoundtrip(t *testing.T) {
 			encoded := tt.message.Bytes()
 
 			// Decode
-			decoded, err := DecodeMessage(encoded)
+			decoded, err := NewMessageFromBytes(encoded)
 			if err != nil {
-				t.Fatalf("DecodeMessage failed: %v", err)
+				t.Fatalf("NewMessageFromBytes failed: %v", err)
 			}
 
 			// Compare packet header fields
@@ -118,9 +118,9 @@ func TestDecodeWithCapturedPayload(t *testing.T) {
 		t.Fatalf("Failed to decode hex string: %v", err)
 	}
 
-	msg, err := DecodeMessage(data)
+	msg, err := NewMessageFromBytes(data)
 	if err != nil {
-		t.Fatalf("DecodeMessage failed: %v", err)
+		t.Fatalf("NewMessageFromBytes failed: %v", err)
 	}
 
 	// Verify packet header

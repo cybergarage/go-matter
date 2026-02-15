@@ -17,6 +17,8 @@ package protocol
 import (
 	"encoding/hex"
 	"testing"
+
+	"github.com/cybergarage/go-matter/matter/protocol"
 )
 
 // TestDecodeRealWorldPayloads tests decoding with example payloads
@@ -26,7 +28,7 @@ func TestDecodeRealWorldPayloads(t *testing.T) {
 		name         string
 		hexPayload   string
 		expectError  bool
-		validateFunc func(*testing.T, Message)
+		validateFunc func(*testing.T, protocol.Message)
 		description  string
 	}{
 		{
@@ -38,7 +40,7 @@ func TestDecodeRealWorldPayloads(t *testing.T) {
 			hexPayload: "00" + "0000" + "00" + "01000000" + // Packet header (8 bytes)
 				"05" + "20" + "3412" + "0000" + // Exchange header (6 bytes)
 				"153001", // Payload (sample TLV: 0x15 = struct, 0x30 = element, 0x01 = end)
-			validateFunc: func(t *testing.T, msg Message) {
+			validateFunc: func(t *testing.T, msg protocol.Message) {
 				t.Helper()
 				if msg.SessionID() != 0x0000 {
 					t.Errorf("Expected sessionID 0x0000, got 0x%04X", msg.SessionID())
@@ -65,7 +67,7 @@ func TestDecodeRealWorldPayloads(t *testing.T) {
 			hexPayload: "00" + "3412" + "00" + "64000000" + // Packet header
 				"02" + "00" + "7856" + "0000" + "2a000000" + // Exchange header with ACK (10 bytes)
 				"", // No payload
-			validateFunc: func(t *testing.T, msg Message) {
+			validateFunc: func(t *testing.T, msg protocol.Message) {
 				t.Helper()
 				if !msg.IsAck() {
 					t.Error("Expected ACK flag to be set")
@@ -88,7 +90,7 @@ func TestDecodeRealWorldPayloads(t *testing.T) {
 			hexPayload: "00" + "0000" + "00" + "01000000" + // Packet header
 				"11" + "40" + "9999" + "f1ff" + "3412" + // Exchange header with V flag (8 bytes)
 				"aabbcc", // Sample payload
-			validateFunc: func(t *testing.T, msg Message) {
+			validateFunc: func(t *testing.T, msg protocol.Message) {
 				t.Helper()
 				if !msg.HasVendorID() {
 					t.Error("Expected vendor flag to be set")
@@ -110,7 +112,7 @@ func TestDecodeRealWorldPayloads(t *testing.T) {
 				t.Fatalf("Failed to decode hex payload: %v", err)
 			}
 
-			msg, err := DecodeMessage(data)
+			msg, err := protocol.NewMessageFromBytes(data)
 			if tt.expectError {
 				if err == nil {
 					t.Error("Expected error but got none")
@@ -119,7 +121,7 @@ func TestDecodeRealWorldPayloads(t *testing.T) {
 			}
 
 			if err != nil {
-				t.Fatalf("DecodeMessage failed: %v", err)
+				t.Fatalf("protocol.NewMessageFromBytes failed: %v", err)
 			}
 
 			t.Logf("Decoded message: %s", msg.String())
@@ -186,7 +188,7 @@ func TestDecodeTruncatedPayloads(t *testing.T) {
 				t.Fatalf("Failed to decode hex payload: %v", err)
 			}
 
-			msg, err := DecodeMessage(data)
+			msg, err := protocol.NewMessageFromBytes(data)
 			if tt.expectError {
 				if err == nil {
 					t.Errorf("Expected error for truncated payload, but got valid message: %v", msg)
