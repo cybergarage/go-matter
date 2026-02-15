@@ -85,7 +85,7 @@ func TestHeaderEncodeDecodeRoundtrip(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Encode
-			encoded := tt.header.Encode()
+			encoded := tt.header.Bytes()
 
 			// Decode
 			decoded, bytesRead, err := DecodeExchangeHeader(encoded)

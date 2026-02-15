@@ -21,8 +21,8 @@ type Frame interface {
 	Header() Header
 	// Payload returns the payload of the frame.
 	Payload() []byte
-	// Encode returns the byte representation of the complete frame, ready for transmission.
-	Encode() []byte
+	// Bytes returns the byte representation of the complete frame, ready for transmission.
+	Bytes() []byte
 	// String returns a human-readable representation of the frame for debugging purposes.
 	String() string
 }

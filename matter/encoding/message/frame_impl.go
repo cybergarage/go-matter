@@ -32,8 +32,8 @@ func (f *frame) Payload() []byte {
 	return f.payload
 }
 
-func (f *frame) Encode() []byte {
-	headerBytes := f.header.Encode()
+func (f *frame) Bytes() []byte {
+	headerBytes := f.header.Bytes()
 	result := make([]byte, 0, len(headerBytes)+len(f.payload))
 	result = append(result, headerBytes...)
 	result = append(result, f.payload...)

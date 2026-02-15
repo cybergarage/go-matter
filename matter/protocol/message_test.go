@@ -68,7 +68,7 @@ func TestMessageEncodeDecodeRoundtrip(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Encode
-			encoded := tt.message.Encode()
+			encoded := tt.message.Bytes()
 
 			// Decode
 			decoded, err := DecodeMessage(encoded)

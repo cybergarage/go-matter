@@ -129,7 +129,7 @@ func TestDecodeRealWorldPayloads(t *testing.T) {
 			}
 
 			// Verify roundtrip encoding
-			encoded := msg.Encode()
+			encoded := msg.Bytes()
 			if len(encoded) != len(data) {
 				t.Errorf("Encoded length mismatch: got %d, want %d", len(encoded), len(data))
 			}

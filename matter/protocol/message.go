@@ -18,6 +18,7 @@ import (
 	"github.com/cybergarage/go-matter/matter/encoding/message"
 )
 
+// 4.4. Message Frame Format
 // Message represents a complete Matter message with packet header, protocol header, and payload.
 type Message interface {
 	// Header represents the packet header of the message.
@@ -26,8 +27,8 @@ type Message interface {
 	Header
 	// Payload returns the payload of the message.
 	Payload() []byte
-	// Encode serializes the complete message to bytes.
-	Encode() []byte
+	// Bytes serializes the complete message to bytes.
+	Bytes() []byte
 	// String returns a human-readable representation of the message for debugging purposes.
 	String() string
 }

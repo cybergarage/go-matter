@@ -121,7 +121,7 @@ func (h *header) HasDestNodeID() bool {
 	return (h.flags & FlagDestNodeIDPresent) != 0
 }
 
-func (h *header) Encode() []byte {
+func (h *header) Bytes() []byte {
 	size := 8
 	if h.HasSourceNodeID() {
 		size += 8
@@ -232,7 +232,7 @@ func (h *header) Size() int {
 }
 
 func (h *header) String() string {
-	encoded := h.Encode()
+	encoded := h.Bytes()
 	return fmt.Sprintf("FrameHeader{Version=%d, SessionID=0x%04X, SecurityFlags=0x%02X, MsgCtr=%d, SrcNode=0x%016X (present=%v), DstNode=0x%016X (present=%v)} [%d bytes: %s]",
 		h.Version(), h.sessionID, h.securityFlags, h.messageCounter,
 		h.sourceNodeID, h.HasSourceNodeID(),

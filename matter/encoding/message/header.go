@@ -53,8 +53,8 @@ type Header interface {
 	HasDestNodeID() bool
 	// Size returns the total size of the header in bytes, which depends on which optional fields are present.
 	Size() int
-	// Encode returns the byte representation of the header, ready for transmission.
-	Encode() []byte
+	// Bytes returns the byte representation of the header, ready for transmission.
+	Bytes() []byte
 	// String returns a human-readable string representation of the header for debugging purposes.
 	String() string
 }

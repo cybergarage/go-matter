@@ -73,7 +73,7 @@ func TestCodecTransmit(t *testing.T) {
 	}
 
 	// Verify the mock received the encoded message
-	expected := msg.Encode()
+	expected := msg.Bytes()
 	if len(mock.sendData) != len(expected) {
 		t.Errorf("Transmitted data length mismatch: got %d, want %d", len(mock.sendData), len(expected))
 	}
@@ -97,7 +97,7 @@ func TestCodecReceiveWithoutAck(t *testing.T) {
 	)
 
 	mock := &mockTransport{
-		receiveData: msg.Encode(),
+		receiveData: msg.Bytes(),
 	}
 	codec := NewCodec(mock, true) // Enable auto-ACK
 
@@ -136,7 +136,7 @@ func TestCodecReceiveWithAutoAck(t *testing.T) {
 	)
 
 	mock := &mockTransport{
-		receiveData: msg.Encode(),
+		receiveData: msg.Bytes(),
 	}
 	codec := NewCodec(mock, true) // Enable auto-ACK
 
@@ -188,7 +188,7 @@ func TestCodecReceiveWithAutoAckDisabled(t *testing.T) {
 	)
 
 	mock := &mockTransport{
-		receiveData: msg.Encode(),
+		receiveData: msg.Bytes(),
 	}
 	codec := NewCodec(mock, false) // Disable auto-ACK
 

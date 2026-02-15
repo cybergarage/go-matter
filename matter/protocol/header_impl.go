@@ -138,8 +138,8 @@ func (h *header) HasVendorID() bool {
 	return (h.exchangeFlags & ExchangeFlagVendor) != 0
 }
 
-// Encode serializes the exchange header to bytes (little-endian).
-func (h *header) Encode() []byte {
+// Bytes serializes the exchange header to bytes (little-endian).
+func (h *header) Bytes() []byte {
 	size := 6
 	if h.HasVendorID() {
 		size += 2
@@ -203,7 +203,7 @@ func DecodeExchangeHeader(data []byte) (Header, int, error) {
 
 // String returns a human-readable representation with hex dump.
 func (h *header) String() string {
-	encoded := h.Encode()
+	encoded := h.Bytes()
 	flags := []string{}
 	if h.IsInitiator() {
 		flags = append(flags, "I")

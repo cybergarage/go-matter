@@ -39,8 +39,8 @@ type Header interface {
 	HasSecuredExtensions() bool
 	// HasVendorID returns true if the vendor ID flag is set.
 	HasVendorID() bool
-	// Encode encodes the header into a byte slice for transmission.
-	Encode() []byte
+	// Bytes encodes the header into a byte slice for transmission.
+	Bytes() []byte
 	// String returns a human-readable representation of the header for debugging purposes.
 	String() string
 }

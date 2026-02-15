@@ -27,7 +27,7 @@ func TestFrameEncodeDecodeRoundtrip(t *testing.T) {
 		[]byte{0x01, 0x02, 0x03, 0x04},
 	)
 
-	encoded := frame.Encode()
+	encoded := frame.Bytes()
 	decoded, err := DecodeFrame(encoded)
 	if err != nil {
 		t.Fatalf("DecodeFrame failed: %v", err)

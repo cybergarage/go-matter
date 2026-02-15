@@ -43,10 +43,10 @@ func (m *messageImpl) Payload() []byte {
 	return m.payload
 }
 
-// Encode serializes the complete message to bytes.
-func (m *messageImpl) Encode() []byte {
-	packetBytes := m.messageHeader.Encode()
-	protocolBytes := m.protocolHeader.Encode()
+// Bytes serializes the complete message to bytes.
+func (m *messageImpl) Bytes() []byte {
+	packetBytes := m.messageHeader.Bytes()
+	protocolBytes := m.protocolHeader.Bytes()
 
 	result := make([]byte, 0, len(packetBytes)+len(protocolBytes)+len(m.payload))
 	result = append(result, packetBytes...)

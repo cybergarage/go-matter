@@ -196,7 +196,7 @@ func TestAckEncodeDecodeRoundtrip(t *testing.T) {
 	ackMsg := BuildStandaloneAck(receivedMsg, 100)
 
 	// Encode ACK
-	encoded := ackMsg.Encode()
+	encoded := ackMsg.Bytes()
 
 	// Decode ACK
 	decoded, err := protocol.DecodeMessage(encoded)
