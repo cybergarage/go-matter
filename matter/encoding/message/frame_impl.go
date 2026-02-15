@@ -24,25 +24,8 @@ type frame struct {
 	payload []byte
 }
 
-func (f *frame) Header() Header {
-	return f.header
-}
-
-func (f *frame) Payload() []byte {
-	return f.payload
-}
-
-func (f *frame) Bytes() []byte {
-	headerBytes := f.header.Bytes()
-	result := make([]byte, 0, len(headerBytes)+len(f.payload))
-	result = append(result, headerBytes...)
-	result = append(result, f.payload...)
-	return result
-}
-
-// DecodeFrame parses a complete Matter message frame from bytes.
-// Returns the frame or an error.
-func DecodeFrame(data []byte) (Frame, error) {
+// NewFrameFromBytes parses a complete Matter message frame from bytes.
+func NewFrameFromBytes(data []byte) (Frame, error) {
 	if len(data) < 8 {
 		return nil, fmt.Errorf("frame too short: need at least 8 bytes for header, got %d", len(data))
 	}
@@ -60,6 +43,26 @@ func DecodeFrame(data []byte) (Frame, error) {
 	}, nil
 }
 
+// Header returns the header of the frame.
+func (f *frame) Header() Header {
+	return f.header
+}
+
+// Payload returns the payload of the frame.
+func (f *frame) Payload() []byte {
+	return f.payload
+}
+
+// Bytes returns the complete byte representation of the frame, including header and payload.
+func (f *frame) Bytes() []byte {
+	headerBytes := f.header.Bytes()
+	result := make([]byte, 0, len(headerBytes)+len(f.payload))
+	result = append(result, headerBytes...)
+	result = append(result, f.payload...)
+	return result
+}
+
+// String returns a human-readable representation of the frame for debugging purposes.
 func (f *frame) String() string {
 	return fmt.Sprintf("Frame{\n  %s\n  Payload: %d bytes [%s]\n}",
 		f.header.String(),

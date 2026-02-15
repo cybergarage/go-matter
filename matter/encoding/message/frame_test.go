@@ -28,9 +28,9 @@ func TestFrameEncodeDecodeRoundtrip(t *testing.T) {
 	)
 
 	encoded := frame.Bytes()
-	decoded, err := DecodeFrame(encoded)
+	decoded, err := NewFrameFromBytes(encoded)
 	if err != nil {
-		t.Fatalf("DecodeFrame failed: %v", err)
+		t.Fatalf("NewFrameFromBytes failed: %v", err)
 	}
 
 	if decoded.Header().MessageCounter() != frame.Header().MessageCounter() {
