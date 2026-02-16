@@ -34,7 +34,7 @@ type Header interface {
 	// SessionID returns the session ID field (16 bits) if present, or 0 if not present.
 	SessionID() uint16
 	// SecurityFlags returns the security flags byte, which contains encryption and authentication flags.
-	SecurityFlags() uint8
+	SecurityFlags() SecurityFlag
 	// MessageCounter returns the message counter field (32 bits).
 	MessageCounter() uint32
 	// SourceNodeID returns the source node ID field (64 bits) if present, and a boolean indicating whether it is present.

@@ -29,7 +29,7 @@ const (
 type header struct {
 	flags         Flag
 	sessionID     uint16
-	securityFlags uint8
+	securityFlags SecurityFlag
 	msgCounter    uint32
 	srcNodeID     uint64
 	destNodeID    uint64
@@ -53,7 +53,7 @@ func WithHeaderSessionID(sessionID uint16) HeaderOption {
 }
 
 // WithHeaderSecurityFlags sets the security flags.
-func WithHeaderSecurityFlags(flags uint8) HeaderOption {
+func WithHeaderSecurityFlags(flags SecurityFlag) HeaderOption {
 	return func(h *header) {
 		h.securityFlags = flags
 	}
@@ -116,7 +116,7 @@ func NewHeaderFromBytes(data []byte) (Header, int, error) {
 	h := &header{
 		flags:         Flag(data[0]),
 		sessionID:     binary.LittleEndian.Uint16(data[1:3]),
-		securityFlags: data[3],
+		securityFlags: SecurityFlag(data[3]),
 		msgCounter:    binary.LittleEndian.Uint32(data[4:8]),
 		srcNodeID:     0,
 		destNodeID:    0,
@@ -155,7 +155,7 @@ func (h *header) SessionID() uint16 {
 	return h.sessionID
 }
 
-func (h *header) SecurityFlags() uint8 {
+func (h *header) SecurityFlags() SecurityFlag {
 	return h.securityFlags
 }
 
@@ -194,7 +194,7 @@ func (h *header) Bytes() []byte {
 	buf := make([]byte, size)
 	buf[0] = byte(h.flags)
 	binary.LittleEndian.PutUint16(buf[1:3], h.sessionID)
-	buf[3] = h.securityFlags
+	buf[3] = byte(h.securityFlags)
 	binary.LittleEndian.PutUint32(buf[4:8], h.msgCounter)
 
 	offset := minHeaderSize
