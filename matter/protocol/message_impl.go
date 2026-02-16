@@ -15,9 +15,10 @@
 package protocol
 
 import (
-	"encoding/binary"
+	"bytes"
 	"encoding/hex"
 	"fmt"
+	"io"
 
 	"github.com/cybergarage/go-matter/matter/encoding/message"
 )
@@ -82,54 +83,47 @@ func NewMessage(opts ...MessageOption) Message {
 	return m
 }
 
-// NewMessageFromBytes parses a complete Matter message from bytes.
-// Returns the message or an error.
-func NewMessageFromBytes(data []byte) (Message, error) {
+// NewMessageFromReader parses a complete Matter message from an io.Reader.
+func NewMessageFromReader(reader io.Reader) (Message, error) {
 	// 4.4.1. Message Header Field Descriptions
-	msgHeader, msgHeaderSize, err := message.NewHeaderFromBytes(data)
+	msgHeader, _, err := message.NewHeaderFromReader(reader)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode message header: %w", err)
-	}
-
-	if len(data) < msgHeaderSize+minHeaderSize {
-		return nil, fmt.Errorf("message too short: need at least %d bytes for headers, got %d", msgHeaderSize+minHeaderSize, len(data))
+		return nil, err
 	}
 
 	// 4.4.3. Protocol Header Field Descriptions
-	protocolHeader, protocolSize, err := NewHeaderFromBytes(data[msgHeaderSize:])
+	protocolHeader, _, err := NewHeaderFromReader(reader)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode protocol header: %w", err)
+		return nil, err
 	}
 
 	// 4.4.1.7. Message Extensions (variable)
-	extentionsSize := 0
 	extentionPayload := []byte{}
 	if msgHeader.SecurityFlags().HasMessageExtensions() {
-		offset := msgHeaderSize + protocolSize
-		if len(data) < offset+extPayloadLengthSize {
-			return nil, fmt.Errorf("message too short: expected message extensions length field but only %d bytes remain", len(data)-msgHeaderSize-protocolSize)
+		payload, err := NewPayloadFromPrefixedReader(reader)
+		if err != nil {
+			return nil, err
 		}
-		extentionsSize = int(binary.LittleEndian.Uint16(data[offset : offset+extPayloadLengthSize]))
-		offset += extPayloadLengthSize
-		if len(data) < offset+extentionsSize {
-			return nil, fmt.Errorf("message too short: expected %d bytes of message extensions but only %d bytes remain", extentionsSize, len(data)-offset)
-		}
-		extentionPayload = data[offset+extPayloadLengthSize : offset+extPayloadLengthSize+extentionsSize]
+		extentionPayload = payload.Bytes()
 	}
 
 	// 4.4.3.8. Application Payload (variable length)
-	headerSize := msgHeaderSize + protocolSize + extentionsSize
-	if len(data) < headerSize {
-		return nil, fmt.Errorf("message too short: need at least %d bytes for headers and extensions, got %d", headerSize, len(data))
+	payload, err := NewPayloadFromReader(reader)
+	if err != nil {
+		return nil, err
 	}
-	payload := data[headerSize:]
 
 	return &messageImpl{
 		frameHeader:    msgHeader,
 		protocolHeader: protocolHeader,
 		extensions:     extentionPayload,
-		payload:        payload,
+		payload:        payload.Bytes(),
 	}, nil
+}
+
+// NewMessageFromBytes parses a complete Matter message from bytes.
+func NewMessageFromBytes(data []byte) (Message, error) {
+	return NewMessageFromReader(bytes.NewReader(data))
 }
 
 // Payload returns the message payload bytes.

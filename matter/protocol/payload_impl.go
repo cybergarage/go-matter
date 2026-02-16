@@ -30,6 +30,15 @@ func NewPayloadWithBytes(data []byte) Payload {
 	return &payload{data: data}
 }
 
+// NewPayloadFromReader reads the entire payload from the given reader and returns it as a Payload.
+func NewPayloadFromReader(reader io.Reader) (Payload, error) {
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read payload data: %w", err)
+	}
+	return NewPayloadWithBytes(data), nil
+}
+
 // NewPayloadFromPrefixedReader reads a length-prefixed payload from the given reader and returns it as a Payload.
 func NewPayloadFromPrefixedReader(reader io.Reader) (Payload, error) {
 	var length uint16
