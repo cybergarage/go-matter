@@ -92,16 +92,12 @@ func NewHeader(opts ...HeaderOption) Header {
 	return h
 }
 
-// NewHeaderFromReader parses an exchange header from an io.Reader (little-endian).
-// Returns the header and the number of bytes consumed, or an error.
-func NewHeaderFromReader(reader io.Reader) (Header, int, error) {
+// NewHeaderFromReader parses an exchange header from an io.Reader.
+func NewHeaderFromReader(reader io.Reader) (Header, error) {
 	var buf [6]byte
-	n, err := io.ReadAtLeast(reader, buf[:], 6)
+	_, err := io.ReadAtLeast(reader, buf[:], 6)
 	if err != nil {
-		return nil, n, err
-	}
-	if n < 6 {
-		return nil, n, fmt.Errorf("exchange header too short: need at least 6 bytes, got %d", n)
+		return nil, err
 	}
 
 	h := &header{
@@ -112,42 +108,32 @@ func NewHeaderFromReader(reader io.Reader) (Header, int, error) {
 		vendorID:      0x0000,
 		ackCounter:    0,
 	}
-	offset := 6
 
 	// Read vendorID if present
 	if h.HasVendorID() {
 		var vbuf [2]byte
-		vn, verr := io.ReadAtLeast(reader, vbuf[:], 2)
-		if verr != nil {
-			return nil, offset + vn, verr
-		}
-		if vn < 2 {
-			return nil, offset + vn, fmt.Errorf("exchange header truncated: vendor ID expected but only %d bytes read", vn)
+		_, err := io.ReadAtLeast(reader, vbuf[:], 2)
+		if err != nil {
+			return nil, err
 		}
 		h.vendorID = binary.LittleEndian.Uint16(vbuf[:])
-		offset += 2
 	}
 
 	// Read ackCounter if present
 	if h.IsAck() {
 		var abuf [4]byte
-		an, aerr := io.ReadAtLeast(reader, abuf[:], 4)
-		if aerr != nil {
-			return nil, offset + an, aerr
-		}
-		if an < 4 {
-			return nil, offset + an, fmt.Errorf("exchange header truncated: ack counter expected but only %d bytes read", an)
+		_, err := io.ReadAtLeast(reader, abuf[:], 4)
+		if err != nil {
+			return nil, err
 		}
 		h.ackCounter = binary.LittleEndian.Uint32(abuf[:])
-		offset += 4
 	}
 
-	return h, offset, nil
+	return h, nil
 }
 
-// NewHeaderFromBytes parses an exchange header from bytes (little-endian).
-// Returns the header and the number of bytes consumed, or an error.
-func NewHeaderFromBytes(data []byte) (Header, int, error) {
+// NewHeaderFromBytes parses an exchange header from bytes.
+func NewHeaderFromBytes(data []byte) (Header, error) {
 	return NewHeaderFromReader(bytes.NewReader(data))
 }
 

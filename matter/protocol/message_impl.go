@@ -92,7 +92,7 @@ func NewMessageFromReader(reader io.Reader) (Message, error) {
 	}
 
 	// 4.4.3. Protocol Header Field Descriptions
-	protocolHeader, _, err := NewHeaderFromReader(reader)
+	protocolHeader, err := NewHeaderFromReader(reader)
 	if err != nil {
 		return nil, err
 	}
