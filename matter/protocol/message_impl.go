@@ -23,11 +23,6 @@ import (
 	"github.com/cybergarage/go-matter/matter/encoding/message"
 )
 
-const (
-	minHeaderSize        = 6
-	extPayloadLengthSize = 2
-)
-
 type frameHeader = message.Header
 type protocolHeader = Header
 

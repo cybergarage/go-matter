@@ -63,8 +63,12 @@ func TestBuildStandaloneAck(t *testing.T) {
 	if ackMsg.ExchangeID() != receivedMsg.ExchangeID() {
 		t.Errorf("ACK ExchangeID mismatch: got 0x%04X, want 0x%04X", ackMsg.ExchangeID(), receivedMsg.ExchangeID())
 	}
-	if ackMsg.AckCounter() != receivedMsg.MessageCounter() {
-		t.Errorf("ACK AckCounter mismatch: got %d, want %d", ackMsg.AckCounter(), receivedMsg.MessageCounter())
+	ackCounter, hasAckCounter := ackMsg.AckCounter()
+	receivedMsgCounter := receivedMsg.MessageCounter()
+	if !hasAckCounter {
+		t.Error("Expected AckCounter to be present")
+	} else if ackCounter != receivedMsgCounter {
+		t.Errorf("ACK AckCounter mismatch: got %d, want %d", ackCounter, receivedMsgCounter)
 	}
 
 	// Verify ACK has no payload
@@ -232,7 +236,11 @@ func TestAckEncodeDecodeRoundtrip(t *testing.T) {
 	if !decoded.IsAck() {
 		t.Error("Decoded message should have ACK flag set")
 	}
-	if decoded.AckCounter() != receivedMsg.MessageCounter() {
-		t.Errorf("Decoded AckCounter mismatch: got %d, want %d", decoded.AckCounter(), receivedMsg.MessageCounter())
+	ackCounter, hasAckCounter := decoded.AckCounter()
+	receivedMsgCounter := receivedMsg.MessageCounter()
+	if !hasAckCounter {
+		t.Error("Expected AckCounter to be present")
+	} else if ackCounter != receivedMsgCounter {
+		t.Errorf("Decoded AckCounter mismatch: got %d, want %d", ackCounter, receivedMsgCounter)
 	}
 }

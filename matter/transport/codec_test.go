@@ -171,8 +171,11 @@ func TestCodecReceiveWithAutoAck(t *testing.T) {
 	if !ack.IsAck() {
 		t.Error("Expected ACK flag to be set in sent message")
 	}
-	if ack.AckCounter() != msg.MessageCounter() {
-		t.Errorf("ACK counter mismatch: got %d, want %d", ack.AckCounter(), msg.MessageCounter())
+	ackCounter, hasAckCounter := ack.AckCounter()
+	if !hasAckCounter {
+		t.Error("Expected AckCounter to be present in ACK message")
+	} else if ackCounter != msg.MessageCounter() {
+		t.Errorf("ACK counter mismatch: got %d, want %d", ackCounter, msg.MessageCounter())
 	}
 }
 

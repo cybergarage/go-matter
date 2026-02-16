@@ -14,6 +14,14 @@
 
 package protocol
 
+import (
+	"github.com/cybergarage/go-matter/matter/types"
+)
+
+// VendorID represents a vendor ID.
+// 2.5.2. Vendor Identifier (Vendor ID, VID).
+type VendorID = types.VendorID
+
 // Header represents the protocol layer header.
 // 4.4.3. Protocol Header Field Descriptions.
 type Header interface {
@@ -25,10 +33,12 @@ type Header interface {
 	ExchangeID() uint16
 	// ProtocolID returns the protocol ID.
 	ProtocolID() uint16
-	// VendorID returns the vendor ID.
-	VendorID() uint16
-	// AckCounter returns the acknowledgement counter.
-	AckCounter() uint32
+	// VendorID returns the vendor ID if present.
+	VendorID() (VendorID, bool)
+	// AckCounter returns the acknowledgement counter if present.
+	AckCounter() (uint32, bool)
+	// SecuredExtensions returns the secured extensions bytes if present.
+	SecuredExtensions() ([]byte, bool)
 	// IsInitiator returns true if the initiator flag is set.
 	IsInitiator() bool
 	// IsAck returns true if the acknowledgement flag is set.

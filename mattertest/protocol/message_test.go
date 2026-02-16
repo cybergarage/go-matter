@@ -72,8 +72,14 @@ func TestDecodeRealWorldPayloads(t *testing.T) {
 				if !msg.IsAck() {
 					t.Error("Expected ACK flag to be set")
 				}
-				if msg.AckCounter() != 42 {
-					t.Errorf("Expected ackCounter 42, got %d", msg.AckCounter())
+				ackCounterm, hasAckCounter := msg.AckCounter()
+				if !hasAckCounter {
+					t.Error("Expected AckCounter to be present")
+				} else if ackCounterm != 42 {
+					t.Errorf("Expected ackCounter 42, got %d", ackCounterm)
+				}
+				if msg.MessageCounter() != 100 {
+					t.Errorf("Expected messageCounter 100, got %d", msg.MessageCounter())
 				}
 				if msg.MessageCounter() != 100 {
 					t.Errorf("Expected messageCounter 100, got %d", msg.MessageCounter())
@@ -95,8 +101,11 @@ func TestDecodeRealWorldPayloads(t *testing.T) {
 				if !msg.HasVendorID() {
 					t.Error("Expected vendor flag to be set")
 				}
-				if msg.VendorID() != 0x1234 {
-					t.Errorf("Expected vendorID 0x1234, got 0x%04X", msg.VendorID())
+				vendorID, hasVendorID := msg.VendorID()
+				if !hasVendorID {
+					t.Error("Expected VendorID to be present")
+				} else if vendorID != 0x1234 {
+					t.Errorf("Expected vendorID 0x1234, got 0x%04X", vendorID)
 				}
 				if msg.ProtocolID() != 0xfff1 {
 					t.Errorf("Expected protocolID 0xfff1, got 0x%04X", msg.ProtocolID())

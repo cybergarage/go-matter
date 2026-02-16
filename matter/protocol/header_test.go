@@ -78,6 +78,7 @@ func TestHeaderEncodeDecodeRoundtrip(t *testing.T) {
 				WithHeaderProtocolID(0x0002),
 				WithHeaderVendorID(0xABCD),
 				WithHeaderAckCounter(0xDEADBEEF),
+				WithHeaderSecuredExtensions([]byte{0x01, 0x02, 0x03, 0x04}),
 			),
 		},
 	}
@@ -106,11 +107,15 @@ func TestHeaderEncodeDecodeRoundtrip(t *testing.T) {
 			if decoded.ProtocolID() != tt.header.ProtocolID() {
 				t.Errorf("ProtocolID mismatch: got 0x%04X, want 0x%04X", decoded.ProtocolID(), tt.header.ProtocolID())
 			}
-			if tt.header.HasVendorID() && decoded.VendorID() != tt.header.VendorID() {
-				t.Errorf("VendorID mismatch: got 0x%04X, want 0x%04X", decoded.VendorID(), tt.header.VendorID())
+			decodedVendorID, decordedHasVendorID := decoded.VendorID()
+			ttHasVendorID, _ := tt.header.VendorID()
+			if tt.header.HasVendorID() && (!decordedHasVendorID || decodedVendorID != ttHasVendorID) {
+				t.Errorf("VendorID mismatch: got 0x%04X, want 0x%04X", decodedVendorID, ttHasVendorID)
 			}
-			if tt.header.IsAck() && decoded.AckCounter() != tt.header.AckCounter() {
-				t.Errorf("AckCounter mismatch: got 0x%08X, want 0x%08X", decoded.AckCounter(), tt.header.AckCounter())
+			decordedAckCounter, decordedHasAckCounter := decoded.AckCounter()
+			ttHasAckCounter, _ := tt.header.AckCounter()
+			if tt.header.IsAck() && (!decordedHasAckCounter || decordedAckCounter != ttHasAckCounter) {
+				t.Errorf("AckCounter mismatch: got 0x%08X, want 0x%08X", decordedAckCounter, ttHasAckCounter)
 			}
 		})
 	}

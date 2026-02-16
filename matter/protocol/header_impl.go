@@ -22,13 +22,18 @@ import (
 	"io"
 )
 
+const (
+	minHeaderSize = 6
+)
+
 type header struct {
-	exchangeFlags uint8
-	opcode        uint8
-	exchangeID    uint16
-	protocolID    uint16
-	vendorID      uint16
-	ackCounter    uint32
+	exchangeFlags     uint8
+	opcode            uint8
+	exchangeID        uint16
+	protocolID        uint16
+	vendorID          uint16
+	ackCounter        uint32
+	securedExtensions []byte
 }
 
 // HeaderOption configures a Header instance.
@@ -65,6 +70,7 @@ func WithHeaderProtocolID(protocolID uint16) HeaderOption {
 // WithHeaderVendorID sets the vendor ID.
 func WithHeaderVendorID(vendorID uint16) HeaderOption {
 	return func(h *header) {
+		h.exchangeFlags |= ExchangeFlagVendor
 		h.vendorID = vendorID
 	}
 }
@@ -72,19 +78,29 @@ func WithHeaderVendorID(vendorID uint16) HeaderOption {
 // WithHeaderAckCounter sets the acknowledgement counter.
 func WithHeaderAckCounter(counter uint32) HeaderOption {
 	return func(h *header) {
+		h.exchangeFlags |= ExchangeFlagAck
 		h.ackCounter = counter
+	}
+}
+
+// WithHeaderSecuredExtensions sets the secured extensions.
+func WithHeaderSecuredExtensions(ext []byte) HeaderOption {
+	return func(h *header) {
+		h.exchangeFlags |= ExchangeFlagSecuredExtensions
+		h.securedExtensions = ext
 	}
 }
 
 // NewHeader creates a new Header instance with the provided options.
 func NewHeader(opts ...HeaderOption) Header {
 	h := &header{
-		exchangeFlags: 0x00,
-		opcode:        0x00,
-		exchangeID:    0x0000,
-		protocolID:    0x0000,
-		vendorID:      0x0000,
-		ackCounter:    0,
+		exchangeFlags:     0x00,
+		opcode:            0x00,
+		exchangeID:        0x0000,
+		protocolID:        0x0000,
+		vendorID:          0x0000,
+		ackCounter:        0,
+		securedExtensions: []byte{},
 	}
 	for _, opt := range opts {
 		opt(h)
@@ -94,22 +110,22 @@ func NewHeader(opts ...HeaderOption) Header {
 
 // NewHeaderFromReader parses an exchange header from an io.Reader.
 func NewHeaderFromReader(reader io.Reader) (Header, error) {
-	var buf [6]byte
-	_, err := io.ReadAtLeast(reader, buf[:], 6)
+	var buf [minHeaderSize]byte
+	_, err := io.ReadAtLeast(reader, buf[:], minHeaderSize)
 	if err != nil {
 		return nil, err
 	}
-
 	h := &header{
-		exchangeFlags: buf[0],
-		opcode:        buf[1],
-		exchangeID:    binary.LittleEndian.Uint16(buf[2:4]),
-		protocolID:    binary.LittleEndian.Uint16(buf[4:6]),
-		vendorID:      0x0000,
-		ackCounter:    0,
+		exchangeFlags:     buf[0],
+		opcode:            buf[1],
+		exchangeID:        binary.LittleEndian.Uint16(buf[2:4]),
+		protocolID:        binary.LittleEndian.Uint16(buf[4:6]),
+		vendorID:          0x0000,
+		ackCounter:        0,
+		securedExtensions: []byte{},
 	}
 
-	// Read vendorID if present
+	// 4.4.3.5. Protocol Vendor ID (16 bits)
 	if h.HasVendorID() {
 		var vbuf [2]byte
 		_, err := io.ReadAtLeast(reader, vbuf[:], 2)
@@ -119,7 +135,7 @@ func NewHeaderFromReader(reader io.Reader) (Header, error) {
 		h.vendorID = binary.LittleEndian.Uint16(vbuf[:])
 	}
 
-	// Read ackCounter if present
+	// 4.4.3.6. Acknowledged Message Counter (32 bits)
 	if h.IsAck() {
 		var abuf [4]byte
 		_, err := io.ReadAtLeast(reader, abuf[:], 4)
@@ -127,6 +143,15 @@ func NewHeaderFromReader(reader io.Reader) (Header, error) {
 			return nil, err
 		}
 		h.ackCounter = binary.LittleEndian.Uint32(abuf[:])
+	}
+
+	// 4.4.3.7. Secured Extensions (variable)
+	if h.HasSecuredExtensions() {
+		payload, err := NewPayloadFromPrefixedReader(reader)
+		if err != nil {
+			return nil, err
+		}
+		h.securedExtensions = payload.Bytes()
 	}
 
 	return h, nil
@@ -157,14 +182,20 @@ func (h *header) ProtocolID() uint16 {
 	return h.protocolID
 }
 
-// VendorID returns the vendor ID.
-func (h *header) VendorID() uint16 {
-	return h.vendorID
+// VendorID returns the vendor ID if present.
+func (h *header) VendorID() (VendorID, bool) {
+	if !h.HasVendorID() {
+		return 0, false
+	}
+	return VendorID(h.vendorID), true
 }
 
-// AckCounter returns the acknowledgement counter.
-func (h *header) AckCounter() uint32 {
-	return h.ackCounter
+// AckCounter returns the acknowledgement counter if present.
+func (h *header) AckCounter() (uint32, bool) {
+	if !h.IsAck() {
+		return 0, false
+	}
+	return h.ackCounter, true
 }
 
 // IsInitiator returns true if the initiator flag is set.
@@ -192,14 +223,25 @@ func (h *header) HasVendorID() bool {
 	return (h.exchangeFlags & ExchangeFlagVendor) != 0
 }
 
+// SecuredExtensions returns the secured extensions bytes if present, along with a boolean indicating their presence.
+func (h *header) SecuredExtensions() ([]byte, bool) {
+	if !h.HasSecuredExtensions() {
+		return nil, false
+	}
+	return h.securedExtensions, true
+}
+
 // Bytes serializes the exchange header to bytes (little-endian).
 func (h *header) Bytes() []byte {
-	size := 6
+	size := minHeaderSize
 	if h.HasVendorID() {
 		size += 2
 	}
 	if h.IsAck() {
 		size += 4
+	}
+	if h.HasSecuredExtensions() {
+		size += len(h.securedExtensions)
 	}
 
 	buf := make([]byte, size)
@@ -215,6 +257,11 @@ func (h *header) Bytes() []byte {
 	}
 	if h.IsAck() {
 		binary.LittleEndian.PutUint32(buf[offset:offset+4], h.ackCounter)
+		offset += 4
+	}
+	if h.HasSecuredExtensions() {
+		copy(buf[offset:], h.securedExtensions)
+		offset += len(h.securedExtensions)
 	}
 
 	return buf
@@ -240,9 +287,10 @@ func (h *header) String() string {
 		flags = append(flags, "V")
 	}
 
-	return fmt.Sprintf("ExchangeHeader{Flags=0x%02X [%v], Opcode=0x%02X, ExchID=0x%04X, ProtoID=0x%04X, VendorID=0x%04X (present=%v), AckCtr=%d (present=%v)} [%d bytes: %s]",
+	return fmt.Sprintf("ExchangeHeader{Flags=0x%02X [%v], Opcode=0x%02X, ExchID=0x%04X, ProtoID=0x%04X, VendorID=0x%04X (present=%v), AckCtr=%d (present=%v), SecuredExtensions=%d bytes (present=%v)} [%d bytes: %s]",
 		h.exchangeFlags, flags, h.opcode, h.exchangeID, h.protocolID,
 		h.vendorID, h.HasVendorID(),
 		h.ackCounter, h.IsAck(),
+		len(h.securedExtensions), h.HasSecuredExtensions(),
 		len(encoded), hex.EncodeToString(encoded))
 }
