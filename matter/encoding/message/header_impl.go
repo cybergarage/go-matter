@@ -18,6 +18,8 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+
+	"github.com/cybergarage/go-matter/matter/types"
 )
 
 const (
@@ -25,19 +27,19 @@ const (
 )
 
 type header struct {
-	flags          uint8
-	sessionID      uint16
-	securityFlags  uint8
-	messageCounter uint32
-	sourceNodeID   uint64
-	destNodeID     uint64
+	flags         Flag
+	sessionID     uint16
+	securityFlags uint8
+	msgCounter    uint32
+	srcNodeID     uint64
+	destNodeID    uint64
 }
 
 // HeaderOption configures a Header instance.
 type HeaderOption func(*header)
 
 // WithHeaderFlags sets the header flags.
-func WithHeaderFlags(flags uint8) HeaderOption {
+func WithHeaderFlags(flags Flag) HeaderOption {
 	return func(h *header) {
 		h.flags = flags
 	}
@@ -60,33 +62,43 @@ func WithHeaderSecurityFlags(flags uint8) HeaderOption {
 // WithHeaderMessageCounter sets the message counter.
 func WithHeaderMessageCounter(counter uint32) HeaderOption {
 	return func(h *header) {
-		h.messageCounter = counter
+		h.msgCounter = counter
 	}
 }
 
 // WithHeaderSourceNodeID sets the source node ID.
-func WithHeaderSourceNodeID(nodeID uint64) HeaderOption {
+func WithHeaderSourceNodeID(nodeID NodeID) HeaderOption {
 	return func(h *header) {
-		h.sourceNodeID = nodeID
+		h.flags |= SourceNodeIDPresentMask
+		h.srcNodeID = uint64(nodeID)
 	}
 }
 
-// WithHeaderDestNodeID sets the destination node ID.
-func WithHeaderDestNodeID(nodeID uint64) HeaderOption {
+// WithHeaderDestinationNodeID sets the destination node ID.
+func WithHeaderDestinationNodeID(nodeID NodeID) HeaderOption {
 	return func(h *header) {
-		h.destNodeID = nodeID
+		h.flags |= DestinationNodeIDPresent
+		h.destNodeID = uint64(nodeID)
+	}
+}
+
+// WithHeaderGroupID sets the group ID, which is encoded in the destination node ID field with the destination node ID presence flag.
+func WithHeaderGroupID(groupID GroupID) HeaderOption {
+	return func(h *header) {
+		h.flags |= GroupIDPresent
+		h.destNodeID = uint64(groupID)
 	}
 }
 
 // NewHeader creates a new Header instance with the provided options.
 func NewHeader(opts ...HeaderOption) Header {
 	h := &header{
-		flags:          0x00,
-		sessionID:      0x0000,
-		securityFlags:  0x00,
-		messageCounter: 0,
-		sourceNodeID:   0,
-		destNodeID:     0,
+		flags:         0x00,
+		sessionID:     0x0000,
+		securityFlags: 0x00,
+		msgCounter:    0,
+		srcNodeID:     0,
+		destNodeID:    0,
 	}
 	for _, opt := range opts {
 		opt(h)
@@ -102,25 +114,25 @@ func NewHeaderFromBytes(data []byte) (Header, int, error) {
 	}
 
 	h := &header{
-		flags:          data[0],
-		sessionID:      binary.LittleEndian.Uint16(data[1:3]),
-		securityFlags:  data[3],
-		messageCounter: binary.LittleEndian.Uint32(data[4:8]),
-		sourceNodeID:   0,
-		destNodeID:     0,
+		flags:         Flag(data[0]),
+		sessionID:     binary.LittleEndian.Uint16(data[1:3]),
+		securityFlags: data[3],
+		msgCounter:    binary.LittleEndian.Uint32(data[4:8]),
+		srcNodeID:     0,
+		destNodeID:    0,
 	}
 
 	offset := minHeaderSize
 
-	if h.HasSourceNodeID() {
+	if h.flags.HasSourceNodeIDField() {
 		if len(data) < offset+8 {
 			return nil, 0, fmt.Errorf("header truncated: source node ID expected but only %d bytes remain", len(data)-offset)
 		}
-		h.sourceNodeID = binary.LittleEndian.Uint64(data[offset : offset+8])
+		h.srcNodeID = binary.LittleEndian.Uint64(data[offset : offset+8])
 		offset += 8
 	}
 
-	if h.HasDestNodeID() {
+	if h.flags.HasDestinationNodeIDField() {
 		if len(data) < offset+8 {
 			return nil, 0, fmt.Errorf("header truncated: dest node ID expected but only %d bytes remain", len(data)-offset)
 		}
@@ -131,7 +143,11 @@ func NewHeaderFromBytes(data []byte) (Header, int, error) {
 	return h, offset, nil
 }
 
-func (h *header) Flags() uint8 {
+func (h *header) Version() uint8 {
+	return h.flags.Version()
+}
+
+func (h *header) Flags() Flag {
 	return h.flags
 }
 
@@ -144,73 +160,61 @@ func (h *header) SecurityFlags() uint8 {
 }
 
 func (h *header) MessageCounter() uint32 {
-	return h.messageCounter
+	return h.msgCounter
 }
 
-func (h *header) SourceNodeID() uint64 {
-	return h.sourceNodeID
+func (h *header) SourceNodeID() (NodeID, bool) {
+	return NodeID(h.srcNodeID), h.flags.HasSourceNodeIDField()
 }
 
-func (h *header) DestNodeID() uint64 {
-	return h.destNodeID
+func (h *header) DestinationNodeID() (NodeID, bool) {
+	return NodeID(h.destNodeID), h.flags.HasDestinationNodeIDField()
 }
 
-func (h *header) Version() uint8 {
-	return h.flags & VersionMask
-}
-
-func (h *header) HasSourceNodeID() bool {
-	return (h.flags & FlagSourceNodeIDPresent) != 0
-}
-
-func (h *header) HasDestNodeID() bool {
-	return (h.flags & FlagDestNodeIDPresent) != 0
+func (h *header) GroupID() (GroupID, bool) {
+	if !h.flags.HasDestinationNodeIDField() {
+		return GroupID(0), false
+	}
+	groupID, err := types.NewGroupIDFrom(h.destNodeID)
+	if err != nil {
+		return GroupID(0), false
+	}
+	return groupID, true
 }
 
 func (h *header) Bytes() []byte {
 	size := minHeaderSize
-	if h.HasSourceNodeID() {
+	if h.flags.HasSourceNodeIDField() {
 		size += 8
 	}
-	if h.HasDestNodeID() {
+	if h.flags.HasDestinationNodeIDField() {
 		size += 8
 	}
 
 	buf := make([]byte, size)
-	buf[0] = h.flags
+	buf[0] = byte(h.flags)
 	binary.LittleEndian.PutUint16(buf[1:3], h.sessionID)
 	buf[3] = h.securityFlags
-	binary.LittleEndian.PutUint32(buf[4:8], h.messageCounter)
+	binary.LittleEndian.PutUint32(buf[4:8], h.msgCounter)
 
 	offset := minHeaderSize
-	if h.HasSourceNodeID() {
-		binary.LittleEndian.PutUint64(buf[offset:offset+8], h.sourceNodeID)
+	if h.flags.HasSourceNodeIDField() {
+		binary.LittleEndian.PutUint64(buf[offset:offset+8], h.srcNodeID)
 		offset += 8
 	}
-	if h.HasDestNodeID() {
+	if h.flags.HasDestinationNodeIDField() {
 		binary.LittleEndian.PutUint64(buf[offset:offset+8], h.destNodeID)
 	}
 
 	return buf
 }
 
-// Size returns the total size of the header in bytes, which depends on which optional fields are present.
-func (h *header) Size() int {
-	size := minHeaderSize
-	if h.HasSourceNodeID() {
-		size += 8
-	}
-	if h.HasDestNodeID() {
-		size += 8
-	}
-	return size
-}
-
+// String returns a human-readable string representation of the header for debugging purposes.
 func (h *header) String() string {
 	encoded := h.Bytes()
 	return fmt.Sprintf("FrameHeader{Version=%d, SessionID=0x%04X, SecurityFlags=0x%02X, MsgCtr=%d, SrcNode=0x%016X (present=%v), DstNode=0x%016X (present=%v)} [%d bytes: %s]",
-		h.Version(), h.sessionID, h.securityFlags, h.messageCounter,
-		h.sourceNodeID, h.HasSourceNodeID(),
-		h.destNodeID, h.HasDestNodeID(),
+		h.Version(), h.sessionID, h.securityFlags, h.msgCounter,
+		h.srcNodeID, h.flags.HasSourceNodeIDField(),
+		h.destNodeID, h.flags.HasDestinationNodeIDField(),
 		len(encoded), hex.EncodeToString(encoded))
 }

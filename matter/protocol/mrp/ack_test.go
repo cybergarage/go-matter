@@ -78,7 +78,6 @@ func TestBuildStandaloneAckWithSourceNode(t *testing.T) {
 	receivedMsg := protocol.NewMessage(
 		protocol.WithMessageFrameHeader(
 			message.NewHeader(
-				message.WithHeaderFlags(message.FlagSourceNodeIDPresent),
 				message.WithHeaderSessionID(0x1234),
 				message.WithHeaderSecurityFlags(0x00),
 				message.WithHeaderMessageCounter(42),
@@ -99,11 +98,16 @@ func TestBuildStandaloneAckWithSourceNode(t *testing.T) {
 	ackMsg := BuildStandaloneAck(receivedMsg, outboundCounter)
 
 	// Verify that the ACK has the destination node ID set to the source of the received message
-	if !ackMsg.HasDestNodeID() {
+	destNodeID, hasDestNodeID := ackMsg.DestinationNodeID()
+	if !hasDestNodeID {
 		t.Error("Expected ACK to have destination node ID set")
 	}
-	if ackMsg.DestNodeID() != receivedMsg.SourceNodeID() {
-		t.Errorf("ACK DestNodeID mismatch: got 0x%016X, want 0x%016X", ackMsg.DestNodeID(), receivedMsg.SourceNodeID())
+	souceNodeID, hasSourceNodeID := receivedMsg.SourceNodeID()
+	if !hasSourceNodeID {
+		t.Error("Received message should have source node ID set")
+	}
+	if destNodeID != souceNodeID {
+		t.Errorf("ACK DestNodeID mismatch: got 0x%016X, want 0x%016X", destNodeID, souceNodeID)
 	}
 }
 

@@ -14,46 +14,35 @@
 
 package message
 
-// HeaderFlags contains flag bit positions for the header flags field.
-// 4.4.1. Message Header Field Descriptions.
-const (
-	// VersionMask extracts the version field (bits 0-3).
-	VersionMask = 0x0F
-	// FlagDestNodeIDPresent indicates destination node ID is present (bit 5).
-	FlagDestNodeIDPresent = 0x20
-	// FlagSourceNodeIDPresent indicates source node ID is present (bit 6).
-	FlagSourceNodeIDPresent = 0x40
-	// DSIZMask extracts the DSIZ field (bits 6-7 in second byte for extended format).
-	// DSIZ mask (bits 6-7, in second byte for extended format).
-	// Note: DSIZ is not used in this minimal implementation.
-	DSIZMask = 0xC0
-	// DSIZShift is the bit position shift for the DSIZ field (bits 6-7).
-	DSIZShift = 6
+import (
+	"github.com/cybergarage/go-matter/matter/types"
 )
+
+// NodeID represents a node ID in the Matter protocol.
+type NodeID = types.NodeID
+
+// GroupID represents a group ID in the Matter protocol.
+type GroupID = types.GroupID
 
 // Header represents the Matter message frame header.
 // 4.4.1. Message Header Field Descriptions.
 type Header interface {
+	// Version returns the version field (4 bits) extracted from the flags byte.
+	Version() uint8
 	// Flags returns the header flags byte, which contains version and presence flags.
-	Flags() uint8
+	Flags() Flag
 	// SessionID returns the session ID field (16 bits) if present, or 0 if not present.
 	SessionID() uint16
 	// SecurityFlags returns the security flags byte, which contains encryption and authentication flags.
 	SecurityFlags() uint8
 	// MessageCounter returns the message counter field (32 bits).
 	MessageCounter() uint32
-	// SourceNodeID returns the source node ID field (64 bits) if present, or 0 if not present.
-	SourceNodeID() uint64
-	// DestNodeID returns the destination node ID field (64 bits) if present, or 0 if not present.
-	DestNodeID() uint64
-	// Version returns the version field (4 bits) extracted from the flags byte.
-	Version() uint8
-	// HasSourceNodeID indicates whether the source node ID is present.
-	HasSourceNodeID() bool
-	// HasDestNodeID indicates whether the destination node ID is present.
-	HasDestNodeID() bool
-	// Size returns the total size of the header in bytes, which depends on which optional fields are present.
-	Size() int
+	// SourceNodeID returns the source node ID field (64 bits) if present, and a boolean indicating whether it is present.
+	SourceNodeID() (NodeID, bool)
+	// DestinationNodeID returns the destination node ID field (64 bits) if present, and a boolean indicating whether it is present.
+	DestinationNodeID() (NodeID, bool)
+	// GroupID returns the group ID field (64 bits) if present, and a boolean indicating whether it is present.
+	GroupID() (GroupID, bool)
 	// Bytes returns the byte representation of the header, ready for transmission.
 	Bytes() []byte
 	// String returns a human-readable string representation of the header for debugging purposes.

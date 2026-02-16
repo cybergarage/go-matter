@@ -74,7 +74,7 @@ func NewMessage(opts ...MessageOption) Message {
 // NewMessageFromBytes parses a complete Matter message from bytes.
 // Returns the message or an error.
 func NewMessageFromBytes(data []byte) (Message, error) {
-	// Decode message header
+	// 4.4.1. Message Header Field Descriptions
 	msgHeader, msgHeaderSize, err := message.NewHeaderFromBytes(data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode message header: %w", err)
@@ -89,6 +89,8 @@ func NewMessageFromBytes(data []byte) (Message, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode protocol header: %w", err)
 	}
+
+	// 4.4.1.7. Message Extensions (variable)
 
 	// Extract payload (everything after headers)
 	headerSize := msgHeaderSize + protocolSize

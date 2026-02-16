@@ -34,9 +34,9 @@ func BuildStandaloneAck(receivedMsg protocol.Message, outboundCounter uint32) pr
 	}
 
 	// If received message had source node, send it back as destination
-	if receivedMsg.HasSourceNodeID() {
-		msgHeaderOpts = append(msgHeaderOpts, message.WithHeaderFlags(receivedMsg.Flags()|message.FlagDestNodeIDPresent))
-		msgHeaderOpts = append(msgHeaderOpts, message.WithHeaderDestNodeID(receivedMsg.SourceNodeID()))
+	msgSrcNodeID, msgHasSrcNodeID := receivedMsg.SourceNodeID()
+	if msgHasSrcNodeID {
+		msgHeaderOpts = append(msgHeaderOpts, message.WithHeaderDestinationNodeID(msgSrcNodeID))
 	}
 
 	msgHeader := message.NewHeader(msgHeaderOpts...)

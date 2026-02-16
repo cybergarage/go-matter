@@ -25,6 +25,7 @@ func TestHeaderTooShort(t *testing.T) {
 		t.Error("Expected error for short packet header, got nil")
 	}
 }
+
 func TestHeaderEncodeDecodeRoundtrip(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -57,7 +58,7 @@ func TestHeaderEncodeDecodeRoundtrip(t *testing.T) {
 				WithHeaderSecurityFlags(0x55),
 				WithHeaderMessageCounter(0x11223344),
 				WithHeaderSourceNodeID(0xAABBCCDDEEFF0011),
-				WithHeaderDestNodeID(0x9988776655443322),
+				WithHeaderDestinationNodeID(0x9988776655443322),
 			),
 		},
 	}
@@ -86,11 +87,15 @@ func TestHeaderEncodeDecodeRoundtrip(t *testing.T) {
 			if decoded.MessageCounter() != tt.header.MessageCounter() {
 				t.Errorf("MessageCounter mismatch: got 0x%08X, want 0x%08X", decoded.MessageCounter(), tt.header.MessageCounter())
 			}
-			if tt.header.HasSourceNodeID() && decoded.SourceNodeID() != tt.header.SourceNodeID() {
-				t.Errorf("SourceNodeID mismatch: got 0x%016X, want 0x%016X", decoded.SourceNodeID(), tt.header.SourceNodeID())
+			headerSrcNodeID, headerHasSrcNodeID := tt.header.SourceNodeID()
+			decodedSrcNodeID, decodedHasSrcNodeID := decoded.SourceNodeID()
+			if headerHasSrcNodeID && decodedHasSrcNodeID && decodedSrcNodeID != headerSrcNodeID {
+				t.Errorf("SourceNodeID mismatch: got 0x%016X, want 0x%016X", decodedSrcNodeID, headerSrcNodeID)
 			}
-			if tt.header.HasDestNodeID() && decoded.DestNodeID() != tt.header.DestNodeID() {
-				t.Errorf("DestNodeID mismatch: got 0x%016X, want 0x%016X", decoded.DestNodeID(), tt.header.DestNodeID())
+			headerDestNodeID, headerHasDestNodeID := tt.header.DestinationNodeID()
+			decodedDestNodeID, decodedHasDestNodeID := decoded.DestinationNodeID()
+			if headerHasDestNodeID && decodedHasDestNodeID && decodedDestNodeID != headerDestNodeID {
+				t.Errorf("DestNodeID mismatch: got 0x%016X, want 0x%016X", decodedDestNodeID, headerDestNodeID)
 			}
 		})
 	}
