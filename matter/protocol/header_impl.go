@@ -233,35 +233,21 @@ func (h *header) SecuredExtensions() ([]byte, bool) {
 
 // Bytes serializes the exchange header to bytes (little-endian).
 func (h *header) Bytes() []byte {
-	size := minHeaderSize
-	if h.HasVendorID() {
-		size += 2
-	}
-	if h.IsAck() {
-		size += 4
-	}
-	if h.HasSecuredExtensions() {
-		size += len(h.securedExtensions)
-	}
-
-	buf := make([]byte, size)
+	buf := make([]byte, minHeaderSize)
 	buf[0] = h.exchangeFlags
 	buf[1] = h.opcode
 	binary.LittleEndian.PutUint16(buf[2:4], h.exchangeID)
 	binary.LittleEndian.PutUint16(buf[4:6], h.protocolID)
 
-	offset := 6
 	if h.HasVendorID() {
-		binary.LittleEndian.PutUint16(buf[offset:offset+2], h.vendorID)
-		offset += 2
+		buf = binary.LittleEndian.AppendUint16(buf, h.vendorID)
 	}
 	if h.IsAck() {
-		binary.LittleEndian.PutUint32(buf[offset:offset+4], h.ackCounter)
-		offset += 4
+		buf = binary.LittleEndian.AppendUint32(buf, h.ackCounter)
 	}
-	if h.HasSecuredExtensions() {
-		copy(buf[offset:], h.securedExtensions)
-		offset += len(h.securedExtensions)
+	if ext, ok := h.SecuredExtensions(); ok {
+		payload := NewPayloadWithBytes(ext)
+		buf = append(buf, payload.PrefixedBytes()...)
 	}
 
 	return buf

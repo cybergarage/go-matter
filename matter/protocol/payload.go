@@ -16,6 +16,8 @@ package protocol
 
 // Payload represents the application payload .
 type Payload interface {
+	// PrefixedBytes returns the byte representation of the payload, including any necessary length prefixes.
+	PrefixedBytes() []byte
 	// Bytes returns the byte representation of the payload.
 	Bytes() []byte
 }

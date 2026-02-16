@@ -139,11 +139,12 @@ func (m *messageImpl) Bytes() []byte {
 	packetBytes := m.frameHeader.Bytes()
 	protocolBytes := m.protocolHeader.Bytes()
 
-	result := make([]byte, 0, len(packetBytes)+len(protocolBytes)+len(m.extensions)+len(m.payload))
+	result := make([]byte, 0, len(packetBytes)+len(protocolBytes)+len(m.payload))
 	result = append(result, packetBytes...)
 	result = append(result, protocolBytes...)
 	if ext, ok := m.Extensions(); ok {
-		result = append(result, ext...)
+		payload := NewPayloadWithBytes(ext)
+		result = append(result, payload.PrefixedBytes()...)
 	}
 	result = append(result, m.payload...)
 

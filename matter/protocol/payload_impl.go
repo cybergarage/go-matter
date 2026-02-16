@@ -57,6 +57,14 @@ func NewPayloadFromPrefixedBytes(data []byte) (Payload, error) {
 	return NewPayloadFromPrefixedReader(bytes.NewReader(data))
 }
 
+// PrefixedBytes returns the byte representation of the payload, including any necessary length prefixes.
+func (p *payload) PrefixedBytes() []byte {
+	buf := make([]byte, 2+len(p.data))
+	binary.LittleEndian.PutUint16(buf, uint16(len(p.data)))
+	copy(buf[2:], p.data)
+	return buf
+}
+
 // Bytes returns the byte representation of the payload.
 func (p *payload) Bytes() []byte {
 	return p.data
