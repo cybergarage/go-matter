@@ -15,9 +15,11 @@
 package message
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"io"
 
 	"github.com/cybergarage/go-matter/matter/types"
 )
@@ -109,34 +111,54 @@ func NewHeader(opts ...HeaderOption) Header {
 // NewHeaderFromBytes reads a header from the provided byte slice.
 // Returns the header and the number of bytes consumed, or an error.
 func NewHeaderFromBytes(data []byte) (Header, int, error) {
-	if len(data) < minHeaderSize {
-		return nil, 0, fmt.Errorf("header too short: need at least %d bytes, got %d", minHeaderSize, len(data))
+	return NewHeaderFromReader(bytes.NewReader(data))
+}
+
+// NewHeaderFromReader reads a header from an io.Reader without using io.ReadFull or NewHeaderFromBytes.
+func NewHeaderFromReader(reader io.Reader) (Header, int, error) {
+	var buf [8]byte
+	n, err := io.ReadAtLeast(reader, buf[:], minHeaderSize)
+	if err != nil {
+		return nil, n, err
+	}
+	if n < minHeaderSize {
+		return nil, n, fmt.Errorf("header too short: need at least %d bytes, got %d", minHeaderSize, n)
 	}
 
 	h := &header{
-		flags:         Flag(data[0]),
-		sessionID:     binary.LittleEndian.Uint16(data[1:3]),
-		securityFlags: SecurityFlag(data[3]),
-		msgCounter:    binary.LittleEndian.Uint32(data[4:8]),
+		flags:         Flag(buf[0]),
+		sessionID:     binary.LittleEndian.Uint16(buf[1:3]),
+		securityFlags: SecurityFlag(buf[3]),
+		msgCounter:    binary.LittleEndian.Uint32(buf[4:8]),
 		srcNodeID:     0,
 		destNodeID:    0,
 	}
-
 	offset := minHeaderSize
 
+	// Optional SourceNodeID
 	if h.flags.HasSourceNodeIDField() {
-		if len(data) < offset+8 {
-			return nil, 0, fmt.Errorf("header truncated: source node ID expected but only %d bytes remain", len(data)-offset)
+		extra := make([]byte, 8)
+		en, eerr := io.ReadAtLeast(reader, extra, 8)
+		if eerr != nil {
+			return nil, offset + en, eerr
 		}
-		h.srcNodeID = binary.LittleEndian.Uint64(data[offset : offset+8])
+		if en < 8 {
+			return nil, offset + en, fmt.Errorf("header truncated: source node ID expected but only %d bytes read", en)
+		}
+		h.srcNodeID = binary.LittleEndian.Uint64(extra)
 		offset += 8
 	}
-
+	// Optional DestinationNodeID
 	if h.flags.HasDestinationNodeIDField() {
-		if len(data) < offset+8 {
-			return nil, 0, fmt.Errorf("header truncated: dest node ID expected but only %d bytes remain", len(data)-offset)
+		extra := make([]byte, 8)
+		en, eerr := io.ReadAtLeast(reader, extra, 8)
+		if eerr != nil {
+			return nil, offset + en, eerr
 		}
-		h.destNodeID = binary.LittleEndian.Uint64(data[offset : offset+8])
+		if en < 8 {
+			return nil, offset + en, fmt.Errorf("header truncated: destination node ID expected but only %d bytes read", en)
+		}
+		h.destNodeID = binary.LittleEndian.Uint64(extra)
 		offset += 8
 	}
 

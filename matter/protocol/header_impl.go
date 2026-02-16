@@ -15,9 +15,11 @@
 package protocol
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"io"
 )
 
 type header struct {
@@ -90,41 +92,63 @@ func NewHeader(opts ...HeaderOption) Header {
 	return h
 }
 
-// NewHeaderFromBytes parses an exchange header from bytes (little-endian).
+// NewHeaderFromReader parses an exchange header from an io.Reader (little-endian).
 // Returns the header and the number of bytes consumed, or an error.
-func NewHeaderFromBytes(data []byte) (Header, int, error) {
-	if len(data) < 6 {
-		return nil, 0, fmt.Errorf("exchange header too short: need at least 6 bytes, got %d", len(data))
+func NewHeaderFromReader(reader io.Reader) (Header, int, error) {
+	var buf [6]byte
+	n, err := io.ReadAtLeast(reader, buf[:], 6)
+	if err != nil {
+		return nil, n, err
+	}
+	if n < 6 {
+		return nil, n, fmt.Errorf("exchange header too short: need at least 6 bytes, got %d", n)
 	}
 
 	h := &header{
-		exchangeFlags: data[0],
-		opcode:        data[1],
-		exchangeID:    binary.LittleEndian.Uint16(data[2:4]),
-		protocolID:    binary.LittleEndian.Uint16(data[4:6]),
+		exchangeFlags: buf[0],
+		opcode:        buf[1],
+		exchangeID:    binary.LittleEndian.Uint16(buf[2:4]),
+		protocolID:    binary.LittleEndian.Uint16(buf[4:6]),
 		vendorID:      0x0000,
 		ackCounter:    0,
 	}
-
 	offset := 6
 
+	// Read vendorID if present
 	if h.HasVendorID() {
-		if len(data) < offset+2 {
-			return nil, 0, fmt.Errorf("exchange header truncated: vendor ID expected but only %d bytes remain", len(data)-offset)
+		var vbuf [2]byte
+		vn, verr := io.ReadAtLeast(reader, vbuf[:], 2)
+		if verr != nil {
+			return nil, offset + vn, verr
 		}
-		h.vendorID = binary.LittleEndian.Uint16(data[offset : offset+2])
+		if vn < 2 {
+			return nil, offset + vn, fmt.Errorf("exchange header truncated: vendor ID expected but only %d bytes read", vn)
+		}
+		h.vendorID = binary.LittleEndian.Uint16(vbuf[:])
 		offset += 2
 	}
 
+	// Read ackCounter if present
 	if h.IsAck() {
-		if len(data) < offset+4 {
-			return nil, 0, fmt.Errorf("exchange header truncated: ack counter expected but only %d bytes remain", len(data)-offset)
+		var abuf [4]byte
+		an, aerr := io.ReadAtLeast(reader, abuf[:], 4)
+		if aerr != nil {
+			return nil, offset + an, aerr
 		}
-		h.ackCounter = binary.LittleEndian.Uint32(data[offset : offset+4])
+		if an < 4 {
+			return nil, offset + an, fmt.Errorf("exchange header truncated: ack counter expected but only %d bytes read", an)
+		}
+		h.ackCounter = binary.LittleEndian.Uint32(abuf[:])
 		offset += 4
 	}
 
 	return h, offset, nil
+}
+
+// NewHeaderFromBytes parses an exchange header from bytes (little-endian).
+// Returns the header and the number of bytes consumed, or an error.
+func NewHeaderFromBytes(data []byte) (Header, int, error) {
+	return NewHeaderFromReader(bytes.NewReader(data))
 }
 
 // ExchangeFlags returns the exchange flags.
