@@ -126,6 +126,14 @@ func NewMessageFromBytes(data []byte) (Message, error) {
 	return NewMessageFromReader(bytes.NewReader(data))
 }
 
+// Extensions returns the message extensions, if any.
+func (m *messageImpl) Extensions() ([]byte, bool) {
+	if !m.frameHeader.SecurityFlags().HasMessageExtensions() {
+		return nil, false
+	}
+	return m.extensions, true
+}
+
 // Payload returns the message payload bytes.
 func (m *messageImpl) Payload() []byte {
 	return m.payload
@@ -136,9 +144,12 @@ func (m *messageImpl) Bytes() []byte {
 	packetBytes := m.frameHeader.Bytes()
 	protocolBytes := m.protocolHeader.Bytes()
 
-	result := make([]byte, 0, len(packetBytes)+len(protocolBytes)+len(m.payload))
+	result := make([]byte, 0, len(packetBytes)+len(protocolBytes)+len(m.extensions)+len(m.payload))
 	result = append(result, packetBytes...)
 	result = append(result, protocolBytes...)
+	if ext, ok := m.Extensions(); ok {
+		result = append(result, ext...)
+	}
 	result = append(result, m.payload...)
 
 	return result

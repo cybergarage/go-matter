@@ -23,6 +23,8 @@ type Message interface {
 	message.Header
 	// Header represents the protocol header of the message.
 	Header
+	// Extensions returns the message extensions, if any.
+	Extensions() ([]byte, bool)
 	// Payload returns the payload of the message.
 	Payload() []byte
 	// Bytes serializes the complete message to bytes.
