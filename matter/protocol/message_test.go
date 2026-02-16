@@ -138,7 +138,7 @@ func TestDecodeWithCapturedPayload(t *testing.T) {
 	if !msg.IsInitiator() {
 		t.Error("Expected initiator flag to be set")
 	}
-	if !msg.IsReliabilityRequested() {
+	if !msg.IsReliability() {
 		t.Error("Expected reliability flag to be set")
 	}
 

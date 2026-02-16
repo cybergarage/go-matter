@@ -48,7 +48,7 @@ func TestDecodeRealWorldPayloads(t *testing.T) {
 				if !msg.IsInitiator() {
 					t.Error("Expected initiator flag to be set")
 				}
-				if !msg.IsReliabilityRequested() {
+				if !msg.IsReliability() {
 					t.Error("Expected reliability flag to be set")
 				}
 				if msg.Opcode() != 0x20 {
@@ -69,7 +69,7 @@ func TestDecodeRealWorldPayloads(t *testing.T) {
 				"", // No payload
 			validateFunc: func(t *testing.T, msg protocol.Message) {
 				t.Helper()
-				if !msg.IsAck() {
+				if !msg.IsAcknowledgement() {
 					t.Error("Expected ACK flag to be set")
 				}
 				ackCounterm, hasAckCounter := msg.AckCounter()

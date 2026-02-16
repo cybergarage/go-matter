@@ -74,7 +74,7 @@ func (c *Codec) Receive(ctx context.Context) (protocol.Message, error) {
 	log.Debugf("Received Matter message: %s", msg.String())
 
 	// Check if ACK is requested
-	if c.autoAck && mrp.IsAckRequested(msg) {
+	if c.autoAck && msg.IsAcknowledgement() {
 		log.Debugf("ACK requested for message counter %d", msg.MessageCounter())
 
 		// Build and send standalone ACK

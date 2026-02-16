@@ -67,7 +67,7 @@ func BuildStandaloneAck(receivedMsg protocol.Message, outboundCounter uint32) pr
 // IsAckRequested checks if the received message has the reliability flag set,
 // indicating that an acknowledgement is requested.
 func IsAckRequested(msg protocol.Message) bool {
-	return msg.IsReliabilityRequested()
+	return msg.IsReliability()
 }
 
 // MessageCounter tracks outbound message counters for a session.

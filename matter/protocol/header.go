@@ -22,17 +22,21 @@ import (
 // 2.5.2. Vendor Identifier (Vendor ID, VID).
 type VendorID = types.VendorID
 
+// ProductID represents a product ID.
+// 2.5.3. Product Identifier (Product ID, PID).
+type ProductID = types.ProductID
+
 // Header represents the protocol layer header.
 // 4.4.3. Protocol Header Field Descriptions.
 type Header interface {
 	// ExchangeFlags returns the exchange flags.
-	ExchangeFlags() uint8
+	ExchangeFlags() ExchangeFlag
 	// Opcode returns the opcode.
 	Opcode() uint8
 	// ExchangeID returns the exchange ID.
-	ExchangeID() uint16
+	ExchangeID() ExchangeID
 	// ProtocolID returns the protocol ID.
-	ProtocolID() uint16
+	ProtocolID() ProtocolID
 	// VendorID returns the vendor ID if present.
 	VendorID() (VendorID, bool)
 	// AckCounter returns the acknowledgement counter if present.
@@ -41,10 +45,10 @@ type Header interface {
 	SecuredExtensions() ([]byte, bool)
 	// IsInitiator returns true if the initiator flag is set.
 	IsInitiator() bool
-	// IsAck returns true if the acknowledgement flag is set.
-	IsAck() bool
-	// IsReliabilityRequested returns true if the reliability requested flag is set.
-	IsReliabilityRequested() bool
+	// IsAcknowledgement returns true if the acknowledgement flag is set.
+	IsAcknowledgement() bool
+	// IsReliability returns true if the reliability requested flag is set.
+	IsReliability() bool
 	// HasSecuredExtensions returns true if the secured extensions flag is set.
 	HasSecuredExtensions() bool
 	// HasVendorID returns true if the vendor ID flag is set.

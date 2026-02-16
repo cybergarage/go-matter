@@ -52,12 +52,12 @@ func (flag ExchangeFlag) IsReliability() bool {
 	return (flag & ExchangeFlagReliability) != 0
 }
 
-// IsSecuredExtension returns true if the flag is secured extension.
-func (flag ExchangeFlag) IsSecuredExtension() bool {
+// HasSecuredExtensions returns true if the flag is secured extension.
+func (flag ExchangeFlag) HasSecuredExtensions() bool {
 	return (flag & ExchangeFlagSecuredExtensions) != 0
 }
 
-// IsVendor returns true if the flag is vendor.
-func (flag ExchangeFlag) IsVendor() bool {
+// HasVendorID returns true if the flag is vendor.
+func (flag ExchangeFlag) HasVendorID() bool {
 	return (flag & ExchangeFlagVendor) != 0
 }

@@ -27,7 +27,7 @@ const (
 )
 
 type header struct {
-	exchangeFlags     uint8
+	exchangeFlags     ExchangeFlag
 	opcode            uint8
 	exchangeID        uint16
 	protocolID        uint16
@@ -40,7 +40,7 @@ type header struct {
 type HeaderOption func(*header)
 
 // WithHeaderExchangeFlags sets the exchange flags.
-func WithHeaderExchangeFlags(flags uint8) HeaderOption {
+func WithHeaderExchangeFlags(flags ExchangeFlag) HeaderOption {
 	return func(h *header) {
 		h.exchangeFlags = flags
 	}
@@ -54,24 +54,24 @@ func WithHeaderOpcode(opcode uint8) HeaderOption {
 }
 
 // WithHeaderExchangeID sets the exchange ID.
-func WithHeaderExchangeID(exchangeID uint16) HeaderOption {
+func WithHeaderExchangeID(exchangeID ExchangeID) HeaderOption {
 	return func(h *header) {
-		h.exchangeID = exchangeID
+		h.exchangeID = uint16(exchangeID)
 	}
 }
 
 // WithHeaderProtocolID sets the protocol ID.
-func WithHeaderProtocolID(protocolID uint16) HeaderOption {
+func WithHeaderProtocolID(protocolID ProtocolID) HeaderOption {
 	return func(h *header) {
-		h.protocolID = protocolID
+		h.protocolID = uint16(protocolID)
 	}
 }
 
 // WithHeaderVendorID sets the vendor ID.
-func WithHeaderVendorID(vendorID uint16) HeaderOption {
+func WithHeaderVendorID(vendorID VendorID) HeaderOption {
 	return func(h *header) {
 		h.exchangeFlags |= ExchangeFlagVendor
-		h.vendorID = vendorID
+		h.vendorID = uint16(vendorID)
 	}
 }
 
@@ -116,7 +116,7 @@ func NewHeaderFromReader(reader io.Reader) (Header, error) {
 		return nil, err
 	}
 	h := &header{
-		exchangeFlags:     buf[0],
+		exchangeFlags:     ExchangeFlag(buf[0]),
 		opcode:            buf[1],
 		exchangeID:        binary.LittleEndian.Uint16(buf[2:4]),
 		protocolID:        binary.LittleEndian.Uint16(buf[4:6]),
@@ -136,7 +136,7 @@ func NewHeaderFromReader(reader io.Reader) (Header, error) {
 	}
 
 	// 4.4.3.6. Acknowledged Message Counter (32 bits)
-	if h.IsAck() {
+	if h.IsAcknowledgement() {
 		var abuf [4]byte
 		_, err := io.ReadAtLeast(reader, abuf[:], 4)
 		if err != nil {
@@ -163,7 +163,7 @@ func NewHeaderFromBytes(data []byte) (Header, error) {
 }
 
 // ExchangeFlags returns the exchange flags.
-func (h *header) ExchangeFlags() uint8 {
+func (h *header) ExchangeFlags() ExchangeFlag {
 	return h.exchangeFlags
 }
 
@@ -173,13 +173,38 @@ func (h *header) Opcode() uint8 {
 }
 
 // ExchangeID returns the exchange ID.
-func (h *header) ExchangeID() uint16 {
-	return h.exchangeID
+func (h *header) ExchangeID() ExchangeID {
+	return ExchangeID(h.exchangeID)
 }
 
 // ProtocolID returns the protocol ID.
-func (h *header) ProtocolID() uint16 {
-	return h.protocolID
+func (h *header) ProtocolID() ProtocolID {
+	return ProtocolID(h.protocolID)
+}
+
+// IsInitiator returns true if the initiator flag is set.
+func (h *header) IsInitiator() bool {
+	return h.exchangeFlags.IsInitiator()
+}
+
+// IsAcknowledgement returns true if the acknowledgement flag is set.
+func (h *header) IsAcknowledgement() bool {
+	return h.exchangeFlags.IsAcknowledgement()
+}
+
+// IsReliabilityRequested returns true if the reliability flag is set.
+func (h *header) IsReliability() bool {
+	return h.exchangeFlags.IsReliability()
+}
+
+// HasSecuredExtensions returns true if secured extensions flag is set.
+func (h *header) HasSecuredExtensions() bool {
+	return h.exchangeFlags.HasSecuredExtensions()
+}
+
+// HasVendorID returns true if the vendor ID flag is set.
+func (h *header) HasVendorID() bool {
+	return h.exchangeFlags.HasVendorID()
 }
 
 // VendorID returns the vendor ID if present.
@@ -192,35 +217,10 @@ func (h *header) VendorID() (VendorID, bool) {
 
 // AckCounter returns the acknowledgement counter if present.
 func (h *header) AckCounter() (uint32, bool) {
-	if !h.IsAck() {
+	if !h.IsAcknowledgement() {
 		return 0, false
 	}
 	return h.ackCounter, true
-}
-
-// IsInitiator returns true if the initiator flag is set.
-func (h *header) IsInitiator() bool {
-	return (h.exchangeFlags & ExchangeFlagInitiator) != 0
-}
-
-// IsAck returns true if the acknowledgement flag is set.
-func (h *header) IsAck() bool {
-	return (h.exchangeFlags & ExchangeFlagAck) != 0
-}
-
-// IsReliabilityRequested returns true if the reliability flag is set.
-func (h *header) IsReliabilityRequested() bool {
-	return (h.exchangeFlags & ExchangeFlagReliability) != 0
-}
-
-// HasSecuredExtensions returns true if secured extensions flag is set.
-func (h *header) HasSecuredExtensions() bool {
-	return (h.exchangeFlags & ExchangeFlagSecuredExtensions) != 0
-}
-
-// HasVendorID returns true if the vendor ID flag is set.
-func (h *header) HasVendorID() bool {
-	return (h.exchangeFlags & ExchangeFlagVendor) != 0
 }
 
 // SecuredExtensions returns the secured extensions bytes if present, along with a boolean indicating their presence.
@@ -234,7 +234,7 @@ func (h *header) SecuredExtensions() ([]byte, bool) {
 // Bytes serializes the exchange header to bytes (little-endian).
 func (h *header) Bytes() []byte {
 	buf := make([]byte, minHeaderSize)
-	buf[0] = h.exchangeFlags
+	buf[0] = byte(h.exchangeFlags)
 	buf[1] = h.opcode
 	binary.LittleEndian.PutUint16(buf[2:4], h.exchangeID)
 	binary.LittleEndian.PutUint16(buf[4:6], h.protocolID)
@@ -242,7 +242,7 @@ func (h *header) Bytes() []byte {
 	if h.HasVendorID() {
 		buf = binary.LittleEndian.AppendUint16(buf, h.vendorID)
 	}
-	if h.IsAck() {
+	if h.IsAcknowledgement() {
 		buf = binary.LittleEndian.AppendUint32(buf, h.ackCounter)
 	}
 	if ext, ok := h.SecuredExtensions(); ok {
@@ -260,10 +260,10 @@ func (h *header) String() string {
 	if h.IsInitiator() {
 		flags = append(flags, "I")
 	}
-	if h.IsAck() {
+	if h.IsAcknowledgement() {
 		flags = append(flags, "A")
 	}
-	if h.IsReliabilityRequested() {
+	if h.IsReliability() {
 		flags = append(flags, "R")
 	}
 	if h.HasSecuredExtensions() {
@@ -276,7 +276,7 @@ func (h *header) String() string {
 	return fmt.Sprintf("ExchangeHeader{Flags=0x%02X [%v], Opcode=0x%02X, ExchID=0x%04X, ProtoID=0x%04X, VendorID=0x%04X (present=%v), AckCtr=%d (present=%v), SecuredExtensions=%d bytes (present=%v)} [%d bytes: %s]",
 		h.exchangeFlags, flags, h.opcode, h.exchangeID, h.protocolID,
 		h.vendorID, h.HasVendorID(),
-		h.ackCounter, h.IsAck(),
+		h.ackCounter, h.IsAcknowledgement(),
 		len(h.securedExtensions), h.HasSecuredExtensions(),
 		len(encoded), hex.EncodeToString(encoded))
 }

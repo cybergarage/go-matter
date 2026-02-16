@@ -114,7 +114,7 @@ func TestHeaderEncodeDecodeRoundtrip(t *testing.T) {
 			}
 			decordedAckCounter, decordedHasAckCounter := decoded.AckCounter()
 			ttHasAckCounter, _ := tt.header.AckCounter()
-			if tt.header.IsAck() && (!decordedHasAckCounter || decordedAckCounter != ttHasAckCounter) {
+			if tt.header.IsAcknowledgement() && (!decordedHasAckCounter || decordedAckCounter != ttHasAckCounter) {
 				t.Errorf("AckCounter mismatch: got 0x%08X, want 0x%08X", decordedAckCounter, ttHasAckCounter)
 			}
 		})
