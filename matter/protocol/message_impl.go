@@ -86,7 +86,7 @@ func NewMessage(opts ...MessageOption) Message {
 // NewMessageFromReader parses a complete Matter message from an io.Reader.
 func NewMessageFromReader(reader io.Reader) (Message, error) {
 	// 4.4.1. Message Header Field Descriptions
-	msgHeader, _, err := message.NewHeaderFromReader(reader)
+	msgHeader, err := message.NewHeaderFromReader(reader)
 	if err != nil {
 		return nil, err
 	}

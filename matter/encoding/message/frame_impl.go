@@ -28,7 +28,7 @@ type frame struct {
 
 // NewFrameFromReader parses a complete Matter frame from an io.Reader.
 func NewFrameFromReader(reader io.Reader) (Frame, error) {
-	header, _, err := NewHeaderFromReader(reader)
+	header, err := NewHeaderFromReader(reader)
 	if err != nil {
 		return nil, err
 	}

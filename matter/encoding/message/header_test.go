@@ -20,7 +20,7 @@ import (
 
 func TestHeaderTooShort(t *testing.T) {
 	shortData := []byte{0x00, 0x00, 0x00} // Only 3 bytes
-	_, _, err := NewHeaderFromBytes(shortData)
+	_, err := NewHeaderFromBytes(shortData)
 	if err == nil {
 		t.Error("Expected error for short packet header, got nil")
 	}
@@ -69,7 +69,7 @@ func TestHeaderEncodeDecodeRoundtrip(t *testing.T) {
 			encoded := tt.header.Bytes()
 
 			// Decode
-			decoded, _, err := NewHeaderFromBytes(encoded)
+			decoded, err := NewHeaderFromBytes(encoded)
 			if err != nil {
 				t.Fatalf("NewHeaderFromBytes failed: %v", err)
 			}
