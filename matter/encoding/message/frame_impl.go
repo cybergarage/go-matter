@@ -15,8 +15,10 @@
 package message
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
+	"io"
 )
 
 type frame struct {
@@ -24,23 +26,27 @@ type frame struct {
 	payload []byte
 }
 
-// NewFrameFromBytes parses a complete Matter message frame from bytes.
-func NewFrameFromBytes(data []byte) (Frame, error) {
-	if len(data) < 8 {
-		return nil, fmt.Errorf("frame too short: need at least 8 bytes for header, got %d", len(data))
-	}
-
-	header, headerSize, err := NewHeaderFromBytes(data)
+// NewFrameFromReader parses a complete Matter frame from an io.Reader.
+func NewFrameFromReader(reader io.Reader) (Frame, error) {
+	header, _, err := NewHeaderFromReader(reader)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode header: %w", err)
+		return nil, err
 	}
 
-	payload := data[headerSize:]
+	payload, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read payload: %w", err)
+	}
 
 	return &frame{
 		header:  header,
 		payload: payload,
 	}, nil
+}
+
+// NewFrameFromBytes parses a complete Matter frame from bytes.
+func NewFrameFromBytes(data []byte) (Frame, error) {
+	return NewFrameFromReader(bytes.NewReader(data))
 }
 
 // Header returns the header of the frame.
