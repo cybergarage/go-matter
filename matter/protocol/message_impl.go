@@ -15,6 +15,7 @@
 package protocol
 
 import (
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 
@@ -22,7 +23,8 @@ import (
 )
 
 const (
-	minHeaderSize = 6
+	minHeaderSize        = 6
+	extPayloadLengthSize = 2
 )
 
 type frameHeader = message.Header
@@ -31,7 +33,8 @@ type protocolHeader = Header
 type messageImpl struct {
 	frameHeader
 	protocolHeader
-	payload []byte
+	extensions []byte
+	payload    []byte
 }
 
 // MessageOption represents a functional option for configuring a Message.
@@ -51,6 +54,13 @@ func WithMessageProtocolHeader(header Header) MessageOption {
 	}
 }
 
+// WithMessageExtensions sets the message extensions of the Message.
+func WithMessageExtensions(ext []byte) MessageOption {
+	return func(m *messageImpl) {
+		m.extensions = ext
+	}
+}
+
 // WithMessagePayload sets the payload of the Message.
 func WithMessagePayload(payload []byte) MessageOption {
 	return func(m *messageImpl) {
@@ -63,6 +73,7 @@ func NewMessage(opts ...MessageOption) Message {
 	m := &messageImpl{
 		frameHeader:    message.NewHeader(), // Default empty header
 		protocolHeader: NewHeader(),         // Default empty header
+		extensions:     []byte{},            // Default empty extensions
 		payload:        []byte{},            // Default empty payload
 	}
 	for _, opt := range opts {
@@ -84,21 +95,39 @@ func NewMessageFromBytes(data []byte) (Message, error) {
 		return nil, fmt.Errorf("message too short: need at least %d bytes for headers, got %d", msgHeaderSize+minHeaderSize, len(data))
 	}
 
-	// Decode protocol header
+	// 4.4.3. Protocol Header Field Descriptions
 	protocolHeader, protocolSize, err := NewHeaderFromBytes(data[msgHeaderSize:])
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode protocol header: %w", err)
 	}
 
 	// 4.4.1.7. Message Extensions (variable)
+	extentionsSize := 0
+	extentionPayload := []byte{}
+	if msgHeader.SecurityFlags().HasMessageExtensions() {
+		offset := msgHeaderSize + protocolSize
+		if len(data) < offset+extPayloadLengthSize {
+			return nil, fmt.Errorf("message too short: expected message extensions length field but only %d bytes remain", len(data)-msgHeaderSize-protocolSize)
+		}
+		extentionsSize = int(binary.LittleEndian.Uint16(data[offset : offset+extPayloadLengthSize]))
+		offset += extPayloadLengthSize
+		if len(data) < offset+extentionsSize {
+			return nil, fmt.Errorf("message too short: expected %d bytes of message extensions but only %d bytes remain", extentionsSize, len(data)-offset)
+		}
+		extentionPayload = data[offset+extPayloadLengthSize : offset+extPayloadLengthSize+extentionsSize]
+	}
 
-	// Extract payload (everything after headers)
-	headerSize := msgHeaderSize + protocolSize
+	// 4.4.3.8. Application Payload (variable length)
+	headerSize := msgHeaderSize + protocolSize + extentionsSize
+	if len(data) < headerSize {
+		return nil, fmt.Errorf("message too short: need at least %d bytes for headers and extensions, got %d", headerSize, len(data))
+	}
 	payload := data[headerSize:]
 
 	return &messageImpl{
 		frameHeader:    msgHeader,
 		protocolHeader: protocolHeader,
+		extensions:     extentionPayload,
 		payload:        payload,
 	}, nil
 }
