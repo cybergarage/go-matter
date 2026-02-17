@@ -17,9 +17,10 @@ package protocol
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/json"
 	"fmt"
 	"io"
+
+	"github.com/cybergarage/go-matter/matter/encoding/json"
 )
 
 const (
@@ -277,6 +278,5 @@ func (h *header) Map() map[string]any {
 
 // String returns a human-readable representation with hex dump.
 func (h *header) String() string {
-	s, _ := json.Marshal(h.Map())
-	return string(s)
+	return json.MustMarshal(h.Map())
 }

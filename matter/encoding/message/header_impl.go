@@ -17,9 +17,9 @@ package message
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/json"
 	"io"
 
+	"github.com/cybergarage/go-matter/matter/encoding/json"
 	"github.com/cybergarage/go-matter/matter/types"
 )
 
@@ -232,6 +232,5 @@ func (h *header) Map() map[string]any {
 
 // String returns a human-readable string representation of the header for debugging purposes.
 func (h *header) String() string {
-	s, _ := json.Marshal(h.Map())
-	return string(s)
+	return json.MustMarshal(h.Map())
 }

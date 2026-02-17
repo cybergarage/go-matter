@@ -17,9 +17,9 @@ package protocol
 import (
 	"bytes"
 	"encoding/hex"
-	"encoding/json"
 	"io"
 
+	"github.com/cybergarage/go-matter/matter/encoding/json"
 	"github.com/cybergarage/go-matter/matter/encoding/message"
 )
 
@@ -163,6 +163,5 @@ func (m *messageImpl) Map() map[string]any {
 
 // String returns a human-readable representation with hex dumps.
 func (m *messageImpl) String() string {
-	s, _ := json.Marshal(m.Map())
-	return string(s)
+	return json.MustMarshal(m.Map())
 }

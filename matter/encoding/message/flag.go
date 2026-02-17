@@ -14,7 +14,9 @@
 
 package message
 
-import "encoding/json"
+import (
+	"github.com/cybergarage/go-matter/matter/encoding/json"
+)
 
 // Flag represents the message flags in the Matter protocol. It is an 8-bit field that indicates various properties of the message, such as whether it includes source/destination node IDs, whether it is a control message, etc.
 // 4.4.1.1. Message Flags (8 bits).
@@ -78,6 +80,5 @@ func (f Flag) Map() map[string]any {
 
 // String returns a human-readable string representation of the flags for debugging purposes.
 func (f Flag) String() string {
-	s, _ := json.Marshal(f.Map())
-	return string(s)
+	return json.MustMarshal(f.Map())
 }

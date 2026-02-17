@@ -15,8 +15,7 @@
 package message
 
 import (
-	"encoding/json"
-
+	"github.com/cybergarage/go-matter/matter/encoding/json"
 	"github.com/cybergarage/go-matter/matter/types"
 )
 
@@ -75,6 +74,5 @@ func (f SecurityFlag) Map() map[string]any {
 
 // String returns a human-readable string representation for debugging purposes.
 func (f SecurityFlag) String() string {
-	s, _ := json.Marshal(f.Map())
-	return string(s)
+	return json.MustMarshal(f.Map())
 }
