@@ -65,6 +65,7 @@ func TestPBKDFParamRequestMessage(t *testing.T) {
 		_, err = pbkdf.NewParamRequestFromBytes(msg.Payload())
 		if err != nil {
 			t.Errorf("Failed to parse ParamRequest: %v", err)
+			t.Logf("%s", msg.String())
 		}
 	}
 }
@@ -102,6 +103,7 @@ func TestPBKDFParamResponseMessage(t *testing.T) {
 		_, err = pbkdf.NewParamResponseFromBytes(msg.Payload())
 		if err != nil {
 			t.Skipf("Failed to parse ParamResponse: %v", err)
+			t.Logf("%s", msg.String())
 		}
 	}
 }
