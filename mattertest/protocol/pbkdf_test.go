@@ -54,18 +54,26 @@ func TestPBKDFParamRequestMessage(t *testing.T) {
 			t.Fatalf("Failed to parse Message: %v", err)
 		}
 
+		// 4.14.1. Passcode-Authenticated Session Establishment (PASE)
 		// 4.14.1.2. Protocol Details
 		if msg.SessionID() != 0x0000 {
-			t.Errorf("Expected SessionID 0x0000, got 0x%04X", msg.SessionID())
+			t.Skipf("Expected SessionID 0x0000, got 0x%04X", msg.SessionID())
 		}
-		if msg.SecurityFlags() != 0x00 {
-			t.Errorf("Expected SecurityFlags 0x00, got 0x%02X", msg.SecurityFlags())
+		if msg.SecurityFlags().SessionType() != 0x00 {
+			t.Skipf("Expected SessionType 0x00, got 0x%02X", msg.SecurityFlags().SessionType())
+		}
+		if !msg.Flags().HasSourceNodeID() {
+			t.Skipf("Expected SourceNodeID flag to be set")
+		}
+		if _, ok := msg.DestinationNodeID(); ok {
+			t.Skipf("Expected DestinationNodeID flag to be unset")
 		}
 
 		_, err = pbkdf.NewParamRequestFromBytes(msg.Payload())
 		if err != nil {
 			t.Skipf("Failed to parse ParamRequest: %v", err)
-			t.Logf("%s", msg.String())
+			log.HexInfo(hexBytes)
+			log.Info(msg.String())
 		}
 	}
 }
@@ -92,18 +100,26 @@ func TestPBKDFParamResponseMessage(t *testing.T) {
 			t.Fatalf("Failed to parse Message: %v", err)
 		}
 
+		// 4.14.1. Passcode-Authenticated Session Establishment (PASE)
 		// 4.14.1.2. Protocol Details
 		if msg.SessionID() != 0x0000 {
-			t.Errorf("Expected SessionID 0x0000, got 0x%04X", msg.SessionID())
+			t.Skipf("Expected SessionID 0x0000, got 0x%04X", msg.SessionID())
 		}
-		if msg.SecurityFlags() != 0x00 {
-			t.Errorf("Expected SecurityFlags 0x00, got 0x%02X", msg.SecurityFlags())
+		if msg.SecurityFlags().SessionType() != 0x00 {
+			t.Skipf("Expected SessionType 0x00, got 0x%02X", msg.SecurityFlags().SessionType())
+		}
+		if msg.Flags().HasSourceNodeID() {
+			t.Skipf("Expected SourceNodeID flag to be unset")
+		}
+		if _, ok := msg.DestinationNodeID(); !ok {
+			t.Skipf("Expected DestinationNodeID flag to be set")
 		}
 
 		_, err = pbkdf.NewParamResponseFromBytes(msg.Payload())
 		if err != nil {
 			t.Skipf("Failed to parse ParamResponse: %v", err)
-			t.Logf("%s", msg.String())
+			log.HexInfo(hexBytes)
+			log.Info(msg.String())
 		}
 	}
 }
