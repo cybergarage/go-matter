@@ -15,6 +15,8 @@
 package message
 
 import (
+	"fmt"
+
 	"github.com/cybergarage/go-matter/matter/types"
 )
 
@@ -59,4 +61,10 @@ func (f SecurityFlag) HasMessageExtensions() bool {
 // SessionType returns the session type for the message.
 func (f SecurityFlag) SessionType() SessionType {
 	return SessionType(f & SessionTypeMask)
+}
+
+// String returns a human-readable string representation for debugging purposes.
+func (f SecurityFlag) String() string {
+	return fmt.Sprintf("SecurityFlag{Privacy=%v, ControlMessage=%v, MessageExtensions=%v, SessionType=%d}",
+		f.HasPrivacy(), f.IsControlMessage(), f.HasMessageExtensions(), f.SessionType())
 }

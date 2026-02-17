@@ -222,8 +222,8 @@ func (h *header) Bytes() []byte {
 // String returns a human-readable string representation of the header for debugging purposes.
 func (h *header) String() string {
 	encoded := h.Bytes()
-	return fmt.Sprintf("FrameHeader{Version=%d, SessionID=0x%04X, SecurityFlags=0x%02X, MsgCtr=%d, SrcNode=0x%016X (present=%v), DstNode=0x%016X (present=%v)} [%d bytes: %s]",
-		h.Version(), h.sessionID, h.securityFlags, h.msgCounter,
+	return fmt.Sprintf("MessageHeader{Version=%d, SessionID=0x%04X, %s, MsgCtr=%d, SrcNode=0x%016X (present=%v), DstNode=0x%016X (present=%v)} [%d bytes: %s]",
+		h.Version(), h.sessionID, h.securityFlags.String(), h.msgCounter,
 		h.srcNodeID, h.flags.HasSourceNodeIDField(),
 		h.destNodeID, h.flags.HasDestinationNodeIDField(),
 		len(encoded), hex.EncodeToString(encoded))
