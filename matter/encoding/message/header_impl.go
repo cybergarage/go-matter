@@ -17,8 +17,7 @@ package message
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/hex"
-	"fmt"
+	"encoding/json"
 	"io"
 
 	"github.com/cybergarage/go-matter/matter/types"
@@ -219,12 +218,20 @@ func (h *header) Bytes() []byte {
 	return buf
 }
 
+// Map returns a map representation of the header for easier debugging and logging.
+func (h *header) Map() map[string]any {
+	return map[string]any{
+		"Flags":               h.flags.Map(),
+		"SessionID":           h.sessionID,
+		"Security Flags":      h.securityFlags.Map(),
+		"Message Counter":     h.msgCounter,
+		"Source Node ID":      h.srcNodeID,
+		"Destination Node ID": h.destNodeID,
+	}
+}
+
 // String returns a human-readable string representation of the header for debugging purposes.
 func (h *header) String() string {
-	encoded := h.Bytes()
-	return fmt.Sprintf("MessageHeader{Version=%d, SessionID=0x%04X, %s, MsgCtr=%d, SrcNode=0x%016X (present=%v), DstNode=0x%016X (present=%v)} [%d bytes: %s]",
-		h.Version(), h.sessionID, h.securityFlags.String(), h.msgCounter,
-		h.srcNodeID, h.flags.HasSourceNodeIDField(),
-		h.destNodeID, h.flags.HasDestinationNodeIDField(),
-		len(encoded), hex.EncodeToString(encoded))
+	s, _ := json.Marshal(h.Map())
+	return string(s)
 }

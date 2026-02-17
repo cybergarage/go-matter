@@ -14,6 +14,8 @@
 
 package message
 
+import "encoding/json"
+
 // Flag represents the message flags in the Matter protocol. It is an 8-bit field that indicates various properties of the message, such as whether it includes source/destination node IDs, whether it is a control message, etc.
 // 4.4.1.1. Message Flags (8 bits).
 type Flag uint8
@@ -63,4 +65,19 @@ func (f Flag) HasDestinationNodeID() bool {
 // HasGroupID returns true if the destination node ID field is a group ID.
 func (f Flag) HasGroupID() bool {
 	return (f & DSIZMask) == GroupIDPresent
+}
+
+// Map returns a map representation of the flags for easier debugging and logging.
+func (f Flag) Map() map[string]any {
+	return map[string]any{
+		"Version": f.Version(),
+		"S":       f.HasSourceNodeIDField(),
+		"DSIZ":    f.HasDestinationNodeIDField(),
+	}
+}
+
+// String returns a human-readable string representation of the flags for debugging purposes.
+func (f Flag) String() string {
+	s, _ := json.Marshal(f.Map())
+	return string(s)
 }

@@ -14,7 +14,9 @@
 
 package protocol
 
-import "github.com/cybergarage/go-matter/matter/encoding/message"
+import (
+	"github.com/cybergarage/go-matter/matter/encoding/message"
+)
 
 // Message represents a complete message with frame header, protocol header, and payload.
 // 4.4. Message Frame Format.
@@ -29,6 +31,8 @@ type Message interface {
 	Payload() []byte
 	// Bytes serializes the complete message to bytes.
 	Bytes() []byte
+	// Map returns a map representation of the message for easier debugging and logging.
+	Map() map[string]any
 	// String returns a human-readable representation of the message for debugging purposes.
 	String() string
 }

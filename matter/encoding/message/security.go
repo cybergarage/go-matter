@@ -15,7 +15,7 @@
 package message
 
 import (
-	"fmt"
+	"encoding/json"
 
 	"github.com/cybergarage/go-matter/matter/types"
 )
@@ -63,8 +63,18 @@ func (f SecurityFlag) SessionType() SessionType {
 	return SessionType(f & SessionTypeMask)
 }
 
+// Map returns a map representation of the security flags for easier debugging and logging.
+func (f SecurityFlag) Map() map[string]any {
+	return map[string]any{
+		"P":           f.HasPrivacy(),
+		"C":           f.IsControlMessage(),
+		"MX":          f.HasMessageExtensions(),
+		"SessionType": f.SessionType(),
+	}
+}
+
 // String returns a human-readable string representation for debugging purposes.
 func (f SecurityFlag) String() string {
-	return fmt.Sprintf("SecurityFlag{Privacy=%v, ControlMessage=%v, MessageExtensions=%v, SessionType=%d}",
-		f.HasPrivacy(), f.IsControlMessage(), f.HasMessageExtensions(), f.SessionType())
+	s, _ := json.Marshal(f.Map())
+	return string(s)
 }

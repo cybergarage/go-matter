@@ -45,6 +45,8 @@ type Header interface {
 	GroupID() (GroupID, bool)
 	// Bytes returns the byte representation of the header, ready for transmission.
 	Bytes() []byte
+	// Map returns a map representation of the header for easier debugging and logging.
+	Map() map[string]any
 	// String returns a human-readable string representation of the header for debugging purposes.
 	String() string
 }

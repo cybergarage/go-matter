@@ -17,7 +17,7 @@ package protocol
 import (
 	"bytes"
 	"encoding/hex"
-	"fmt"
+	"encoding/json"
 	"io"
 
 	"github.com/cybergarage/go-matter/matter/encoding/message"
@@ -151,11 +151,18 @@ func (m *messageImpl) Bytes() []byte {
 	return result
 }
 
+// Map returns a map representation of the message for easier debugging and logging.
+func (m *messageImpl) Map() map[string]any {
+	return map[string]any{
+		"Message Header":     m.frameHeader.Map(),
+		"Message Extensions": hex.EncodeToString(m.extensions),
+		"Protocol Header":    m.protocolHeader.Map(),
+		"Payload":            hex.EncodeToString(m.payload),
+	}
+}
+
 // String returns a human-readable representation with hex dumps.
 func (m *messageImpl) String() string {
-	return fmt.Sprintf("Message{\n  %s\n  %s\n  Payload: %d bytes [%s]\n}",
-		m.frameHeader.String(),
-		m.protocolHeader.String(),
-		len(m.payload),
-		hex.EncodeToString(m.payload))
+	s, _ := json.Marshal(m.Map())
+	return string(s)
 }

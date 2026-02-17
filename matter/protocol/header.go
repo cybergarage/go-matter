@@ -55,6 +55,8 @@ type Header interface {
 	HasVendorID() bool
 	// Bytes encodes the header into a byte slice for transmission.
 	Bytes() []byte
+	// Map returns a map representation of the header for easier debugging and logging.
+	Map() map[string]any
 	// String returns a human-readable representation of the header for debugging purposes.
 	String() string
 }

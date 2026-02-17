@@ -17,7 +17,7 @@ package protocol
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 )
@@ -253,30 +253,30 @@ func (h *header) Bytes() []byte {
 	return buf
 }
 
-// String returns a human-readable representation with hex dump.
-func (h *header) String() string {
-	encoded := h.Bytes()
-	flags := []string{}
-	if h.IsInitiator() {
-		flags = append(flags, "I")
-	}
-	if h.IsAcknowledgement() {
-		flags = append(flags, "A")
-	}
-	if h.IsReliability() {
-		flags = append(flags, "R")
-	}
-	if h.HasSecuredExtensions() {
-		flags = append(flags, "SX")
-	}
-	if h.HasVendorID() {
-		flags = append(flags, "V")
+// Map returns a map representation of the header for easier debugging and logging.
+func (h *header) Map() map[string]any {
+	m := map[string]any{
+		"ExchangeFlags": fmt.Sprintf("0x%02X", h.exchangeFlags),
+		"Opcode":        fmt.Sprintf("0x%02X", h.opcode),
+		"ExchangeID":    fmt.Sprintf("0x%04X", h.exchangeID),
+		"ProtocolID":    fmt.Sprintf("0x%04X", h.protocolID),
 	}
 
-	return fmt.Sprintf("ExchangeHeader{Flags=0x%02X [%v], Opcode=0x%02X, ExchID=0x%04X, ProtoID=0x%04X, VendorID=0x%04X (present=%v), AckCtr=%d (present=%v), SecuredExtensions=%d bytes (present=%v)} [%d bytes: %s]",
-		h.exchangeFlags, flags, h.opcode, h.exchangeID, h.protocolID,
-		h.vendorID, h.HasVendorID(),
-		h.ackCounter, h.IsAcknowledgement(),
-		len(h.securedExtensions), h.HasSecuredExtensions(),
-		len(encoded), hex.EncodeToString(encoded))
+	if h.HasVendorID() {
+		m["VendorID"] = fmt.Sprintf("0x%04X", h.vendorID)
+	}
+	if h.IsAcknowledgement() {
+		m["AckCounter"] = h.ackCounter
+	}
+	if ext, ok := h.SecuredExtensions(); ok {
+		m["SecuredExtensions"] = fmt.Sprintf("%X", ext)
+	}
+
+	return m
+}
+
+// String returns a human-readable representation with hex dump.
+func (h *header) String() string {
+	s, _ := json.Marshal(h.Map())
+	return string(s)
 }
