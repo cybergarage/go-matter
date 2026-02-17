@@ -30,7 +30,7 @@ const (
 	// VersionShift is the bit position shift for the version field (bits 7-4).
 	VersionShift = 4
 	// SourceNodeIDPresentMask indicates whether the source node ID is present (bit 2).
-	SourceNodeIDPresentMask = 0x40
+	SourceNodeIDPresentMask = 0x04
 	// DSIZMask extracts the DSIZ field (bits 0-1 in second byte for extended format).
 	DSIZMask = 0x03
 	// DestinationNodeIDPresent indicates whether the destination node ID field is the destination node ID (DSIZ == 1).
