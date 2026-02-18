@@ -79,6 +79,8 @@ func TestPBKDFParamRequestMessage(t *testing.T) {
 }
 
 func TestPBKDFParamResponseMessage(t *testing.T) {
+	log.EnableStdoutDebug(true)
+
 	tests := []struct {
 		hexStr string
 	}{

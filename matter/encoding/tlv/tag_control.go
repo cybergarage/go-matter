@@ -28,22 +28,22 @@ package tlv
 type TagControl uint8
 
 const (
-	// TagCtlAnonymous indicates there are no tag bytes.
-	TagCtlAnonymous TagControl = iota
-	// TagCtlContext indicates a 1-byte context tag.
-	TagCtlContext
-	// TagCtlCommon2 indicates a 2-byte common profile tag.
-	TagCtlCommon2
-	// TagCtlCommon4 indicates a 4-byte common profile tag / extended form.
-	TagCtlCommon4
-	// TagCtlFullyQualified6 indicates a 6-byte fully-qualified tag (2+2+2).
-	TagCtlFullyQualified6
-	// TagCtlFullyQualified8 indicates an 8-byte fully-qualified tag (2+2+4).
-	TagCtlFullyQualified8
-	// TagCtlReserved6 is reserved.
-	TagCtlReserved6
-	// TagCtlReserved7 is reserved.
-	TagCtlReserved7
+	// TagAnonymous indicates there are no tag bytes.
+	TagAnonymous TagControl = 0x00
+	// TagContext indicates a 1-byte context tag.
+	TagContext TagControl = 0x01
+	// TagCommon2 indicates a 2-byte common profile tag.
+	TagCommon2 TagControl = 0x02
+	// TagCommon4 indicates a 4-byte common profile tag.
+	TagCommon4 TagControl = 0x03
+	// ImplicitTag2 indicates a 2-byte implicit profile tag.
+	ImplicitTag2 TagControl = 0x04
+	// ImplicitTag4 indicates a 4-byte implicit profile tag.
+	ImplicitTag4 TagControl = 0x05
+	// TagFullyQualified6 indicates a 6-byte fully-qualified tag (2+2+2).
+	TagFullyQualified6 TagControl = 0x06
+	// TagFullyQualified8 indicates an 8-byte fully-qualified tag (2+2+4).
+	TagFullyQualified8 TagControl = 0x07
 )
 
 // encodeControl composes the control octet from tag control and element type.

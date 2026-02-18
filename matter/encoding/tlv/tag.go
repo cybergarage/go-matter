@@ -36,7 +36,7 @@ type Tag interface {
 type tagAnon struct{}
 
 // Control returns TagCtlAnonymous.
-func (t tagAnon) Control() TagControl { return TagCtlAnonymous }
+func (t tagAnon) Control() TagControl { return TagAnonymous }
 
 // SerializeTag returns nil (anonymous tag has no payload).
 func (t tagAnon) SerializeTag() []byte { return nil }
@@ -53,7 +53,7 @@ type tagContext struct {
 }
 
 // Control returns TagCtlContext.
-func (t tagContext) Control() TagControl { return TagCtlContext }
+func (t tagContext) Control() TagControl { return TagContext }
 
 // SerializeTag returns the single context tag byte.
 func (t tagContext) SerializeTag() []byte { return []byte{t.Num} }
@@ -70,7 +70,7 @@ type tagCommon2 struct {
 }
 
 // Control returns TagCtlCommon2.
-func (t tagCommon2) Control() TagControl { return TagCtlCommon2 }
+func (t tagCommon2) Control() TagControl { return TagCommon2 }
 
 // SerializeTag returns 2 bytes (little-endian).
 func (t tagCommon2) SerializeTag() []byte {
@@ -91,7 +91,7 @@ type tagCommon4 struct {
 }
 
 // Control returns TagCtlCommon4.
-func (t tagCommon4) Control() TagControl { return TagCtlCommon4 }
+func (t tagCommon4) Control() TagControl { return TagCommon4 }
 
 // SerializeTag returns the 4-byte little-endian payload.
 func (t tagCommon4) SerializeTag() []byte {
@@ -114,7 +114,7 @@ type tagFQ6 struct {
 }
 
 // Control returns TagCtlFullyQualified6.
-func (t tagFQ6) Control() TagControl { return TagCtlFullyQualified6 }
+func (t tagFQ6) Control() TagControl { return TagFullyQualified6 }
 
 // SerializeTag returns the 6-byte payload.
 func (t tagFQ6) SerializeTag() []byte {
@@ -143,7 +143,7 @@ type tagFQ8 struct {
 }
 
 // Control returns TagCtlFullyQualified8.
-func (t tagFQ8) Control() TagControl { return TagCtlFullyQualified8 }
+func (t tagFQ8) Control() TagControl { return TagFullyQualified8 }
 
 // SerializeTag returns the 8-byte payload.
 func (t tagFQ8) SerializeTag() []byte {
@@ -167,26 +167,26 @@ func FullyQualified8(vendor, profile uint16, tagNum uint32) Tag {
 // decodeTagBytes parses raw tag bytes according to the TagControl form.
 func decodeTagBytes(tc TagControl, data []byte) (Tag, int, error) {
 	switch tc {
-	case TagCtlAnonymous:
+	case TagAnonymous:
 		return tagAnon{}, 0, nil
-	case TagCtlContext:
+	case TagContext:
 		if len(data) < 1 {
 			return nil, 0, ErrDecodeTagLength
 		}
 		return tagContext{Num: data[0]}, 1, nil
-	case TagCtlCommon2:
+	case TagCommon2, ImplicitTag2:
 		if len(data) < 2 {
 			return nil, 0, ErrDecodeTagLength
 		}
 		val := binary.LittleEndian.Uint16(data[0:2])
 		return tagCommon2{Profile: val}, 2, nil
-	case TagCtlCommon4:
+	case TagCommon4, ImplicitTag4:
 		if len(data) < 4 {
 			return nil, 0, ErrDecodeTagLength
 		}
 		val := binary.LittleEndian.Uint32(data[0:4])
 		return tagCommon4{Value: val}, 4, nil
-	case TagCtlFullyQualified6:
+	case TagFullyQualified6:
 		if len(data) < 6 {
 			return nil, 0, ErrDecodeTagLength
 		}
@@ -194,7 +194,7 @@ func decodeTagBytes(tc TagControl, data []byte) (Tag, int, error) {
 		p := binary.LittleEndian.Uint16(data[2:4])
 		t := binary.LittleEndian.Uint16(data[4:6])
 		return tagFQ6{Vendor: v, Profile: p, TagNum: t}, 6, nil
-	case TagCtlFullyQualified8:
+	case TagFullyQualified8:
 		if len(data) < 8 {
 			return nil, 0, ErrDecodeTagLength
 		}
