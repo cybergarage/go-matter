@@ -78,7 +78,7 @@ func (e *encoderImpl) Bytes() []byte { return e.buf.Bytes() }
 func (e *encoderImpl) writeHeader(tag Tag, et ElementType) {
 	ctrl := encodeControl(tag.Control(), et)
 	e.buf.WriteByte(ctrl)
-	if tb := tag.SerializeTag(); len(tb) > 0 {
+	if tb := tag.Bytes(); len(tb) > 0 {
 		e.buf.Write(tb)
 	}
 }
