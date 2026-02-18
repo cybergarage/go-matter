@@ -56,21 +56,21 @@ func TestRoundTrip(t *testing.T) {
 	}
 
 	// Various tag forms
-	_ = enc.PutUnsigned(Common2Tag(0x3344), 255)
-	_ = enc.PutUnsigned(Common4Tag(0xAABBCCDD), 1024)
-	_ = enc.PutUnsigned(FullyQualified6(0x1234, 0x5678, 0x9ABC), 77)
-	_ = enc.PutUnsigned(FullyQualified8(0x1357, 0x2468, 0x90ABCDEF), 88)
+	_ = enc.PutUnsigned(NewCommon2Tag(0x3344), 255)
+	_ = enc.PutUnsigned(NewCommon4Tag(0xAABBCCDD), 1024)
+	_ = enc.PutUnsigned(NewFullyQualified6(0x1234, 0x5678, 0x9ABC), 77)
+	_ = enc.PutUnsigned(NewFullyQualified8(0x1357, 0x2468, 0x90ABCDEF), 88)
 
 	// Containers
 	enc.StartStructure(NewContextTag(12))
-	_ = enc.PutUnsigned(AnonymousTag(), 1)
+	_ = enc.PutUnsigned(NewAnonymousTag(), 1)
 	enc.StartArray(NewContextTag(13))
-	_ = enc.PutUnsigned(AnonymousTag(), 2)
-	_ = enc.PutUnsigned(AnonymousTag(), 3)
+	_ = enc.PutUnsigned(NewAnonymousTag(), 2)
+	_ = enc.PutUnsigned(NewAnonymousTag(), 3)
 	enc.EndContainer() // array
 	enc.StartList(NewContextTag(14))
-	_ = enc.PutSigned(AnonymousTag(), -1)
-	_ = enc.PutSigned(AnonymousTag(), -2)
+	_ = enc.PutSigned(NewAnonymousTag(), -1)
+	_ = enc.PutSigned(NewAnonymousTag(), -2)
 	enc.EndContainer() // list
 	enc.EndContainer() // structure
 
@@ -100,7 +100,7 @@ func TestRoundTrip(t *testing.T) {
 
 func TestContainerMismatch(t *testing.T) {
 	enc := NewEncoder()
-	enc.StartStructure(AnonymousTag())
+	enc.StartStructure(NewAnonymousTag())
 	// Missing EndContainer intentionally
 	raw := enc.Bytes()
 
@@ -114,8 +114,8 @@ func TestContainerMismatch(t *testing.T) {
 
 func TestBooleanVariants(t *testing.T) {
 	enc := NewEncoder()
-	enc.PutBool(AnonymousTag(), false)
-	enc.PutBool(AnonymousTag(), true)
+	enc.PutBool(NewAnonymousTag(), false)
+	enc.PutBool(NewAnonymousTag(), true)
 	data := enc.Bytes()
 
 	dec := NewDecoderWithBytes(data)

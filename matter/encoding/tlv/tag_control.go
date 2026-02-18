@@ -14,6 +14,8 @@
 
 package tlv
 
+import "fmt"
+
 // TagControl represents the 3-bit tag control field in the control octet.
 // Each value determines how many tag bytes follow the control octet.
 // Some values are illustrative (e.g. FullyQualified6 vs FullyQualified8) and
@@ -36,15 +38,39 @@ const (
 	TagCommon2 TagControl = 0x02
 	// TagCommon4 indicates a 4-byte common profile tag.
 	TagCommon4 TagControl = 0x03
-	// ImplicitTag2 indicates a 2-byte implicit profile tag.
-	ImplicitTag2 TagControl = 0x04
-	// ImplicitTag4 indicates a 4-byte implicit profile tag.
-	ImplicitTag4 TagControl = 0x05
+	// TagImplicit2 indicates a 2-byte implicit profile tag.
+	TagImplicit2 TagControl = 0x04
+	// TagImplicit4 indicates a 4-byte implicit profile tag.
+	TagImplicit4 TagControl = 0x05
 	// TagFullyQualified6 indicates a 6-byte fully-qualified tag (2+2+2).
 	TagFullyQualified6 TagControl = 0x06
 	// TagFullyQualified8 indicates an 8-byte fully-qualified tag (2+2+4).
 	TagFullyQualified8 TagControl = 0x07
 )
+
+// String returns a human-readable name for the TagControl value.
+func (tc TagControl) String() string {
+	switch tc {
+	case TagAnonymous:
+		return "Anonymous"
+	case TagContext:
+		return "Context"
+	case TagCommon2:
+		return "Common2"
+	case TagCommon4:
+		return "Common4"
+	case TagImplicit2:
+		return "Implicit2"
+	case TagImplicit4:
+		return "Implicit4"
+	case TagFullyQualified6:
+		return "FullyQualified6"
+	case TagFullyQualified8:
+		return "FullyQualified8"
+	default:
+		return fmt.Sprintf("Unknown(%d)", tc)
+	}
+}
 
 // encodeControl composes the control octet from tag control and element type.
 func encodeControl(tc TagControl, et ElementType) byte {

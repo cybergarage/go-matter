@@ -25,7 +25,7 @@ type ContextNumber uint8
 func NewContextNumberFromTag(t Tag) (ContextNumber, bool) {
 	switch v := t.(type) {
 	case tagContext:
-		return ContextNumber(v.Num), true
+		return ContextNumber(v.number), true
 	default:
 		return 0, false
 	}
@@ -34,26 +34,26 @@ func NewContextNumberFromTag(t Tag) (ContextNumber, bool) {
 // ContextTag represents a context-specific tag with a 1-byte number.
 type ContextTag interface {
 	Tag
-	// Number returns the context number (0-255).
-	Number() ContextNumber
+	// ContextNumber returns the context number (0-255).
+	ContextNumber() ContextNumber
 }
 
 // tagContext is a context-specific tag with a 1-byte number.
 type tagContext struct {
-	Num uint8
+	number uint8
 }
 
 // NewContextTag constructs a context-specific tag with the given 1-byte number.
-func NewContextTag(num uint8) ContextTag { return tagContext{Num: num} }
+func NewContextTag(num uint8) ContextTag { return tagContext{number: num} }
 
 // Control returns TagCtlContext.
 func (t tagContext) Control() TagControl { return TagContext }
 
 // Bytes returns the single context tag byte.
-func (t tagContext) Bytes() []byte { return []byte{t.Num} }
+func (t tagContext) Bytes() []byte { return []byte{t.number} }
 
 // String returns a descriptive string for the context tag.
-func (t tagContext) String() string { return fmt.Sprintf("Context(%d)", t.Num) }
+func (t tagContext) String() string { return fmt.Sprintf("Context(%d)", t.number) }
 
-// Number returns the context number.
-func (t tagContext) Number() ContextNumber { return ContextNumber(t.Num) }
+// ContextNumber returns the context number.
+func (t tagContext) ContextNumber() ContextNumber { return ContextNumber(t.number) }

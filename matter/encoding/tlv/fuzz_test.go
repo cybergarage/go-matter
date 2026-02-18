@@ -22,7 +22,7 @@ func FuzzDecodeEncode(f *testing.F) {
 	enc := NewEncoder()
 	_ = enc.PutUnsigned(NewContextTag(1), 1)
 	enc.StartArray(NewContextTag(2))
-	_ = enc.PutUnsigned(AnonymousTag(), 2)
+	_ = enc.PutUnsigned(NewAnonymousTag(), 2)
 	enc.EndContainer()
 	enc.MustEndAll()
 	f.Add(enc.Bytes())

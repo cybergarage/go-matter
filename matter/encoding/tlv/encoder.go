@@ -272,7 +272,7 @@ func (e *encoderImpl) EndContainer() error {
 	if len(e.containers) == 0 {
 		return ErrContainerStackEmpty
 	}
-	e.writeHeader(AnonymousTag(), EndOfContainer)
+	e.writeHeader(NewAnonymousTag(), EndOfContainer)
 	e.containers = e.containers[:len(e.containers)-1]
 	return nil
 }

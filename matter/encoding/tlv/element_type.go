@@ -14,7 +14,9 @@
 
 package tlv
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // ElementType (5 bits). Each size variant is a distinct constant.
 // A.7. Control Octet Encoding
