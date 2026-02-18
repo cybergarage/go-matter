@@ -22,6 +22,8 @@ import (
 // from an in-memory byte slice. EndOfContainer markers are consumed
 // internally and not surfaced.
 type Decoder interface {
+	// More returns true if there is more data to decode (not EOF).
+	More() bool
 	// Next advances to the next element; returns false on EOF or error.
 	// After false, check Error() to distinguish normal EOF vs error.
 	Next() bool
@@ -56,7 +58,14 @@ func NewDecoderWithBytes(b []byte) Decoder {
 }
 
 // Error implements Decoder.Error.
-func (d *decoderImpl) Error() error { return d.err }
+func (d *decoderImpl) Error() error {
+	return d.err
+}
+
+// More implements Decoder.More. Returns true if there is more data to decode (not EOF).
+func (d *decoderImpl) More() bool {
+	return d.err == nil && d.pos < len(d.data)
+}
 
 // Next implements Decoder.Next. It advances to the next element and returns true if successful.
 func (d *decoderImpl) Next() bool {
