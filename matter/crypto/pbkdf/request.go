@@ -17,6 +17,14 @@ package pbkdf
 // ParamRequest represents the PBKDF parameter request message sent by the initiator during PASE handshake.
 // 4.14.1. Passcode-Authenticated Session Establishment (PASE).
 type ParamRequest interface {
+	// InitiatorRandom returns the initiator random value from the request.
+	InitiatorRandom() []byte
+	// InitiatorSessionID returns the initiator session ID from the request.
+	InitiatorSessionID() uint16
+	// PasscodeID returns the passcode ID from the request.
+	PasscodeID() uint16
+	// HasPBKDFParameters indicates whether the request includes PBKDF parameters.
+	HasPBKDFParameters() bool
 	// Bytes returns the byte representation of the ParamRequest message, ready for transmission.
 	Bytes() ([]byte, error)
 }

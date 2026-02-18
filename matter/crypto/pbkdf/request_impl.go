@@ -17,20 +17,70 @@ package pbkdf
 import (
 	"fmt"
 
+	"github.com/cybergarage/go-matter/matter/crypto"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 )
 
+const (
+	initiatorRandomLength     = 32
+	unicastInitiatorSessionID = 0
+)
+
 type paramRequest struct {
+	initiatorRandom    []byte
+	initiatorSessionID uint16
+	passcodeID         uint16
+	hasPBKDFParameters bool
+}
+
+// ParamRequestOption defines a functional option for configuring the ParamRequest.
+type ParamRequestOption func(*paramRequest)
+
+// WithParamRequestInitiatorSessionID sets the initiator session ID in the ParamRequest.
+func WithParamRequestInitiatorSessionID(sessionID uint16) ParamRequestOption {
+	return func(r *paramRequest) {
+		r.initiatorSessionID = sessionID
+	}
+}
+
+// WithParamRequestPasscodeID sets the passcode ID in the ParamRequest.
+func WithParamRequestPasscodeID(passcodeID uint16) ParamRequestOption {
+	return func(r *paramRequest) {
+		r.passcodeID = passcodeID
+	}
+}
+
+// WithParamRequestHasPBKDFParameters sets whether the request includes PBKDF parameters.
+func WithParamRequestHasPBKDFParameters(hasParams bool) ParamRequestOption {
+	return func(r *paramRequest) {
+		r.hasPBKDFParameters = hasParams
+	}
 }
 
 // NewParamRequest creates a new PBKDFParamRequest instance.
-func NewParamRequest() ParamRequest {
-	return &paramRequest{}
+func NewParamRequest(opts ...ParamRequestOption) ParamRequest {
+	r := newParamRequest()
+	r.initiatorRandom = crypto.Crypto_DRBG(initiatorRandomLength)
+	// 4.13.2.4. Choosing Secure Unicast Session Identifiers
+	r.initiatorSessionID = unicastInitiatorSessionID
+	for _, opt := range opts {
+		opt(r)
+	}
+	return r
+}
+
+func newParamRequest() *paramRequest {
+	return &paramRequest{
+		initiatorRandom:    []byte{},
+		initiatorSessionID: 0,
+		passcodeID:         0,
+		hasPBKDFParameters: false,
+	}
 }
 
 // NewParamRequestFromBytes returns a new PBKDFParamRequest instance parsed from the given byte slice.
 func NewParamRequestFromBytes(data []byte) (ParamRequest, error) {
-	r := &paramRequest{}
+	r := newParamRequest()
 	if err := r.ParseBytes(data); err != nil {
 		return nil, err
 	}
@@ -41,18 +91,12 @@ func NewParamRequestFromBytes(data []byte) (ParamRequest, error) {
 func (r *paramRequest) ParseBytes(data []byte) error {
 	dec := tlv.NewDecoderWithBytes(data)
 
-	// 4.14.1.2. Protocol Details
-	// pbkdfparamreq-struct => STRUCTURE [ tag-order ]
-	// {
-	//   initiatorRandom [1] : OCTET STRING [ length 32 ],
-	//   initiatorSessionId [2] : UNSIGNED INTEGER [ range 16-bits ],
-	//   passcodeId [3] : UNSIGNED INTEGER [ length 16-bits ],
-	//   hasPBKDFParameters [4] : BOOLEAN,
-	//   initiatorSessionParams [5, optional] : session-parameter-struct
-	// }
+	expectedTypeError := func(expected tlv.ElementType, actual tlv.Element) error {
+		return fmt.Errorf("expected %s, got %s", expected, actual.Type())
+	}
 
-	expectedTypeError := func(expected tlv.ElementType, elem tlv.Element) error {
-		return fmt.Errorf("expected %s, got %s", expected, elem.Type())
+	exptectedTagError := func(expected tlv.TagControl, actual tlv.Tag) error {
+		return fmt.Errorf("expected tag type %s, got %s", expected, actual.Control())
 	}
 
 	if !dec.Next() {
@@ -64,26 +108,83 @@ func (r *paramRequest) ParseBytes(data []byte) error {
 		return expectedTypeError(tlv.Structure, elem)
 	}
 
-	for range 4 {
-		if !dec.Next() {
-			return dec.Error()
+	// 4.14.1.2. Protocol Details
+	// pbkdfparamreq-struct => STRUCTURE [ tag-order ]
+	// {
+	//   initiatorRandom [1] : OCTET STRING [ length 32 ],
+	//   initiatorSessionId [2] : UNSIGNED INTEGER [ range 16-bits ],
+	//   passcodeId [3] : UNSIGNED INTEGER [ length 16-bits ],
+	//   hasPBKDFParameters [4] : BOOLEAN,
+	//   initiatorSessionParams [5, optional] : session-parameter-struct
+	// }
+
+	if !dec.Next() {
+		return dec.Error()
+	}
+	elem = dec.Element()
+	switch t := elem.Tag().(type) {
+	case tlv.ContextTag:
+		switch t.ContextNumber() {
+		case 1:
+			b, ok := elem.Bytes()
+			if !ok {
+				return expectedTypeError(tlv.OctetString1, elem)
+			}
+			r.initiatorRandom = b
+		case 2:
+			v, ok := elem.Unsigned2()
+			if !ok {
+				return expectedTypeError(tlv.UnsignedInt2, elem)
+			}
+			r.initiatorSessionID = v
+		case 3:
+			v, ok := elem.Unsigned2()
+			if !ok {
+				return expectedTypeError(tlv.UnsignedInt2, elem)
+			}
+			r.passcodeID = v
+		case 4:
+			v, ok := elem.Bool()
+			if !ok {
+				return expectedTypeError(tlv.BoolTrue, elem)
+			}
+			r.hasPBKDFParameters = v
 		}
+	default:
+		return exptectedTagError(tlv.TagContext, elem.Tag())
 	}
 
-	// TODO(spec): Parse and validate mandatory fields if the target device requires them
-	// (e.g., initiator random, session parameters, etc.).
-	// Keeping this structure empty is useful as a first connectivity probe.
-	if err := dec.Error(); err != nil {
-		return err
+	if !dec.Next() {
+		return nil
 	}
 
 	return nil
 }
 
+// InitiatorRandom returns the initiator random value from the request.
+func (r *paramRequest) InitiatorRandom() []byte {
+	return r.initiatorRandom
+}
+
+// InitiatorSessionID returns the initiator session ID from the request.
+func (r *paramRequest) InitiatorSessionID() uint16 {
+	return r.initiatorSessionID
+}
+
+// PasscodeID returns the passcode ID from the request.
+func (r *paramRequest) PasscodeID() uint16 {
+	return r.passcodeID
+}
+
+// HasPBKDFParameters indicates whether the request includes PBKDF parameters.
+func (r *paramRequest) HasPBKDFParameters() bool {
+	return r.hasPBKDFParameters
+}
+
 // Bytes encodes the ParamRequest into its byte representation for transmission.
 func (r *paramRequest) Bytes() ([]byte, error) {
 	enc := tlv.NewEncoder()
-	enc.StartStructure(tlv.AnonymousTag())
+	enc.StartStructure(tlv.NewAnonymousTag())
 
 	// TODO(spec): Add mandatory fields if the target device requires them
 	// (e.g., initiator random, session parameters, etc.).
