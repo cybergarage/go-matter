@@ -27,7 +27,7 @@ type paramResponse struct {
 
 // NewParamResponseFromBytes returns a new PBKDFParamResponse instance parsed from the given byte slice.
 func NewParamResponseFromBytes(tlvBytes []byte) (ParamResponse, error) {
-	dec := tlv.NewDecoder(tlvBytes)
+	dec := tlv.NewDecoderWithBytes(tlvBytes)
 	var (
 		iter uint32
 		salt []byte
@@ -49,8 +49,8 @@ func NewParamResponseFromBytes(tlvBytes []byte) (ParamResponse, error) {
 			}
 		}
 	}
-	if dec.Err() != nil {
-		return nil, dec.Err()
+	if dec.Error() != nil {
+		return nil, dec.Error()
 	}
 
 	// If these are missing, it most likely means our assumed context tag numbers

@@ -14,20 +14,22 @@
 
 package tlv
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+)
 
 // Decoder provides a streaming interface for reading TLV elements
 // from an in-memory byte slice. EndOfContainer markers are consumed
 // internally and not surfaced.
 type Decoder interface {
 	// Next advances to the next element; returns false on EOF or error.
-	// After false, check Err() to distinguish normal EOF vs error.
+	// After false, check Error() to distinguish normal EOF vs error.
 	Next() bool
 	// Element returns the most recently decoded element. It is valid
 	// only if the preceding Next() returned true.
 	Element() Element
-	// Err returns the first error encountered (if any).
-	Err() error
+	// Error returns the first error encountered (if any).
+	Error() error
 }
 
 // decoderImpl is the concrete implementation of Decoder.
@@ -42,8 +44,8 @@ type decoderImpl struct {
 
 var _ Decoder = (*decoderImpl)(nil)
 
-// NewDecoder constructs a new decoder over b.
-func NewDecoder(b []byte) Decoder {
+// NewDecoderWithBytes constructs a new decoder over b.
+func NewDecoderWithBytes(b []byte) Decoder {
 	return &decoderImpl{
 		data:       b,
 		pos:        0,
@@ -53,10 +55,10 @@ func NewDecoder(b []byte) Decoder {
 	}
 }
 
-// Err implements Decoder.Err.
-func (d *decoderImpl) Err() error { return d.err }
+// Error implements Decoder.Error.
+func (d *decoderImpl) Error() error { return d.err }
 
-// Next implements Decoder.Next.
+// Next implements Decoder.Next. It advances to the next element and returns true if successful.
 func (d *decoderImpl) Next() bool {
 	if d.err != nil {
 		return false

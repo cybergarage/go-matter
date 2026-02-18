@@ -28,7 +28,7 @@ func FuzzDecodeEncode(f *testing.F) {
 	f.Add(enc.Bytes())
 
 	f.Fuzz(func(t *testing.T, data []byte) {
-		dec := NewDecoder(data)
+		dec := NewDecoderWithBytes(data)
 		for dec.Next() {
 			_ = dec.Element()
 		}

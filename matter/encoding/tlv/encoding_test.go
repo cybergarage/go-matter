@@ -82,7 +82,7 @@ func TestRoundTrip(t *testing.T) {
 	}
 
 	// Simple smoke decode pass
-	dec := NewDecoder(raw)
+	dec := NewDecoderWithBytes(raw)
 	var out bytes.Buffer
 	count := 0
 	for dec.Next() {
@@ -90,8 +90,8 @@ func TestRoundTrip(t *testing.T) {
 		out.WriteByte('\n')
 		count++
 	}
-	if dec.Err() != nil {
-		t.Fatalf("decode error: %v\nEncoded=%s", dec.Err(), hex.EncodeToString(raw))
+	if dec.Error() != nil {
+		t.Fatalf("decode error: %v\nEncoded=%s", dec.Error(), hex.EncodeToString(raw))
 	}
 	if count == 0 {
 		t.Fatalf("no elements decoded")
@@ -104,10 +104,10 @@ func TestContainerMismatch(t *testing.T) {
 	// Missing EndContainer intentionally
 	raw := enc.Bytes()
 
-	dec := NewDecoder(raw)
+	dec := NewDecoderWithBytes(raw)
 	for dec.Next() {
 	}
-	if dec.Err() == nil {
+	if dec.Error() == nil {
 		t.Fatalf("expected error for unclosed container")
 	}
 }
@@ -118,15 +118,15 @@ func TestBooleanVariants(t *testing.T) {
 	enc.PutBool(AnonymousTag(), true)
 	data := enc.Bytes()
 
-	dec := NewDecoder(data)
+	dec := NewDecoderWithBytes(data)
 	var vals []bool
 	for dec.Next() {
 		if b, ok := dec.Element().Bool(); ok {
 			vals = append(vals, b)
 		}
 	}
-	if dec.Err() != nil {
-		t.Fatalf("decode err: %v", dec.Err())
+	if dec.Error() != nil {
+		t.Fatalf("decode err: %v", dec.Error())
 	}
 	if len(vals) != 2 || vals[0] != false || vals[1] != true {
 		t.Fatalf("unexpected bool sequence: %#v", vals)

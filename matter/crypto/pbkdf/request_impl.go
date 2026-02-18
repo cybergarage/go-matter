@@ -40,7 +40,7 @@ func NewParamRequestFromBytes(data []byte) (ParamRequest, error) {
 func (r *paramRequest) ParseBytes(data []byte) error {
 	// 4.14.1.2. Protocol Details
 
-	dec := tlv.NewDecoder(data)
+	dec := tlv.NewDecoderWithBytes(data)
 
 	for dec.Next() {
 		elem := dec.Element()
@@ -49,7 +49,7 @@ func (r *paramRequest) ParseBytes(data []byte) error {
 		log.Debugf("Parsed TLV element: %s", elem.String())
 	}
 
-	if err := dec.Err(); err != nil {
+	if err := dec.Error(); err != nil {
 		return err
 	}
 
