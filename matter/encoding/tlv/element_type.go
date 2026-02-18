@@ -83,6 +83,166 @@ func (et ElementType) Is(t ElementType) bool {
 	return et == t
 }
 
+// IsSignedInt returns true if the ElementType is any signed integer variant.
+func (et ElementType) IsSignedInt() bool {
+	return et == SignedInt1 || et == SignedInt2 || et == SignedInt4 || et == SignedInt8
+}
+
+// IsSignedInt1 returns true if the ElementType is SignedInt1.
+func (et ElementType) IsSignedInt1() bool {
+	return et == SignedInt1
+}
+
+// IsSignedInt2 returns true if the ElementType is SignedInt2.
+func (et ElementType) IsSignedInt2() bool {
+	return et == SignedInt2
+}
+
+// IsSignedInt4 returns true if the ElementType is SignedInt4.
+func (et ElementType) IsSignedInt4() bool {
+	return et == SignedInt4
+}
+
+// IsSignedInt8 returns true if the ElementType is SignedInt8.
+func (et ElementType) IsSignedInt8() bool {
+	return et == SignedInt8
+}
+
+// IsUnsignedInt returns true if the ElementType is any unsigned integer variant.
+func (et ElementType) IsUnsignedInt() bool {
+	return et == UnsignedInt1 || et == UnsignedInt2 || et == UnsignedInt4 || et == UnsignedInt8
+}
+
+// IsUnsignedInt1 returns true if the ElementType is UnsignedInt1.
+func (et ElementType) IsUnsignedInt1() bool {
+	return et == UnsignedInt1
+}
+
+// IsUnsignedInt2 returns true if the ElementType is UnsignedInt2.
+func (et ElementType) IsUnsignedInt2() bool {
+	return et == UnsignedInt2
+}
+
+// IsUnsignedInt4 returns true if the ElementType is UnsignedInt4.
+func (et ElementType) IsUnsignedInt4() bool {
+	return et == UnsignedInt4
+}
+
+// IsUnsignedInt8 returns true if the ElementType is UnsignedInt8.
+func (et ElementType) IsUnsignedInt8() bool {
+	return et == UnsignedInt8
+}
+
+// IsBool returns true if the ElementType is any boolean variant.
+func (et ElementType) IsBool() bool {
+	return et == BoolFalse || et == BoolTrue
+}
+
+// IsTrue returns true if the ElementType is BoolTrue.
+func (et ElementType) IsTrue() bool {
+	return et == BoolTrue
+}
+
+// IsFalse returns true if the ElementType is BoolFalse.
+func (et ElementType) IsFalse() bool {
+	return et == BoolFalse
+}
+
+// IsFloat returns true if the ElementType is any floating-point variant.
+func (et ElementType) IsFloat() bool {
+	return et == Float32 || et == Float64
+}
+
+// IsFloat32 returns true if the ElementType is Float32.
+func (et ElementType) IsFloat32() bool {
+	return et == Float32
+}
+
+// IsFloat64 returns true if the ElementType is Float64.
+func (et ElementType) IsFloat64() bool {
+	return et == Float64
+}
+
+// IsUTF8String returns true if the ElementType is any UTF-8 string variant.
+func (et ElementType) IsUTF8String() bool {
+	return et == UTF8String1 || et == UTF8String2 || et == UTF8String4 || et == UTF8String8
+}
+
+// IsUTF8String1 returns true if the ElementType is UTF8String1.
+func (et ElementType) IsUTF8String1() bool {
+	return et == UTF8String1
+}
+
+// IsUTF8String2 returns true if the ElementType is UTF8String2.
+func (et ElementType) IsUTF8String2() bool {
+	return et == UTF8String2
+}
+
+// IsUTF8String4 returns true if the ElementType is UTF8String4.
+func (et ElementType) IsUTF8String4() bool {
+	return et == UTF8String4
+}
+
+// IsUTF8String8 returns true if the ElementType is UTF8String8.
+func (et ElementType) IsUTF8String8() bool {
+	return et == UTF8String8
+}
+
+// IsOctetString returns true if the ElementType is any octet string variant.
+func (et ElementType) IsOctetString() bool {
+	return et == OctetString1 || et == OctetString2 || et == OctetString4 || et == OctetString8
+}
+
+// IsOctetString1 returns true if the ElementType is OctetString1.
+func (et ElementType) IsOctetString1() bool {
+	return et == OctetString1
+}
+
+// IsOctetString2 returns true if the ElementType is OctetString2.
+func (et ElementType) IsOctetString2() bool {
+	return et == OctetString2
+}
+
+// IsOctetString4 returns true if the ElementType is OctetString4.
+func (et ElementType) IsOctetString4() bool {
+	return et == OctetString4
+}
+
+// IsOctetString8 returns true if the ElementType is OctetString8.
+func (et ElementType) IsOctetString8() bool {
+	return et == OctetString8
+}
+
+// IsNull returns true if the ElementType is Null.
+func (et ElementType) IsNull() bool {
+	return et == Null
+}
+
+// IsContainer returns true if the ElementType is a container marker (Structure, Array, List, or EndOfContainer).
+func (et ElementType) IsContainer() bool {
+	return containerElement(et)
+}
+
+// IsStructure returns true if the ElementType is Structure.
+func (et ElementType) IsStructure() bool {
+	return et == Structure
+}
+
+// IsArray returns true if the ElementType is Array.
+func (et ElementType) IsArray() bool {
+	return et == Array
+}
+
+// IsList returns true if the ElementType is List.
+func (et ElementType) IsList() bool {
+	return et == List
+}
+
+// IsEndOfContainer returns true if the ElementType is the EndOfContainer marker.
+func (et ElementType) IsEndOfContainer() bool {
+	return et == EndOfContainer
+}
+
 // String returns a human-readable name for the ElementType.
 func (et ElementType) String() string {
 	switch et {

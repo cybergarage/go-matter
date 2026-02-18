@@ -21,25 +21,11 @@ import (
 )
 
 // Element represents a decoded TLV element.
-// All methods are pure accessors:
-//   - Tag returns the associated Tag.
-//   - Type returns the raw ElementType code.
-//   - IsEndOfContainer reports if this is ETEndOfContainer.
-//   - ContainerKind returns the element type again with a bool indicating if it's
-//     any container marker (Structure / Array / List / EndOfContainer).
-//   - Signed / Unsigned / Bool / Float / UTF8 / Bytes each return the value plus
-//     a boolean indicating whether the underlying element is of that category.
-//   - DebugString gives a human-readable summary for logging.
 type Element interface {
 	// Tag returns the tag for this element.
 	Tag() Tag
 	// Type returns the raw ElementType.
 	Type() ElementType
-	// IsEndOfContainer reports whether this element is the end-of-container marker.
-	IsEndOfContainer() bool
-	// ContainerKind returns (Type, true) if this element is any container marker
-	// (Structure, Array, List, EndOfContainer); otherwise (0,false).
-	ContainerKind() (ElementType, bool)
 
 	// Signed returns the signed integer value if this is one of the signed int variants.
 	Signed() (int64, bool)
@@ -75,17 +61,6 @@ var _ Element = (*elementImpl)(nil)
 func (e *elementImpl) Tag() Tag { return e.tag }
 
 func (e *elementImpl) Type() ElementType { return e.et }
-
-func (e *elementImpl) IsEndOfContainer() bool {
-	return e.et == EndOfContainer
-}
-
-func (e *elementImpl) ContainerKind() (ElementType, bool) {
-	if e.et == Structure || e.et == Array || e.et == List || e.et == EndOfContainer {
-		return e.et, true
-	}
-	return 0, false
-}
 
 func (e *elementImpl) Signed() (int64, bool) {
 	if e.signedValue != nil {
