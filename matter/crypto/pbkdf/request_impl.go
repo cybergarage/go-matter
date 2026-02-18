@@ -15,7 +15,8 @@
 package pbkdf
 
 import (
-	"github.com/cybergarage/go-logger/log"
+	"fmt"
+
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 )
 
@@ -38,17 +39,40 @@ func NewParamRequestFromBytes(data []byte) (ParamRequest, error) {
 
 // ParseBytes parses the given byte slice into the PBKDFParamRequest structure.
 func (r *paramRequest) ParseBytes(data []byte) error {
-	// 4.14.1.2. Protocol Details
-
 	dec := tlv.NewDecoderWithBytes(data)
 
-	for dec.Next() {
-		elem := dec.Element()
-		// We can ignore the contents of the ParamRequest for now, as it's often empty.
-		// If needed, we can add parsing logic here to extract specific fields in the future.
-		log.Debugf("Parsed TLV element: %s", elem.String())
+	// 4.14.1.2. Protocol Details
+	// pbkdfparamreq-struct => STRUCTURE [ tag-order ]
+	// {
+	//   initiatorRandom [1] : OCTET STRING [ length 32 ],
+	//   initiatorSessionId [2] : UNSIGNED INTEGER [ range 16-bits ],
+	//   passcodeId [3] : UNSIGNED INTEGER [ length 16-bits ],
+	//   hasPBKDFParameters [4] : BOOLEAN,
+	//   initiatorSessionParams [5, optional] : session-parameter-struct
+	// }
+
+	expectedTypeError := func(expected tlv.ElementType, elem tlv.Element) error {
+		return fmt.Errorf("expected %s, got %s", expected, elem.Type())
 	}
 
+	if !dec.Next() {
+		return dec.Error()
+	}
+
+	elem := dec.Element()
+	if !elem.Type().IsStructure() {
+		return expectedTypeError(tlv.Structure, elem)
+	}
+
+	for range 4 {
+		if !dec.Next() {
+			return dec.Error()
+		}
+	}
+
+	// TODO(spec): Parse and validate mandatory fields if the target device requires them
+	// (e.g., initiator random, session parameters, etc.).
+	// Keeping this structure empty is useful as a first connectivity probe.
 	if err := dec.Error(); err != nil {
 		return err
 	}

@@ -44,28 +44,6 @@ func (t tagAnon) Bytes() []byte { return nil }
 // String returns a descriptive name for the anonymous tag.
 func (t tagAnon) String() string { return "(anon)" }
 
-// tagContext is a context-specific tag with a 1-byte number.
-type tagContext struct {
-	Num uint8
-}
-
-// ContextTag constructs a context-specific tag with the given 1-byte number.
-func ContextTag(num uint8) Tag { return tagContext{Num: num} }
-
-// Control returns TagCtlContext.
-func (t tagContext) Control() TagControl { return TagContext }
-
-// Bytes returns the single context tag byte.
-func (t tagContext) Bytes() []byte { return []byte{t.Num} }
-
-// String returns a descriptive string for the context tag.
-func (t tagContext) String() string { return fmt.Sprintf("Context(%d)", t.Num) }
-
-// tagCommon2 is a common/profile form with 2 bytes.
-type tagCommon2 struct {
-	Profile uint16
-}
-
 // Common2Tag constructs a 2-byte common/profile tag.
 func Common2Tag(profile uint16) Tag { return tagCommon2{Profile: profile} }
 
@@ -77,6 +55,11 @@ func (t tagCommon2) Bytes() []byte {
 	b := make([]byte, 2)
 	binary.LittleEndian.PutUint16(b, t.Profile)
 	return b
+}
+
+// tagCommon2 is a common/profile form with 2 bytes.
+type tagCommon2 struct {
+	Profile uint16
 }
 
 // String returns a descriptive representation.

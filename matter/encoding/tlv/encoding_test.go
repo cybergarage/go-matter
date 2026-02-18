@@ -25,21 +25,21 @@ func TestRoundTrip(t *testing.T) {
 	enc := NewEncoder()
 
 	// Unsigned small -> ETUnsignedInt1
-	_ = enc.PutUnsigned(ContextTag(1), 42)
+	_ = enc.PutUnsigned(NewContextTag(1), 42)
 	// Signed fits in 2 bytes -> ETSignedInt2
-	_ = enc.PutSigned(ContextTag(2), -300)
+	_ = enc.PutSigned(NewContextTag(2), -300)
 	// Large unsigned -> ETUnsignedInt8
-	_ = enc.PutUnsigned(ContextTag(3), 1<<40)
+	_ = enc.PutUnsigned(NewContextTag(3), 1<<40)
 	// Bool false/true
-	enc.PutBool(ContextTag(4), false)
-	enc.PutBool(ContextTag(5), true)
+	enc.PutBool(NewContextTag(4), false)
+	enc.PutBool(NewContextTag(5), true)
 	// Null
-	enc.PutNull(ContextTag(6))
+	enc.PutNull(NewContextTag(6))
 	// Floats
-	enc.PutFloat32(ContextTag(7), 3.14)
-	enc.PutFloat64(ContextTag(8), -6.28)
+	enc.PutFloat32(NewContextTag(7), 3.14)
+	enc.PutFloat64(NewContextTag(8), -6.28)
 	// UTF-8 short
-	if err := enc.PutUTF8(ContextTag(9), "Hello"); err != nil {
+	if err := enc.PutUTF8(NewContextTag(9), "Hello"); err != nil {
 		t.Fatalf("PutUTF8 short: %v", err)
 	}
 	// UTF-8 longer (force 2-byte length)
@@ -47,11 +47,11 @@ func TestRoundTrip(t *testing.T) {
 	for i := range longStr {
 		longStr[i] = 'A'
 	}
-	if err := enc.PutUTF8(ContextTag(10), string(longStr)); err != nil {
+	if err := enc.PutUTF8(NewContextTag(10), string(longStr)); err != nil {
 		t.Fatalf("PutUTF8 long: %v", err)
 	}
 	// Byte string
-	if err := enc.PutBytes(ContextTag(11), []byte{0xDE, 0xAD, 0xBE, 0xEF}); err != nil {
+	if err := enc.PutBytes(NewContextTag(11), []byte{0xDE, 0xAD, 0xBE, 0xEF}); err != nil {
 		t.Fatalf("PutBytes: %v", err)
 	}
 
@@ -62,13 +62,13 @@ func TestRoundTrip(t *testing.T) {
 	_ = enc.PutUnsigned(FullyQualified8(0x1357, 0x2468, 0x90ABCDEF), 88)
 
 	// Containers
-	enc.StartStructure(ContextTag(12))
+	enc.StartStructure(NewContextTag(12))
 	_ = enc.PutUnsigned(AnonymousTag(), 1)
-	enc.StartArray(ContextTag(13))
+	enc.StartArray(NewContextTag(13))
 	_ = enc.PutUnsigned(AnonymousTag(), 2)
 	_ = enc.PutUnsigned(AnonymousTag(), 3)
 	enc.EndContainer() // array
-	enc.StartList(ContextTag(14))
+	enc.StartList(NewContextTag(14))
 	_ = enc.PutSigned(AnonymousTag(), -1)
 	_ = enc.PutSigned(AnonymousTag(), -2)
 	enc.EndContainer() // list

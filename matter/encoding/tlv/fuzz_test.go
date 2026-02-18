@@ -20,8 +20,8 @@ import (
 
 func FuzzDecodeEncode(f *testing.F) {
 	enc := NewEncoder()
-	_ = enc.PutUnsigned(ContextTag(1), 1)
-	enc.StartArray(ContextTag(2))
+	_ = enc.PutUnsigned(NewContextTag(1), 1)
+	enc.StartArray(NewContextTag(2))
 	_ = enc.PutUnsigned(AnonymousTag(), 2)
 	enc.EndContainer()
 	enc.MustEndAll()

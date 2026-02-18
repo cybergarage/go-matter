@@ -14,6 +14,10 @@
 
 package tlv
 
+import (
+	"fmt"
+)
+
 // ContextNumber represents a context-specific tag number.
 type ContextNumber uint8
 
@@ -26,3 +30,30 @@ func NewContextNumberFromTag(t Tag) (ContextNumber, bool) {
 		return 0, false
 	}
 }
+
+// ContextTag represents a context-specific tag with a 1-byte number.
+type ContextTag interface {
+	Tag
+	// Number returns the context number (0-255).
+	Number() ContextNumber
+}
+
+// tagContext is a context-specific tag with a 1-byte number.
+type tagContext struct {
+	Num uint8
+}
+
+// NewContextTag constructs a context-specific tag with the given 1-byte number.
+func NewContextTag(num uint8) ContextTag { return tagContext{Num: num} }
+
+// Control returns TagCtlContext.
+func (t tagContext) Control() TagControl { return TagContext }
+
+// Bytes returns the single context tag byte.
+func (t tagContext) Bytes() []byte { return []byte{t.Num} }
+
+// String returns a descriptive string for the context tag.
+func (t tagContext) String() string { return fmt.Sprintf("Context(%d)", t.Num) }
+
+// Number returns the context number.
+func (t tagContext) Number() ContextNumber { return ContextNumber(t.Num) }
