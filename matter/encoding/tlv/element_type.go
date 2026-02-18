@@ -28,108 +28,113 @@ type ElementType uint8
 const (
 	// Signed integers (little-endian).
 
-	ETSignedInt1 ElementType = 0x00
-	ETSignedInt2 ElementType = 0x01
-	ETSignedInt4 ElementType = 0x02
-	ETSignedInt8 ElementType = 0x03
+	SignedInt1 ElementType = 0x00
+	SignedInt2 ElementType = 0x01
+	SignedInt4 ElementType = 0x02
+	SignedInt8 ElementType = 0x03
 
 	// Unsigned integers (little-endian).
 
-	ETUnsignedInt1 ElementType = 0x04
-	ETUnsignedInt2 ElementType = 0x05
-	ETUnsignedInt4 ElementType = 0x06
-	ETUnsignedInt8 ElementType = 0x07
+	UnsignedInt1 ElementType = 0x04
+	UnsignedInt2 ElementType = 0x05
+	UnsignedInt4 ElementType = 0x06
+	UnsignedInt8 ElementType = 0x07
 
 	// Boolean values (no payload).
 
-	ETBoolFalse ElementType = 0x08
-	ETBoolTrue  ElementType = 0x09
+	BoolFalse ElementType = 0x08
+	BoolTrue  ElementType = 0x09
 
 	// Floating point.
 
-	ETFloat32 ElementType = 0x0A
-	ETFloat64 ElementType = 0x0B
+	Float32 ElementType = 0x0A
+	Float64 ElementType = 0x0B
 
 	// UTF-8 string (length-of-length = 1/2/4/8 bytes).
 
-	ETUTF8String1 ElementType = 0x0C
-	ETUTF8String2 ElementType = 0x0D
-	ETUTF8String4 ElementType = 0x0E
-	ETUTF8String8 ElementType = 0x0F
+	UTF8String1 ElementType = 0x0C
+	UTF8String2 ElementType = 0x0D
+	UTF8String4 ElementType = 0x0E
+	UTF8String8 ElementType = 0x0F
 
 	// Octet string (length-of-length = 1/2/4/8 bytes).
 
-	ETOctetString1 ElementType = 0x10
-	ETOctetString2 ElementType = 0x11
-	ETOctetString4 ElementType = 0x12
-	ETOctetString8 ElementType = 0x13
+	OctetString1 ElementType = 0x10
+	OctetString2 ElementType = 0x11
+	OctetString4 ElementType = 0x12
+	OctetString8 ElementType = 0x13
 
 	// Null (no payload).
 
-	ETNull ElementType = 0x14
+	Null ElementType = 0x14
 
 	// Containers & end marker.
 
-	ETStructure      ElementType = 0x15
-	ETArray          ElementType = 0x16
-	ETList           ElementType = 0x17
-	ETEndOfContainer ElementType = 0x18
+	Structure      ElementType = 0x15
+	Array          ElementType = 0x16
+	List           ElementType = 0x17
+	EndOfContainer ElementType = 0x18
 
 	// 0x19..0x1F reserved.
 )
 
+// Is returns true if the ElementType matches the given type.
+func (et ElementType) Is(t ElementType) bool {
+	return et == t
+}
+
 // String returns a human-readable name for the ElementType.
 func (et ElementType) String() string {
 	switch et {
-	case ETSignedInt1:
+	case SignedInt1:
 		return "SignedInt1"
-	case ETSignedInt2:
+	case SignedInt2:
 		return "SignedInt2"
-	case ETSignedInt4:
+	case SignedInt4:
 		return "SignedInt4"
-	case ETSignedInt8:
+	case SignedInt8:
 		return "SignedInt8"
-	case ETUnsignedInt1:
+	case UnsignedInt1:
 		return "UnsignedInt1"
-	case ETUnsignedInt2:
+	case UnsignedInt2:
 		return "UnsignedInt2"
-	case ETUnsignedInt4:
+	case UnsignedInt4:
 		return "UnsignedInt4"
-	case ETUnsignedInt8:
+	case UnsignedInt8:
 		return "UnsignedInt8"
-	case ETBoolFalse:
+	case BoolFalse:
 		return "BoolFalse"
-	case ETBoolTrue:
+	case BoolTrue:
 		return "BoolTrue"
-	case ETFloat32:
+	case Float32:
 		return "Float32"
-	case ETFloat64:
+	case Float64:
 		return "Float64"
-	case ETUTF8String1:
+	case UTF8String1:
 		return "UTF8String1"
-	case ETUTF8String2:
+	case UTF8String2:
 		return "UTF8String2"
-	case ETUTF8String4:
+	case UTF8String4:
 		return "UTF8String4"
-	case ETUTF8String8:
+	case UTF8String8:
 		return "UTF8String8"
-	case ETOctetString1:
+	case OctetString1:
 		return "OctetString1"
-	case ETOctetString2:
+	case OctetString2:
 		return "OctetString2"
-	case ETOctetString4:
+	case OctetString4:
 		return "OctetString4"
-	case ETOctetString8:
+	case OctetString8:
 		return "OctetString8"
-	case ETNull:
+	case Null:
 		return "Null"
-	case ETStructure:
+	case Structure:
 		return "Structure"
-	case ETArray:
+	case Array:
 		return "Array"
-	case ETList:
+	case List:
 		return "List"
-	case ETEndOfContainer:
+	case EndOfContainer:
 		return "EndOfContainer"
 	default:
 		return fmt.Sprintf("Unknown(0x%02X)", uint8(et))
@@ -138,19 +143,19 @@ func (et ElementType) String() string {
 
 // containerElement reports whether the element type is a container marker.
 func containerElement(et ElementType) bool {
-	return et == ETStructure || et == ETArray || et == ETList || et == ETEndOfContainer
+	return et == Structure || et == Array || et == List || et == EndOfContainer
 }
 
 // numericSigned returns the byte width (1/2/4/8) if et is a signed integer variant.
 func numericSigned(et ElementType) int {
 	switch et {
-	case ETSignedInt1:
+	case SignedInt1:
 		return 1
-	case ETSignedInt2:
+	case SignedInt2:
 		return 2
-	case ETSignedInt4:
+	case SignedInt4:
 		return 4
-	case ETSignedInt8:
+	case SignedInt8:
 		return 8
 	default:
 		return 0
@@ -160,13 +165,13 @@ func numericSigned(et ElementType) int {
 // numericUnsigned returns the byte width (1/2/4/8) if et is an unsigned integer variant.
 func numericUnsigned(et ElementType) int {
 	switch et {
-	case ETUnsignedInt1:
+	case UnsignedInt1:
 		return 1
-	case ETUnsignedInt2:
+	case UnsignedInt2:
 		return 2
-	case ETUnsignedInt4:
+	case UnsignedInt4:
 		return 4
-	case ETUnsignedInt8:
+	case UnsignedInt8:
 		return 8
 	default:
 		return 0
@@ -176,9 +181,9 @@ func numericUnsigned(et ElementType) int {
 // floatSize returns 4 or 8 if et is a floating-point variant, else 0.
 func floatSize(et ElementType) int {
 	switch et {
-	case ETFloat32:
+	case Float32:
 		return 4
-	case ETFloat64:
+	case Float64:
 		return 8
 	default:
 		return 0
@@ -188,21 +193,21 @@ func floatSize(et ElementType) int {
 // stringLenFieldSize returns (lengthOfLengthBytes, isUTF8) for string/bytes types.
 func stringLenFieldSize(et ElementType) (int, bool) {
 	switch et {
-	case ETUTF8String1:
+	case UTF8String1:
 		return 1, true
-	case ETUTF8String2:
+	case UTF8String2:
 		return 2, true
-	case ETUTF8String4:
+	case UTF8String4:
 		return 4, true
-	case ETUTF8String8:
+	case UTF8String8:
 		return 8, true
-	case ETOctetString1:
+	case OctetString1:
 		return 1, false
-	case ETOctetString2:
+	case OctetString2:
 		return 2, false
-	case ETOctetString4:
+	case OctetString4:
 		return 4, false
-	case ETOctetString8:
+	case OctetString8:
 		return 8, false
 	default:
 		return 0, false

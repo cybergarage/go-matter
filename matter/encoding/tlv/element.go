@@ -77,11 +77,11 @@ func (e *elementImpl) Tag() Tag { return e.tag }
 func (e *elementImpl) Type() ElementType { return e.et }
 
 func (e *elementImpl) IsEndOfContainer() bool {
-	return e.et == ETEndOfContainer
+	return e.et == EndOfContainer
 }
 
 func (e *elementImpl) ContainerKind() (ElementType, bool) {
-	if e.et == ETStructure || e.et == ETArray || e.et == ETList || e.et == ETEndOfContainer {
+	if e.et == Structure || e.et == Array || e.et == List || e.et == EndOfContainer {
 		return e.et, true
 	}
 	return 0, false
@@ -131,39 +131,39 @@ func (e *elementImpl) Bytes() ([]byte, bool) {
 
 func (e *elementImpl) String() string {
 	switch e.et {
-	case ETSignedInt1, ETSignedInt2, ETSignedInt4, ETSignedInt8:
+	case SignedInt1, SignedInt2, SignedInt4, SignedInt8:
 		if v, ok := e.Signed(); ok {
 			return fmt.Sprintf("%s Signed=%d", e.tag, v)
 		}
-	case ETUnsignedInt1, ETUnsignedInt2, ETUnsignedInt4, ETUnsignedInt8:
+	case UnsignedInt1, UnsignedInt2, UnsignedInt4, UnsignedInt8:
 		if v, ok := e.Unsigned(); ok {
 			return fmt.Sprintf("%s Unsigned=%d", e.tag, v)
 		}
-	case ETBoolFalse, ETBoolTrue:
+	case BoolFalse, BoolTrue:
 		if v, ok := e.Bool(); ok {
 			return fmt.Sprintf("%s Bool=%v", e.tag, v)
 		}
-	case ETFloat32, ETFloat64:
+	case Float32, Float64:
 		if v, ok := e.Float(); ok {
 			return fmt.Sprintf("%s Float=%v", e.tag, v)
 		}
-	case ETUTF8String1, ETUTF8String2, ETUTF8String4, ETUTF8String8:
+	case UTF8String1, UTF8String2, UTF8String4, UTF8String8:
 		if s, ok := e.UTF8(); ok {
 			return fmt.Sprintf("%s UTF8=%q", e.tag, s)
 		}
-	case ETOctetString1, ETOctetString2, ETOctetString4, ETOctetString8:
+	case OctetString1, OctetString2, OctetString4, OctetString8:
 		if b, ok := e.Bytes(); ok {
 			return fmt.Sprintf("%s Bytes(%d)", e.tag, len(b))
 		}
-	case ETNull:
+	case Null:
 		return fmt.Sprintf("%s Null", e.tag)
-	case ETStructure:
+	case Structure:
 		return fmt.Sprintf("%s <Structure>", e.tag)
-	case ETArray:
+	case Array:
 		return fmt.Sprintf("%s <Array>", e.tag)
-	case ETList:
+	case List:
 		return fmt.Sprintf("%s <List>", e.tag)
-	case ETEndOfContainer:
+	case EndOfContainer:
 		return "EndOfContainer"
 	}
 	return fmt.Sprintf("%s Type=0x%02X", e.tag, uint8(e.et))

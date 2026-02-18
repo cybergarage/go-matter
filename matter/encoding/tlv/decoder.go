@@ -76,9 +76,9 @@ func (d *decoderImpl) Next() bool {
 	}
 	if containerElement(el.Type()) {
 		switch el.Type() {
-		case ETStructure, ETArray, ETList:
+		case Structure, Array, List:
 			d.containerS = append(d.containerS, el.Type())
-		case ETEndOfContainer:
+		case EndOfContainer:
 			if len(d.containerS) == 0 {
 				d.err = ErrContainerStackEmpty
 				return false
@@ -131,7 +131,7 @@ func (d *decoderImpl) readElement() (Element, error) {
 	}
 
 	switch et {
-	case ETSignedInt1, ETSignedInt2, ETSignedInt4, ETSignedInt8:
+	case SignedInt1, SignedInt2, SignedInt4, SignedInt8:
 		sBytes := numericSigned(et)
 		raw, err := d.read(sBytes)
 		if err != nil {
@@ -140,7 +140,7 @@ func (d *decoderImpl) readElement() (Element, error) {
 		val := decodeSigned(raw)
 		e.signedValue = &val
 		return e, nil
-	case ETUnsignedInt1, ETUnsignedInt2, ETUnsignedInt4, ETUnsignedInt8:
+	case UnsignedInt1, UnsignedInt2, UnsignedInt4, UnsignedInt8:
 		uBytes := numericUnsigned(et)
 		raw, err := d.read(uBytes)
 		if err != nil {
@@ -149,15 +149,15 @@ func (d *decoderImpl) readElement() (Element, error) {
 		val := decodeUnsigned(raw)
 		e.unsignedValue = &val
 		return e, nil
-	case ETBoolTrue:
+	case BoolTrue:
 		v := true
 		e.boolValue = &v
 		return e, nil
-	case ETBoolFalse:
+	case BoolFalse:
 		v := false
 		e.boolValue = &v
 		return e, nil
-	case ETFloat32, ETFloat64:
+	case Float32, Float64:
 		fs := floatSize(et)
 		raw, err := d.read(fs)
 		if err != nil {
@@ -166,8 +166,8 @@ func (d *decoderImpl) readElement() (Element, error) {
 		fv := decodeFloat(raw)
 		e.floatValue = &fv
 		return e, nil
-	case ETUTF8String1, ETUTF8String2, ETUTF8String4, ETUTF8String8,
-		ETOctetString1, ETOctetString2, ETOctetString4, ETOctetString8:
+	case UTF8String1, UTF8String2, UTF8String4, UTF8String8,
+		OctetString1, OctetString2, OctetString4, OctetString8:
 		lfs, isUTF8 := stringLenFieldSize(et)
 		lenBytes, err := d.read(lfs)
 		if err != nil {
@@ -200,9 +200,9 @@ func (d *decoderImpl) readElement() (Element, error) {
 			e.bytesValue = &cp
 		}
 		return e, nil
-	case ETNull:
+	case Null:
 		return e, nil
-	case ETStructure, ETArray, ETList, ETEndOfContainer:
+	case Structure, Array, List, EndOfContainer:
 		return e, nil
 	default:
 		return nil, ErrUnknownElementType

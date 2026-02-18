@@ -88,13 +88,13 @@ func (e *encoderImpl) PutSigned(tag Tag, v int64) error {
 	var et ElementType
 	switch {
 	case v >= math.MinInt8 && v <= math.MaxInt8:
-		et = ETSignedInt1
+		et = SignedInt1
 	case v >= math.MinInt16 && v <= math.MaxInt16:
-		et = ETSignedInt2
+		et = SignedInt2
 	case v >= math.MinInt32 && v <= math.MaxInt32:
-		et = ETSignedInt4
+		et = SignedInt4
 	default:
-		et = ETSignedInt8
+		et = SignedInt8
 	}
 	e.writeHeader(tag, et)
 	size := numericSigned(et)
@@ -118,13 +118,13 @@ func (e *encoderImpl) PutUnsigned(tag Tag, v uint64) error {
 	var et ElementType
 	switch {
 	case v <= math.MaxUint8:
-		et = ETUnsignedInt1
+		et = UnsignedInt1
 	case v <= math.MaxUint16:
-		et = ETUnsignedInt2
+		et = UnsignedInt2
 	case v <= math.MaxUint32:
-		et = ETUnsignedInt4
+		et = UnsignedInt4
 	default:
-		et = ETUnsignedInt8
+		et = UnsignedInt8
 	}
 	e.writeHeader(tag, et)
 	size := numericUnsigned(et)
@@ -146,20 +146,20 @@ func (e *encoderImpl) PutUnsigned(tag Tag, v uint64) error {
 // PutBool implements Encoder.PutBool.
 func (e *encoderImpl) PutBool(tag Tag, v bool) {
 	if v {
-		e.writeHeader(tag, ETBoolTrue)
+		e.writeHeader(tag, BoolTrue)
 	} else {
-		e.writeHeader(tag, ETBoolFalse)
+		e.writeHeader(tag, BoolFalse)
 	}
 }
 
 // PutNull implements Encoder.PutNull.
 func (e *encoderImpl) PutNull(tag Tag) {
-	e.writeHeader(tag, ETNull)
+	e.writeHeader(tag, Null)
 }
 
 // PutFloat32 implements Encoder.PutFloat32.
 func (e *encoderImpl) PutFloat32(tag Tag, f float32) {
-	e.writeHeader(tag, ETFloat32)
+	e.writeHeader(tag, Float32)
 	buf := make([]byte, 4)
 	binary.LittleEndian.PutUint32(buf, math.Float32bits(f))
 	e.buf.Write(buf)
@@ -167,7 +167,7 @@ func (e *encoderImpl) PutFloat32(tag Tag, f float32) {
 
 // PutFloat64 implements Encoder.PutFloat64.
 func (e *encoderImpl) PutFloat64(tag Tag, f float64) {
-	e.writeHeader(tag, ETFloat64)
+	e.writeHeader(tag, Float64)
 	buf := make([]byte, 8)
 	binary.LittleEndian.PutUint64(buf, math.Float64bits(f))
 	e.buf.Write(buf)
@@ -228,43 +228,43 @@ func pickStringElementType(length int, utf8 bool) (ElementType, int, error) {
 	switch {
 	case length <= 0xFF:
 		if utf8 {
-			return ETUTF8String1, 1, nil
+			return UTF8String1, 1, nil
 		}
-		return ETOctetString1, 1, nil
+		return OctetString1, 1, nil
 	case length <= 0xFFFF:
 		if utf8 {
-			return ETUTF8String2, 2, nil
+			return UTF8String2, 2, nil
 		}
-		return ETOctetString2, 2, nil
+		return OctetString2, 2, nil
 	case length <= 0xFFFFFFFF:
 		if utf8 {
-			return ETUTF8String4, 4, nil
+			return UTF8String4, 4, nil
 		}
-		return ETOctetString4, 4, nil
+		return OctetString4, 4, nil
 	default:
 		if utf8 {
-			return ETUTF8String8, 8, nil
+			return UTF8String8, 8, nil
 		}
-		return ETOctetString8, 8, nil
+		return OctetString8, 8, nil
 	}
 }
 
 // StartStructure implements Encoder.StartStructure.
 func (e *encoderImpl) StartStructure(tag Tag) {
-	e.writeHeader(tag, ETStructure)
-	e.containers = append(e.containers, ETStructure)
+	e.writeHeader(tag, Structure)
+	e.containers = append(e.containers, Structure)
 }
 
 // StartArray implements Encoder.StartArray.
 func (e *encoderImpl) StartArray(tag Tag) {
-	e.writeHeader(tag, ETArray)
-	e.containers = append(e.containers, ETArray)
+	e.writeHeader(tag, Array)
+	e.containers = append(e.containers, Array)
 }
 
 // StartList implements Encoder.StartList.
 func (e *encoderImpl) StartList(tag Tag) {
-	e.writeHeader(tag, ETList)
-	e.containers = append(e.containers, ETList)
+	e.writeHeader(tag, List)
+	e.containers = append(e.containers, List)
 }
 
 // EndContainer implements Encoder.EndContainer.
@@ -272,7 +272,7 @@ func (e *encoderImpl) EndContainer() error {
 	if len(e.containers) == 0 {
 		return ErrContainerStackEmpty
 	}
-	e.writeHeader(AnonymousTag(), ETEndOfContainer)
+	e.writeHeader(AnonymousTag(), EndOfContainer)
 	e.containers = e.containers[:len(e.containers)-1]
 	return nil
 }
