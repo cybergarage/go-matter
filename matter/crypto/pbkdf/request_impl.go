@@ -89,8 +89,11 @@ func NewParamRequestFromBytes(data []byte) (ParamRequest, error) {
 
 // ParseBytes parses the given byte slice into the PBKDFParamRequest structure.
 func (r *paramRequest) ParseBytes(data []byte) error {
-	dec := tlv.NewDecoderWithBytes(data)
+	return r.Decode(tlv.NewDecoderWithBytes(data))
+}
 
+// Decode decodes the given TLV decoder into the ParamRequest structure.
+func (r *paramRequest) Decode(dec tlv.Decoder) error {
 	expectedTypeError := func(expected tlv.ElementType, actual tlv.Element) error {
 		return fmt.Errorf("expected %s, got %s", expected, actual.Type())
 	}
