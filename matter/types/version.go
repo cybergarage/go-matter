@@ -27,17 +27,17 @@ func NewVersion(major, minor, dot int) Version {
 	return Version((major&0xFF)<<24 | (minor&0xFF)<<16 | (dot&0xFF)<<8)
 }
 
-// 31 .. 24 - Major version. Incremented for incompatible changes.
+// Major returns the major version component (bits 31..24).
 func (v Version) Major() int {
 	return int((v >> 24) & 0xFF)
 }
 
-// 23 .. 16 - Minor version. Incremented for backward-compatible changes.
+// Minor returns the minor version component (bits 23..16).
 func (v Version) Minor() int {
 	return int((v >> 16) & 0xFF)
 }
 
-// 15 .. 8 - Dot version. Incremented for backward-compatible bug fixes.
+// Dot returns the dot version component (bits 15..8).
 func (v Version) Dot() int {
 	return int((v >> 8) & 0xFF)
 }
