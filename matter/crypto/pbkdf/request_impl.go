@@ -15,8 +15,6 @@
 package pbkdf
 
 import (
-	"fmt"
-
 	"github.com/cybergarage/go-matter/matter/crypto"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 )
@@ -57,6 +55,15 @@ func WithParamRequestHasPBKDFParameters(hasParams bool) ParamRequestOption {
 	}
 }
 
+func newParamRequest() *paramRequest {
+	return &paramRequest{
+		initiatorRandom:    []byte{},
+		initiatorSessionID: 0,
+		passcodeID:         0,
+		hasPBKDFParameters: false,
+	}
+}
+
 // NewParamRequest creates a new PBKDFParamRequest instance.
 func NewParamRequest(opts ...ParamRequestOption) ParamRequest {
 	r := newParamRequest()
@@ -67,15 +74,6 @@ func NewParamRequest(opts ...ParamRequestOption) ParamRequest {
 		opt(r)
 	}
 	return r
-}
-
-func newParamRequest() *paramRequest {
-	return &paramRequest{
-		initiatorRandom:    []byte{},
-		initiatorSessionID: 0,
-		passcodeID:         0,
-		hasPBKDFParameters: false,
-	}
 }
 
 // NewParamRequestFromBytes returns a new PBKDFParamRequest instance parsed from the given byte slice.
@@ -94,23 +92,6 @@ func (r *paramRequest) ParseBytes(data []byte) error {
 
 // Decode decodes the given TLV decoder into the ParamRequest structure.
 func (r *paramRequest) Decode(dec tlv.Decoder) error {
-	expectedTypeError := func(expected tlv.ElementType, actual tlv.Element) error {
-		return fmt.Errorf("expected %s, got %s", expected, actual.Type())
-	}
-
-	exptectedTagError := func(expected tlv.TagControl, actual tlv.Tag) error {
-		return fmt.Errorf("expected tag type %s, got %s", expected, actual.Control())
-	}
-
-	if !dec.Next() {
-		return dec.Error()
-	}
-
-	elem := dec.Element()
-	if !elem.Type().IsStructure() {
-		return expectedTypeError(tlv.Structure, elem)
-	}
-
 	// 4.14.1.2. Protocol Details
 	// pbkdfparamreq-struct => STRUCTURE [ tag-order ]
 	// {
@@ -124,40 +105,51 @@ func (r *paramRequest) Decode(dec tlv.Decoder) error {
 	if !dec.Next() {
 		return dec.Error()
 	}
-	elem = dec.Element()
-	switch t := elem.Tag().(type) {
-	case tlv.ContextTag:
-		switch t.ContextNumber() {
-		case 1:
-			b, ok := elem.Bytes()
-			if !ok {
-				return expectedTypeError(tlv.OctetString1, elem)
-			}
-			r.initiatorRandom = b
-		case 2:
-			v, ok := elem.Unsigned2()
-			if !ok {
-				return expectedTypeError(tlv.UnsignedInt2, elem)
-			}
-			r.initiatorSessionID = v
-		case 3:
-			v, ok := elem.Unsigned2()
-			if !ok {
-				return expectedTypeError(tlv.UnsignedInt2, elem)
-			}
-			r.passcodeID = v
-		case 4:
-			v, ok := elem.Bool()
-			if !ok {
-				return expectedTypeError(tlv.BoolTrue, elem)
-			}
-			r.hasPBKDFParameters = v
-		}
-	default:
-		return exptectedTagError(tlv.TagContext, elem.Tag())
+
+	elem := dec.Element()
+	if !elem.Type().IsStructure() {
+		return expectedTypeError(tlv.Structure, elem)
 	}
 
-	if !dec.Next() {
+	for range 4 {
+		if !dec.Next() {
+			return dec.Error()
+		}
+		elem = dec.Element()
+		switch t := elem.Tag().(type) {
+		case tlv.ContextTag:
+			switch t.ContextNumber() {
+			case 1:
+				b, ok := elem.Bytes()
+				if !ok {
+					return expectedTypeError(tlv.OctetString1, elem)
+				}
+				r.initiatorRandom = b
+			case 2:
+				v, ok := elem.Unsigned2()
+				if !ok {
+					return expectedTypeError(tlv.UnsignedInt2, elem)
+				}
+				r.initiatorSessionID = v
+			case 3:
+				v, ok := elem.Unsigned2()
+				if !ok {
+					return expectedTypeError(tlv.UnsignedInt2, elem)
+				}
+				r.passcodeID = v
+			case 4:
+				v, ok := elem.Bool()
+				if !ok {
+					return expectedTypeError(tlv.BoolTrue, elem)
+				}
+				r.hasPBKDFParameters = v
+			}
+		default:
+			return expectedTagError(tlv.TagContext, elem.Tag())
+		}
+	}
+
+	if !dec.More() {
 		return nil
 	}
 
