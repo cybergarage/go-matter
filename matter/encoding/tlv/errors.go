@@ -16,10 +16,13 @@ package tlv
 
 import (
 	"errors"
+	"io"
 )
 
 // Centralized error variables returned by encoder/decoder operations.
 var (
+	// EOF is returned when the decoder reaches the end of the input data.
+	EOF = io.EOF
 	// ErrUnexpectedEOF indicates the buffer ended prematurely.
 	ErrUnexpectedEOF = errors.New("tlv: unexpected EOF")
 	// ErrInvalidControlByte indicates an unrecognized or malformed control octet.

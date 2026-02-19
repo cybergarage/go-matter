@@ -57,19 +57,20 @@ func NewDecoderWithBytes(b []byte) Decoder {
 	}
 }
 
-// Error implements Decoder.Error.
 func (d *decoderImpl) Error() error {
 	return d.err
 }
 
-// More implements Decoder.More. Returns true if there is more data to decode (not EOF).
 func (d *decoderImpl) More() bool {
 	return d.err == nil && d.pos < len(d.data)
 }
 
-// Next implements Decoder.Next. It advances to the next element and returns true if successful.
 func (d *decoderImpl) Next() bool {
 	if d.err != nil {
+		return false
+	}
+	if !d.More() {
+		d.err = EOF
 		return false
 	}
 	if d.pos >= len(d.data) {
@@ -101,10 +102,10 @@ func (d *decoderImpl) Next() bool {
 	return true
 }
 
-// Element implements Decoder.Element.
-func (d *decoderImpl) Element() Element { return d.next }
+func (d *decoderImpl) Element() Element {
+	return d.next
+}
 
-// read reads n bytes from the buffer advancing the position.
 func (d *decoderImpl) read(n int) ([]byte, error) {
 	if d.pos+n > len(d.data) {
 		return nil, ErrUnexpectedEOF
@@ -114,7 +115,6 @@ func (d *decoderImpl) read(n int) ([]byte, error) {
 	return b, nil
 }
 
-// readElement decodes a single TLV element (header + tag + value).
 func (d *decoderImpl) readElement() (Element, error) {
 	ctrlB, err := d.read(1)
 	if err != nil {
