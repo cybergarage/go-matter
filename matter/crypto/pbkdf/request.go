@@ -31,4 +31,8 @@ type ParamRequest interface {
 	Validate() error
 	// Bytes returns the byte representation of the ParamRequest message, ready for transmission.
 	Bytes() ([]byte, error)
+	// Map returns a map representation of the ParamRequest.
+	Map() map[string]any
+	// String returns a human-readable string representation of the ParamRequest.
+	String() string
 }

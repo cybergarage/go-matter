@@ -16,6 +16,7 @@ package pbkdf
 
 import (
 	"github.com/cybergarage/go-matter/matter/crypto"
+	"github.com/cybergarage/go-matter/matter/encoding/json"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 )
 
@@ -246,4 +247,28 @@ func (r *paramRequest) Bytes() ([]byte, error) {
 	}
 	enc.MustEndAll()
 	return enc.Bytes(), nil
+}
+
+func (r *paramRequest) Map() map[string]any {
+	m := make(map[string]any)
+	if r.initiatorRandom != nil {
+		m["initiator_random"] = r.initiatorRandom
+	}
+	if r.initiatorSessionID != nil {
+		m["initiator_session_id"] = *r.initiatorSessionID
+	}
+	if r.passcodeID != nil {
+		m["passcode_id"] = *r.passcodeID
+	}
+	if r.hasPBKDFParameters != nil {
+		m["has_pbkdf_parameters"] = *r.hasPBKDFParameters
+	}
+	if r.sessionParams != nil {
+		m["session_params"] = r.sessionParams.Map()
+	}
+	return m
+}
+
+func (r *paramRequest) String() string {
+	return json.MustMarshal(r.Map())
 }
