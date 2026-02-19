@@ -20,15 +20,19 @@ import (
 )
 
 const (
-	initiatorRandomLength     = 32
-	unicastInitiatorSessionID = 0
+	initiatorRandomLength = 32
+)
+
+var (
+	unicastInitiatorSessionID = uint16(0)
 )
 
 type paramRequest struct {
 	initiatorRandom    []byte
-	initiatorSessionID uint16
-	passcodeID         uint16
-	hasPBKDFParameters bool
+	initiatorSessionID *uint16
+	passcodeID         *uint16
+	hasPBKDFParameters *bool
+	sessionParams      SessionParams
 }
 
 // ParamRequestOption defines a functional option for configuring the ParamRequest.
@@ -37,30 +41,37 @@ type ParamRequestOption func(*paramRequest)
 // WithParamRequestInitiatorSessionID sets the initiator session ID in the ParamRequest.
 func WithParamRequestInitiatorSessionID(sessionID uint16) ParamRequestOption {
 	return func(r *paramRequest) {
-		r.initiatorSessionID = sessionID
+		r.initiatorSessionID = &sessionID
 	}
 }
 
 // WithParamRequestPasscodeID sets the passcode ID in the ParamRequest.
 func WithParamRequestPasscodeID(passcodeID uint16) ParamRequestOption {
 	return func(r *paramRequest) {
-		r.passcodeID = passcodeID
+		r.passcodeID = &passcodeID
 	}
 }
 
 // WithParamRequestHasPBKDFParameters sets whether the request includes PBKDF parameters.
 func WithParamRequestHasPBKDFParameters(hasParams bool) ParamRequestOption {
 	return func(r *paramRequest) {
-		r.hasPBKDFParameters = hasParams
+		r.hasPBKDFParameters = &hasParams
+	}
+}
+
+func WithParamRequestSessionParams(params SessionParams) ParamRequestOption {
+	return func(r *paramRequest) {
+		r.sessionParams = params
 	}
 }
 
 func newParamRequest() *paramRequest {
 	return &paramRequest{
-		initiatorRandom:    []byte{},
-		initiatorSessionID: 0,
-		passcodeID:         0,
-		hasPBKDFParameters: false,
+		initiatorRandom:    nil,
+		initiatorSessionID: nil,
+		passcodeID:         nil,
+		hasPBKDFParameters: nil,
+		sessionParams:      nil,
 	}
 }
 
@@ -69,7 +80,7 @@ func NewParamRequest(opts ...ParamRequestOption) ParamRequest {
 	r := newParamRequest()
 	r.initiatorRandom = crypto.Crypto_DRBG(initiatorRandomLength)
 	// 4.13.2.4. Choosing Secure Unicast Session Identifiers
-	r.initiatorSessionID = unicastInitiatorSessionID
+	r.initiatorSessionID = &unicastInitiatorSessionID
 	for _, opt := range opts {
 		opt(r)
 	}
@@ -130,50 +141,95 @@ func (r *paramRequest) Decode(dec tlv.Decoder) error {
 				if !ok {
 					return expectedTypeError(tlv.UnsignedInt2, elem)
 				}
-				r.initiatorSessionID = v
+				r.initiatorSessionID = &v
 			case 3:
 				v, ok := elem.Unsigned2()
 				if !ok {
 					return expectedTypeError(tlv.UnsignedInt2, elem)
 				}
-				r.passcodeID = v
+				r.passcodeID = &v
 			case 4:
 				v, ok := elem.Bool()
 				if !ok {
 					return expectedTypeError(tlv.BoolTrue, elem)
 				}
-				r.hasPBKDFParameters = v
+				r.hasPBKDFParameters = &v
 			}
 		default:
 			return expectedTagError(tlv.TagContext, elem.Tag())
 		}
 	}
 
+	if err := r.Validate(); err != nil {
+		return err
+	}
+
 	if !dec.More() {
 		return nil
 	}
+
+	sessionParams, err := NewSessionFromDecoder(dec)
+	if err != nil {
+		return err
+	}
+	r.sessionParams = sessionParams
 
 	return nil
 }
 
 // InitiatorRandom returns the initiator random value from the request.
 func (r *paramRequest) InitiatorRandom() []byte {
+	if r.initiatorRandom == nil {
+		return nil
+	}
 	return r.initiatorRandom
 }
 
 // InitiatorSessionID returns the initiator session ID from the request.
 func (r *paramRequest) InitiatorSessionID() uint16 {
-	return r.initiatorSessionID
+	if r.initiatorSessionID == nil {
+		return 0
+	}
+	return *r.initiatorSessionID
 }
 
 // PasscodeID returns the passcode ID from the request.
 func (r *paramRequest) PasscodeID() uint16 {
-	return r.passcodeID
+	if r.passcodeID == nil {
+		return 0
+	}
+	return *r.passcodeID
 }
 
 // HasPBKDFParameters indicates whether the request includes PBKDF parameters.
 func (r *paramRequest) HasPBKDFParameters() bool {
-	return r.hasPBKDFParameters
+	if r.hasPBKDFParameters == nil {
+		return false
+	}
+	return *r.hasPBKDFParameters
+}
+
+func (r *paramRequest) SessionParams() (SessionParams, bool) {
+	if r.sessionParams == nil {
+		return nil, false
+	}
+	return r.sessionParams, true
+}
+
+func (r *paramRequest) Validate() error {
+	if r.initiatorRandom == nil {
+		return newErrMissingRequiredField("initiatorRandom")
+	}
+	if r.initiatorSessionID == nil {
+		return newErrMissingRequiredField("initiatorSessionID")
+	}
+	if r.passcodeID == nil {
+		return newErrMissingRequiredField("passcodeID")
+	}
+	if r.hasPBKDFParameters == nil {
+		return newErrMissingRequiredField("hasPBKDFParameters")
+	}
+	return nil
 }
 
 // Bytes encodes the ParamRequest into its byte representation for transmission.
