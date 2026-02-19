@@ -19,6 +19,9 @@ package types
 type TransportMode uint16
 
 const (
+	// MRP: The MRP provides confirmation of delivery for messages that require reliability.
+	// 4.12. Message Reliability Protocol (MRP).
+	MRP TransportMode = 0x0000
 	// TCPClient: The advertising Node implements the TCP Client mode and MAY connect to a peer Node that is a TCP Server.
 	TCPClient TransportMode = 0x0001
 	// TCPServer: The advertising Node implements the TCP Server mode and SHALL listen for incoming TCP connections.
