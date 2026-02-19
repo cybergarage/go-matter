@@ -69,10 +69,6 @@ func (d *decoderImpl) Next() bool {
 	if d.err != nil {
 		return false
 	}
-	if !d.More() {
-		d.err = EOF
-		return false
-	}
 	if d.pos >= len(d.data) {
 		if len(d.containerS) != 0 {
 			d.err = ErrUnexpectedEOF
