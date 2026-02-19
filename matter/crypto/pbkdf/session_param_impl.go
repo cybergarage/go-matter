@@ -17,6 +17,7 @@ package pbkdf
 import (
 	"errors"
 
+	"github.com/cybergarage/go-matter/matter/encoding/json"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 )
 
@@ -271,4 +272,30 @@ func (s *sessionParams) MaxTCPMessageSize() (uint32, bool) {
 		return 0, false
 	}
 	return *s.maxTCPMessageSize, true
+}
+
+func (s *sessionParams) Map() map[string]any {
+	m := make(map[string]any)
+	if s.sessionIdleInterval != nil {
+		m["session_idle_interval"] = *s.sessionIdleInterval
+	}
+	if s.sessionActiveInterval != nil {
+		m["session_active_interval"] = *s.sessionActiveInterval
+	}
+	if s.sessionActiveThreshold != nil {
+		m["session_active_threshold"] = *s.sessionActiveThreshold
+	}
+	m["data_model_revision"] = s.dataModelRevision
+	m["interaction_model_revision"] = s.interactionModelRevision
+	m["specification_version"] = s.specificationVersion
+	m["max_paths_per_invoke"] = s.maxPathsPerInvoke
+	m["supported_transports"] = s.supportedTransports
+	if s.maxTCPMessageSize != nil {
+		m["max_tcp_message_size"] = *s.maxTCPMessageSize
+	}
+	return m
+}
+
+func (s *sessionParams) String() string {
+	return json.MustMarshal(s.Map())
 }

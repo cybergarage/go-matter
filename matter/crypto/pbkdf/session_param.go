@@ -35,4 +35,8 @@ type SessionParams interface {
 	SupportedTransports() uint16
 	// MaxTCPMessageSize returns the MAX_TCP_MESSAGE_SIZE value (optional, 32-bit unsigned).
 	MaxTCPMessageSize() (uint32, bool)
+	// Map returns a map representation of the session parameters.
+	Map() map[string]any
+	// String returns a string representation of the session parameters.
+	String() string
 }
