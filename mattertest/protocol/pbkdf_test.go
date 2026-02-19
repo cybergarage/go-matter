@@ -69,13 +69,14 @@ func TestPBKDFParamRequestMessage(t *testing.T) {
 			t.Errorf("Expected DestinationNodeID flag to be unset")
 		}
 
-		_, err = pbkdf.NewParamRequestFromBytes(msg.Payload())
+		reqParam, err := pbkdf.NewParamRequestFromBytes(msg.Payload())
 		if err != nil {
 			t.Errorf("Failed to parse ParamRequest: %v", err)
 		}
 
 		log.HexInfo(hexBytes)
 		log.Info(msg.String())
+		log.Info(reqParam.String())
 	}
 }
 

@@ -56,23 +56,23 @@ func WithSessionActiveThreshold(threshold uint16) SessionParamsOption {
 }
 
 // WithDataModelRevision sets the DATA_MODEL_REVISION value in the SessionParams.
-func WithDataModelRevision(revision uint16) SessionParamsOption {
+func WithDataModelRevision(revision Revision) SessionParamsOption {
 	return func(s *sessionParams) {
-		s.dataModelRevision = &revision
+		s.dataModelRevision = (*uint16)(&revision)
 	}
 }
 
 // WithInteractionModelRevision sets the INTERACTION_MODEL_REVISION value in the SessionParams.
-func WithInteractionModelRevision(revision uint16) SessionParamsOption {
+func WithInteractionModelRevision(revision Revision) SessionParamsOption {
 	return func(s *sessionParams) {
-		s.interactionModelRevision = &revision
+		s.interactionModelRevision = (*uint16)(&revision)
 	}
 }
 
 // WithSpecificationVersion sets the SPECIFICATION_VERSION value in the SessionParams.
-func WithSpecificationVersion(version uint32) SessionParamsOption {
+func WithSpecificationVersion(version Version) SessionParamsOption {
 	return func(s *sessionParams) {
-		s.specificationVersion = &version
+		s.specificationVersion = (*uint32)(&version)
 	}
 }
 
@@ -84,9 +84,9 @@ func WithMaxPathsPerInvoke(maxPaths uint16) SessionParamsOption {
 }
 
 // WithSupportedTransports sets the SUPPORTED_TRANSPORTS value in the SessionParams.
-func WithSupportedTransports(transports uint16) SessionParamsOption {
+func WithSupportedTransports(transports TransportMode) SessionParamsOption {
 	return func(s *sessionParams) {
-		s.supportedTransports = &transports
+		s.supportedTransports = (*uint16)(&transports)
 	}
 }
 
@@ -248,46 +248,60 @@ func (s *sessionParams) SessionActiveThreshold() (uint16, bool) {
 	return *s.sessionActiveThreshold, true
 }
 
-func (s *sessionParams) DataModelRevision() uint16 {
-	if s.dataModelRevision == nil {
-		return 0
-	}
-	return *s.dataModelRevision
-}
-
-func (s *sessionParams) InteractionModelRevision() uint16 {
-	if s.interactionModelRevision == nil {
-		return 0
-	}
-	return *s.interactionModelRevision
-}
-
-func (s *sessionParams) SpecificationVersion() uint32 {
+func (s *sessionParams) DataModelRevision() Revision {
 	// 4.13.1. Session Parameters
-	if s.specificationVersion == nil {
-		return 0
+	// For backwards compatibility, if the DATA_MODEL_REVISION field is missing,
+	// it implies a DataModelRevision value of either 16 or 17
+	if s.dataModelRevision == nil {
+		return DefaultDataModelRevision
 	}
-	return *s.specificationVersion
+	return Revision(*s.dataModelRevision)
+}
+
+func (s *sessionParams) InteractionModelRevision() Revision {
+	// 4.13.1. Session Parameters
+	// For backwards compatibility, if the INTERACTION_MODEL_REVISION field is missing,
+	// it implies a value of either 10 or 11.
+	if s.interactionModelRevision == nil {
+		return DefaultInteractionModelRevision
+	}
+	return Revision(*s.interactionModelRevision)
+}
+
+func (s *sessionParams) SpecificationVersion() Version {
+	// 4.13.1. Session Parameters
+	// For backwards compatibility, if the SPECIFICATION_VERSION field is missing,
+	// it implies a SpecificationVersion value strictly smaller than 0x01030000.
+	if s.specificationVersion == nil {
+		return DefaultSpecificationVersion
+	}
+	return Version(*s.specificationVersion)
 }
 
 func (s *sessionParams) MaxPathsPerInvoke() uint16 {
 	// 4.13.1. Session Parameters
+	// For backwards compatibility, if the MAX_PATHS_PER_INVOKE field is missing,
+	// it implies a MaxPathsPerInvoke set to 1.
 	if s.maxPathsPerInvoke == nil {
-		return 0
+		return DefaultMaxPathsPerInvoke
 	}
 	return *s.maxPathsPerInvoke
 }
 
-func (s *sessionParams) SupportedTransports() uint16 {
+func (s *sessionParams) SupportedTransports() TransportMode {
 	// 4.13.1. Session Parameters
-	// For backwards compatibility, if the SUPPORTED_TRANSPORTS field is missing, it implies that the node only supports MRP.
+	// For backwards compatibility, if the SUPPORTED_TRANSPORTS field is missing,
+	// it implies that the node only supports MRP.
 	if s.supportedTransports == nil {
-		return uint16(MRP)
+		return DefaultSupportedTransports
 	}
-	return *s.supportedTransports
+	return TransportMode(*s.supportedTransports)
 }
 
 func (s *sessionParams) MaxTCPMessageSize() (uint32, bool) {
+	// 4.13.1. Session Parameters
+	// The MAX_TCP_MESSAGE_SIZE field SHALL only be present
+	// if the SUPPORTED_TRANSPORTS field indicates that TCP is supported.
 	if s.maxTCPMessageSize == nil {
 		return 0, false
 	}

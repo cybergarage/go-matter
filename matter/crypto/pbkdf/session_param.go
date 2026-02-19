@@ -20,14 +20,15 @@ import (
 
 // 4.13.1. Session Parameters.
 const (
-	DefaultSessionIdleDuration             = time.Duration(500 * time.Millisecond)
-	DefaultSessionActiveInterval           = time.Duration(300 * time.Millisecond)
-	DefaultSessionActiveThreshold          = time.Duration(4000 * time.Millisecond)
-	DefaultDataModelRevision               = Revision(16)
-	DefaultInteractionModelRevision        = Revision(10)
-	DefaultSpecificationVersion            = Version(0x01030000)
-	DefaultMaxPathsPerInvoke               = uint16(1)
-	MaxTCPMessageSize               uint32 = 64000
+	DefaultSessionIdleDuration      = time.Duration(500 * time.Millisecond)
+	DefaultSessionActiveInterval    = time.Duration(300 * time.Millisecond)
+	DefaultSessionActiveThreshold   = time.Duration(4000 * time.Millisecond)
+	DefaultDataModelRevision        = Revision(16)
+	DefaultInteractionModelRevision = Revision(10)
+	DefaultSpecificationVersion     = Version(0x01030000)
+	DefaultMaxPathsPerInvoke        = uint16(1)
+	DefaultSupportedTransports      = MRP
+	MaxTCPMessageSize               = uint32(64000)
 )
 
 // SessionParams defines the interface for accessing session parameters as specified in section 4.13.1.
@@ -40,15 +41,15 @@ type SessionParams interface {
 	// SessionActiveThreshold returns the SESSION_ACTIVE_THRESHOLD value (optional, 16-bit unsigned).
 	SessionActiveThreshold() (uint16, bool)
 	// DataModelRevision returns the DATA_MODEL_REVISION value (16-bit unsigned).
-	DataModelRevision() uint16
+	DataModelRevision() Revision
 	// InteractionModelRevision returns the INTERACTION_MODEL_REVISION value (16-bit unsigned).
-	InteractionModelRevision() uint16
+	InteractionModelRevision() Revision
 	// SpecificationVersion returns the SPECIFICATION_VERSION value (32-bit unsigned).
-	SpecificationVersion() uint32
+	SpecificationVersion() Version
 	// MaxPathsPerInvoke returns the MAX_PATHS_PER_INVOKE value (16-bit unsigned).
 	MaxPathsPerInvoke() uint16
 	// SupportedTransports returns the SUPPORTED_TRANSPORTS value (16-bit unsigned).
-	SupportedTransports() uint16
+	SupportedTransports() TransportMode
 	// MaxTCPMessageSize returns the MAX_TCP_MESSAGE_SIZE value (optional, 32-bit unsigned).
 	MaxTCPMessageSize() (uint32, bool)
 	// Validiate validates the session parameters according to the constraints specified in section 4.13.1.
