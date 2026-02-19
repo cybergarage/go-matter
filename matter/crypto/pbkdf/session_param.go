@@ -14,6 +14,22 @@
 
 package pbkdf
 
+import (
+	"time"
+)
+
+// 4.13.1. Session Parameters.
+const (
+	DefaultSessionIdleDuration             = time.Duration(500 * time.Millisecond)
+	DefaultSessionActiveInterval           = time.Duration(300 * time.Millisecond)
+	DefaultSessionActiveThreshold          = time.Duration(4000 * time.Millisecond)
+	DefaultDataModelRevision               = Revision(16)
+	DefaultInteractionModelRevision        = Revision(10)
+	DefaultSpecificationVersion            = Version(0x01030000)
+	DefaultMaxPathsPerInvoke               = uint16(1)
+	MaxTCPMessageSize               uint32 = 64000
+)
+
 // SessionParams defines the interface for accessing session parameters as specified in section 4.13.1.
 // 4.13.1. Session Parameters.
 type SessionParams interface {

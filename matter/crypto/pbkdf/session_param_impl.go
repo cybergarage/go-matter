@@ -216,6 +216,10 @@ func (s *sessionParams) Decode(dec tlv.Decoder) error {
 		}
 	}
 
+	if err := dec.Error(); err != nil {
+		return err
+	}
+
 	if err := s.Validiate(); err != nil {
 		return err
 	}
@@ -259,6 +263,7 @@ func (s *sessionParams) InteractionModelRevision() uint16 {
 }
 
 func (s *sessionParams) SpecificationVersion() uint32 {
+	// 4.13.1. Session Parameters
 	if s.specificationVersion == nil {
 		return 0
 	}
@@ -266,6 +271,7 @@ func (s *sessionParams) SpecificationVersion() uint32 {
 }
 
 func (s *sessionParams) MaxPathsPerInvoke() uint16 {
+	// 4.13.1. Session Parameters
 	if s.maxPathsPerInvoke == nil {
 		return 0
 	}
@@ -273,8 +279,10 @@ func (s *sessionParams) MaxPathsPerInvoke() uint16 {
 }
 
 func (s *sessionParams) SupportedTransports() uint16 {
+	// 4.13.1. Session Parameters
+	// For backwards compatibility, if the SUPPORTED_TRANSPORTS field is missing, it implies that the node only supports MRP.
 	if s.supportedTransports == nil {
-		return 0
+		return uint16(MRP)
 	}
 	return *s.supportedTransports
 }
@@ -298,9 +306,6 @@ func (s *sessionParams) Validiate() error {
 	}
 	if s.maxPathsPerInvoke == nil {
 		return newErrMissingRequiredField("max_paths_per_invoke")
-	}
-	if s.supportedTransports == nil {
-		return newErrMissingRequiredField("supported_transports")
 	}
 	return nil
 }

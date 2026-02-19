@@ -72,9 +72,10 @@ func TestPBKDFParamRequestMessage(t *testing.T) {
 		_, err = pbkdf.NewParamRequestFromBytes(msg.Payload())
 		if err != nil {
 			t.Errorf("Failed to parse ParamRequest: %v", err)
-			log.HexInfo(hexBytes)
-			log.Info(msg.String())
 		}
+
+		log.HexInfo(hexBytes)
+		log.Info(msg.String())
 	}
 }
 
