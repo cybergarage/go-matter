@@ -15,8 +15,6 @@
 package pbkdf
 
 import (
-	"errors"
-
 	"github.com/cybergarage/go-matter/matter/encoding/json"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 )
@@ -25,11 +23,11 @@ type sessionParams struct {
 	sessionIdleInterval      *uint32
 	sessionActiveInterval    *uint32
 	sessionActiveThreshold   *uint16
-	dataModelRevision        uint16
-	interactionModelRevision uint16
-	specificationVersion     uint32
-	maxPathsPerInvoke        uint16
-	supportedTransports      uint16
+	dataModelRevision        *uint16
+	interactionModelRevision *uint16
+	specificationVersion     *uint32
+	maxPathsPerInvoke        *uint16
+	supportedTransports      *uint16
 	maxTCPMessageSize        *uint32
 }
 
@@ -60,35 +58,35 @@ func WithSessionActiveThreshold(threshold uint16) SessionParamsOption {
 // WithDataModelRevision sets the DATA_MODEL_REVISION value in the SessionParams.
 func WithDataModelRevision(revision uint16) SessionParamsOption {
 	return func(s *sessionParams) {
-		s.dataModelRevision = revision
+		s.dataModelRevision = &revision
 	}
 }
 
 // WithInteractionModelRevision sets the INTERACTION_MODEL_REVISION value in the SessionParams.
 func WithInteractionModelRevision(revision uint16) SessionParamsOption {
 	return func(s *sessionParams) {
-		s.interactionModelRevision = revision
+		s.interactionModelRevision = &revision
 	}
 }
 
 // WithSpecificationVersion sets the SPECIFICATION_VERSION value in the SessionParams.
 func WithSpecificationVersion(version uint32) SessionParamsOption {
 	return func(s *sessionParams) {
-		s.specificationVersion = version
+		s.specificationVersion = &version
 	}
 }
 
 // WithMaxPathsPerInvoke sets the MAX_PATHS_PER_INVOKE value in the SessionParams.
 func WithMaxPathsPerInvoke(maxPaths uint16) SessionParamsOption {
 	return func(s *sessionParams) {
-		s.maxPathsPerInvoke = maxPaths
+		s.maxPathsPerInvoke = &maxPaths
 	}
 }
 
 // WithSupportedTransports sets the SUPPORTED_TRANSPORTS value in the SessionParams.
 func WithSupportedTransports(transports uint16) SessionParamsOption {
 	return func(s *sessionParams) {
-		s.supportedTransports = transports
+		s.supportedTransports = &transports
 	}
 }
 
@@ -104,11 +102,11 @@ func newSessionParams(opts ...SessionParamsOption) *sessionParams {
 		sessionIdleInterval:      nil,
 		sessionActiveInterval:    nil,
 		sessionActiveThreshold:   nil,
-		dataModelRevision:        0,
-		interactionModelRevision: 0,
-		specificationVersion:     0,
-		maxPathsPerInvoke:        0,
-		supportedTransports:      0,
+		dataModelRevision:        nil,
+		interactionModelRevision: nil,
+		specificationVersion:     nil,
+		maxPathsPerInvoke:        nil,
+		supportedTransports:      nil,
 		maxTCPMessageSize:        nil,
 	}
 	for _, opt := range opts {
@@ -181,31 +179,31 @@ func (s *sessionParams) Decode(dec tlv.Decoder) error {
 				if !ok {
 					return expectedTypeError(tlv.UnsignedInt2, elem)
 				}
-				s.dataModelRevision = v
+				s.dataModelRevision = &v
 			case 5:
 				v, ok := elem.Unsigned2()
 				if !ok {
 					return expectedTypeError(tlv.UnsignedInt2, elem)
 				}
-				s.interactionModelRevision = v
+				s.interactionModelRevision = &v
 			case 6:
 				v, ok := elem.Unsigned4()
 				if !ok {
 					return expectedTypeError(tlv.UnsignedInt4, elem)
 				}
-				s.specificationVersion = v
+				s.specificationVersion = &v
 			case 7:
 				v, ok := elem.Unsigned2()
 				if !ok {
 					return expectedTypeError(tlv.UnsignedInt2, elem)
 				}
-				s.maxPathsPerInvoke = v
+				s.maxPathsPerInvoke = &v
 			case 8:
 				v, ok := elem.Unsigned2()
 				if !ok {
 					return expectedTypeError(tlv.UnsignedInt2, elem)
 				}
-				s.supportedTransports = v
+				s.supportedTransports = &v
 			case 9:
 				v, ok := elem.Unsigned4()
 				if !ok {
@@ -218,8 +216,7 @@ func (s *sessionParams) Decode(dec tlv.Decoder) error {
 		}
 	}
 
-	err := dec.Error()
-	if !errors.Is(err, tlv.EOF) {
+	if err := s.Validiate(); err != nil {
 		return err
 	}
 
@@ -248,23 +245,38 @@ func (s *sessionParams) SessionActiveThreshold() (uint16, bool) {
 }
 
 func (s *sessionParams) DataModelRevision() uint16 {
-	return s.dataModelRevision
+	if s.dataModelRevision == nil {
+		return 0
+	}
+	return *s.dataModelRevision
 }
 
 func (s *sessionParams) InteractionModelRevision() uint16 {
-	return s.interactionModelRevision
+	if s.interactionModelRevision == nil {
+		return 0
+	}
+	return *s.interactionModelRevision
 }
 
 func (s *sessionParams) SpecificationVersion() uint32 {
-	return s.specificationVersion
+	if s.specificationVersion == nil {
+		return 0
+	}
+	return *s.specificationVersion
 }
 
 func (s *sessionParams) MaxPathsPerInvoke() uint16 {
-	return s.maxPathsPerInvoke
+	if s.maxPathsPerInvoke == nil {
+		return 0
+	}
+	return *s.maxPathsPerInvoke
 }
 
 func (s *sessionParams) SupportedTransports() uint16 {
-	return s.supportedTransports
+	if s.supportedTransports == nil {
+		return 0
+	}
+	return *s.supportedTransports
 }
 
 func (s *sessionParams) MaxTCPMessageSize() (uint32, bool) {
@@ -272,6 +284,25 @@ func (s *sessionParams) MaxTCPMessageSize() (uint32, bool) {
 		return 0, false
 	}
 	return *s.maxTCPMessageSize, true
+}
+
+func (s *sessionParams) Validiate() error {
+	if s.dataModelRevision == nil {
+		return newErrMissingRequiredField("data_model_revision")
+	}
+	if s.interactionModelRevision == nil {
+		return newErrMissingRequiredField("interaction_model_revision")
+	}
+	if s.specificationVersion == nil {
+		return newErrMissingRequiredField("specification_version")
+	}
+	if s.maxPathsPerInvoke == nil {
+		return newErrMissingRequiredField("max_paths_per_invoke")
+	}
+	if s.supportedTransports == nil {
+		return newErrMissingRequiredField("supported_transports")
+	}
+	return nil
 }
 
 func (s *sessionParams) Map() map[string]any {
@@ -285,11 +316,21 @@ func (s *sessionParams) Map() map[string]any {
 	if s.sessionActiveThreshold != nil {
 		m["session_active_threshold"] = *s.sessionActiveThreshold
 	}
-	m["data_model_revision"] = s.dataModelRevision
-	m["interaction_model_revision"] = s.interactionModelRevision
-	m["specification_version"] = s.specificationVersion
-	m["max_paths_per_invoke"] = s.maxPathsPerInvoke
-	m["supported_transports"] = s.supportedTransports
+	if s.dataModelRevision != nil {
+		m["data_model_revision"] = *s.dataModelRevision
+	}
+	if s.interactionModelRevision != nil {
+		m["interaction_model_revision"] = *s.interactionModelRevision
+	}
+	if s.specificationVersion != nil {
+		m["specification_version"] = *s.specificationVersion
+	}
+	if s.maxPathsPerInvoke != nil {
+		m["max_paths_per_invoke"] = *s.maxPathsPerInvoke
+	}
+	if s.supportedTransports != nil {
+		m["supported_transports"] = *s.supportedTransports
+	}
 	if s.maxTCPMessageSize != nil {
 		m["max_tcp_message_size"] = *s.maxTCPMessageSize
 	}

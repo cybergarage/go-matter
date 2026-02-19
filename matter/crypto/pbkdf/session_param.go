@@ -35,6 +35,8 @@ type SessionParams interface {
 	SupportedTransports() uint16
 	// MaxTCPMessageSize returns the MAX_TCP_MESSAGE_SIZE value (optional, 32-bit unsigned).
 	MaxTCPMessageSize() (uint32, bool)
+	// Validiate validates the session parameters according to the constraints specified in section 4.13.1.
+	Validiate() error
 	// Map returns a map representation of the session parameters.
 	Map() map[string]any
 	// String returns a string representation of the session parameters.

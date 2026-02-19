@@ -15,10 +15,17 @@
 package pbkdf
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 )
+
+var ErrMissingRequiredField = errors.New("missing required field")
+
+func newErrMissingRequiredField(fieldName string) error {
+	return fmt.Errorf("%w: %s", ErrMissingRequiredField, fieldName)
+}
 
 func expectedTypeError(expected tlv.ElementType, actual tlv.Element) error {
 	return fmt.Errorf("expected %s, got %s", expected, actual.Type())
