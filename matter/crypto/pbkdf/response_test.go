@@ -15,22 +15,27 @@
 package pbkdf
 
 import (
+	"reflect"
 	"testing"
 )
 
 func TestResponseDefault(t *testing.T) {
-	// resp := NewParamResponse()
-	// respBytes, err := resp.Bytes()
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
+	req := NewParamRequest()
+	resp, err := NewParamResponse(WithParamResponseParamRequest(req))
+	if err != nil {
+		t.Fatal(err)
+	}
+	respBytes, err := resp.Bytes()
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	// respParsed, err := NewParamResponseFromBytes(respBytes)
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
+	respParsed, err := NewParamResponseFromBytes(respBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	// if !reflect.DeepEqual(resp, respParsed) {
-	// 	t.Errorf("%s != %s", resp.String(), respParsed.String())
-	// }
+	if !reflect.DeepEqual(resp.Map(), respParsed.Map()) {
+		t.Errorf("%v != %v", resp.Map(), respParsed.Map())
+	}
 }

@@ -25,10 +25,11 @@ const (
 )
 
 type paramResponse struct {
+	paremRequest           ParamRequest
 	initiatorRandom        []byte
 	responderRandom        []byte
 	responderSessionID     *uint16
-	params                 Params
+	pbkdfParams            Params
 	responderSessionParams SessionParams
 }
 
@@ -37,10 +38,11 @@ type ParamResponseOption func(*paramResponse)
 
 func newParamResponse(opts ...ParamResponseOption) *paramResponse {
 	r := &paramResponse{
+		paremRequest:           nil,
 		initiatorRandom:        nil,
 		responderRandom:        nil,
 		responderSessionID:     nil,
-		params:                 nil,
+		pbkdfParams:            nil,
 		responderSessionParams: nil,
 	}
 	for _, opt := range opts {
@@ -52,6 +54,7 @@ func newParamResponse(opts ...ParamResponseOption) *paramResponse {
 // WithParamResponseParamRequest sets the initiator random in the ParamResponse based on the given ParamRequest.
 func WithParamResponseParamRequest(req ParamRequest) ParamResponseOption {
 	return func(r *paramResponse) {
+		r.paremRequest = req
 		r.initiatorRandom = req.InitiatorRandom()
 	}
 }
@@ -80,7 +83,7 @@ func WithParamResponseResponderSessionID(sessionID uint16) ParamResponseOption {
 // WithParamResponsePBKDFParams sets the PBKDF parameters in the ParamResponse.
 func WithParamResponsePBKDFParams(params Params) ParamResponseOption {
 	return func(r *paramResponse) {
-		r.params = params
+		r.pbkdfParams = params
 	}
 }
 
@@ -92,7 +95,7 @@ func WithParamResponseResponderSessionParams(sessionParams SessionParams) ParamR
 }
 
 // NewParamResponse returns a new ParamResponse instance configured with the provided options.
-func NewParamResponse(opts ...ParamResponseOption) ParamResponse {
+func NewParamResponse(opts ...ParamResponseOption) (ParamResponse, error) {
 	r := newParamResponse(opts...)
 	// 4.14.1. Passcode-Authenticated Session Establishment (PASE)
 	if r.responderRandom == nil {
@@ -102,17 +105,21 @@ func NewParamResponse(opts ...ParamResponseOption) ParamResponse {
 		// 4.13.2.4. Choosing Secure Unicast Session Identifiers
 		r.responderSessionID = &unicastSessionID
 	}
-
-	return r
+	if r.pbkdfParams == nil {
+		opts := []ParamsOption{}
+		if r.paremRequest != nil && !r.paremRequest.HasPBKDFParams() {
+			opts = append(opts, WithParamsSalt(crypto.CryptoTRNG(PBKDBFSaltMin)))
+			opts = append(opts, WithParamsIterations(PBKDBFIterationsMin))
+		}
+		r.pbkdfParams = NewParams(opts...)
+	}
+	return r, r.Validate()
 }
 
 // NewParamResponseFromBytes returns a new PBKDFParamResponse instance parsed from the given byte slice.
 func NewParamResponseFromBytes(data []byte) (ParamResponse, error) {
 	r := newParamResponse()
-	if err := r.ParseBytes(data); err != nil {
-		return nil, err
-	}
-	return r, nil
+	return r, r.ParseBytes(data)
 }
 
 // ParseBytes parses the given byte slice into the PBKDFParamResponse structure.
@@ -136,7 +143,7 @@ func (r *paramResponse) ResponderSessionID() uint16 {
 }
 
 func (r *paramResponse) PBKDFParams() Params {
-	return r.params
+	return r.pbkdfParams
 }
 
 func (r *paramResponse) ResponderSessionParams() (SessionParams, bool) {
@@ -167,7 +174,7 @@ func (r *paramResponse) Decode(dec tlv.Decoder) error {
 		return expectedTypeError(tlv.Structure, elem)
 	}
 
-	for range 4 {
+	for range 5 {
 		if !dec.Next() {
 			return dec.Error()
 		}
@@ -198,7 +205,7 @@ func (r *paramResponse) Decode(dec tlv.Decoder) error {
 				if err != nil {
 					return err
 				}
-				r.params = v
+				r.pbkdfParams = v
 			default:
 				return expectedTagError(tlv.TagContext, elem.Tag())
 			}
@@ -232,7 +239,7 @@ func (r *paramResponse) Validate() error {
 	if r.responderSessionID == nil {
 		return newErrMissingRequiredField("responderSessionID")
 	}
-	if r.params == nil {
+	if r.pbkdfParams == nil {
 		return newErrMissingRequiredField("params")
 	}
 	return nil
@@ -264,7 +271,7 @@ func (r *paramResponse) Encode(enc tlv.Encoder) error {
 	if r.responderSessionID != nil {
 		enc.PutUnsigned2(tlv.NewContextTag(3), *r.responderSessionID)
 	}
-	if err := CryptoPBKDFParameterSet(enc, 4, r.params); err != nil {
+	if err := CryptoPBKDFParameterSet(enc, 4, r.pbkdfParams); err != nil {
 		return err
 	}
 	if r.responderSessionParams != nil {
@@ -295,8 +302,8 @@ func (r *paramResponse) Map() map[string]any {
 	if r.responderSessionID != nil {
 		m["responder_session_id"] = *r.responderSessionID
 	}
-	if r.params != nil {
-		m["pbkdf_parameters"] = r.params.Map()
+	if r.pbkdfParams != nil {
+		m["pbkdf_parameters"] = r.pbkdfParams.Map()
 	}
 	if r.responderSessionParams != nil {
 		m["responder_session_params"] = r.responderSessionParams.Map()
