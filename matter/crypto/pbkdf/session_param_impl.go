@@ -15,6 +15,8 @@
 package pbkdf
 
 import (
+	"time"
+
 	"github.com/cybergarage/go-matter/matter/encoding/json"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 )
@@ -35,23 +37,26 @@ type sessionParams struct {
 type SessionParamsOption func(*sessionParams)
 
 // WithSessionIdleInterval sets the SESSION_IDLE_INTERVAL value in the SessionParams.
-func WithSessionIdleInterval(interval uint32) SessionParamsOption {
+func WithSessionIdleInterval(interval time.Duration) SessionParamsOption {
 	return func(s *sessionParams) {
-		s.sessionIdleInterval = &interval
+		u := uint32(interval.Milliseconds())
+		s.sessionIdleInterval = &u
 	}
 }
 
 // WithSessionActiveInterval sets the SESSION_ACTIVE_INTERVAL value in the SessionParams.
-func WithSessionActiveInterval(interval uint32) SessionParamsOption {
+func WithSessionActiveInterval(interval time.Duration) SessionParamsOption {
 	return func(s *sessionParams) {
-		s.sessionActiveInterval = &interval
+		u := uint32(interval.Milliseconds())
+		s.sessionActiveInterval = &u
 	}
 }
 
 // WithSessionActiveThreshold sets the SESSION_ACTIVE_THRESHOLD value in the SessionParams.
-func WithSessionActiveThreshold(threshold uint16) SessionParamsOption {
+func WithSessionActiveThreshold(threshold time.Duration) SessionParamsOption {
 	return func(s *sessionParams) {
-		s.sessionActiveThreshold = &threshold
+		u := uint16(threshold.Milliseconds())
+		s.sessionActiveThreshold = &u
 	}
 }
 
@@ -227,25 +232,25 @@ func (s *sessionParams) Decode(dec tlv.Decoder) error {
 	return nil
 }
 
-func (s *sessionParams) SessionIdleInterval() (uint32, bool) {
+func (s *sessionParams) SessionIdleInterval() (time.Duration, bool) {
 	if s.sessionIdleInterval == nil {
 		return 0, false
 	}
-	return *s.sessionIdleInterval, true
+	return time.Duration(*s.sessionIdleInterval) * time.Millisecond, true
 }
 
-func (s *sessionParams) SessionActiveInterval() (uint32, bool) {
+func (s *sessionParams) SessionActiveInterval() (time.Duration, bool) {
 	if s.sessionActiveInterval == nil {
 		return 0, false
 	}
-	return *s.sessionActiveInterval, true
+	return time.Duration(*s.sessionActiveInterval) * time.Millisecond, true
 }
 
-func (s *sessionParams) SessionActiveThreshold() (uint16, bool) {
+func (s *sessionParams) SessionActiveThreshold() (time.Duration, bool) {
 	if s.sessionActiveThreshold == nil {
 		return 0, false
 	}
-	return *s.sessionActiveThreshold, true
+	return time.Duration(*s.sessionActiveThreshold) * time.Millisecond, true
 }
 
 func (s *sessionParams) DataModelRevision() Revision {

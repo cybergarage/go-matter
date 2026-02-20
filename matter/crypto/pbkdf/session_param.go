@@ -35,11 +35,11 @@ const (
 // 4.13.1. Session Parameters.
 type SessionParams interface {
 	// SessionIdleInterval returns the SESSION_IDLE_INTERVAL value (optional, 32-bit unsigned).
-	SessionIdleInterval() (uint32, bool)
+	SessionIdleInterval() (time.Duration, bool)
 	// SessionActiveInterval returns the SESSION_ACTIVE_INTERVAL value (optional, 32-bit unsigned).
-	SessionActiveInterval() (uint32, bool)
+	SessionActiveInterval() (time.Duration, bool)
 	// SessionActiveThreshold returns the SESSION_ACTIVE_THRESHOLD value (optional, 16-bit unsigned).
-	SessionActiveThreshold() (uint16, bool)
+	SessionActiveThreshold() (time.Duration, bool)
 	// DataModelRevision returns the DATA_MODEL_REVISION value (16-bit unsigned).
 	DataModelRevision() Revision
 	// InteractionModelRevision returns the INTERACTION_MODEL_REVISION value (16-bit unsigned).
