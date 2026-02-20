@@ -15,6 +15,7 @@
 package pbkdf
 
 import (
+	"github.com/cybergarage/go-matter/matter/crypto"
 	"github.com/cybergarage/go-matter/matter/encoding/json"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 )
@@ -46,6 +47,13 @@ func newParamResponse(opts ...ParamResponseOption) *paramResponse {
 		opt(r)
 	}
 	return r
+}
+
+// WithParamResponseParamRequest sets the initiator random in the ParamResponse based on the given ParamRequest.
+func WithParamResponseParamRequest(req ParamRequest) ParamResponseOption {
+	return func(r *paramResponse) {
+		r.initiatorRandom = req.InitiatorRandom()
+	}
 }
 
 // WithParamResponseInitiatorRandom sets the initiator random in the ParamResponse.
@@ -85,7 +93,17 @@ func WithParamResponseResponderSessionParams(sessionParams SessionParams) ParamR
 
 // NewParamResponse returns a new ParamResponse instance configured with the provided options.
 func NewParamResponse(opts ...ParamResponseOption) ParamResponse {
-	return newParamResponse(opts...)
+	r := newParamResponse(opts...)
+	// 4.14.1. Passcode-Authenticated Session Establishment (PASE)
+	if r.responderRandom == nil {
+		r.responderRandom = crypto.Crypto_DRBG(responderRandomLength)
+	}
+	if r.responderSessionID == nil {
+		// 4.13.2.4. Choosing Secure Unicast Session Identifiers
+		r.responderSessionID = &unicastSessionID
+	}
+
+	return r
 }
 
 // NewParamResponseFromBytes returns a new PBKDFParamResponse instance parsed from the given byte slice.
@@ -111,6 +129,9 @@ func (r *paramResponse) ResponderRandom() []byte {
 }
 
 func (r *paramResponse) ResponderSessionID() uint16 {
+	if r.responderSessionID == nil {
+		return 0
+	}
 	return *r.responderSessionID
 }
 
@@ -243,10 +264,8 @@ func (r *paramResponse) Encode(enc tlv.Encoder) error {
 	if r.responderSessionID != nil {
 		enc.PutUnsigned2(tlv.NewContextTag(3), *r.responderSessionID)
 	}
-	if r.params != nil {
-		if err := r.params.Encode(enc, 4); err != nil {
-			return err
-		}
+	if err := CryptoPBKDFParameterSet(enc, 4, r.params); err != nil {
+		return err
 	}
 	if r.responderSessionParams != nil {
 		if err := r.responderSessionParams.Encode(enc, 5); err != nil {

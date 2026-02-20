@@ -15,7 +15,14 @@
 package pbkdf
 
 import (
+	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 	"golang.org/x/crypto/pbkdf2"
+)
+
+// 3.9. Password-Based Key Derivation Function (PBKDF).
+const (
+	PBKDBIterationsMin = 1000
+	PBKDBIterationsMax = 100000
 )
 
 // CryptoPBKDF implements PBKDF2 as per RFC 2898
@@ -38,4 +45,21 @@ func CryptoPBKDF(p Params) ([]byte, error) {
 		return nil, newErrMissingRequiredField("keyLength")
 	}
 	return pbkdf2.Key(password, salt, iterations, keyLength, p.Hash), nil
+}
+
+// CryptoPBKDFParameterSet encodes the PBKDF parameters into the given TLV encoder according to the Matter specification.
+// 3.9. Password-Based Key Derivation Function (PBKDF).
+func CryptoPBKDFParameterSet(enc tlv.Encoder, tarOrder uint8, params Params) error {
+	enc.BeginStructure(tlv.NewContextTag(tarOrder))
+	if params != nil {
+		iter, ok := params.Iterations()
+		if ok {
+			enc.PutUnsigned2(tlv.NewContextTag(pbkdfTagIterations), uint16(iter))
+		}
+		salt, ok := params.Salt()
+		if ok {
+			enc.PutOctet(tlv.NewContextTag(pbkdfTagSalt), salt)
+		}
+	}
+	return enc.EndContainer()
 }

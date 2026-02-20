@@ -16,8 +16,6 @@ package pbkdf
 
 import (
 	"hash"
-
-	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 )
 
 // Params for PBKDF operations, as defined by the Matter specification. These.
@@ -37,8 +35,6 @@ type Params interface {
 
 // ParamsHelper defines the interface for encoding PBKDF parameters into TLV and providing map and string representations.
 type ParamsHelper interface {
-	// Encode encodes the Params into the given TLV encoder.
-	Encode(enc tlv.Encoder, tarOrder uint8) error
 	// Map returns a map representation of the Params.
 	Map() map[string]any
 	// String returns a human-readable string representation of the Params.
