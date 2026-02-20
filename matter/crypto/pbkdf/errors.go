@@ -21,10 +21,15 @@ import (
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 )
 
+var ErrInvalid = errors.New("invalid")
 var ErrMissingRequiredField = errors.New("missing required field")
 
 func newErrMissingRequiredField(fieldName string) error {
 	return fmt.Errorf("%w: %s", ErrMissingRequiredField, fieldName)
+}
+
+func newErrInvalidFieldValue(fieldName string, value any) error {
+	return fmt.Errorf("%w: %s = %v", ErrInvalid, fieldName, value)
 }
 
 func expectedTypeError(expected tlv.ElementType, actual tlv.Element) error {

@@ -21,8 +21,10 @@ import (
 
 // 3.9. Password-Based Key Derivation Function (PBKDF).
 const (
-	PBKDBIterationsMin = 1000
-	PBKDBIterationsMax = 100000
+	PBKDBFIterationsMin = 1000
+	PBKDBFIterationsMax = 100000
+	PBKDBFSaltMin       = 16
+	PBKDBFSaltMax       = 32
 )
 
 // CryptoPBKDF implements PBKDF2 as per RFC 2898
@@ -54,10 +56,17 @@ func CryptoPBKDFParameterSet(enc tlv.Encoder, tarOrder uint8, params Params) err
 	if params != nil {
 		iter, ok := params.Iterations()
 		if ok {
+			if iter < PBKDBFIterationsMin || PBKDBFIterationsMax < iter {
+				return newErrInvalidFieldValue("iterations", iter)
+			}
 			enc.PutUnsigned2(tlv.NewContextTag(pbkdfTagIterations), uint16(iter))
 		}
 		salt, ok := params.Salt()
 		if ok {
+			saltLen := len(salt)
+			if saltLen < PBKDBFSaltMin || PBKDBFSaltMax < saltLen {
+				return newErrInvalidFieldValue("salt", salt)
+			}
 			enc.PutOctet(tlv.NewContextTag(pbkdfTagSalt), salt)
 		}
 	}
