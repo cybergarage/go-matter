@@ -20,6 +20,22 @@ import (
 
 // CryptoPBKDF implements PBKDF2 as per RFC 2898
 // 3.9. Password-Based Key Derivation Function (PBKDF).
-func CryptoPBKDF(p Params) []byte {
-	return pbkdf2.Key(p.Password(), p.Salt(), p.Iterations(), p.KeyLength(), p.Hash)
+func CryptoPBKDF(p Params) ([]byte, error) {
+	password, ok := p.Password()
+	if !ok {
+		return nil, newErrMissingRequiredField("password")
+	}
+	salt, ok := p.Salt()
+	if !ok {
+		return nil, newErrMissingRequiredField("salt")
+	}
+	iterations, ok := p.Iterations()
+	if !ok {
+		return nil, newErrMissingRequiredField("iterations")
+	}
+	keyLength, ok := p.KeyLength()
+	if !ok {
+		return nil, newErrMissingRequiredField("keyLength")
+	}
+	return pbkdf2.Key(password, salt, iterations, keyLength, p.Hash), nil
 }

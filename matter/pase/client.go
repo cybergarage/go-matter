@@ -80,12 +80,23 @@ func (c *Client) EstablishSession(ctx context.Context) (*Result, error) {
 	}
 
 	// 3) SPAKE2+ (PASE)
-	hs := NewHandshake(HandshakeRoleClient, HandshakeOptions{
+	salt, ok := pbkdfRes.PBKDFParams().Salt()
+	if !ok {
+		return nil, fmt.Errorf("PBKDF parameters missing salt")
+	}
+	iter, ok := pbkdfRes.PBKDFParams().Iterations()
+	if !ok {
+		return nil, fmt.Errorf("PBKDF parameters missing iterations")
+	}
+	hs, err := NewHandshake(HandshakeRoleClient, HandshakeOptions{
 		Passcode:  c.passcode.Bytes(),
-		Salt:      pbkdfRes.PBKDFParams().Salt(),
-		PBKDFIter: int(pbkdfRes.PBKDFParams().Iterations()),
+		Salt:      salt,
+		PBKDFIter: iter,
 		Hash:      nil, // TODO: support different hash algorithms
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	// 3-1) Pake1
 	x, err := hs.Start() // TODO: spake2p.Start(), not implemented yet

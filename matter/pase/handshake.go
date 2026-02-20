@@ -53,7 +53,7 @@ type Handshake struct {
 // NewHandshake creates a new PASE handshake with the given role and options.
 // It derives w0 and w1 from the passcode using PBKDF2 and initializes the SPAKE2+ suite.
 // Reference: Matter Core Spec 1.5, Section 3.9 (PBKDF), Section 4.14.1 (PASE Protocol).
-func NewHandshake(role HandshakeRole, opts HandshakeOptions) *Handshake {
+func NewHandshake(role HandshakeRole, opts HandshakeOptions) (*Handshake, error) {
 	// Set default hash if not provided
 	if opts.Hash == nil {
 		opts.Hash = sha256.New
@@ -67,7 +67,7 @@ func NewHandshake(role HandshakeRole, opts HandshakeOptions) *Handshake {
 	// Derive w0 and w1 using PBKDF2
 	// Reference: Matter Core Spec 1.5, Section 3.9 (PBKDF), Section 4.14.1 (PASE)
 	// According to Matter spec, we derive a 64-byte buffer and split it into two 32-byte halves
-	w0w1 := pbkdf.CryptoPBKDF(
+	w0w1, err := pbkdf.CryptoPBKDF(
 		pbkdf.NewParams(
 			pbkdf.WithParamsPassword(opts.Passcode),
 			pbkdf.WithParamsSalt(opts.Salt),
@@ -76,6 +76,9 @@ func NewHandshake(role HandshakeRole, opts HandshakeOptions) *Handshake {
 			pbkdf.WithParamsKeyLength(64), // 64 bytes total: 32 for w0, 32 for w1
 		),
 	)
+	if err != nil {
+		return nil, err
+	}
 
 	// Split into w0 (first 32 bytes) and w1 (last 32 bytes)
 	w0 := w0w1[:32]
@@ -99,7 +102,7 @@ func NewHandshake(role HandshakeRole, opts HandshakeOptions) *Handshake {
 	return &Handshake{
 		role:  role,
 		suite: suite,
-	}
+	}, nil
 }
 
 // Start initiates the PASE handshake and returns the public value to send to the peer.

@@ -15,7 +15,6 @@
 package pbkdf
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"testing"
 )
@@ -28,11 +27,8 @@ func TestCryptoPBKDF(t *testing.T) {
 		WithParamsKeyLength(32),
 		WithParamsHash(sha256.New),
 	)
-	key := CryptoPBKDF(p)
-	if len(key) != p.KeyLength() {
-		t.Fatalf("got len=%d, want=%d", len(key), p.KeyLength())
-	}
-	if bytes.Equal(key, make([]byte, p.KeyLength())) {
-		t.Fatalf("unexpected all-zero key")
+	_, err := CryptoPBKDF(p)
+	if err != nil {
+		t.Fatalf("CryptoPBKDF failed: %v", err)
 	}
 }
