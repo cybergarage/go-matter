@@ -132,3 +132,60 @@ func TestBooleanVariants(t *testing.T) {
 		t.Fatalf("unexpected bool sequence: %#v", vals)
 	}
 }
+
+func TestPutSignedUnsignedVariants(t *testing.T) {
+	enc := NewEncoder()
+
+	// Signed ints
+	if err := enc.PutSigned1(NewContextTag(1), int8(-128)); err != nil {
+		t.Fatalf("PutSigned1 failed: %v", err)
+	}
+	if err := enc.PutSigned2(NewContextTag(2), int16(-32768)); err != nil {
+		t.Fatalf("PutSigned2 failed: %v", err)
+	}
+	if err := enc.PutSigned4(NewContextTag(3), int32(-2147483648)); err != nil {
+		t.Fatalf("PutSigned4 failed: %v", err)
+	}
+	if err := enc.PutSigned8(NewContextTag(4), int64(-9223372036854775808)); err != nil {
+		t.Fatalf("PutSigned8 failed: %v", err)
+	}
+
+	// Unsigned ints
+	if err := enc.PutUnsigned1(NewContextTag(5), uint8(255)); err != nil {
+		t.Fatalf("PutUnsigned1 failed: %v", err)
+	}
+	if err := enc.PutUnsigned2(NewContextTag(6), uint16(65535)); err != nil {
+		t.Fatalf("PutUnsigned2 failed: %v", err)
+	}
+	if err := enc.PutUnsigned4(NewContextTag(7), uint32(4294967295)); err != nil {
+		t.Fatalf("PutUnsigned4 failed: %v", err)
+	}
+	if err := enc.PutUnsigned8(NewContextTag(8), uint64(18446744073709551615)); err != nil {
+		t.Fatalf("PutUnsigned8 failed: %v", err)
+	}
+
+	enc.MustEndAll()
+	data := enc.Bytes()
+
+	dec := NewDecoderWithBytes(data)
+	var tagsSeen []ContextNumber
+	for dec.Next() {
+		elem := dec.Element()
+		ctx, ok := elem.Tag().(ContextTag)
+		if !ok {
+			t.Errorf("Expected ContextTag, got %T", elem.Tag())
+			continue
+		}
+		tagsSeen = append(tagsSeen, ctx.ContextNumber())
+	}
+	if len(tagsSeen) != 8 {
+		t.Errorf("Expected 8 elements, got %d", len(tagsSeen))
+	}
+	tagsSum := 0
+	for _, ctxNum := range tagsSeen {
+		tagsSum += int(ctxNum)
+	}
+	if tagsSum != 36 {
+		t.Errorf("Expected sum of context numbers to be 36, got %d", tagsSum)
+	}
+}
