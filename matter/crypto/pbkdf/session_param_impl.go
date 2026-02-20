@@ -122,7 +122,20 @@ func newSessionParams(opts ...SessionParamsOption) *sessionParams {
 
 // NewSessionParams creates a new SessionParams instance with the provided options.
 func NewSessionParams(opts ...SessionParamsOption) SessionParams {
-	return newSessionParams(opts...)
+	s := newSessionParams(
+		WithSessionIdleInterval(DefaultSessionIdleDuration),
+		WithSessionActiveInterval(DefaultSessionActiveInterval),
+		WithSessionActiveThreshold(DefaultSessionActiveThreshold),
+		WithDataModelRevision(DefaultDataModelRevision),
+		WithInteractionModelRevision(DefaultInteractionModelRevision),
+		WithSpecificationVersion(DefaultSpecificationVersion),
+		WithMaxPathsPerInvoke(DefaultMaxPathsPerInvoke),
+		WithSupportedTransports(DefaultSupportedTransports),
+	)
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
 }
 
 // NewSessionFromDecoder returns a new SessionParams instance parsed from the given TLV decoder.
@@ -327,6 +340,40 @@ func (s *sessionParams) Validiate() error {
 		return newErrMissingRequiredField("max_paths_per_invoke")
 	}
 	return nil
+}
+
+func (s *sessionParams) Bytes() ([]byte, error) {
+	enc := tlv.NewEncoder()
+	enc.BeginStructure(tlv.NewAnonymousTag())
+	if s.sessionIdleInterval != nil {
+		_ = enc.PutUnsigned4(tlv.NewContextTag(1), *s.sessionIdleInterval)
+	}
+	if s.sessionActiveInterval != nil {
+		_ = enc.PutUnsigned4(tlv.NewContextTag(2), *s.sessionActiveInterval)
+	}
+	if s.sessionActiveThreshold != nil {
+		_ = enc.PutUnsigned2(tlv.NewContextTag(3), *s.sessionActiveThreshold)
+	}
+	if s.dataModelRevision != nil {
+		_ = enc.PutUnsigned2(tlv.NewContextTag(4), *s.dataModelRevision)
+	}
+	if s.interactionModelRevision != nil {
+		_ = enc.PutUnsigned2(tlv.NewContextTag(5), *s.interactionModelRevision)
+	}
+	if s.specificationVersion != nil {
+		_ = enc.PutUnsigned4(tlv.NewContextTag(6), *s.specificationVersion)
+	}
+	if s.maxPathsPerInvoke != nil {
+		_ = enc.PutUnsigned2(tlv.NewContextTag(7), *s.maxPathsPerInvoke)
+	}
+	if s.supportedTransports != nil {
+		_ = enc.PutUnsigned2(tlv.NewContextTag(8), *s.supportedTransports)
+	}
+	if s.maxTCPMessageSize != nil {
+		_ = enc.PutUnsigned4(tlv.NewContextTag(9), *s.maxTCPMessageSize)
+	}
+	enc.EndContainer()
+	return enc.Bytes(), nil
 }
 
 func (s *sessionParams) Map() map[string]any {

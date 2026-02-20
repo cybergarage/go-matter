@@ -54,6 +54,8 @@ type SessionParams interface {
 	MaxTCPMessageSize() (uint32, bool)
 	// Validiate validates the session parameters according to the constraints specified in section 4.13.1.
 	Validiate() error
+	// Bytes returns the byte representation of the session parameters, ready for transmission.
+	Bytes() ([]byte, error)
 	// Map returns a map representation of the session parameters.
 	Map() map[string]any
 	// String returns a string representation of the session parameters.
