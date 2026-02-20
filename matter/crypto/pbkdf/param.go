@@ -22,16 +22,21 @@ import (
 
 // Params for PBKDF operations, as defined by the Matter specification. These.
 type Params interface {
+	ParamsHelper
 	// Password returns the password (e.g., the pairing code) used for PBKDF key derivation.
-	Password() []byte
+	Password() ([]byte, bool)
 	// Salt returns the salt value used for PBKDF key derivation.
-	Salt() []byte
+	Salt() ([]byte, bool)
 	// Iterations returns the number of iterations used for PBKDF key derivation.
-	Iterations() int
+	Iterations() (int, bool)
 	// KeyLength returns the desired length of the derived key in bytes.
-	KeyLength() int
+	KeyLength() (int, bool)
 	// Hash returns the hash function to be used for PBKDF key derivation.
 	Hash() hash.Hash
+}
+
+// ParamsHelper defines the interface for encoding PBKDF parameters into TLV and providing map and string representations.
+type ParamsHelper interface {
 	// Encode encodes the Params into the given TLV encoder.
 	Encode(enc tlv.Encoder, tarOrder uint8) error
 	// Map returns a map representation of the Params.

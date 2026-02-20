@@ -103,26 +103,32 @@ func NewParamsFromDecoder(dec tlv.Decoder) (Params, error) {
 	return p, nil
 }
 
-func (p *params) Password() []byte {
-	return p.password
+func (p *params) Password() ([]byte, bool) {
+	if p.password == nil {
+		return nil, false
+	}
+	return p.password, true
 }
 
-func (p *params) Salt() []byte {
-	return p.salt
+func (p *params) Salt() ([]byte, bool) {
+	if p.salt == nil {
+		return nil, false
+	}
+	return p.salt, true
 }
 
-func (p *params) Iterations() int {
+func (p *params) Iterations() (int, bool) {
 	if p.iter == nil {
-		return 0
+		return 0, false
 	}
-	return *p.iter
+	return *p.iter, true
 }
 
-func (p *params) KeyLength() int {
+func (p *params) KeyLength() (int, bool) {
 	if p.keyLen == nil {
-		return 0
+		return 0, false
 	}
-	return *p.keyLen
+	return *p.keyLen, true
 }
 
 func (p *params) Hash() hash.Hash {
