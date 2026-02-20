@@ -31,7 +31,7 @@ func TestRequestDefault(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !reflect.DeepEqual(req, reqParsed) {
-		t.Errorf("%s != %s", req.String(), reqParsed.String())
+	if !reflect.DeepEqual(req.Map(), reqParsed.Map()) {
+		t.Errorf("%v != %v", req.Map(), reqParsed.Map())
 	}
 }
