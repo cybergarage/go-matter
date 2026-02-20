@@ -222,6 +222,57 @@ func (e *encoderImpl) PutUTF8(tag Tag, s string) error {
 	return nil
 }
 
+// PutUTF81 implements Encoder.PutUTF81.
+func (e *encoderImpl) PutUTF81(tag Tag, s string) error {
+	l := len(s)
+	if l > 0xFF {
+		return ErrStringTooLong
+	}
+	e.writeHeader(tag, UTF8String1)
+	e.buf.WriteByte(byte(l))
+	e.buf.WriteString(s)
+	return nil
+}
+
+// PutUTF82 implements Encoder.PutUTF82.
+func (e *encoderImpl) PutUTF82(tag Tag, s string) error {
+	l := len(s)
+	if l > 0xFFFF {
+		return ErrStringTooLong
+	}
+	e.writeHeader(tag, UTF8String2)
+	lenBuf := make([]byte, 2)
+	binary.LittleEndian.PutUint16(lenBuf, uint16(l))
+	e.buf.Write(lenBuf)
+	e.buf.WriteString(s)
+	return nil
+}
+
+// PutUTF84 implements Encoder.PutUTF84.
+func (e *encoderImpl) PutUTF84(tag Tag, s string) error {
+	l := len(s)
+	if l > 0xFFFFFFFF {
+		return ErrStringTooLong
+	}
+	e.writeHeader(tag, UTF8String4)
+	lenBuf := make([]byte, 4)
+	binary.LittleEndian.PutUint32(lenBuf, uint32(l))
+	e.buf.Write(lenBuf)
+	e.buf.WriteString(s)
+	return nil
+}
+
+// PutUTF88 implements Encoder.PutUTF88.
+func (e *encoderImpl) PutUTF88(tag Tag, s string) error {
+	l := len(s)
+	e.writeHeader(tag, UTF8String8)
+	lenBuf := make([]byte, 8)
+	binary.LittleEndian.PutUint64(lenBuf, uint64(l))
+	e.buf.Write(lenBuf)
+	e.buf.WriteString(s)
+	return nil
+}
+
 // PutOctet implements Encoder.PutOctet.
 func (e *encoderImpl) PutOctet(tag Tag, b []byte) error {
 	l := len(b)

@@ -41,6 +41,8 @@ var (
 	ErrTagUnsupportedForm = errors.New("tlv: unsupported tag control form")
 	// ErrDecodeTagLength indicates insufficient bytes while decoding a tag field.
 	ErrDecodeTagLength = errors.New("tlv: insufficient bytes for tag")
+	// ErrStringTooLong indicates a string length exceeds the maximum allowed.
+	ErrStringTooLong = errors.New("tlv: string length exceeds maximum allowed")
 	// ErrOctetTooLong indicates an octet string length exceeds the maximum allowed.
 	ErrOctetTooLong = errors.New("tlv: octet string length exceeds maximum allowed")
 )

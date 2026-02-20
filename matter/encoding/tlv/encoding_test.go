@@ -174,6 +174,73 @@ func TestPutSignedUnsignedVariants(t *testing.T) {
 	}
 }
 
+func TestPutUTF8Variants(t *testing.T) {
+	tests := []struct {
+		name    string
+		putFunc func(enc Encoder, tag Tag, s string) error
+		tag     Tag
+		str     string
+	}{
+		{
+			name:    "UTF8_1",
+			putFunc: func(enc Encoder, tag Tag, s string) error { return enc.PutUTF81(tag, s) },
+			tag:     NewContextTag(1),
+			str:     "abc",
+		},
+		{
+			name:    "UTF8_2",
+			putFunc: func(enc Encoder, tag Tag, s string) error { return enc.PutUTF82(tag, s) },
+			tag:     NewContextTag(2),
+			str:     string(bytes.Repeat([]byte{'x'}, 300)), // >255 to force 2-byte length
+		},
+		{
+			name:    "UTF8_4",
+			putFunc: func(enc Encoder, tag Tag, s string) error { return enc.PutUTF84(tag, s) },
+			tag:     NewContextTag(3),
+			str:     string(bytes.Repeat([]byte{'y'}, 70000)), // >65535 to force 4-byte length
+		},
+		{
+			name:    "UTF8_8",
+			putFunc: func(enc Encoder, tag Tag, s string) error { return enc.PutUTF88(tag, s) },
+			tag:     NewContextTag(4),
+			str:     string(bytes.Repeat([]byte{'z'}, 100000)), // Large, but not huge for test
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			enc := NewEncoder()
+			err := tt.putFunc(enc, tt.tag, tt.str)
+			if err != nil {
+				t.Fatalf("PutUTF8 variant failed: %v", err)
+			}
+			enc.MustEndAll()
+			raw := enc.Bytes()
+			dec := NewDecoderWithBytes(raw)
+			found := false
+			for dec.Next() {
+				elem := dec.Element()
+				if elem.Tag().String() == tt.tag.String() {
+					s, ok := elem.UTF8()
+					if !ok {
+						t.Fatalf("Decoded element is not UTF8")
+					}
+					if s != tt.str {
+						t.Fatalf("Decoded UTF8 mismatch: got %q, want %q", s, tt.str)
+					}
+					found = true
+				}
+			}
+			if dec.Error() != nil {
+				t.Fatalf("Decode error: %v", dec.Error())
+			}
+			if !found {
+				t.Fatalf("UTF8 element not found for tag %v", tt.tag)
+			}
+		})
+	}
+}
+
 func TestPutOctetVariants(t *testing.T) {
 	tests := []struct {
 		name    string

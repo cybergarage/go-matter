@@ -51,6 +51,14 @@ type Encoder interface {
 
 	// PutUTF8 encodes a UTF-8 string with an adaptive length-of-length field.
 	PutUTF8(tag Tag, s string) error
+	// PutUTF8_1 encodes a UTF-8 string with a 1-byte length prefix (UTF8String1).
+	PutUTF81(tag Tag, s string) error
+	// PutUTF8_2 encodes a UTF-8 string with a 2-byte length prefix (UTF8String2).
+	PutUTF82(tag Tag, s string) error
+	// PutUTF8_4 encodes a UTF-8 string with a 4-byte length prefix (UTF8String4).
+	PutUTF84(tag Tag, s string) error
+	// PutUTF8_8 encodes a UTF-8 string with an 8-byte length prefix (UTF8String8).
+	PutUTF88(tag Tag, s string) error
 
 	// PutOctet encodes a raw byte slice with an adaptive length-of-length field.
 	PutOctet(tag Tag, b []byte) error
