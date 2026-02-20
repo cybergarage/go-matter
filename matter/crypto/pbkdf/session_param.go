@@ -36,6 +36,7 @@ const (
 // SessionParams defines the interface for accessing session parameters as specified in section 4.13.1.
 // 4.13.1. Session Parameters.
 type SessionParams interface {
+	SessionParamsHelper
 	// SessionIdleInterval returns the SESSION_IDLE_INTERVAL value (optional, 32-bit unsigned).
 	SessionIdleInterval() (time.Duration, bool)
 	// SessionActiveInterval returns the SESSION_ACTIVE_INTERVAL value (optional, 32-bit unsigned).
@@ -54,8 +55,10 @@ type SessionParams interface {
 	SupportedTransports() TransportMode
 	// MaxTCPMessageSize returns the MAX_TCP_MESSAGE_SIZE value (optional, 32-bit unsigned).
 	MaxTCPMessageSize() (uint32, bool)
-	// Validiate validates the session parameters according to the constraints specified in section 4.13.1.
-	Validiate() error
+}
+
+// SessionParamsHelper defines the interface for encoding session parameters into TLV and providing map and string representations.
+type SessionParamsHelper interface {
 	// Encode encodes the session parameters into the provided TLV encoder.
 	Encode(enc tlv.Encoder, tagNum uint8) error
 	// Map returns a map representation of the session parameters.
