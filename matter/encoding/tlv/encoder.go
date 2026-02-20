@@ -43,14 +43,25 @@ type Encoder interface {
 	PutBool(tag Tag, v bool)
 	// PutNull encodes a null element (no payload).
 	PutNull(tag Tag)
+
 	// PutFloat32 encodes a 32-bit floating point value (Float32).
 	PutFloat32(tag Tag, f float32)
 	// PutFloat64 encodes a 64-bit floating point value (Float64).
 	PutFloat64(tag Tag, f float64)
+
 	// PutUTF8 encodes a UTF-8 string with an adaptive length-of-length field.
 	PutUTF8(tag Tag, s string) error
+
 	// PutOctet encodes a raw byte slice with an adaptive length-of-length field.
 	PutOctet(tag Tag, b []byte) error
+	// PutOctet1 encodes a raw byte slice with a 1-byte length prefix (OctetString1).
+	PutOctet1(tag Tag, b []byte) error
+	// PutOctet2 encodes a raw byte slice with a 2-byte length prefix (OctetString2).
+	PutOctet2(tag Tag, b []byte) error
+	// PutOctet4 encodes a raw byte slice with a 4-byte length prefix (OctetString4).
+	PutOctet4(tag Tag, b []byte) error
+	// PutOctet8 encodes a raw byte slice with an 8-byte length prefix (OctetString8).
+	PutOctet8(tag Tag, b []byte) error
 
 	// BeginStructure emits the Structure container start.
 	BeginStructure(tag Tag)

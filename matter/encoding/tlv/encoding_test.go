@@ -173,3 +173,70 @@ func TestPutSignedUnsignedVariants(t *testing.T) {
 		t.Errorf("Expected sum of context numbers to be 36, got %d", tagsSum)
 	}
 }
+
+func TestPutOctetVariants(t *testing.T) {
+	tests := []struct {
+		name    string
+		putFunc func(enc Encoder, tag Tag, b []byte) error
+		tag     Tag
+		data    []byte
+	}{
+		{
+			name:    "Octet1",
+			putFunc: func(enc Encoder, tag Tag, b []byte) error { return enc.PutOctet1(tag, b) },
+			tag:     NewContextTag(1),
+			data:    []byte{0x01, 0x02, 0x03},
+		},
+		{
+			name:    "Octet2",
+			putFunc: func(enc Encoder, tag Tag, b []byte) error { return enc.PutOctet2(tag, b) },
+			tag:     NewContextTag(2),
+			data:    []byte{0xAA, 0xBB, 0xCC, 0xDD},
+		},
+		{
+			name:    "Octet4",
+			putFunc: func(enc Encoder, tag Tag, b []byte) error { return enc.PutOctet4(tag, b) },
+			tag:     NewContextTag(3),
+			data:    []byte{0x10, 0x20, 0x30, 0x40, 0x50, 0x60},
+		},
+		{
+			name:    "Octet8",
+			putFunc: func(enc Encoder, tag Tag, b []byte) error { return enc.PutOctet8(tag, b) },
+			tag:     NewContextTag(4),
+			data:    []byte{0xFF, 0xEE, 0xDD, 0xCC, 0xBB, 0xAA, 0x99, 0x88, 0x77, 0x66},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			enc := NewEncoder()
+			err := tt.putFunc(enc, tt.tag, tt.data)
+			if err != nil {
+				t.Fatalf("PutOctet variant failed: %v", err)
+			}
+			enc.MustEndAll()
+			raw := enc.Bytes()
+			dec := NewDecoderWithBytes(raw)
+			found := false
+			for dec.Next() {
+				elem := dec.Element()
+				if elem.Tag().String() == tt.tag.String() {
+					b, ok := elem.Bytes()
+					if !ok {
+						t.Fatalf("Decoded element is not octet")
+					}
+					if !bytes.Equal(b, tt.data) {
+						t.Fatalf("Decoded octet mismatch: got %x, want %x", b, tt.data)
+					}
+					found = true
+				}
+			}
+			if dec.Error() != nil {
+				t.Fatalf("Decode error: %v", dec.Error())
+			}
+			if !found {
+				t.Fatalf("Octet element not found for tag %v", tt.tag)
+			}
+		})
+	}
+}

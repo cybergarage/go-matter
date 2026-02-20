@@ -246,6 +246,57 @@ func (e *encoderImpl) PutOctet(tag Tag, b []byte) error {
 	return nil
 }
 
+// PutOctet1 implements Encoder.PutOctet1.
+func (e *encoderImpl) PutOctet1(tag Tag, b []byte) error {
+	l := len(b)
+	if l > 0xFF {
+		return ErrOctetTooLong
+	}
+	e.writeHeader(tag, OctetString1)
+	e.buf.WriteByte(byte(l))
+	e.buf.Write(b)
+	return nil
+}
+
+// PutOctet2 implements Encoder.PutOctet2.
+func (e *encoderImpl) PutOctet2(tag Tag, b []byte) error {
+	l := len(b)
+	if l > 0xFFFF {
+		return ErrOctetTooLong
+	}
+	e.writeHeader(tag, OctetString2)
+	lenBuf := make([]byte, 2)
+	binary.LittleEndian.PutUint16(lenBuf, uint16(l))
+	e.buf.Write(lenBuf)
+	e.buf.Write(b)
+	return nil
+}
+
+// PutOctet4 implements Encoder.PutOctet4.
+func (e *encoderImpl) PutOctet4(tag Tag, b []byte) error {
+	l := len(b)
+	if l > 0xFFFFFFFF {
+		return ErrOctetTooLong
+	}
+	e.writeHeader(tag, OctetString4)
+	lenBuf := make([]byte, 4)
+	binary.LittleEndian.PutUint32(lenBuf, uint32(l))
+	e.buf.Write(lenBuf)
+	e.buf.Write(b)
+	return nil
+}
+
+// PutOctet8 implements Encoder.PutOctet8.
+func (e *encoderImpl) PutOctet8(tag Tag, b []byte) error {
+	l := len(b)
+	e.writeHeader(tag, OctetString8)
+	lenBuf := make([]byte, 8)
+	binary.LittleEndian.PutUint64(lenBuf, uint64(l))
+	e.buf.Write(lenBuf)
+	e.buf.Write(b)
+	return nil
+}
+
 // pickStringElementType chooses the appropriate string/bytes ElementType based
 // on payload length and whether it's UTF-8. Returns chosen type, length-of-length,
 // and error (always nil here).
