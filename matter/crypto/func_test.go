@@ -21,7 +21,7 @@ import (
 func TestCryptoDRBG_Length(t *testing.T) {
 	lengths := []int{0, 1, 16, 32, 64, 128, 256, 1024, 2048}
 	for _, l := range lengths {
-		out := Crypto_DRBG(l)
+		out := CryptoDRBG(l)
 		if out == nil {
 			t.Errorf("Crypto_DRBG(%d) returned nil", l)
 			continue

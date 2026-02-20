@@ -96,7 +96,7 @@ func NewParamResponse(opts ...ParamResponseOption) ParamResponse {
 	r := newParamResponse(opts...)
 	// 4.14.1. Passcode-Authenticated Session Establishment (PASE)
 	if r.responderRandom == nil {
-		r.responderRandom = crypto.Crypto_DRBG(responderRandomLength)
+		r.responderRandom = crypto.CryptoDRBG(responderRandomLength)
 	}
 	if r.responderSessionID == nil {
 		// 4.13.2.4. Choosing Secure Unicast Session Identifiers

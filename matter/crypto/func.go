@@ -19,12 +19,12 @@ import (
 	"crypto/sha256"
 )
 
-// Crypto_DRBG is a placeholder function for a deterministic random bit generator (DRBG) used in cryptographic operations.
+// CryptoDRBG is a placeholder function for a deterministic random bit generator (DRBG) used in cryptographic operations.
 // 3.1. Deterministic Random Bit Generator (DRBG).
-func Crypto_DRBG(l int) []byte { // nolint:staticcheck
+func CryptoDRBG(l int) []byte {
 	// Crypto_DRBG() SHALL be seeded and reseeded using Crypto_TRNG() with at least 256 bits of entropy
 	// (see among others Chapter 4, Section 8.4, and Section 8.6.8 of NIST 800-90A).
-	seed := Crypto_TRNG(32) // 256 bits of entropy for seeding
+	seed := CryptoTRNG(32) // 256 bits of entropy for seeding
 	out := make([]byte, l)
 	n, err := rand.Read(out)
 	if err != nil || n != l {
@@ -45,9 +45,9 @@ func Crypto_DRBG(l int) []byte { // nolint:staticcheck
 	return bytes[:l]
 }
 
-// Crypto_TRNG is a placeholder function for a true random number generator (TRNG) used in cryptographic operations.
+// CryptoTRNG is a placeholder function for a true random number generator (TRNG) used in cryptographic operations.
 // 3.2. True Random Number Generator (TRNG).
-func Crypto_TRNG(l int) []byte { // nolint:staticcheck
+func CryptoTRNG(l int) []byte {
 	// Crypto_TRNG() MAY be implemented according to the NIST 800-90B implementation guidelines but
 	// alternate implementations MAY be used.
 	out := make([]byte, l)

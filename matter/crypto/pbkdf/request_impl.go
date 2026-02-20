@@ -81,7 +81,7 @@ func NewParamRequest(opts ...ParamRequestOption) ParamRequest {
 	r := newParamRequest(opts...)
 	// 4.14.1. Passcode-Authenticated Session Establishment (PASE)
 	if r.initiatorRandom == nil {
-		r.initiatorRandom = crypto.Crypto_DRBG(initiatorRandomLength)
+		r.initiatorRandom = crypto.CryptoDRBG(initiatorRandomLength)
 	}
 	if r.initiatorSessionID == nil {
 		// 4.13.2.4. Choosing Secure Unicast Session Identifiers
