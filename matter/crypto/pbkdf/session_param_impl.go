@@ -345,31 +345,31 @@ func (s *sessionParams) Validiate() error {
 func (s *sessionParams) Encode(enc tlv.Encoder) error {
 	enc.BeginStructure(tlv.NewContextTag(5))
 	if s.sessionIdleInterval != nil {
-		_ = enc.PutUnsigned4(tlv.NewContextTag(1), *s.sessionIdleInterval)
+		enc.PutUnsigned4(tlv.NewContextTag(1), *s.sessionIdleInterval)
 	}
 	if s.sessionActiveInterval != nil {
-		_ = enc.PutUnsigned4(tlv.NewContextTag(2), *s.sessionActiveInterval)
+		enc.PutUnsigned4(tlv.NewContextTag(2), *s.sessionActiveInterval)
 	}
 	if s.sessionActiveThreshold != nil {
-		_ = enc.PutUnsigned2(tlv.NewContextTag(3), *s.sessionActiveThreshold)
+		enc.PutUnsigned2(tlv.NewContextTag(3), *s.sessionActiveThreshold)
 	}
 	if s.dataModelRevision != nil {
-		_ = enc.PutUnsigned2(tlv.NewContextTag(4), *s.dataModelRevision)
+		enc.PutUnsigned2(tlv.NewContextTag(4), *s.dataModelRevision)
 	}
 	if s.interactionModelRevision != nil {
-		_ = enc.PutUnsigned2(tlv.NewContextTag(5), *s.interactionModelRevision)
+		enc.PutUnsigned2(tlv.NewContextTag(5), *s.interactionModelRevision)
 	}
 	if s.specificationVersion != nil {
-		_ = enc.PutUnsigned4(tlv.NewContextTag(6), *s.specificationVersion)
+		enc.PutUnsigned4(tlv.NewContextTag(6), *s.specificationVersion)
 	}
 	if s.maxPathsPerInvoke != nil {
-		_ = enc.PutUnsigned2(tlv.NewContextTag(7), *s.maxPathsPerInvoke)
+		enc.PutUnsigned2(tlv.NewContextTag(7), *s.maxPathsPerInvoke)
 	}
 	if s.supportedTransports != nil {
-		_ = enc.PutUnsigned2(tlv.NewContextTag(8), *s.supportedTransports)
+		enc.PutUnsigned2(tlv.NewContextTag(8), *s.supportedTransports)
 	}
 	if s.maxTCPMessageSize != nil {
-		_ = enc.PutUnsigned4(tlv.NewContextTag(9), *s.maxTCPMessageSize)
+		enc.PutUnsigned4(tlv.NewContextTag(9), *s.maxTCPMessageSize)
 	}
 	return nil
 }

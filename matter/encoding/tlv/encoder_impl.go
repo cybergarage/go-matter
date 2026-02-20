@@ -79,37 +79,33 @@ func (e *encoderImpl) PutSigned(tag Tag, v int64) error {
 }
 
 // PutSigned1 implements Encoder.PutSigned1.
-func (e *encoderImpl) PutSigned1(tag Tag, v int8) error {
+func (e *encoderImpl) PutSigned1(tag Tag, v int8) {
 	e.writeHeader(tag, SignedInt1)
 	e.buf.WriteByte(byte(v))
-	return nil
 }
 
 // PutSigned2 implements Encoder.PutSigned2.
-func (e *encoderImpl) PutSigned2(tag Tag, v int16) error {
+func (e *encoderImpl) PutSigned2(tag Tag, v int16) {
 	e.writeHeader(tag, SignedInt2)
 	buf := make([]byte, 2)
 	binary.LittleEndian.PutUint16(buf, uint16(v))
 	e.buf.Write(buf)
-	return nil
 }
 
 // PutSigned4 implements Encoder.PutSigned4.
-func (e *encoderImpl) PutSigned4(tag Tag, v int32) error {
+func (e *encoderImpl) PutSigned4(tag Tag, v int32) {
 	e.writeHeader(tag, SignedInt4)
 	buf := make([]byte, 4)
 	binary.LittleEndian.PutUint32(buf, uint32(v))
 	e.buf.Write(buf)
-	return nil
 }
 
 // PutSigned8 implements Encoder.PutSigned8.
-func (e *encoderImpl) PutSigned8(tag Tag, v int64) error {
+func (e *encoderImpl) PutSigned8(tag Tag, v int64) {
 	e.writeHeader(tag, SignedInt8)
 	buf := make([]byte, 8)
 	binary.LittleEndian.PutUint64(buf, uint64(v))
 	e.buf.Write(buf)
-	return nil
 }
 
 // PutUnsigned implements Encoder.PutUnsigned.
@@ -143,37 +139,33 @@ func (e *encoderImpl) PutUnsigned(tag Tag, v uint64) error {
 }
 
 // PutUnsigned1 implements Encoder.PutUnsigned1.
-func (e *encoderImpl) PutUnsigned1(tag Tag, v uint8) error {
+func (e *encoderImpl) PutUnsigned1(tag Tag, v uint8) {
 	e.writeHeader(tag, UnsignedInt1)
 	e.buf.WriteByte(byte(v))
-	return nil
 }
 
 // PutUnsigned2 implements Encoder.PutUnsigned2.
-func (e *encoderImpl) PutUnsigned2(tag Tag, v uint16) error {
+func (e *encoderImpl) PutUnsigned2(tag Tag, v uint16) {
 	e.writeHeader(tag, UnsignedInt2)
 	buf := make([]byte, 2)
 	binary.LittleEndian.PutUint16(buf, v)
 	e.buf.Write(buf)
-	return nil
 }
 
 // PutUnsigned4 implements Encoder.PutUnsigned4.
-func (e *encoderImpl) PutUnsigned4(tag Tag, v uint32) error {
+func (e *encoderImpl) PutUnsigned4(tag Tag, v uint32) {
 	e.writeHeader(tag, UnsignedInt4)
 	buf := make([]byte, 4)
 	binary.LittleEndian.PutUint32(buf, v)
 	e.buf.Write(buf)
-	return nil
 }
 
 // PutUnsigned8 implements Encoder.PutUnsigned8.
-func (e *encoderImpl) PutUnsigned8(tag Tag, v uint64) error {
+func (e *encoderImpl) PutUnsigned8(tag Tag, v uint64) {
 	e.writeHeader(tag, UnsignedInt8)
 	buf := make([]byte, 8)
 	binary.LittleEndian.PutUint64(buf, v)
 	e.buf.Write(buf)
-	return nil
 }
 
 // PutBool implements Encoder.PutBool.

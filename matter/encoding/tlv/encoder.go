@@ -20,24 +20,24 @@ type Encoder interface {
 	// PutSigned encodes a signed integer using the minimal fitting size (1/2/4/8).
 	PutSigned(tag Tag, v int64) error
 	// PutSigned1 encodes an int8 value (SignedInt1).
-	PutSigned1(tag Tag, v int8) error
+	PutSigned1(tag Tag, v int8)
 	// PutSigned2 encodes an int16 value (SignedInt2).
-	PutSigned2(tag Tag, v int16) error
+	PutSigned2(tag Tag, v int16)
 	// PutSigned4 encodes an int32 value (SignedInt4).
-	PutSigned4(tag Tag, v int32) error
+	PutSigned4(tag Tag, v int32)
 	// PutSigned8 encodes an int64 value (SignedInt8).
-	PutSigned8(tag Tag, v int64) error
+	PutSigned8(tag Tag, v int64)
 
 	// PutUnsigned encodes an unsigned integer using the minimal fitting size (1/2/4/8).
 	PutUnsigned(tag Tag, v uint64) error
 	// PutUnsigned1 encodes a uint8 value (UnsignedInt1).
-	PutUnsigned1(tag Tag, v uint8) error
+	PutUnsigned1(tag Tag, v uint8)
 	// PutUnsigned2 encodes a uint16 value (UnsignedInt2).
-	PutUnsigned2(tag Tag, v uint16) error
+	PutUnsigned2(tag Tag, v uint16)
 	// PutUnsigned4 encodes a uint32 value (UnsignedInt4).
-	PutUnsigned4(tag Tag, v uint32) error
+	PutUnsigned4(tag Tag, v uint32)
 	// PutUnsigned8 encodes a uint64 value (UnsignedInt8).
-	PutUnsigned8(tag Tag, v uint64) error
+	PutUnsigned8(tag Tag, v uint64)
 
 	// PutBool encodes a boolean (selects ETBoolFalse or BoolTrue).
 	PutBool(tag Tag, v bool)

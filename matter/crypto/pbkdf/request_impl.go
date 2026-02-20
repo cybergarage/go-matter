@@ -241,17 +241,16 @@ func (r *paramRequest) Encode(enc tlv.Encoder) error {
 		}
 	}
 	if r.initiatorSessionID != nil {
-		if err := enc.PutUnsigned2(tlv.NewContextTag(2), *r.initiatorSessionID); err != nil {
-			return err
-		}
+		enc.PutUnsigned2(tlv.NewContextTag(2), *r.initiatorSessionID)
 	}
 	if r.passcodeID != nil {
-		if err := enc.PutUnsigned2(tlv.NewContextTag(3), *r.passcodeID); err != nil {
-			return err
-		}
+		enc.PutUnsigned2(tlv.NewContextTag(3), *r.passcodeID)
 	}
 	if r.hasPBKDFParameters != nil {
-		if err := enc.PutBool(tlv.NewContextTag(4), *r.hasPBKDFParameters); err != nil {
+		enc.PutBool(tlv.NewContextTag(4), *r.hasPBKDFParameters)
+	}
+	if r.sessionParams != nil {
+		if err := r.sessionParams.Encode(enc); err != nil {
 			return err
 		}
 	}
