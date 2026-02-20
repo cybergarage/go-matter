@@ -16,7 +16,6 @@ package pbkdf
 
 import (
 	"crypto/sha256"
-	"fmt"
 	"hash"
 
 	"github.com/cybergarage/go-matter/matter/encoding/json"
@@ -163,20 +162,6 @@ func (p *params) Decode(dec tlv.Decoder) error {
 		default:
 			return expectedTagError(tlv.TagContext, elem.Tag())
 		}
-	}
-
-	validate := func() error {
-		if p.iter == nil {
-			return fmt.Errorf("PBKDF parameters missing iteration count")
-		}
-		if len(p.salt) == 0 {
-			return fmt.Errorf("PBKDF parameters missing salt")
-		}
-		return nil
-	}
-
-	if err := validate(); err != nil {
-		return err
 	}
 
 	return nil
