@@ -16,6 +16,8 @@ package pbkdf
 
 import (
 	"time"
+
+	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 )
 
 // 4.13.1. Session Parameters.
@@ -54,6 +56,8 @@ type SessionParams interface {
 	MaxTCPMessageSize() (uint32, bool)
 	// Validiate validates the session parameters according to the constraints specified in section 4.13.1.
 	Validiate() error
+	// Encode encodes the session parameters into the provided TLV encoder.
+	Encode(enc tlv.Encoder) error
 	// Bytes returns the byte representation of the session parameters, ready for transmission.
 	Bytes() ([]byte, error)
 	// Map returns a map representation of the session parameters.

@@ -342,8 +342,7 @@ func (s *sessionParams) Validiate() error {
 	return nil
 }
 
-func (s *sessionParams) Bytes() ([]byte, error) {
-	enc := tlv.NewEncoder()
+func (s *sessionParams) Encode(enc tlv.Encoder) error {
 	enc.BeginStructure(tlv.NewAnonymousTag())
 	if s.sessionIdleInterval != nil {
 		_ = enc.PutUnsigned4(tlv.NewContextTag(1), *s.sessionIdleInterval)
@@ -372,7 +371,14 @@ func (s *sessionParams) Bytes() ([]byte, error) {
 	if s.maxTCPMessageSize != nil {
 		_ = enc.PutUnsigned4(tlv.NewContextTag(9), *s.maxTCPMessageSize)
 	}
-	enc.EndContainer()
+	return nil
+}
+
+func (s *sessionParams) Bytes() ([]byte, error) {
+	enc := tlv.NewEncoder()
+	if err := s.Encode(enc); err != nil {
+		return nil, err
+	}
 	return enc.Bytes(), nil
 }
 
