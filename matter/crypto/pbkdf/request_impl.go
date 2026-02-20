@@ -233,19 +233,41 @@ func (r *paramRequest) Validate() error {
 	return nil
 }
 
-// Bytes encodes the ParamRequest into its byte representation for transmission.
+func (r *paramRequest) Encode(enc tlv.Encoder) error {
+	enc.BeginStructure(tlv.NewAnonymousTag())
+	if r.initiatorRandom != nil {
+		if err := enc.PutBytes(tlv.NewContextTag(1), r.initiatorRandom); err != nil {
+			return err
+		}
+	}
+	if r.initiatorSessionID != nil {
+		if err := enc.PutUnsigned2(tlv.NewContextTag(2), *r.initiatorSessionID); err != nil {
+			return err
+		}
+	}
+	if r.passcodeID != nil {
+		if err := enc.PutUnsigned2(tlv.NewContextTag(3), *r.passcodeID); err != nil {
+			return err
+		}
+	}
+	if r.hasPBKDFParameters != nil {
+		if err := enc.PutBool(tlv.NewContextTag(4), *r.hasPBKDFParameters); err != nil {
+			return err
+		}
+	}
+	if r.sessionParams != nil {
+		if err := r.sessionParams.Encode(enc); err != nil {
+			return err
+		}
+	}
+	return enc.EndContainer()
+}
+
 func (r *paramRequest) Bytes() ([]byte, error) {
 	enc := tlv.NewEncoder()
-	enc.BeginStructure(tlv.NewAnonymousTag())
-
-	// TODO(spec): Add mandatory fields if the target device requires them
-	// (e.g., initiator random, session parameters, etc.).
-	// Keeping this structure empty is useful as a first connectivity probe.
-
-	if err := enc.EndContainer(); err != nil {
+	if err := r.Encode(enc); err != nil {
 		return nil, err
 	}
-	enc.MustEndAll()
 	return enc.Bytes(), nil
 }
 

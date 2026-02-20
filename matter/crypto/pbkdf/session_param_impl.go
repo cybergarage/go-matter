@@ -343,7 +343,7 @@ func (s *sessionParams) Validiate() error {
 }
 
 func (s *sessionParams) Encode(enc tlv.Encoder) error {
-	enc.BeginStructure(tlv.NewAnonymousTag())
+	enc.BeginStructure(tlv.NewContextTag(5))
 	if s.sessionIdleInterval != nil {
 		_ = enc.PutUnsigned4(tlv.NewContextTag(1), *s.sessionIdleInterval)
 	}
