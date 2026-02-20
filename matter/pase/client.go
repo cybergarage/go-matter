@@ -82,8 +82,8 @@ func (c *Client) EstablishSession(ctx context.Context) (*Result, error) {
 	// 3) SPAKE2+ (PASE)
 	hs := NewHandshake(HandshakeRoleClient, HandshakeOptions{
 		Passcode:  c.passcode.Bytes(),
-		Salt:      pbkdfRes.Salt(),
-		PBKDFIter: int(pbkdfRes.Iterations()),
+		Salt:      pbkdfRes.PBKDFParams().Salt(),
+		PBKDFIter: int(pbkdfRes.PBKDFParams().Iterations()),
 		Hash:      nil, // TODO: support different hash algorithms
 	})
 

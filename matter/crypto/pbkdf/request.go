@@ -23,12 +23,10 @@ type ParamRequest interface {
 	InitiatorSessionID() uint16
 	// PasscodeID returns the passcode ID from the request.
 	PasscodeID() uint16
-	// HasPBKDFParameters indicates whether the request includes PBKDF parameters.
-	HasPBKDFParameters() bool
-	// SessionParams returns the session parameters and a boolean indicating if they are present.
-	SessionParams() (SessionParams, bool)
-	// Validate validates the ParamRequest according to the constraints specified in section 4.14.1.
-	Validate() error
+	// HasPBKDFParams indicates whether the request includes PBKDF parameters.
+	HasPBKDFParams() bool
+	// InitiatorSessionParams returns the initiator session parameters and a boolean indicating if they are present.
+	InitiatorSessionParams() (SessionParams, bool)
 	// Bytes returns the byte representation of the ParamRequest message, ready for transmission.
 	Bytes() ([]byte, error)
 	// Map returns a map representation of the ParamRequest.

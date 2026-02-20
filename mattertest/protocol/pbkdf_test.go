@@ -17,6 +17,7 @@ package protocol
 import (
 	_ "embed"
 	"encoding/hex"
+	"fmt"
 	"testing"
 
 	"github.com/cybergarage/go-logger/log"
@@ -44,39 +45,40 @@ func TestPBKDFParamRequestMessage(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		hexBytes, err := hex.DecodeString(tt.hexStr)
-		if err != nil {
-			t.Fatalf("Failed to decode hex string: %v", err)
-		}
-		msg, err := protocol.NewMessageFromBytes(hexBytes)
-		if err != nil {
-			t.Fatalf("Failed to parse Message: %v", err)
-		}
+	for n, tt := range tests {
+		t.Run(fmt.Sprintf("pbkdf-param-request-%02d", n), func(t *testing.T) {
+			hexBytes, err := hex.DecodeString(tt.hexStr)
+			if err != nil {
+				t.Fatalf("Failed to decode hex string: %v", err)
+			}
+			msg, err := protocol.NewMessageFromBytes(hexBytes)
+			if err != nil {
+				t.Fatalf("Failed to parse Message: %v", err)
+			}
 
-		// 4.14.1. Passcode-Authenticated Session Establishment (PASE)
-		// 4.14.1.2. Protocol Details
-		if msg.SessionID() != 0x0000 {
-			t.Errorf("Expected SessionID 0x0000, got 0x%04X", msg.SessionID())
-		}
-		if msg.SecurityFlags().SessionType() != 0x00 {
-			t.Errorf("Expected SessionType 0x00, got 0x%02X", msg.SecurityFlags().SessionType())
-		}
-		if !msg.Flags().HasSourceNodeID() {
-			t.Errorf("Expected SourceNodeID flag to be set")
-		}
-		if _, ok := msg.DestinationNodeID(); ok {
-			t.Errorf("Expected DestinationNodeID flag to be unset")
-		}
+			// 4.14.1. Passcode-Authenticated Session Establishment (PASE)
+			// 4.14.1.2. Protocol Details
+			if msg.SessionID() != 0x0000 {
+				t.Errorf("Expected SessionID 0x0000, got 0x%04X", msg.SessionID())
+			}
+			if msg.SecurityFlags().SessionType() != 0x00 {
+				t.Errorf("Expected SessionType 0x00, got 0x%02X", msg.SecurityFlags().SessionType())
+			}
+			if !msg.Flags().HasSourceNodeID() {
+				t.Errorf("Expected SourceNodeID flag to be set")
+			}
+			if _, ok := msg.DestinationNodeID(); ok {
+				t.Errorf("Expected DestinationNodeID flag to be unset")
+			}
 
-		reqParam, err := pbkdf.NewParamRequestFromBytes(msg.Payload())
-		if err != nil {
-			t.Errorf("Failed to parse ParamRequest: %v", err)
-		}
-
-		log.HexInfo(hexBytes)
-		log.Info(msg.String())
-		log.Info(reqParam.String())
+			reqParam, err := pbkdf.NewParamRequestFromBytes(msg.Payload())
+			if err != nil {
+				t.Errorf("Failed to parse ParamRequest: %v", err)
+				log.HexInfo(hexBytes)
+				log.Info(msg.String())
+				log.Info(reqParam.String())
+			}
+		})
 	}
 }
 
@@ -94,36 +96,39 @@ func TestPBKDFParamResponseMessage(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		hexBytes, err := hex.DecodeString(tt.hexStr)
-		if err != nil {
-			t.Fatalf("Failed to decode hex string: %v", err)
-		}
-		msg, err := protocol.NewMessageFromBytes(hexBytes)
-		if err != nil {
-			t.Fatalf("Failed to parse Message: %v", err)
-		}
+	for n, tt := range tests {
+		t.Run(fmt.Sprintf("pbkdf-param-response-%02d", n), func(t *testing.T) {
+			hexBytes, err := hex.DecodeString(tt.hexStr)
+			if err != nil {
+				t.Fatalf("Failed to decode hex string: %v", err)
+			}
+			msg, err := protocol.NewMessageFromBytes(hexBytes)
+			if err != nil {
+				t.Fatalf("Failed to parse Message: %v", err)
+			}
 
-		// 4.14.1. Passcode-Authenticated Session Establishment (PASE)
-		// 4.14.1.2. Protocol Details
-		if msg.SessionID() != 0x0000 {
-			t.Errorf("Expected SessionID 0x0000, got 0x%04X", msg.SessionID())
-		}
-		if msg.SecurityFlags().SessionType() != 0x00 {
-			t.Errorf("Expected SessionType 0x00, got 0x%02X", msg.SecurityFlags().SessionType())
-		}
-		if msg.Flags().HasSourceNodeID() {
-			t.Errorf("Expected SourceNodeID flag to be unset")
-		}
-		if _, ok := msg.DestinationNodeID(); !ok {
-			t.Errorf("Expected DestinationNodeID flag to be set")
-		}
+			// 4.14.1. Passcode-Authenticated Session Establishment (PASE)
+			// 4.14.1.2. Protocol Details
+			if msg.SessionID() != 0x0000 {
+				t.Errorf("Expected SessionID 0x0000, got 0x%04X", msg.SessionID())
+			}
+			if msg.SecurityFlags().SessionType() != 0x00 {
+				t.Errorf("Expected SessionType 0x00, got 0x%02X", msg.SecurityFlags().SessionType())
+			}
+			if msg.Flags().HasSourceNodeID() {
+				t.Errorf("Expected SourceNodeID flag to be unset")
+			}
+			if _, ok := msg.DestinationNodeID(); !ok {
+				t.Errorf("Expected DestinationNodeID flag to be set")
+			}
 
-		_, err = pbkdf.NewParamResponseFromBytes(msg.Payload())
-		if err != nil {
-			t.Skipf("Failed to parse ParamResponse: %v", err)
-			log.HexInfo(hexBytes)
-			log.Info(msg.String())
-		}
+			resParam, err := pbkdf.NewParamResponseFromBytes(msg.Payload())
+			if err != nil {
+				t.Errorf("Failed to parse ParamResponse: %v", err)
+				log.HexInfo(hexBytes)
+				log.Info(msg.String())
+				log.Info(resParam.String())
+			}
+		})
 	}
 }

@@ -34,3 +34,13 @@ func expectedTypeError(expected tlv.ElementType, actual tlv.Element) error {
 func expectedTagError(expected tlv.TagControl, actual tlv.Tag) error {
 	return fmt.Errorf("expected tag type %s, got %s", expected, actual.Control())
 }
+
+func checkInitiatorRandomLength(name string, b []byte, expectedLength int) error {
+	if b == nil {
+		return newErrMissingRequiredField(name)
+	}
+	if len(b) != expectedLength {
+		return fmt.Errorf("invalid %s length: expected %d, got %d", name, expectedLength, len(b))
+	}
+	return nil
+}

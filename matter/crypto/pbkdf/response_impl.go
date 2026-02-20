@@ -17,61 +17,233 @@ package pbkdf
 import (
 	"fmt"
 
+	"github.com/cybergarage/go-matter/matter/encoding/json"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 )
 
+const (
+	responderRandomLength = 32
+)
+
 type paramResponse struct {
-	iterations uint32
-	salt       []byte
+	initiatorRandom        []byte
+	responderRandom        []byte
+	responderSessionID     *uint16
+	params                 Params
+	responderSessionParams SessionParams
+}
+
+// ParamResponseOption defines a functional option for configuring the ParamResponse.
+type ParamResponseOption func(*paramResponse)
+
+func newParamResponse(opts ...ParamResponseOption) *paramResponse {
+	r := &paramResponse{
+		initiatorRandom:        nil,
+		responderRandom:        nil,
+		responderSessionID:     nil,
+		params:                 nil,
+		responderSessionParams: nil,
+	}
+	for _, opt := range opts {
+		opt(r)
+	}
+	return r
+}
+
+// WithParamResponseInitiatorRandom sets the initiator random in the ParamResponse.
+func WithParamResponseInitiatorRandom(random []byte) ParamResponseOption {
+	return func(r *paramResponse) {
+		r.initiatorRandom = random
+	}
+}
+
+// WithParamResponseResponderRandom sets the responder random in the ParamResponse.
+func WithParamResponseResponderRandom(random []byte) ParamResponseOption {
+	return func(r *paramResponse) {
+		r.responderRandom = random
+	}
+}
+
+// WithParamResponseResponderSessionID sets the responder session ID in the ParamResponse.
+func WithParamResponseResponderSessionID(sessionID uint16) ParamResponseOption {
+	return func(r *paramResponse) {
+		r.responderSessionID = &sessionID
+	}
+}
+
+// WithParamResponsePBKDFParams sets the PBKDF parameters in the ParamResponse.
+func WithParamResponsePBKDFParams(params Params) ParamResponseOption {
+	return func(r *paramResponse) {
+		r.params = params
+	}
+}
+
+// WithParamResponseResponderSessionParams sets the responder session parameters in the ParamResponse.
+func WithParamResponseResponderSessionParams(sessionParams SessionParams) ParamResponseOption {
+	return func(r *paramResponse) {
+		r.responderSessionParams = sessionParams
+	}
+}
+
+// NewParamResponse returns a new ParamResponse instance configured with the provided options.
+func NewParamResponse(opts ...ParamResponseOption) ParamResponse {
+	return newParamResponse(opts...)
 }
 
 // NewParamResponseFromBytes returns a new PBKDFParamResponse instance parsed from the given byte slice.
-func NewParamResponseFromBytes(tlvBytes []byte) (ParamResponse, error) {
-	dec := tlv.NewDecoderWithBytes(tlvBytes)
-	var (
-		iter uint32
-		salt []byte
-	)
-	for dec.Next() {
-		el := dec.Element()
-		tagNum, ok := tlv.NewContextNumberFromTag(el.Tag())
-		if !ok {
-			continue
-		}
-		switch tagNum {
-		case pbkdfTagIterations:
-			if u, ok := el.Unsigned(); ok {
-				iter = uint32(u)
-			}
-		case pbkdfTagSalt:
-			if bs, ok := el.Bytes(); ok {
-				salt = bs
-			}
-		}
+func NewParamResponseFromBytes(data []byte) (ParamResponse, error) {
+	r := newParamResponse()
+	if err := r.ParseBytes(data); err != nil {
+		return nil, err
 	}
-	if dec.Error() != nil {
-		return nil, dec.Error()
-	}
-
-	// If these are missing, it most likely means our assumed context tag numbers
-	// do not match the device/spec. Dump the full TLV to determine the correct mapping.
-	if iter == 0 || len(salt) == 0 {
-		return nil, fmt.Errorf("PBKDFParamResponse missing fields: iter=%d saltLen=%d", iter, len(salt))
-	}
-	return &paramResponse{iterations: iter, salt: salt}, nil
+	return r, nil
 }
 
-// Iterations returns the number of iterations specified in the PBKDFParamResponse.
-func (r *paramResponse) Iterations() uint32 {
-	return r.iterations
+// ParseBytes parses the given byte slice into the PBKDFParamResponse structure.
+func (r *paramResponse) ParseBytes(data []byte) error {
+	return r.Decode(tlv.NewDecoderWithBytes(data))
 }
 
-// Salt returns the salt value specified in the PBKDFParamResponse.
-func (r *paramResponse) Salt() []byte {
-	return r.salt
+func (r *paramResponse) InitiatorRandom() []byte {
+	return r.initiatorRandom
+}
+
+func (r *paramResponse) ResponderRandom() []byte {
+	return r.responderRandom
+}
+
+func (r *paramResponse) ResponderSessionID() uint16 {
+	return *r.responderSessionID
+}
+
+func (r *paramResponse) PBKDFParams() Params {
+	return r.params
+}
+
+func (r *paramResponse) ResponderSessionParams() (SessionParams, bool) {
+	if r.responderSessionParams == nil {
+		return nil, false
+	}
+	return r.responderSessionParams, true
+}
+
+// Decode decodes the given TLV decoder into the ParamResponse structure.
+func (r *paramResponse) Decode(dec tlv.Decoder) error {
+	// 4.14.1.2. Protocol Details
+	// pbkdfparamresp-struct => STRUCTURE [ tag-order ]
+	// {
+	//   initiatorRandom [1] : OCTET STRING [ length 32 ],
+	//   responderRandom [2] : OCTET STRING [ length 32 ],
+	//   responderSessionId [3] : UNSIGNED INTEGER [ range 16-bits ],
+	//   pbkdf_parameters [4] : Crypto_PBKDFParameterSet,
+	//   responderSessionParams [5, optional] : session-parameter-struct
+	// }
+
+	if !dec.Next() {
+		return dec.Error()
+	}
+
+	elem := dec.Element()
+	if !elem.Type().IsStructure() {
+		return expectedTypeError(tlv.Structure, elem)
+	}
+
+	for range 4 {
+		if !dec.Next() {
+			return dec.Error()
+		}
+		elem = dec.Element()
+		switch t := elem.Tag().(type) {
+		case tlv.ContextTag:
+			switch t.ContextNumber() {
+			case 1:
+				b, ok := elem.Bytes()
+				if !ok {
+					return expectedTypeError(tlv.OctetString1, elem)
+				}
+				r.initiatorRandom = b
+			case 2:
+				b, ok := elem.Bytes()
+				if !ok {
+					return expectedTypeError(tlv.OctetString1, elem)
+				}
+				r.responderRandom = b
+			case 3:
+				v, ok := elem.Unsigned2()
+				if !ok {
+					return expectedTypeError(tlv.UnsignedInt2, elem)
+				}
+				r.responderSessionID = &v
+			case 4:
+				v, err := NewParamsFromDecoder(dec)
+				if err != nil {
+					return err
+				}
+				r.params = v
+			default:
+				return expectedTagError(tlv.TagContext, elem.Tag())
+			}
+		}
+	}
+
+	if err := r.Validate(); err != nil {
+		return err
+	}
+
+	if !dec.More() {
+		return nil
+	}
+
+	sessionParams, err := NewSessionFromDecoder(dec)
+	if err != nil {
+		return err
+	}
+	r.responderSessionParams = sessionParams
+
+	return nil
+}
+
+func (r *paramResponse) Validate() error {
+	if err := checkInitiatorRandomLength("initiatorRandom", r.initiatorRandom, initiatorRandomLength); err != nil {
+		return err
+	}
+	if err := checkInitiatorRandomLength("responderRandom", r.responderRandom, responderRandomLength); err != nil {
+		return err
+	}
+	if r.responderSessionID == nil {
+		return newErrMissingRequiredField("responderSessionID")
+	}
+	if r.params == nil {
+		return newErrMissingRequiredField("params")
+	}
+	return nil
 }
 
 // Bytes returns the byte representation of the ParamResponse message, ready for transmission.
 func (r *paramResponse) Bytes() ([]byte, error) {
 	return nil, fmt.Errorf("encoding ParamResponse to bytes is not implemented yet")
+}
+
+func (r *paramResponse) Map() map[string]any {
+	m := make(map[string]any)
+	if r.initiatorRandom != nil {
+		m["initiator_random"] = r.initiatorRandom
+	}
+	if r.responderRandom != nil {
+		m["responder_random"] = r.responderRandom
+	}
+	if r.responderSessionID != nil {
+		m["responder_session_id"] = *r.responderSessionID
+	}
+	if r.params != nil {
+		m["pbkdf_parameters"] = r.params.Map()
+	}
+	if r.responderSessionParams != nil {
+		m["responder_session_params"] = r.responderSessionParams.Map()
+	}
+	return m
+}
+
+func (r *paramResponse) String() string {
+	return json.MustMarshal(r.Map())
 }

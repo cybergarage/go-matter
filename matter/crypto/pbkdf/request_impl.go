@@ -15,8 +15,6 @@
 package pbkdf
 
 import (
-	"fmt"
-
 	"github.com/cybergarage/go-matter/matter/crypto"
 	"github.com/cybergarage/go-matter/matter/encoding/json"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
@@ -31,11 +29,11 @@ var (
 )
 
 type paramRequest struct {
-	initiatorRandom    []byte
-	initiatorSessionID *uint16
-	passcodeID         *uint16
-	hasPBKDFParameters *bool
-	sessionParams      SessionParams
+	initiatorRandom        []byte
+	initiatorSessionID     *uint16
+	passcodeID             *uint16
+	hasPBKDFParams         *bool
+	initiatorSessionParams SessionParams
 }
 
 // ParamRequestOption defines a functional option for configuring the ParamRequest.
@@ -55,26 +53,26 @@ func WithParamRequestPasscodeID(passcodeID uint16) ParamRequestOption {
 	}
 }
 
-// WithParamRequestHasPBKDFParameters sets whether the request includes PBKDF parameters.
-func WithParamRequestHasPBKDFParameters(hasParams bool) ParamRequestOption {
+// WithParamRequestHasPBKDFParams sets whether the request includes PBKDF parameters.
+func WithParamRequestHasPBKDFParams(hasParams bool) ParamRequestOption {
 	return func(r *paramRequest) {
-		r.hasPBKDFParameters = &hasParams
+		r.hasPBKDFParams = &hasParams
 	}
 }
 
 func WithParamRequestSessionParams(params SessionParams) ParamRequestOption {
 	return func(r *paramRequest) {
-		r.sessionParams = params
+		r.initiatorSessionParams = params
 	}
 }
 
 func newParamRequest(opts ...ParamRequestOption) *paramRequest {
 	r := &paramRequest{
-		initiatorRandom:    nil,
-		initiatorSessionID: nil,
-		passcodeID:         nil,
-		hasPBKDFParameters: nil,
-		sessionParams:      nil,
+		initiatorRandom:        nil,
+		initiatorSessionID:     nil,
+		passcodeID:             nil,
+		hasPBKDFParams:         nil,
+		initiatorSessionParams: nil,
 	}
 	for _, opt := range opts {
 		opt(r)
@@ -97,12 +95,12 @@ func NewParamRequest(opts ...ParamRequestOption) ParamRequest {
 		passcodeID := uint16(0)
 		r.passcodeID = &passcodeID
 	}
-	if r.hasPBKDFParameters == nil {
+	if r.hasPBKDFParams == nil {
 		hasParams := false
-		r.hasPBKDFParameters = &hasParams
+		r.hasPBKDFParams = &hasParams
 	}
-	if r.sessionParams == nil {
-		r.sessionParams = NewSessionParams()
+	if r.initiatorSessionParams == nil {
+		r.initiatorSessionParams = NewSessionParams()
 	}
 	return r
 }
@@ -129,7 +127,7 @@ func (r *paramRequest) Decode(dec tlv.Decoder) error {
 	//   initiatorRandom [1] : OCTET STRING [ length 32 ],
 	//   initiatorSessionId [2] : UNSIGNED INTEGER [ range 16-bits ],
 	//   passcodeId [3] : UNSIGNED INTEGER [ length 16-bits ],
-	//   hasPBKDFParameters [4] : BOOLEAN,
+	//   HasPBKDFParams [4] : BOOLEAN,
 	//   initiatorSessionParams [5, optional] : session-parameter-struct
 	// }
 
@@ -173,7 +171,7 @@ func (r *paramRequest) Decode(dec tlv.Decoder) error {
 				if !ok {
 					return expectedTypeError(tlv.BoolTrue, elem)
 				}
-				r.hasPBKDFParameters = &v
+				r.hasPBKDFParams = &v
 			}
 		default:
 			return expectedTagError(tlv.TagContext, elem.Tag())
@@ -192,7 +190,7 @@ func (r *paramRequest) Decode(dec tlv.Decoder) error {
 	if err != nil {
 		return err
 	}
-	r.sessionParams = sessionParams
+	r.initiatorSessionParams = sessionParams
 
 	return nil
 }
@@ -221,37 +219,33 @@ func (r *paramRequest) PasscodeID() uint16 {
 	return *r.passcodeID
 }
 
-// HasPBKDFParameters indicates whether the request includes PBKDF parameters.
-func (r *paramRequest) HasPBKDFParameters() bool {
-	if r.hasPBKDFParameters == nil {
+// HasPBKDFParams indicates whether the request includes PBKDF parameters.
+func (r *paramRequest) HasPBKDFParams() bool {
+	if r.hasPBKDFParams == nil {
 		return false
 	}
-	return *r.hasPBKDFParameters
+	return *r.hasPBKDFParams
 }
 
-func (r *paramRequest) SessionParams() (SessionParams, bool) {
-	if r.sessionParams == nil {
+func (r *paramRequest) InitiatorSessionParams() (SessionParams, bool) {
+	if r.initiatorSessionParams == nil {
 		return nil, false
 	}
-	return r.sessionParams, true
+	return r.initiatorSessionParams, true
 }
 
 func (r *paramRequest) Validate() error {
-	if r.initiatorRandom == nil {
-		return newErrMissingRequiredField("initiatorRandom")
+	if err := checkInitiatorRandomLength("initiatorRandom", r.initiatorRandom, initiatorRandomLength); err != nil {
+		return err
 	}
-	if len(r.initiatorRandom) != initiatorRandomLength {
-		return fmt.Errorf("invalid initiatorRandom length: expected %d, got %d", initiatorRandomLength, len(r.initiatorRandom))
-	}
-
 	if r.initiatorSessionID == nil {
 		return newErrMissingRequiredField("initiatorSessionID")
 	}
 	if r.passcodeID == nil {
 		return newErrMissingRequiredField("passcodeID")
 	}
-	if r.hasPBKDFParameters == nil {
-		return newErrMissingRequiredField("hasPBKDFParameters")
+	if r.hasPBKDFParams == nil {
+		return newErrMissingRequiredField("hasPBKDFParams")
 	}
 	return nil
 }
@@ -273,16 +267,16 @@ func (r *paramRequest) Encode(enc tlv.Encoder) error {
 	if r.passcodeID != nil {
 		enc.PutUnsigned2(tlv.NewContextTag(3), *r.passcodeID)
 	}
-	if r.hasPBKDFParameters != nil {
-		enc.PutBool(tlv.NewContextTag(4), *r.hasPBKDFParameters)
+	if r.hasPBKDFParams != nil {
+		enc.PutBool(tlv.NewContextTag(4), *r.hasPBKDFParams)
 	}
-	if r.sessionParams != nil {
-		if err := r.sessionParams.Encode(enc); err != nil {
+	if r.initiatorSessionParams != nil {
+		if err := r.initiatorSessionParams.Encode(enc); err != nil {
 			return err
 		}
 	}
-	if r.sessionParams != nil {
-		if err := r.sessionParams.Encode(enc); err != nil {
+	if r.initiatorSessionParams != nil {
+		if err := r.initiatorSessionParams.Encode(enc); err != nil {
 			return err
 		}
 	}
@@ -308,11 +302,11 @@ func (r *paramRequest) Map() map[string]any {
 	if r.passcodeID != nil {
 		m["passcode_id"] = *r.passcodeID
 	}
-	if r.hasPBKDFParameters != nil {
-		m["has_pbkdf_parameters"] = *r.hasPBKDFParameters
+	if r.hasPBKDFParams != nil {
+		m["has_pbkdf_parameters"] = *r.hasPBKDFParams
 	}
-	if r.sessionParams != nil {
-		m["session_params"] = r.sessionParams.Map()
+	if r.initiatorSessionParams != nil {
+		m["session_params"] = r.initiatorSessionParams.Map()
 	}
 	return m
 }

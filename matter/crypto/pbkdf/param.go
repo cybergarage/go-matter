@@ -30,4 +30,8 @@ type Params interface {
 	KeyLength() int
 	// Hash returns the hash function to be used for PBKDF key derivation.
 	Hash() hash.Hash
+	// Map returns a map representation of the Params.
+	Map() map[string]any
+	// String returns a human-readable string representation of the Params.
+	String() string
 }
