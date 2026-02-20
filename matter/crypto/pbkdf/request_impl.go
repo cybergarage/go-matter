@@ -236,7 +236,7 @@ func (r *paramRequest) Validate() error {
 func (r *paramRequest) Encode(enc tlv.Encoder) error {
 	enc.BeginStructure(tlv.NewAnonymousTag())
 	if r.initiatorRandom != nil {
-		if err := enc.PutBytes(tlv.NewContextTag(1), r.initiatorRandom); err != nil {
+		if err := enc.PutOctet(tlv.NewContextTag(1), r.initiatorRandom); err != nil {
 			return err
 		}
 	}

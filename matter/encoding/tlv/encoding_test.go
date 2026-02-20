@@ -51,7 +51,7 @@ func TestRoundTrip(t *testing.T) {
 		t.Fatalf("PutUTF8 long: %v", err)
 	}
 	// Byte string
-	if err := enc.PutBytes(NewContextTag(11), []byte{0xDE, 0xAD, 0xBE, 0xEF}); err != nil {
+	if err := enc.PutOctet(NewContextTag(11), []byte{0xDE, 0xAD, 0xBE, 0xEF}); err != nil {
 		t.Fatalf("PutBytes: %v", err)
 	}
 

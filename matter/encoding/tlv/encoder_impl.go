@@ -222,8 +222,8 @@ func (e *encoderImpl) PutUTF8(tag Tag, s string) error {
 	return nil
 }
 
-// PutBytes implements Encoder.PutBytes.
-func (e *encoderImpl) PutBytes(tag Tag, b []byte) error {
+// PutOctet implements Encoder.PutOctet.
+func (e *encoderImpl) PutOctet(tag Tag, b []byte) error {
 	l := len(b)
 	et, lenSize, err := pickStringElementType(l, false)
 	if err != nil {

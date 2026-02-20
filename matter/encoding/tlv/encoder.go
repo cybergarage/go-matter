@@ -49,8 +49,8 @@ type Encoder interface {
 	PutFloat64(tag Tag, f float64)
 	// PutUTF8 encodes a UTF-8 string with an adaptive length-of-length field.
 	PutUTF8(tag Tag, s string) error
-	// PutBytes encodes a raw byte slice with an adaptive length-of-length field.
-	PutBytes(tag Tag, b []byte) error
+	// PutOctet encodes a raw byte slice with an adaptive length-of-length field.
+	PutOctet(tag Tag, b []byte) error
 
 	// BeginStructure emits the Structure container start.
 	BeginStructure(tag Tag)
