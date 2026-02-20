@@ -62,13 +62,13 @@ func TestRoundTrip(t *testing.T) {
 	_ = enc.PutUnsigned(NewFullyQualified8(0x1357, 0x2468, 0x90ABCDEF), 88)
 
 	// Containers
-	enc.StartStructure(NewContextTag(12))
+	enc.BeginStructure(NewContextTag(12))
 	_ = enc.PutUnsigned(NewAnonymousTag(), 1)
-	enc.StartArray(NewContextTag(13))
+	enc.BeginArray(NewContextTag(13))
 	_ = enc.PutUnsigned(NewAnonymousTag(), 2)
 	_ = enc.PutUnsigned(NewAnonymousTag(), 3)
 	enc.EndContainer() // array
-	enc.StartList(NewContextTag(14))
+	enc.BeginList(NewContextTag(14))
 	_ = enc.PutSigned(NewAnonymousTag(), -1)
 	_ = enc.PutSigned(NewAnonymousTag(), -2)
 	enc.EndContainer() // list
@@ -100,7 +100,7 @@ func TestRoundTrip(t *testing.T) {
 
 func TestContainerMismatch(t *testing.T) {
 	enc := NewEncoder()
-	enc.StartStructure(NewAnonymousTag())
+	enc.BeginStructure(NewAnonymousTag())
 	// Missing EndContainer intentionally
 	raw := enc.Bytes()
 

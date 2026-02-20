@@ -236,7 +236,7 @@ func (r *paramRequest) Validate() error {
 // Bytes encodes the ParamRequest into its byte representation for transmission.
 func (r *paramRequest) Bytes() ([]byte, error) {
 	enc := tlv.NewEncoder()
-	enc.StartStructure(tlv.NewAnonymousTag())
+	enc.BeginStructure(tlv.NewAnonymousTag())
 
 	// TODO(spec): Add mandatory fields if the target device requires them
 	// (e.g., initiator random, session parameters, etc.).
