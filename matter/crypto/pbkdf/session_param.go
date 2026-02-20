@@ -57,9 +57,7 @@ type SessionParams interface {
 	// Validiate validates the session parameters according to the constraints specified in section 4.13.1.
 	Validiate() error
 	// Encode encodes the session parameters into the provided TLV encoder.
-	Encode(enc tlv.Encoder) error
-	// Bytes returns the byte representation of the session parameters, ready for transmission.
-	Bytes() ([]byte, error)
+	Encode(enc tlv.Encoder, tagNum uint8) error
 	// Map returns a map representation of the session parameters.
 	Map() map[string]any
 	// String returns a string representation of the session parameters.

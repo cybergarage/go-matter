@@ -271,12 +271,7 @@ func (r *paramRequest) Encode(enc tlv.Encoder) error {
 		enc.PutBool(tlv.NewContextTag(4), *r.hasPBKDFParams)
 	}
 	if r.initiatorSessionParams != nil {
-		if err := r.initiatorSessionParams.Encode(enc); err != nil {
-			return err
-		}
-	}
-	if r.initiatorSessionParams != nil {
-		if err := r.initiatorSessionParams.Encode(enc); err != nil {
+		if err := r.initiatorSessionParams.Encode(enc, 5); err != nil {
 			return err
 		}
 	}

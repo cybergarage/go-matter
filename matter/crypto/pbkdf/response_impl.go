@@ -15,8 +15,6 @@
 package pbkdf
 
 import (
-	"fmt"
-
 	"github.com/cybergarage/go-matter/matter/encoding/json"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 )
@@ -219,9 +217,52 @@ func (r *paramResponse) Validate() error {
 	return nil
 }
 
+// Encode encodes the ParamResponse into the given TLV encoder.
+func (r *paramResponse) Encode(enc tlv.Encoder) error {
+	if err := r.Validate(); err != nil {
+		return err
+	}
+
+	// initiatorRandom        []byte
+	// responderRandom        []byte
+	// responderSessionID     *uint16
+	// params                 Params
+	// responderSessionParams SessionParams
+
+	enc.BeginStructure(tlv.NewAnonymousTag())
+	if r.initiatorRandom != nil {
+		if err := enc.PutOctet(tlv.NewContextTag(1), r.initiatorRandom); err != nil {
+			return err
+		}
+	}
+	if r.responderRandom != nil {
+		if err := enc.PutOctet(tlv.NewContextTag(2), r.responderRandom); err != nil {
+			return err
+		}
+	}
+	if r.responderSessionID != nil {
+		enc.PutUnsigned2(tlv.NewContextTag(3), *r.responderSessionID)
+	}
+	if r.params != nil {
+		if err := r.params.Encode(enc, 4); err != nil {
+			return err
+		}
+	}
+	if r.responderSessionParams != nil {
+		if err := r.responderSessionParams.Encode(enc, 5); err != nil {
+			return err
+		}
+	}
+	return enc.EndContainer()
+}
+
 // Bytes returns the byte representation of the ParamResponse message, ready for transmission.
 func (r *paramResponse) Bytes() ([]byte, error) {
-	return nil, fmt.Errorf("encoding ParamResponse to bytes is not implemented yet")
+	enc := tlv.NewEncoder()
+	if err := r.Encode(enc); err != nil {
+		return nil, err
+	}
+	return enc.Bytes(), nil
 }
 
 func (r *paramResponse) Map() map[string]any {

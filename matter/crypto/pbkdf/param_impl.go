@@ -182,6 +182,17 @@ func (p *params) Decode(dec tlv.Decoder) error {
 	return nil
 }
 
+func (p *params) Encode(enc tlv.Encoder, tagNum uint8) error {
+	enc.BeginStructure(tlv.NewContextTag(tagNum))
+	if p.iter != nil {
+		enc.PutUnsigned2(tlv.NewContextTag(pbkdfTagIterations), uint16(*p.iter))
+	}
+	if p.salt != nil {
+		enc.PutOctet(tlv.NewContextTag(pbkdfTagSalt), p.salt)
+	}
+	return enc.EndContainer()
+}
+
 func (p *params) Map() map[string]any {
 	m := make(map[string]any)
 	if p.password != nil {
