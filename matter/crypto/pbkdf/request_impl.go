@@ -15,6 +15,8 @@
 package pbkdf
 
 import (
+	"fmt"
+
 	"github.com/cybergarage/go-matter/matter/crypto"
 	"github.com/cybergarage/go-matter/matter/encoding/json"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
@@ -221,6 +223,10 @@ func (r *paramRequest) Validate() error {
 	if r.initiatorRandom == nil {
 		return newErrMissingRequiredField("initiatorRandom")
 	}
+	if len(r.initiatorRandom) != initiatorRandomLength {
+		return fmt.Errorf("invalid initiatorRandom length: expected %d, got %d", initiatorRandomLength, len(r.initiatorRandom))
+	}
+
 	if r.initiatorSessionID == nil {
 		return newErrMissingRequiredField("initiatorSessionID")
 	}
@@ -234,6 +240,10 @@ func (r *paramRequest) Validate() error {
 }
 
 func (r *paramRequest) Encode(enc tlv.Encoder) error {
+	if err := r.Validate(); err != nil {
+		return err
+	}
+
 	enc.BeginStructure(tlv.NewAnonymousTag())
 	if r.initiatorRandom != nil {
 		if err := enc.PutOctet(tlv.NewContextTag(1), r.initiatorRandom); err != nil {
