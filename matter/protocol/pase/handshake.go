@@ -18,7 +18,7 @@ import (
 	"crypto/sha256"
 	"hash"
 
-	"github.com/cybergarage/go-matter/matter/crypto/pake/spake2p"
+	"github.com/cybergarage/go-matter/matter/protocol/pase/pake/spake2p"
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pbkdf"
 )
 
