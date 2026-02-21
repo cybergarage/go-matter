@@ -16,6 +16,7 @@ package tlv
 
 import (
 	"errors"
+	"fmt"
 	"io"
 )
 
@@ -46,3 +47,34 @@ var (
 	// ErrOctetTooLong indicates an octet string length exceeds the maximum allowed.
 	ErrOctetTooLong = errors.New("tlv: octet string length exceeds maximum allowed")
 )
+
+var (
+	// ErrInvalidField indicates a field has an invalid value or format.
+	ErrInvalidField = errors.New("invalid")
+	// ErrMissingField indicates a required field is missing.
+	ErrMissingField = errors.New("missing field")
+	// ErrTypeMismatch indicates an unexpected TLV element type was encountered.
+	ErrTypeMismatch = errors.New("unexpected type")
+	// ErrTagMismatch indicates an unexpected TLV tag was encountered.
+	ErrTagMismatch = errors.New("unexpected tag")
+)
+
+// NewErrMissingField creates a new error indicating a required field is missing.
+func NewErrMissingField(name string) error {
+	return fmt.Errorf("%w: %s", ErrMissingField, name)
+}
+
+// NewErrInvalidField creates a new error indicating a field has an invalid value or format.
+func NewErrInvalidField(name string, value any) error {
+	return fmt.Errorf("%w: %s = %v", ErrInvalidField, name, value)
+}
+
+// NewErrTypeMismatch creates a new error indicating an unexpected TLV element type was encountered.
+func NewErrExpectedType(expected ElementType, actual Element) error {
+	return fmt.Errorf("%w: expected %s, got %s", ErrTypeMismatch, expected, actual.Type())
+}
+
+// NewErrTagMismatch creates a new error indicating an unexpected TLV tag was encountered.
+func NewErrExpectedTag(expected TagControl, actual Tag) error {
+	return fmt.Errorf("%w: expected tag type %s, got %s", ErrTagMismatch, expected, actual.Control())
+}

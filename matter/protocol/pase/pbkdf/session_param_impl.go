@@ -166,7 +166,7 @@ func (s *sessionParams) Decode(dec tlv.Decoder) error {
 
 	elem := dec.Element()
 	if !elem.Type().IsStructure() {
-		return expectedTypeError(tlv.Structure, elem)
+		return tlv.NewErrExpectedType(tlv.Structure, elem)
 	}
 
 	for dec.Next() {
@@ -177,60 +177,60 @@ func (s *sessionParams) Decode(dec tlv.Decoder) error {
 			case 1:
 				v, ok := elem.Unsigned4()
 				if !ok {
-					return expectedTypeError(tlv.UnsignedInt4, elem)
+					return tlv.NewErrExpectedType(tlv.UnsignedInt4, elem)
 				}
 				s.sessionIdleInterval = &v
 			case 2:
 				v, ok := elem.Unsigned4()
 				if !ok {
-					return expectedTypeError(tlv.UnsignedInt4, elem)
+					return tlv.NewErrExpectedType(tlv.UnsignedInt4, elem)
 				}
 				s.sessionActiveInterval = &v
 			case 3:
 				v, ok := elem.Unsigned2()
 				if !ok {
-					return expectedTypeError(tlv.UnsignedInt2, elem)
+					return tlv.NewErrExpectedType(tlv.UnsignedInt2, elem)
 				}
 				s.sessionActiveThreshold = &v
 			case 4:
 				v, ok := elem.Unsigned2()
 				if !ok {
-					return expectedTypeError(tlv.UnsignedInt2, elem)
+					return tlv.NewErrExpectedType(tlv.UnsignedInt2, elem)
 				}
 				s.dataModelRevision = &v
 			case 5:
 				v, ok := elem.Unsigned2()
 				if !ok {
-					return expectedTypeError(tlv.UnsignedInt2, elem)
+					return tlv.NewErrExpectedType(tlv.UnsignedInt2, elem)
 				}
 				s.interactionModelRevision = &v
 			case 6:
 				v, ok := elem.Unsigned4()
 				if !ok {
-					return expectedTypeError(tlv.UnsignedInt4, elem)
+					return tlv.NewErrExpectedType(tlv.UnsignedInt4, elem)
 				}
 				s.specificationVersion = &v
 			case 7:
 				v, ok := elem.Unsigned2()
 				if !ok {
-					return expectedTypeError(tlv.UnsignedInt2, elem)
+					return tlv.NewErrExpectedType(tlv.UnsignedInt2, elem)
 				}
 				s.maxPathsPerInvoke = &v
 			case 8:
 				v, ok := elem.Unsigned2()
 				if !ok {
-					return expectedTypeError(tlv.UnsignedInt2, elem)
+					return tlv.NewErrExpectedType(tlv.UnsignedInt2, elem)
 				}
 				s.supportedTransports = &v
 			case 9:
 				v, ok := elem.Unsigned4()
 				if !ok {
-					return expectedTypeError(tlv.UnsignedInt4, elem)
+					return tlv.NewErrExpectedType(tlv.UnsignedInt4, elem)
 				}
 				s.maxTCPMessageSize = &v
 			}
 		default:
-			return expectedTagError(tlv.TagContext, elem.Tag())
+			return tlv.NewErrExpectedTag(tlv.TagContext, elem.Tag())
 		}
 	}
 
@@ -328,16 +328,16 @@ func (s *sessionParams) MaxTCPMessageSize() (uint32, bool) {
 
 func (s *sessionParams) Validiate() error {
 	if s.dataModelRevision == nil {
-		return newErrMissingRequiredField("data_model_revision")
+		return tlv.NewErrMissingField("data_model_revision")
 	}
 	if s.interactionModelRevision == nil {
-		return newErrMissingRequiredField("interaction_model_revision")
+		return tlv.NewErrMissingField("interaction_model_revision")
 	}
 	if s.specificationVersion == nil {
-		return newErrMissingRequiredField("specification_version")
+		return tlv.NewErrMissingField("specification_version")
 	}
 	if s.maxPathsPerInvoke == nil {
-		return newErrMissingRequiredField("max_paths_per_invoke")
+		return tlv.NewErrMissingField("max_paths_per_invoke")
 	}
 	return nil
 }

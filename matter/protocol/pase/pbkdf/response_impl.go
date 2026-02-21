@@ -171,7 +171,7 @@ func (r *paramResponse) Decode(dec tlv.Decoder) error {
 
 	elem := dec.Element()
 	if !elem.Type().IsStructure() {
-		return expectedTypeError(tlv.Structure, elem)
+		return tlv.NewErrExpectedType(tlv.Structure, elem)
 	}
 
 	for range 5 {
@@ -185,19 +185,19 @@ func (r *paramResponse) Decode(dec tlv.Decoder) error {
 			case 1:
 				b, ok := elem.Bytes()
 				if !ok {
-					return expectedTypeError(tlv.OctetString1, elem)
+					return tlv.NewErrExpectedType(tlv.OctetString1, elem)
 				}
 				r.initiatorRandom = b
 			case 2:
 				b, ok := elem.Bytes()
 				if !ok {
-					return expectedTypeError(tlv.OctetString1, elem)
+					return tlv.NewErrExpectedType(tlv.OctetString1, elem)
 				}
 				r.responderRandom = b
 			case 3:
 				v, ok := elem.Unsigned2()
 				if !ok {
-					return expectedTypeError(tlv.UnsignedInt2, elem)
+					return tlv.NewErrExpectedType(tlv.UnsignedInt2, elem)
 				}
 				r.responderSessionID = &v
 			case 4:
@@ -207,7 +207,7 @@ func (r *paramResponse) Decode(dec tlv.Decoder) error {
 				}
 				r.pbkdfParams = v
 			default:
-				return expectedTagError(tlv.TagContext, elem.Tag())
+				return tlv.NewErrExpectedTag(tlv.TagContext, elem.Tag())
 			}
 		}
 	}
@@ -230,17 +230,17 @@ func (r *paramResponse) Decode(dec tlv.Decoder) error {
 }
 
 func (r *paramResponse) Validate() error {
-	if err := checkInitiatorRandomLength("initiatorRandom", r.initiatorRandom, initiatorRandomLength); err != nil {
+	if err := checkRandomLength("initiatorRandom", r.initiatorRandom, initiatorRandomLength); err != nil {
 		return err
 	}
-	if err := checkInitiatorRandomLength("responderRandom", r.responderRandom, responderRandomLength); err != nil {
+	if err := checkRandomLength("responderRandom", r.responderRandom, responderRandomLength); err != nil {
 		return err
 	}
 	if r.responderSessionID == nil {
-		return newErrMissingRequiredField("responderSessionID")
+		return tlv.NewErrMissingField("responderSessionID")
 	}
 	if r.pbkdfParams == nil {
-		return newErrMissingRequiredField("params")
+		return tlv.NewErrMissingField("params")
 	}
 	return nil
 }

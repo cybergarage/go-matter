@@ -154,19 +154,19 @@ func (p *params) Decode(dec tlv.Decoder) error {
 			case 1:
 				v, ok := elem.Unsigned2()
 				if !ok {
-					return expectedTypeError(tlv.UnsignedInt2, elem)
+					return tlv.NewErrExpectedType(tlv.UnsignedInt2, elem)
 				}
 				iter := int(v)
 				p.iter = &iter
 			case 2:
 				b, ok := elem.Bytes()
 				if !ok {
-					return expectedTypeError(tlv.OctetString1, elem)
+					return tlv.NewErrExpectedType(tlv.OctetString1, elem)
 				}
 				p.salt = b
 			}
 		default:
-			return expectedTagError(tlv.TagContext, elem.Tag())
+			return tlv.NewErrExpectedTag(tlv.TagContext, elem.Tag())
 		}
 	}
 

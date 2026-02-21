@@ -15,37 +15,15 @@
 package pbkdf
 
 import (
-	"errors"
-	"fmt"
-
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 )
 
-var ErrInvalid = errors.New("invalid")
-var ErrMissingRequiredField = errors.New("missing required field")
-
-func newErrMissingRequiredField(fieldName string) error {
-	return fmt.Errorf("%w: %s", ErrMissingRequiredField, fieldName)
-}
-
-func newErrInvalidFieldValue(fieldName string, value any) error {
-	return fmt.Errorf("%w: %s = %v", ErrInvalid, fieldName, value)
-}
-
-func expectedTypeError(expected tlv.ElementType, actual tlv.Element) error {
-	return fmt.Errorf("expected %s, got %s", expected, actual.Type())
-}
-
-func expectedTagError(expected tlv.TagControl, actual tlv.Tag) error {
-	return fmt.Errorf("expected tag type %s, got %s", expected, actual.Control())
-}
-
-func checkInitiatorRandomLength(name string, b []byte, expectedLength int) error {
+func checkRandomLength(name string, b []byte, expectedLength int) error {
 	if b == nil {
-		return newErrMissingRequiredField(name)
+		return tlv.NewErrMissingField(name)
 	}
 	if len(b) != expectedLength {
-		return fmt.Errorf("invalid %s length: expected %d, got %d", name, expectedLength, len(b))
+		return tlv.NewErrInvalidField(name, b)
 	}
 	return nil
 }

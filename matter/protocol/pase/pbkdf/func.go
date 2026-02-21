@@ -33,19 +33,19 @@ const (
 func CryptoPBKDF(p Params) ([]byte, error) {
 	password, ok := p.Password()
 	if !ok {
-		return nil, newErrMissingRequiredField("password")
+		return nil, tlv.NewErrMissingField("password")
 	}
 	salt, ok := p.Salt()
 	if !ok {
-		return nil, newErrMissingRequiredField("salt")
+		return nil, tlv.NewErrMissingField("salt")
 	}
 	iterations, ok := p.Iterations()
 	if !ok {
-		return nil, newErrMissingRequiredField("iterations")
+		return nil, tlv.NewErrMissingField("iterations")
 	}
 	keyLength, ok := p.KeyLength()
 	if !ok {
-		return nil, newErrMissingRequiredField("keyLength")
+		return nil, tlv.NewErrMissingField("keyLength")
 	}
 	return pbkdf2.Key(p.Hash, string(password), salt, iterations, keyLength)
 }
@@ -58,7 +58,7 @@ func CryptoPBKDFParameterSet(enc tlv.Encoder, tarOrder uint8, params Params) err
 		iter, ok := params.Iterations()
 		if ok {
 			if iter < PBKDBFIterationsMin || PBKDBFIterationsMax < iter {
-				return newErrInvalidFieldValue("iterations", iter)
+				return tlv.NewErrInvalidField("iterations", iter)
 			}
 			enc.PutUnsigned2(tlv.NewContextTag(pbkdfTagIterations), uint16(iter))
 		}
@@ -66,7 +66,7 @@ func CryptoPBKDFParameterSet(enc tlv.Encoder, tarOrder uint8, params Params) err
 		if ok {
 			saltLen := len(salt)
 			if saltLen < PBKDBFSaltMin || PBKDBFSaltMax < saltLen {
-				return newErrInvalidFieldValue("salt", salt)
+				return tlv.NewErrInvalidField("salt", salt)
 			}
 			enc.PutOctet(tlv.NewContextTag(pbkdfTagSalt), salt)
 		}

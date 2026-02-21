@@ -133,7 +133,7 @@ func (r *paramRequest) Decode(dec tlv.Decoder) error {
 
 	elem := dec.Element()
 	if !elem.Type().IsStructure() {
-		return expectedTypeError(tlv.Structure, elem)
+		return tlv.NewErrExpectedType(tlv.Structure, elem)
 	}
 
 	for range 4 {
@@ -147,30 +147,30 @@ func (r *paramRequest) Decode(dec tlv.Decoder) error {
 			case 1:
 				b, ok := elem.Bytes()
 				if !ok {
-					return expectedTypeError(tlv.OctetString1, elem)
+					return tlv.NewErrExpectedType(tlv.OctetString1, elem)
 				}
 				r.initiatorRandom = b
 			case 2:
 				v, ok := elem.Unsigned2()
 				if !ok {
-					return expectedTypeError(tlv.UnsignedInt2, elem)
+					return tlv.NewErrExpectedType(tlv.UnsignedInt2, elem)
 				}
 				r.initiatorSessionID = &v
 			case 3:
 				v, ok := elem.Unsigned2()
 				if !ok {
-					return expectedTypeError(tlv.UnsignedInt2, elem)
+					return tlv.NewErrExpectedType(tlv.UnsignedInt2, elem)
 				}
 				r.passcodeID = &v
 			case 4:
 				v, ok := elem.Bool()
 				if !ok {
-					return expectedTypeError(tlv.BoolTrue, elem)
+					return tlv.NewErrExpectedType(tlv.BoolTrue, elem)
 				}
 				r.hasPBKDFParams = &v
 			}
 		default:
-			return expectedTagError(tlv.TagContext, elem.Tag())
+			return tlv.NewErrExpectedTag(tlv.TagContext, elem.Tag())
 		}
 	}
 
@@ -231,17 +231,17 @@ func (r *paramRequest) InitiatorSessionParams() (SessionParams, bool) {
 }
 
 func (r *paramRequest) Validate() error {
-	if err := checkInitiatorRandomLength("initiatorRandom", r.initiatorRandom, initiatorRandomLength); err != nil {
+	if err := checkRandomLength("initiatorRandom", r.initiatorRandom, initiatorRandomLength); err != nil {
 		return err
 	}
 	if r.initiatorSessionID == nil {
-		return newErrMissingRequiredField("initiatorSessionID")
+		return tlv.NewErrMissingField("initiatorSessionID")
 	}
 	if r.passcodeID == nil {
-		return newErrMissingRequiredField("passcodeID")
+		return tlv.NewErrMissingField("passcodeID")
 	}
 	if r.hasPBKDFParams == nil {
-		return newErrMissingRequiredField("hasPBKDFParams")
+		return tlv.NewErrMissingField("hasPBKDFParams")
 	}
 	return nil
 }
