@@ -58,3 +58,15 @@ func CryptoTRNG(l int) []byte {
 	}
 	return out
 }
+
+// CryptoHash computes the cryptographic hash of a message.
+// 3.3. Hash function (Hash).
+func CryptoHash(message []byte) []byte {
+	const (
+		CryptoHashLenBytes = 32
+	)
+	// Crypto_Hash(message) :=
+	//   byte[CRYPTO_HASH_LEN_BYTES] SHA-256(M := message)
+	hash := sha256.Sum256(message)
+	return hash[:CryptoHashLenBytes]
+}
