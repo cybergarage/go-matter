@@ -25,14 +25,11 @@ import (
 	"github.com/cybergarage/go-matter/matter/protocol"
 )
 
-//go:embed dumps/pbkdf-param-request-01.hex
+//go:embed dumps/pase-01-pbkdf-param-request.hex
 var pbkdfParamRequest01Hex string
 
-//go:embed dumps/pbkdf-param-response-01.hex
+//go:embed dumps/pase-01-pbkdf-param-response.hex
 var pbkdfParamResponse01Hex string
-
-//go:embed dumps/pbkdf-param-response-02.hex
-var pbkdfParamResponse02Hex string
 
 func TestPBKDFParamRequestMessage(t *testing.T) {
 	log.EnableStdoutDebug(true)
@@ -90,9 +87,6 @@ func TestPBKDFParamResponseMessage(t *testing.T) {
 	}{
 		{
 			hexStr: pbkdfParamResponse01Hex,
-		},
-		{
-			hexStr: pbkdfParamResponse02Hex,
 		},
 	}
 
