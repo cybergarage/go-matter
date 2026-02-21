@@ -31,3 +31,22 @@ func TestCryptoDRBG_Length(t *testing.T) {
 		}
 	}
 }
+
+func TestCryptoHash_Length(t *testing.T) {
+	messages := [][]byte{
+		{},
+		[]byte("a"),
+		[]byte("The quick brown fox jumps over the lazy dog"),
+		make([]byte, 1024),
+	}
+	for i, msg := range messages {
+		hash := CryptoHash(msg)
+		if hash == nil {
+			t.Errorf("CryptoHash(%d) returned nil", i)
+			continue
+		}
+		if len(hash) != CryptoHashLenBytes {
+			t.Errorf("CryptoHash(%d) returned length %d, want %d", i, len(hash), CryptoHashLenBytes)
+		}
+	}
+}

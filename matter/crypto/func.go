@@ -19,6 +19,12 @@ import (
 	"crypto/sha256"
 )
 
+const (
+	// CryptoHashLenBytes defines the length of the hash output in bytes for the CryptoHash function.
+	// 3.3. Hash function (Hash).
+	CryptoHashLenBytes = 32
+)
+
 // CryptoDRBG is a placeholder function for a deterministic random bit generator (DRBG) used in cryptographic operations.
 // 3.1. Deterministic Random Bit Generator (DRBG).
 func CryptoDRBG(l int) []byte {
@@ -62,9 +68,6 @@ func CryptoTRNG(l int) []byte {
 // CryptoHash computes the cryptographic hash of a message.
 // 3.3. Hash function (Hash).
 func CryptoHash(message []byte) []byte {
-	const (
-		CryptoHashLenBytes = 32
-	)
 	// Crypto_Hash(message) :=
 	//   byte[CRYPTO_HASH_LEN_BYTES] SHA-256(M := message)
 	hash := sha256.Sum256(message)
