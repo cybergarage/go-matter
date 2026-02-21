@@ -79,9 +79,12 @@ func (r *pake1) Decode(dec tlv.Decoder) error {
 		return tlv.NewErrExpectedType(tlv.Structure, elem)
 	}
 
-	for range 1 {
+	for range 2 {
 		if !dec.Next() {
 			return dec.Error()
+		}
+		if elem.Type().IsEndOfContainer() {
+			break
 		}
 		elem = dec.Element()
 		switch t := elem.Tag().(type) {
