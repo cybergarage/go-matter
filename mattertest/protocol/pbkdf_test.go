@@ -21,8 +21,8 @@ import (
 	"testing"
 
 	"github.com/cybergarage/go-logger/log"
-	"github.com/cybergarage/go-matter/matter/crypto/pbkdf"
 	"github.com/cybergarage/go-matter/matter/protocol"
+	"github.com/cybergarage/go-matter/matter/protocol/pase/pbkdf"
 )
 
 //go:embed dumps/pase-01-pbkdf-param-request.hex

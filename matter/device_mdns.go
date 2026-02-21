@@ -23,7 +23,7 @@ import (
 
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/mdns"
-	"github.com/cybergarage/go-matter/matter/pase"
+	"github.com/cybergarage/go-matter/matter/protocol/pase"
 	"github.com/cybergarage/go-matter/matter/types"
 )
 

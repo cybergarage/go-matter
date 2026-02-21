@@ -19,8 +19,8 @@ import (
 	"fmt"
 
 	"github.com/cybergarage/go-logger/log"
-	"github.com/cybergarage/go-matter/matter/crypto/pbkdf"
 	"github.com/cybergarage/go-matter/matter/io"
+	"github.com/cybergarage/go-matter/matter/protocol/pase/pbkdf"
 )
 
 // Transport represents a PASE transport.

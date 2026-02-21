@@ -19,7 +19,7 @@ import (
 	"hash"
 
 	"github.com/cybergarage/go-matter/matter/crypto/pake/spake2p"
-	"github.com/cybergarage/go-matter/matter/crypto/pbkdf"
+	"github.com/cybergarage/go-matter/matter/protocol/pase/pbkdf"
 )
 
 // HandshakeRole represents the role in the PASE handshake.
