@@ -18,51 +18,30 @@ import (
 	"github.com/cybergarage/go-matter/matter/encoding/message"
 )
 
-// BuildStandaloneAck creates a standalone acknowledgement message for a received message.
-// The ACK references the message counter of the original message.
-// Reference: Matter Core Spec 1.5, Section 4.11.8 (Standalone Acknowledgement).
-func BuildStandaloneAck(receivedMsg message.Message, outboundCounter MessageCounter) message.Message {
-	// Build message header for ACK: preserve version/control and security context
-	msgHeaderOpts := []message.HeaderOption{
-		message.WithHeaderFlags(receivedMsg.Flags()),
-		message.WithHeaderSessionID(receivedMsg.SessionID()),
-		message.WithHeaderSecurityFlags(receivedMsg.SecurityFlags()),
-		message.WithHeaderMessageCounter(outboundCounter),
-	}
+// Message represents a complete message with frame header, protocol header, and payload.
+// 4.4. Message Frame Format.
+type Message = message.Message
 
-	// If received message had source node, send it back as destination
-	msgSrcNodeID, msgHasSrcNodeID := receivedMsg.SourceNodeID()
-	if msgHasSrcNodeID {
-		msgHeaderOpts = append(msgHeaderOpts, message.WithHeaderDestinationNodeID(msgSrcNodeID))
-	}
-
-	msgHeader := message.NewHeader(msgHeaderOpts...)
-
-	// Build exchange header for ACK
-	// Reference: Matter Core Spec 1.5, Section 4.11.8
-	// An ACK message has:
-	// - A flag set (bit 1)
-	// - No R flag (reliability not requested for ACK itself)
-	// - Opcode can be 0x00 (no protocol operation, just ACK)
-	// - AckCounter field references the message being acknowledged
-	exchangeHeader := message.NewProtocolHeader(
-		message.WithHeaderExchangeFlags(message.ExchangeFlagAck), // A flag only
-		message.WithHeaderOpcode(0x00),                           // Standalone ACK has no opcode
-		message.WithHeaderExchangeID(receivedMsg.ExchangeID()),
-		message.WithHeaderProtocolID(receivedMsg.ProtocolID()),
-		message.WithHeaderAckCounter(receivedMsg.MessageCounter()),
-	)
-
-	// Standalone ACK has no payload
-	return message.NewMessage(
-		message.WithMessageFrameHeader(msgHeader),
-		message.WithMessageProtocolHeader(exchangeHeader),
-		message.WithMessagePayload([]byte{}),
-	)
+// Ack defines the interface for MRP ACK messages.
+// 4.12. Message Reliability Protocol (MRP).
+type Ack interface {
+	AckHelper
+	// Message returns the underlying message that this ACK represents.
+	Message() Message
+	// IsReliability returns true if the ACK message is a reliability ACK.
+	IsReliability() bool
+	// IsAcknowledgement returns true if the ACK message is an acknowledgement.
+	IsAcknowledgement() bool
+	// MessageCounter returns the acknowledgement counter value from the ACK message if present.
+	MessageCounter() MessageCounter
+	// Bytes serializes the ACK message to bytes for transmission.
+	Bytes() []byte
 }
 
-// IsAckRequested checks if the received message has the reliability flag set,
-// indicating that an acknowledgement is requested.
-func IsAckRequested(msg message.Message) bool {
-	return msg.IsReliability()
+// AckHelper defines additional helper methods for ACK messages, such as debugging output.
+type AckHelper interface {
+	// Map returns a map representation of the ACK message for debugging purposes.
+	Map() map[string]any
+	// String returns a human-readable string representation of the ACK message.
+	String() string
 }
