@@ -29,13 +29,13 @@ type ProductID = types.ProductID
 
 // ProtocolID represents a protocol ID.
 // 4.4.3.4. Protocol ID (16 bits).
-type ProtocolID uint16
+type ProtocolID = types.ProtocolID
 
 type MessageCounter = message.MessageCounter
 
-// Header represents the protocol layer header.
-// 4.4.3. Protocol Header Field Descriptions.
-type Header interface {
+// ProtocolHeader represents the protocol layer header.
+// 4.4.3. Protocol ProtocolHeader Field Descriptions.
+type ProtocolHeader interface {
 	// ExchangeFlags returns the exchange flags.
 	ExchangeFlags() ExchangeFlag
 	// Opcode returns the opcode.

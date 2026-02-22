@@ -24,11 +24,10 @@ import (
 )
 
 type frameHeader = message.Header
-type protocolHeader = Header
 
 type messageImpl struct {
 	frameHeader
-	protocolHeader
+	ProtocolHeader
 	extensions []byte
 	payload    []byte
 }
@@ -44,9 +43,9 @@ func WithMessageFrameHeader(header message.Header) MessageOption {
 }
 
 // WithMessageProtocolHeader sets the protocol header of the Message.
-func WithMessageProtocolHeader(header Header) MessageOption {
+func WithMessageProtocolHeader(header ProtocolHeader) MessageOption {
 	return func(m *messageImpl) {
-		m.protocolHeader = header
+		m.ProtocolHeader = header
 	}
 }
 
@@ -68,7 +67,7 @@ func WithMessagePayload(payload []byte) MessageOption {
 func NewMessage(opts ...MessageOption) Message {
 	m := &messageImpl{
 		frameHeader:    message.NewHeader(), // Default empty header
-		protocolHeader: NewHeader(),         // Default empty header
+		ProtocolHeader: NewHeader(),         // Default empty header
 		extensions:     []byte{},            // Default empty extensions
 		payload:        []byte{},            // Default empty payload
 	}
@@ -87,7 +86,7 @@ func NewMessageFromReader(reader io.Reader) (Message, error) {
 	}
 
 	// 4.4.3. Protocol Header Field Descriptions
-	protocolHeader, err := NewHeaderFromReader(reader)
+	ProtocolHeader, err := NewHeaderFromReader(reader)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +109,7 @@ func NewMessageFromReader(reader io.Reader) (Message, error) {
 
 	return &messageImpl{
 		frameHeader:    msgHeader,
-		protocolHeader: protocolHeader,
+		ProtocolHeader: ProtocolHeader,
 		extensions:     extentionPayload,
 		payload:        payload.Bytes(),
 	}, nil
@@ -137,7 +136,7 @@ func (m *messageImpl) Payload() []byte {
 // Bytes serializes the complete message to bytes.
 func (m *messageImpl) Bytes() []byte {
 	packetBytes := m.frameHeader.Bytes()
-	protocolBytes := m.protocolHeader.Bytes()
+	protocolBytes := m.ProtocolHeader.Bytes()
 
 	result := make([]byte, 0, len(packetBytes)+len(protocolBytes)+len(m.payload))
 	result = append(result, packetBytes...)
@@ -156,7 +155,7 @@ func (m *messageImpl) Map() map[string]any {
 	return map[string]any{
 		"Message Header":     m.frameHeader.Map(),
 		"Message Extensions": hex.EncodeToString(m.extensions),
-		"Protocol Header":    m.protocolHeader.Map(),
+		"Protocol Header":    m.ProtocolHeader.Map(),
 		"Payload":            hex.EncodeToString(m.payload),
 	}
 }

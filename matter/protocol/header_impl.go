@@ -27,7 +27,7 @@ const (
 	minHeaderSize = 6
 )
 
-type header struct {
+type protocolHeader struct {
 	exchangeFlags     ExchangeFlag
 	opcode            uint8
 	exchangeID        uint16
@@ -37,40 +37,40 @@ type header struct {
 	securedExtensions []byte
 }
 
-// HeaderOption configures a Header instance.
-type HeaderOption func(*header)
+// HeaderOption configures a ProtocolHeader instance.
+type HeaderOption func(*protocolHeader)
 
 // WithHeaderExchangeFlags sets the exchange flags.
 func WithHeaderExchangeFlags(flags ExchangeFlag) HeaderOption {
-	return func(h *header) {
+	return func(h *protocolHeader) {
 		h.exchangeFlags = flags
 	}
 }
 
 // WithHeaderOpcode sets the opcode.
 func WithHeaderOpcode(opcode uint8) HeaderOption {
-	return func(h *header) {
+	return func(h *protocolHeader) {
 		h.opcode = opcode
 	}
 }
 
 // WithHeaderExchangeID sets the exchange ID.
 func WithHeaderExchangeID(exchangeID ExchangeID) HeaderOption {
-	return func(h *header) {
+	return func(h *protocolHeader) {
 		h.exchangeID = uint16(exchangeID)
 	}
 }
 
 // WithHeaderProtocolID sets the protocol ID.
 func WithHeaderProtocolID(protocolID ProtocolID) HeaderOption {
-	return func(h *header) {
+	return func(h *protocolHeader) {
 		h.protocolID = uint16(protocolID)
 	}
 }
 
 // WithHeaderVendorID sets the vendor ID.
 func WithHeaderVendorID(vendorID VendorID) HeaderOption {
-	return func(h *header) {
+	return func(h *protocolHeader) {
 		h.exchangeFlags |= ExchangeFlagVendor
 		h.vendorID = uint16(vendorID)
 	}
@@ -78,7 +78,7 @@ func WithHeaderVendorID(vendorID VendorID) HeaderOption {
 
 // WithHeaderAckCounter sets the acknowledgement counter.
 func WithHeaderAckCounter(counter MessageCounter) HeaderOption {
-	return func(h *header) {
+	return func(h *protocolHeader) {
 		h.exchangeFlags |= ExchangeFlagAck
 		h.ackCounter = uint32(counter)
 	}
@@ -86,15 +86,15 @@ func WithHeaderAckCounter(counter MessageCounter) HeaderOption {
 
 // WithHeaderSecuredExtensions sets the secured extensions.
 func WithHeaderSecuredExtensions(ext []byte) HeaderOption {
-	return func(h *header) {
+	return func(h *protocolHeader) {
 		h.exchangeFlags |= ExchangeFlagSecuredExtensions
 		h.securedExtensions = ext
 	}
 }
 
 // NewHeader creates a new Header instance with the provided options.
-func NewHeader(opts ...HeaderOption) Header {
-	h := &header{
+func NewHeader(opts ...HeaderOption) ProtocolHeader {
+	h := &protocolHeader{
 		exchangeFlags:     0x00,
 		opcode:            0x00,
 		exchangeID:        0x0000,
@@ -109,14 +109,14 @@ func NewHeader(opts ...HeaderOption) Header {
 	return h
 }
 
-// NewHeaderFromReader parses an exchange header from an io.Reader.
-func NewHeaderFromReader(reader io.Reader) (Header, error) {
+// NewHeaderFromReader parses an exchange protocolHeader from an io.Reader.
+func NewHeaderFromReader(reader io.Reader) (ProtocolHeader, error) {
 	var buf [minHeaderSize]byte
 	_, err := io.ReadAtLeast(reader, buf[:], minHeaderSize)
 	if err != nil {
 		return nil, err
 	}
-	h := &header{
+	h := &protocolHeader{
 		exchangeFlags:     ExchangeFlag(buf[0]),
 		opcode:            buf[1],
 		exchangeID:        binary.LittleEndian.Uint16(buf[2:4]),
@@ -158,58 +158,58 @@ func NewHeaderFromReader(reader io.Reader) (Header, error) {
 	return h, nil
 }
 
-// NewHeaderFromBytes parses an exchange header from bytes.
-func NewHeaderFromBytes(data []byte) (Header, error) {
+// NewHeaderFromBytes parses an exchange protocolHeader from bytes.
+func NewHeaderFromBytes(data []byte) (ProtocolHeader, error) {
 	return NewHeaderFromReader(bytes.NewReader(data))
 }
 
 // ExchangeFlags returns the exchange flags.
-func (h *header) ExchangeFlags() ExchangeFlag {
+func (h *protocolHeader) ExchangeFlags() ExchangeFlag {
 	return h.exchangeFlags
 }
 
 // Opcode returns the opcode.
-func (h *header) Opcode() uint8 {
+func (h *protocolHeader) Opcode() uint8 {
 	return h.opcode
 }
 
 // ExchangeID returns the exchange ID.
-func (h *header) ExchangeID() ExchangeID {
+func (h *protocolHeader) ExchangeID() ExchangeID {
 	return ExchangeID(h.exchangeID)
 }
 
 // ProtocolID returns the protocol ID.
-func (h *header) ProtocolID() ProtocolID {
+func (h *protocolHeader) ProtocolID() ProtocolID {
 	return ProtocolID(h.protocolID)
 }
 
 // IsInitiator returns true if the initiator flag is set.
-func (h *header) IsInitiator() bool {
+func (h *protocolHeader) IsInitiator() bool {
 	return h.exchangeFlags.IsInitiator()
 }
 
 // IsAcknowledgement returns true if the acknowledgement flag is set.
-func (h *header) IsAcknowledgement() bool {
+func (h *protocolHeader) IsAcknowledgement() bool {
 	return h.exchangeFlags.IsAcknowledgement()
 }
 
 // IsReliabilityRequested returns true if the reliability flag is set.
-func (h *header) IsReliability() bool {
+func (h *protocolHeader) IsReliability() bool {
 	return h.exchangeFlags.IsReliability()
 }
 
 // HasSecuredExtensions returns true if secured extensions flag is set.
-func (h *header) HasSecuredExtensions() bool {
+func (h *protocolHeader) HasSecuredExtensions() bool {
 	return h.exchangeFlags.HasSecuredExtensions()
 }
 
 // HasVendorID returns true if the vendor ID flag is set.
-func (h *header) HasVendorID() bool {
+func (h *protocolHeader) HasVendorID() bool {
 	return h.exchangeFlags.HasVendorID()
 }
 
 // VendorID returns the vendor ID if present.
-func (h *header) VendorID() (VendorID, bool) {
+func (h *protocolHeader) VendorID() (VendorID, bool) {
 	if !h.HasVendorID() {
 		return 0, false
 	}
@@ -217,7 +217,7 @@ func (h *header) VendorID() (VendorID, bool) {
 }
 
 // AckCounter returns the acknowledgement counter if present.
-func (h *header) AckCounter() (MessageCounter, bool) {
+func (h *protocolHeader) AckCounter() (MessageCounter, bool) {
 	if !h.IsAcknowledgement() {
 		return 0, false
 	}
@@ -225,15 +225,15 @@ func (h *header) AckCounter() (MessageCounter, bool) {
 }
 
 // SecuredExtensions returns the secured extensions bytes if present, along with a boolean indicating their presence.
-func (h *header) SecuredExtensions() ([]byte, bool) {
+func (h *protocolHeader) SecuredExtensions() ([]byte, bool) {
 	if !h.HasSecuredExtensions() {
 		return nil, false
 	}
 	return h.securedExtensions, true
 }
 
-// Bytes serializes the exchange header to bytes (little-endian).
-func (h *header) Bytes() []byte {
+// Bytes serializes the exchange protocolHeader to bytes (little-endian).
+func (h *protocolHeader) Bytes() []byte {
 	buf := make([]byte, minHeaderSize)
 	buf[0] = byte(h.exchangeFlags)
 	buf[1] = h.opcode
@@ -254,8 +254,8 @@ func (h *header) Bytes() []byte {
 	return buf
 }
 
-// Map returns a map representation of the header for easier debugging and logging.
-func (h *header) Map() map[string]any {
+// Map returns a map representation of the protocolHeader for easier debugging and logging.
+func (h *protocolHeader) Map() map[string]any {
 	m := map[string]any{
 		"ExchangeFlags": fmt.Sprintf("0x%02X", h.exchangeFlags),
 		"Opcode":        fmt.Sprintf("0x%02X", h.opcode),
@@ -277,6 +277,6 @@ func (h *header) Map() map[string]any {
 }
 
 // String returns a human-readable representation with hex dump.
-func (h *header) String() string {
+func (h *protocolHeader) String() string {
 	return json.MustMarshal(h.Map())
 }

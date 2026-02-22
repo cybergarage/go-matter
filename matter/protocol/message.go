@@ -24,7 +24,7 @@ type Message interface {
 	// FrameHeader represents the frame header of the message.
 	message.Header
 	// Header represents the protocol header of the message.
-	Header
+	ProtocolHeader
 	// Extensions returns the message extensions, if any.
 	Extensions() ([]byte, bool)
 	// Payload returns the payload of the message.

@@ -18,7 +18,7 @@ import (
 	"testing"
 )
 
-func TestHeaderTooShort(t *testing.T) {
+func TestProtocolHeaderTooShort(t *testing.T) {
 	shortData := []byte{0x00, 0x00, 0x00} // Only 3 bytes
 	_, err := NewHeaderFromBytes(shortData)
 	if err == nil {
@@ -26,10 +26,10 @@ func TestHeaderTooShort(t *testing.T) {
 	}
 }
 
-func TestHeaderEncodeDecodeRoundtrip(t *testing.T) {
+func TestProtocolHeaderEncodeDecodeRoundtrip(t *testing.T) {
 	tests := []struct {
 		name   string
-		header Header
+		header ProtocolHeader
 	}{
 		{
 			name: "minimal exchange header",
