@@ -32,37 +32,37 @@ type Result struct {
 	// TODO: add sessionID, etc.
 }
 
-// Client represents a PASE client.
-type Client struct {
+// Initiator represents a PASE client.
+type Initiator struct {
 	t        Transport
 	passcode Passcode
 }
 
-// NewClient returns a new PASE client with the given passcode.
-func NewClient(t Transport, passcode Passcode) *Client {
-	return &Client{
+// NewInitiator returns a new PASE initiator with the given passcode.
+func NewInitiator(t Transport, passcode Passcode) *Initiator {
+	return &Initiator{
 		t:        t,
 		passcode: passcode,
 	}
 }
 
 // EstablishSession establishes a PASE session.
-func (c *Client) EstablishSession(ctx context.Context) (*Result, error) {
+func (i *Initiator) EstablishSession(ctx context.Context) (*Result, error) {
 	// 1) PBKDFParamRequest
-	reqTLV, err := pbkdf.NewParamRequest().Bytes()
+	paramReq, err := pbkdf.NewParamRequest().Bytes()
 	if err != nil {
 		return nil, err
 	}
-	reqBytes := append([]byte{opPBKDFParamRequest}, reqTLV...)
+	reqBytes := append([]byte{opPBKDFParamRequest}, paramReq...)
 	log.Info("PBKDFParamRequest:")
 	log.HexInfo(reqBytes)
-	if err := c.t.Transmit(ctx, reqBytes); err != nil {
+	if err := i.t.Transmit(ctx, reqBytes); err != nil {
 		log.Errorf("Failed to transmit PBKDFParamRequest: %v", err)
 		return nil, err
 	}
 
 	// 2) PBKDFParamResponse
-	resBytes, err := c.t.Receive(ctx)
+	resBytes, err := i.t.Receive(ctx)
 	if err != nil {
 		log.Errorf("Failed to receive PBKDFParamResponse: %v", err)
 		return nil, err
@@ -89,7 +89,7 @@ func (c *Client) EstablishSession(ctx context.Context) (*Result, error) {
 		return nil, fmt.Errorf("PBKDF parameters missing iterations")
 	}
 	hs, err := NewHandshake(HandshakeRoleClient, HandshakeOptions{
-		Passcode:  c.passcode.Bytes(),
+		Passcode:  i.passcode.Bytes(),
 		Salt:      salt,
 		PBKDFIter: iter,
 		Hash:      nil, // TODO: support different hash algorithms
@@ -103,13 +103,13 @@ func (c *Client) EstablishSession(ctx context.Context) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := c.t.Transmit(ctx, NewPake1(x).Bytes()); err != nil {
+	if err := i.t.Transmit(ctx, NewPake1(x).Bytes()); err != nil {
 		log.Errorf("Failed to transmit Pake1: %v", err)
 		return nil, err
 	}
 
 	// 3-2) Pake2
-	p2raw, err := c.t.Receive(ctx)
+	p2raw, err := i.t.Receive(ctx)
 	if err != nil {
 		log.Errorf("Failed to receive Pake2: %v", err)
 		return nil, err

@@ -245,7 +245,7 @@ func (dev *mDNSDevice) Commission(ctx context.Context, payload OnboardingPayload
 		dev.conn = nil
 	}()
 
-	paseClient := pase.NewClient(dev, payload.Passcode())
+	paseClient := pase.NewInitiator(dev, payload.Passcode())
 	_, err = paseClient.EstablishSession(ctx)
 	if err != nil {
 		log.Errorf("Failed to establish PASE session with mDNS device (%s): %v", dev.String(), err)
