@@ -109,6 +109,24 @@ func (p *pake1) pA() []byte {
 	return p.pa
 }
 
+func (p *pake1) Bytes() ([]byte, error) {
+	// 4.14.1.2. Protocol Details
+	// pake-1-struct => STRUCTURE [ tag-order ]
+	// {
+	//   pA [1] : OCTET STRING [ length CRYPTO_PUBLIC_KEY_SIZE_BYTES ],
+	// }
+	if p.pa == nil {
+		return nil, tlv.NewErrMissingField("pA")
+	}
+	enc := tlv.NewEncoder()
+	enc.BeginStructure(tlv.NewAnonymousTag())
+	if err := enc.PutOctet1(tlv.NewContextTag(1), p.pa); err != nil {
+		return nil, err
+	}
+	enc.EndContainer()
+	return enc.Bytes(), nil
+}
+
 func (p *pake1) Map() map[string]any {
 	return map[string]any{
 		"pA": p.pa,

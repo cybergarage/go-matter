@@ -21,6 +21,8 @@ type Pake2 interface {
 	pB() []byte
 	// cB returns the cB value from the Pake2 message.
 	cB() []byte
+	// Bytes returns the byte representation of the Pake2 message for transmission.
+	Bytes() ([]byte, error)
 }
 
 // Pake2Helper provides helper methods for working with Pake2 messages, such as mapping the message to a generic map and converting it to a string representation.

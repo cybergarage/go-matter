@@ -127,6 +127,31 @@ func (p *pake2) cB() []byte {
 	return p.cb
 }
 
+func (p *pake2) Bytes() ([]byte, error) {
+	// 4.14.1.2. Protocol Details
+	// pake-2-struct => STRUCTURE [ tag-order ]
+	// {
+	//   pB [1] : OCTET STRING [ length CRYPTO_PUBLIC_KEY_SIZE_BYTES ],
+	// 	 cB [2] : OCTET STRING [ length CRYPTO_HASH_LEN_BYTES],
+	// }
+	if p.pb == nil {
+		return nil, tlv.NewErrMissingField("pB")
+	}
+	if p.cb == nil {
+		return nil, tlv.NewErrMissingField("cB")
+	}
+	enc := tlv.NewEncoder()
+	enc.BeginStructure(tlv.NewAnonymousTag())
+	if err := enc.PutOctet1(tlv.NewContextTag(1), p.pb); err != nil {
+		return nil, err
+	}
+	if err := enc.PutOctet1(tlv.NewContextTag(2), p.cb); err != nil {
+		return nil, err
+	}
+	enc.EndContainer()
+	return enc.Bytes(), nil
+}
+
 func (p *pake2) Map() map[string]any {
 	return map[string]any{
 		"pB": p.pb,

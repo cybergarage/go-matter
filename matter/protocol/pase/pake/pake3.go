@@ -19,6 +19,8 @@ type Pake3 interface {
 	Pake3Helper
 	// cA returns the cA value from the Pake3 message.
 	cA() []byte
+	// Bytes returns the byte representation of the Pake3 message for transmission.
+	Bytes() ([]byte, error)
 }
 
 // Pake3Helper provides helper methods for working with Pake3 messages, such as mapping the message to a generic map and converting it to a string representation.

@@ -19,6 +19,8 @@ type Pake1 interface {
 	Pake1Helper
 	// pA returns the initiator random value from the Pake1 message.
 	pA() []byte
+	// Bytes returns the byte representation of the Pake1 message for transmission.
+	Bytes() ([]byte, error)
 }
 
 // Pake1Helper provides helper methods for working with Pake1 messages, such as mapping the message to a generic map and converting it to a string representation.

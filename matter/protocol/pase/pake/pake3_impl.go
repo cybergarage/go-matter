@@ -108,6 +108,24 @@ func (p *pake3) cA() []byte {
 	return p.ca
 }
 
+func (p *pake3) Bytes() ([]byte, error) {
+	// 4.14.1.2. Protocol Details
+	// pake-3-struct => STRUCTURE [ tag-order ]
+	// {
+	//   cA [1] : OCTET STRING [ length CRYPTO_HASH_LEN_BYTES],
+	// }
+	if p.ca == nil {
+		return nil, tlv.NewErrMissingField("cA")
+	}
+	enc := tlv.NewEncoder()
+	enc.BeginStructure(tlv.NewAnonymousTag())
+	if err := enc.PutOctet1(tlv.NewContextTag(1), p.ca); err != nil {
+		return nil, err
+	}
+	enc.EndContainer()
+	return enc.Bytes(), nil
+}
+
 func (p *pake3) Map() map[string]any {
 	return map[string]any{
 		"cA": p.ca,

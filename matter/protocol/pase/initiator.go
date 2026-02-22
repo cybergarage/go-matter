@@ -20,6 +20,7 @@ import (
 
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/io"
+	"github.com/cybergarage/go-matter/matter/protocol/pase/pake"
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pbkdf"
 )
 
@@ -99,11 +100,16 @@ func (i *Initiator) EstablishSession(ctx context.Context) (*Result, error) {
 	}
 
 	// 3-1) Pake1
-	x, err := hs.Start() // TODO: spake2p.Start(), not implemented yet
+	_, err = hs.Start() // TODO: spake2p.Start(), not implemented yet
 	if err != nil {
 		return nil, err
 	}
-	if err := i.t.Transmit(ctx, NewPake1(x).Bytes()); err != nil {
+	pake1 := pake.NewPake1()
+	pake1Bytes, err := pake1.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	if err := i.t.Transmit(ctx, pake1Bytes); err != nil {
 		log.Errorf("Failed to transmit Pake1: %v", err)
 		return nil, err
 	}
