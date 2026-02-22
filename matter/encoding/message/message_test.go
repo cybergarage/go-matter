@@ -12,13 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package protocol
+package message
 
 import (
 	"encoding/hex"
 	"testing"
-
-	"github.com/cybergarage/go-matter/matter/encoding/message"
 )
 
 func TestMessageEncodeDecodeRoundtrip(t *testing.T) {
@@ -29,13 +27,13 @@ func TestMessageEncodeDecodeRoundtrip(t *testing.T) {
 		{
 			name: "simple message with payload",
 			message: NewMessage(
-				WithMessageFrameHeader(message.NewHeader(
-					message.WithHeaderFlags(0x00),
-					message.WithHeaderSessionID(0x0000),
-					message.WithHeaderSecurityFlags(0x00),
-					message.WithHeaderMessageCounter(1),
+				WithMessageFrameHeader(NewHeader(
+					WithHeaderFlags(0x00),
+					WithHeaderSessionID(0x0000),
+					WithHeaderSecurityFlags(0x00),
+					WithHeaderMessageCounter(1),
 				)),
-				WithMessageProtocolHeader(NewHeader(
+				WithMessageProtocolHeader(NewProtocolHeader(
 					WithHeaderExchangeFlags(0x05), // Initiator | Reliability
 					WithHeaderOpcode(0x20),
 					WithHeaderExchangeID(0x1234),
@@ -47,13 +45,13 @@ func TestMessageEncodeDecodeRoundtrip(t *testing.T) {
 		{
 			name: "message with empty payload",
 			message: NewMessage(
-				WithMessageFrameHeader(message.NewHeader(
-					message.WithHeaderFlags(0x00),
-					message.WithHeaderSessionID(0x0000),
-					message.WithHeaderSecurityFlags(0x00),
-					message.WithHeaderMessageCounter(2),
+				WithMessageFrameHeader(NewHeader(
+					WithHeaderFlags(0x00),
+					WithHeaderSessionID(0x0000),
+					WithHeaderSecurityFlags(0x00),
+					WithHeaderMessageCounter(2),
 				)),
-				WithMessageProtocolHeader(NewHeader(
+				WithMessageProtocolHeader(NewProtocolHeader(
 					WithHeaderExchangeFlags(0x02), // Ack
 					WithHeaderOpcode(0x10),
 					WithHeaderExchangeID(0x5678),

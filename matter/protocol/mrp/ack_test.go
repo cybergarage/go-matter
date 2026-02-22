@@ -18,28 +18,27 @@ import (
 	"testing"
 
 	"github.com/cybergarage/go-matter/matter/encoding/message"
-	"github.com/cybergarage/go-matter/matter/protocol"
 )
 
 func TestBuildStandaloneAck(t *testing.T) {
 	// Create a message that requests acknowledgement
-	receivedMsg := protocol.NewMessage(
-		protocol.WithMessageFrameHeader(
+	receivedMsg := message.NewMessage(
+		message.WithMessageFrameHeader(
 			message.NewHeader(
 				message.WithHeaderFlags(0x00),
 				message.WithHeaderSessionID(0x1234),
 				message.WithHeaderSecurityFlags(0x00),
 				message.WithHeaderMessageCounter(42),
 			)),
-		protocol.WithMessageProtocolHeader(
-			protocol.NewHeader(
-				protocol.WithHeaderExchangeFlags(protocol.ExchangeFlagInitiator|protocol.ExchangeFlagReliability),
-				protocol.WithHeaderOpcode(0x20),
-				protocol.WithHeaderExchangeID(0x5678),
-				protocol.WithHeaderProtocolID(0x0000),
+		message.WithMessageProtocolHeader(
+			message.NewProtocolHeader(
+				message.WithHeaderExchangeFlags(message.ExchangeFlagInitiator|message.ExchangeFlagReliability),
+				message.WithHeaderOpcode(0x20),
+				message.WithHeaderExchangeID(0x5678),
+				message.WithHeaderProtocolID(0x0000),
 			),
 		),
-		protocol.WithMessagePayload([]byte{0x01, 0x02, 0x03}),
+		message.WithMessagePayload([]byte{0x01, 0x02, 0x03}),
 	)
 
 	outboundCounter := MessageCounter(100)
@@ -79,8 +78,8 @@ func TestBuildStandaloneAck(t *testing.T) {
 
 func TestBuildStandaloneAckWithSourceNode(t *testing.T) {
 	// Create a message with source node ID
-	receivedMsg := protocol.NewMessage(
-		protocol.WithMessageFrameHeader(
+	receivedMsg := message.NewMessage(
+		message.WithMessageFrameHeader(
 			message.NewHeader(
 				message.WithHeaderSessionID(0x1234),
 				message.WithHeaderSecurityFlags(0x00),
@@ -88,14 +87,14 @@ func TestBuildStandaloneAckWithSourceNode(t *testing.T) {
 				message.WithHeaderSourceNodeID(0xAABBCCDDEEFF0011),
 			),
 		),
-		protocol.WithMessageProtocolHeader(
-			protocol.NewHeader(
-				protocol.WithHeaderExchangeFlags(protocol.ExchangeFlagInitiator|protocol.ExchangeFlagReliability),
-				protocol.WithHeaderOpcode(0x20),
-				protocol.WithHeaderExchangeID(0x5678),
-				protocol.WithHeaderProtocolID(0x0000),
+		message.WithMessageProtocolHeader(
+			message.NewProtocolHeader(
+				message.WithHeaderExchangeFlags(message.ExchangeFlagInitiator|message.ExchangeFlagReliability),
+				message.WithHeaderOpcode(0x20),
+				message.WithHeaderExchangeID(0x5678),
+				message.WithHeaderProtocolID(0x0000),
 			)),
-		protocol.WithMessagePayload([]byte{0x01, 0x02, 0x03}),
+		message.WithMessagePayload([]byte{0x01, 0x02, 0x03}),
 	)
 
 	outboundCounter := MessageCounter(100)
@@ -106,63 +105,63 @@ func TestBuildStandaloneAckWithSourceNode(t *testing.T) {
 	if !hasDestNodeID {
 		t.Error("Expected ACK to have destination node ID set")
 	}
-	souceNodeID, hasSourceNodeID := receivedMsg.SourceNodeID()
+	sourceNodeID, hasSourceNodeID := receivedMsg.SourceNodeID()
 	if !hasSourceNodeID {
 		t.Error("Received message should have source node ID set")
 	}
-	if destNodeID != souceNodeID {
-		t.Errorf("ACK DestNodeID mismatch: got 0x%016X, want 0x%016X", destNodeID, souceNodeID)
+	if destNodeID != sourceNodeID {
+		t.Errorf("ACK DestNodeID mismatch: got 0x%016X, want 0x%016X", destNodeID, sourceNodeID)
 	}
 }
 
 func TestIsAckRequested(t *testing.T) {
 	tests := []struct {
 		name     string
-		msg      protocol.Message
+		msg      message.Message
 		expected bool
 	}{
 		{
 			name: "message with reliability flag",
-			msg: protocol.NewMessage(
-				protocol.WithMessageFrameHeader(
+			msg: message.NewMessage(
+				message.WithMessageFrameHeader(
 					message.NewHeader(),
 				),
-				protocol.WithMessageProtocolHeader(
-					protocol.NewHeader(
-						protocol.WithHeaderExchangeFlags(protocol.ExchangeFlagReliability),
+				message.WithMessageProtocolHeader(
+					message.NewProtocolHeader(
+						message.WithHeaderExchangeFlags(message.ExchangeFlagReliability),
 					),
 				),
-				protocol.WithMessagePayload(nil),
+				message.WithMessagePayload(nil),
 			),
 			expected: true,
 		},
 		{
 			name: "message without reliability flag",
-			msg: protocol.NewMessage(
-				protocol.WithMessageFrameHeader(
+			msg: message.NewMessage(
+				message.WithMessageFrameHeader(
 					message.NewHeader(),
 				),
-				protocol.WithMessageProtocolHeader(
-					protocol.NewHeader(
-						protocol.WithHeaderExchangeFlags(protocol.ExchangeFlagInitiator),
+				message.WithMessageProtocolHeader(
+					message.NewProtocolHeader(
+						message.WithHeaderExchangeFlags(message.ExchangeFlagInitiator),
 					),
 				),
-				protocol.WithMessagePayload(nil),
+				message.WithMessagePayload(nil),
 			),
 			expected: false,
 		},
 		{
 			name: "message with multiple flags including reliability",
-			msg: protocol.NewMessage(
-				protocol.WithMessageFrameHeader(
+			msg: message.NewMessage(
+				message.WithMessageFrameHeader(
 					message.NewHeader(),
 				),
-				protocol.WithMessageProtocolHeader(
-					protocol.NewHeader(
-						protocol.WithHeaderExchangeFlags(protocol.ExchangeFlagInitiator|protocol.ExchangeFlagReliability),
+				message.WithMessageProtocolHeader(
+					message.NewProtocolHeader(
+						message.WithHeaderExchangeFlags(message.ExchangeFlagInitiator|message.ExchangeFlagReliability),
 					),
 				),
-				protocol.WithMessagePayload(nil),
+				message.WithMessagePayload(nil),
 			),
 			expected: true,
 		},
@@ -180,22 +179,22 @@ func TestIsAckRequested(t *testing.T) {
 
 func TestAckEncodeDecodeRoundtrip(t *testing.T) {
 	// Create a message that requests acknowledgement
-	receivedMsg := protocol.NewMessage(
-		protocol.WithMessageFrameHeader(
+	receivedMsg := message.NewMessage(
+		message.WithMessageFrameHeader(
 			message.NewHeader(
 				message.WithHeaderFlags(0x00),
 				message.WithHeaderSessionID(0x1234),
 				message.WithHeaderSecurityFlags(0x00),
 				message.WithHeaderMessageCounter(42),
 			)),
-		protocol.WithMessageProtocolHeader(
-			protocol.NewHeader(
-				protocol.WithHeaderExchangeFlags(protocol.ExchangeFlagInitiator|protocol.ExchangeFlagReliability),
-				protocol.WithHeaderOpcode(0x20),
-				protocol.WithHeaderExchangeID(0x5678),
-				protocol.WithHeaderProtocolID(0x0000),
+		message.WithMessageProtocolHeader(
+			message.NewProtocolHeader(
+				message.WithHeaderExchangeFlags(message.ExchangeFlagInitiator|message.ExchangeFlagReliability),
+				message.WithHeaderOpcode(0x20),
+				message.WithHeaderExchangeID(0x5678),
+				message.WithHeaderProtocolID(0x0000),
 			)),
-		protocol.WithMessagePayload([]byte{0x01, 0x02, 0x03}),
+		message.WithMessagePayload([]byte{0x01, 0x02, 0x03}),
 	)
 
 	outboundCounter := MessageCounter(100)
@@ -205,7 +204,7 @@ func TestAckEncodeDecodeRoundtrip(t *testing.T) {
 	encoded := ackMsg.Bytes()
 
 	// Decode ACK
-	decoded, err := protocol.NewMessageFromBytes(encoded)
+	decoded, err := message.NewMessageFromBytes(encoded)
 	if err != nil {
 		t.Fatalf("Failed to decode ACK: %v", err)
 	}

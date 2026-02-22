@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package protocol
+package message
 
 // ExchangeID represents a exchange ID.
 // 4.4.3. Protocol Header Field Descriptions

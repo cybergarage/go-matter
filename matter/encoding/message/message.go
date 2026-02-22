@@ -12,17 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package protocol
-
-import (
-	"github.com/cybergarage/go-matter/matter/encoding/message"
-)
+package message
 
 // Message represents a complete message with frame header, protocol header, and payload.
 // 4.4. Message Frame Format.
 type Message interface {
-	// FrameHeader represents the frame header of the message.
-	message.Header
+	// Header represents the frame header of the message.
+	Header
 	// Header represents the protocol header of the message.
 	ProtocolHeader
 	// Extensions returns the message extensions, if any.

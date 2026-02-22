@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package protocol
+package message
 
 import (
 	"testing"
@@ -20,7 +20,7 @@ import (
 
 func TestProtocolHeaderTooShort(t *testing.T) {
 	shortData := []byte{0x00, 0x00, 0x00} // Only 3 bytes
-	_, err := NewHeaderFromBytes(shortData)
+	_, err := NewProtocolHeaderFromBytes(shortData)
 	if err == nil {
 		t.Error("Expected error for short exchange header, got nil")
 	}
@@ -33,7 +33,7 @@ func TestProtocolHeaderEncodeDecodeRoundtrip(t *testing.T) {
 	}{
 		{
 			name: "minimal exchange header",
-			header: NewHeader(
+			header: NewProtocolHeader(
 				WithHeaderExchangeFlags(0x01), // Initiator
 				WithHeaderOpcode(0x20),
 				WithHeaderExchangeID(0x1234),
@@ -42,7 +42,7 @@ func TestProtocolHeaderEncodeDecodeRoundtrip(t *testing.T) {
 		},
 		{
 			name: "exchange header with reliability flag",
-			header: NewHeader(
+			header: NewProtocolHeader(
 				WithHeaderExchangeFlags(0x05), // Initiator | Reliability
 				WithHeaderOpcode(0x30),
 				WithHeaderExchangeID(0xABCD),
@@ -51,7 +51,7 @@ func TestProtocolHeaderEncodeDecodeRoundtrip(t *testing.T) {
 		},
 		{
 			name: "exchange header with ACK",
-			header: NewHeader(
+			header: NewProtocolHeader(
 				WithHeaderExchangeFlags(0x02), // Ack flag
 				WithHeaderOpcode(0x10),
 				WithHeaderExchangeID(0x5678),
@@ -61,7 +61,7 @@ func TestProtocolHeaderEncodeDecodeRoundtrip(t *testing.T) {
 		},
 		{
 			name: "exchange header with vendor ID",
-			header: NewHeader(
+			header: NewProtocolHeader(
 				WithHeaderExchangeFlags(0x11), // Initiator | Vendor
 				WithHeaderOpcode(0x40),
 				WithHeaderExchangeID(0x9999),
@@ -71,7 +71,7 @@ func TestProtocolHeaderEncodeDecodeRoundtrip(t *testing.T) {
 		},
 		{
 			name: "exchange header with all flags",
-			header: NewHeader(
+			header: NewProtocolHeader(
 				WithHeaderExchangeFlags(0x1F), // All flags set
 				WithHeaderOpcode(0x50),
 				WithHeaderExchangeID(0xEEEE),
@@ -89,9 +89,9 @@ func TestProtocolHeaderEncodeDecodeRoundtrip(t *testing.T) {
 			encoded := tt.header.Bytes()
 
 			// Decode
-			decoded, err := NewHeaderFromBytes(encoded)
+			decoded, err := NewProtocolHeaderFromBytes(encoded)
 			if err != nil {
-				t.Fatalf("NewHeaderFromBytes failed: %v", err)
+				t.Fatalf("NewProtocolHeaderFromBytes failed: %v", err)
 			}
 
 			// Compare fields

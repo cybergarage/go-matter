@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package protocol
+package message
 
 import (
 	"bytes"
@@ -20,10 +20,9 @@ import (
 	"io"
 
 	"github.com/cybergarage/go-matter/matter/encoding/json"
-	"github.com/cybergarage/go-matter/matter/encoding/message"
 )
 
-type frameHeader = message.Header
+type frameHeader = Header
 
 type messageImpl struct {
 	frameHeader
@@ -36,7 +35,7 @@ type messageImpl struct {
 type MessageOption func(*messageImpl)
 
 // WithMessageFrameHeader sets the message header of the Message.
-func WithMessageFrameHeader(header message.Header) MessageOption {
+func WithMessageFrameHeader(header Header) MessageOption {
 	return func(m *messageImpl) {
 		m.frameHeader = header
 	}
@@ -66,8 +65,8 @@ func WithMessagePayload(payload []byte) MessageOption {
 // NewMessage creates a new Message instance with the provided options.
 func NewMessage(opts ...MessageOption) Message {
 	m := &messageImpl{
-		frameHeader:    message.NewHeader(), // Default empty header
-		ProtocolHeader: NewHeader(),         // Default empty header
+		frameHeader:    NewHeader(),         // Default empty header
+		ProtocolHeader: NewProtocolHeader(), // Default empty header
 		extensions:     []byte{},            // Default empty extensions
 		payload:        []byte{},            // Default empty payload
 	}
@@ -80,13 +79,13 @@ func NewMessage(opts ...MessageOption) Message {
 // NewMessageFromReader parses a complete Matter message from an io.Reader.
 func NewMessageFromReader(reader io.Reader) (Message, error) {
 	// 4.4.1. Message Header Field Descriptions
-	msgHeader, err := message.NewHeaderFromReader(reader)
+	msgHeader, err := NewHeaderFromReader(reader)
 	if err != nil {
 		return nil, err
 	}
 
 	// 4.4.3. Protocol Header Field Descriptions
-	ProtocolHeader, err := NewHeaderFromReader(reader)
+	protocolHeader, err := NewProtocolHeaderFromReader(reader)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +108,7 @@ func NewMessageFromReader(reader io.Reader) (Message, error) {
 
 	return &messageImpl{
 		frameHeader:    msgHeader,
-		ProtocolHeader: ProtocolHeader,
+		ProtocolHeader: protocolHeader,
 		extensions:     extentionPayload,
 		payload:        payload.Bytes(),
 	}, nil

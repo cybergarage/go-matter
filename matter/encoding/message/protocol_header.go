@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package protocol
+package message
 
 import (
-	"github.com/cybergarage/go-matter/matter/encoding/message"
 	"github.com/cybergarage/go-matter/matter/types"
 )
 
@@ -29,9 +28,7 @@ type ProductID = types.ProductID
 
 // ProtocolID represents a protocol ID.
 // 4.4.3.4. Protocol ID (16 bits).
-type ProtocolID = types.ProtocolID
-
-type MessageCounter = message.MessageCounter
+type ProtocolID uint16
 
 // ProtocolHeader represents the protocol layer header.
 // 4.4.3. Protocol ProtocolHeader Field Descriptions.

@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/cybergarage/go-logger/log"
-	"github.com/cybergarage/go-matter/matter/protocol"
+	"github.com/cybergarage/go-matter/matter/encoding/message"
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pbkdf"
 )
 
@@ -48,7 +48,7 @@ func TestPBKDFParamRequestMessage(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to decode hex string: %v", err)
 			}
-			msg, err := protocol.NewMessageFromBytes(hexBytes)
+			msg, err := message.NewMessageFromBytes(hexBytes)
 			if err != nil {
 				t.Fatalf("Failed to parse Message: %v", err)
 			}
@@ -96,7 +96,7 @@ func TestPBKDFParamResponseMessage(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to decode hex string: %v", err)
 			}
-			msg, err := protocol.NewMessageFromBytes(hexBytes)
+			msg, err := message.NewMessageFromBytes(hexBytes)
 			if err != nil {
 				t.Fatalf("Failed to parse Message: %v", err)
 			}

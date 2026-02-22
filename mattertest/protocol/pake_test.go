@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/cybergarage/go-logger/log"
-	"github.com/cybergarage/go-matter/matter/protocol"
+	"github.com/cybergarage/go-matter/matter/encoding/message"
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pake"
 )
 
@@ -51,7 +51,7 @@ func TestPake1(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to decode hex string: %v", err)
 			}
-			msg, err := protocol.NewMessageFromBytes(hexBytes)
+			msg, err := message.NewMessageFromBytes(hexBytes)
 			if err != nil {
 				t.Fatalf("Failed to parse Message: %v", err)
 			}
@@ -84,7 +84,7 @@ func TestPake2(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to decode hex string: %v", err)
 			}
-			msg, err := protocol.NewMessageFromBytes(hexBytes)
+			msg, err := message.NewMessageFromBytes(hexBytes)
 			if err != nil {
 				t.Fatalf("Failed to parse Message: %v", err)
 			}
@@ -117,7 +117,7 @@ func TestPake3(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to decode hex string: %v", err)
 			}
-			msg, err := protocol.NewMessageFromBytes(hexBytes)
+			msg, err := message.NewMessageFromBytes(hexBytes)
 			if err != nil {
 				t.Fatalf("Failed to parse Message: %v", err)
 			}

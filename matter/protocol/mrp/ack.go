@@ -16,13 +16,12 @@ package mrp
 
 import (
 	"github.com/cybergarage/go-matter/matter/encoding/message"
-	"github.com/cybergarage/go-matter/matter/protocol"
 )
 
 // BuildStandaloneAck creates a standalone acknowledgement message for a received message.
 // The ACK references the message counter of the original message.
 // Reference: Matter Core Spec 1.5, Section 4.11.8 (Standalone Acknowledgement).
-func BuildStandaloneAck(receivedMsg protocol.Message, outboundCounter MessageCounter) protocol.Message {
+func BuildStandaloneAck(receivedMsg message.Message, outboundCounter MessageCounter) message.Message {
 	// Build message header for ACK: preserve version/control and security context
 	msgHeaderOpts := []message.HeaderOption{
 		message.WithHeaderFlags(receivedMsg.Flags()),
@@ -46,24 +45,24 @@ func BuildStandaloneAck(receivedMsg protocol.Message, outboundCounter MessageCou
 	// - No R flag (reliability not requested for ACK itself)
 	// - Opcode can be 0x00 (no protocol operation, just ACK)
 	// - AckCounter field references the message being acknowledged
-	exchangeHeader := protocol.NewHeader(
-		protocol.WithHeaderExchangeFlags(protocol.ExchangeFlagAck), // A flag only
-		protocol.WithHeaderOpcode(0x00),                            // Standalone ACK has no opcode
-		protocol.WithHeaderExchangeID(receivedMsg.ExchangeID()),
-		protocol.WithHeaderProtocolID(receivedMsg.ProtocolID()),
-		protocol.WithHeaderAckCounter(receivedMsg.MessageCounter()),
+	exchangeHeader := message.NewProtocolHeader(
+		message.WithHeaderExchangeFlags(message.ExchangeFlagAck), // A flag only
+		message.WithHeaderOpcode(0x00),                           // Standalone ACK has no opcode
+		message.WithHeaderExchangeID(receivedMsg.ExchangeID()),
+		message.WithHeaderProtocolID(receivedMsg.ProtocolID()),
+		message.WithHeaderAckCounter(receivedMsg.MessageCounter()),
 	)
 
 	// Standalone ACK has no payload
-	return protocol.NewMessage(
-		protocol.WithMessageFrameHeader(msgHeader),
-		protocol.WithMessageProtocolHeader(exchangeHeader),
-		protocol.WithMessagePayload([]byte{}),
+	return message.NewMessage(
+		message.WithMessageFrameHeader(msgHeader),
+		message.WithMessageProtocolHeader(exchangeHeader),
+		message.WithMessagePayload([]byte{}),
 	)
 }
 
 // IsAckRequested checks if the received message has the reliability flag set,
 // indicating that an acknowledgement is requested.
-func IsAckRequested(msg protocol.Message) bool {
+func IsAckRequested(msg message.Message) bool {
 	return msg.IsReliability()
 }
