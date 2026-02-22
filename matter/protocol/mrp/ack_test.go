@@ -42,7 +42,14 @@ func TestBuildStandaloneAck(t *testing.T) {
 	)
 
 	outboundCounter := MessageCounter(100)
-	ackMsg := BuildStandaloneAck(receivedMsg, outboundCounter)
+	ack, err := NewAck(
+		WithAckReferenceMessage(receivedMsg),
+		WithAckMessageCounter(outboundCounter),
+	)
+	if err != nil {
+		t.Fatalf("Failed to create ACK: %v", err)
+	}
+	ackMsg := ack.Message()
 
 	// Verify ACK packet header
 	if ackMsg.SessionID() != receivedMsg.SessionID() {
@@ -98,7 +105,14 @@ func TestBuildStandaloneAckWithSourceNode(t *testing.T) {
 	)
 
 	outboundCounter := MessageCounter(100)
-	ackMsg := BuildStandaloneAck(receivedMsg, outboundCounter)
+	ack, err := NewAck(
+		WithAckReferenceMessage(receivedMsg),
+		WithAckMessageCounter(outboundCounter),
+	)
+	if err != nil {
+		t.Fatalf("Failed to create ACK: %v", err)
+	}
+	ackMsg := ack.Message()
 
 	// Verify that the ACK has the destination node ID set to the source of the received message
 	destNodeID, hasDestNodeID := ackMsg.DestinationNodeID()
@@ -169,7 +183,7 @@ func TestIsAckRequested(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := IsAckRequested(tt.msg)
+			result := tt.msg.IsReliability()
 			if result != tt.expected {
 				t.Errorf("IsAckRequested() = %v, want %v", result, tt.expected)
 			}
@@ -198,7 +212,14 @@ func TestAckEncodeDecodeRoundtrip(t *testing.T) {
 	)
 
 	outboundCounter := MessageCounter(100)
-	ackMsg := BuildStandaloneAck(receivedMsg, outboundCounter)
+	ack, err := NewAck(
+		WithAckReferenceMessage(receivedMsg),
+		WithAckMessageCounter(outboundCounter),
+	)
+	if err != nil {
+		t.Fatalf("Failed to create ACK: %v", err)
+	}
+	ackMsg := ack.Message()
 
 	// Encode ACK
 	encoded := ackMsg.Bytes()

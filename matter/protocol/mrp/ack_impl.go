@@ -16,6 +16,7 @@ package mrp
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 
 	"github.com/cybergarage/go-matter/matter/encoding/json"
@@ -25,23 +26,48 @@ import (
 // AckOption defines a functional option for configuring the Ack.
 type AckOption func(*ack)
 
+// WithAckReferenceMessage sets the reference message for the ACK, which is used to extract relevant fields for the ACK response.
+func WithAckReferenceMessage(msg message.Message) AckOption {
+	return func(a *ack) {
+		a.refMsg = msg
+	}
+}
+
+// WithAckMessageCounter sets the message counter to be used in the ACK message. This is typically the next counter value for outgoing messages.
+func WithAckMessageCounter(counter MessageCounter) AckOption {
+	return func(a *ack) {
+		a.outCounter = counter
+	}
+}
+
 type ack struct {
-	msg message.Message
+	refMsg     message.Message
+	outCounter MessageCounter
+	msg        message.Message
 }
 
 func newAck(opts ...AckOption) *ack {
 	a := &ack{
-		msg: nil,
+		refMsg:     nil,
+		outCounter: 0,
+		msg:        nil,
 	}
 	for _, opt := range opts {
 		opt(a)
+	}
+	if a.refMsg != nil {
+		a.msg = newAckMessageWith(a.refMsg, a.outCounter)
 	}
 	return a
 }
 
 // NewAck creates a new ACK message based on the provided options.
-func NewAck(opts ...AckOption) Ack {
-	return newAck(opts...)
+func NewAck(opts ...AckOption) (Ack, error) {
+	a := newAck(opts...)
+	if a.msg == nil {
+		return nil, fmt.Errorf("failed to create ACK message")
+	}
+	return a, nil
 }
 
 // NewAckFromMessage creates an ACK message from an existing message, extracting relevant fields.
@@ -111,9 +137,7 @@ func (a *ack) String() string {
 	return json.MustMarshal(a.Map())
 }
 
-// BuildStandaloneAck constructs a standalone ACK message in response to a received message.
-// Reference: Matter Core Spec 1.5, Section 4.11.8 (Standalone Acknowledgement).
-func BuildStandaloneAck(receivedMsg message.Message, outboundCounter MessageCounter) message.Message {
+func newAckMessageWith(receivedMsg message.Message, outboundCounter MessageCounter) message.Message {
 	// Build message header for ACK: preserve version/control and security context
 	msgHeaderOpts := []message.HeaderOption{
 		message.WithHeaderFlags(receivedMsg.Flags()),
@@ -151,10 +175,4 @@ func BuildStandaloneAck(receivedMsg message.Message, outboundCounter MessageCoun
 		message.WithMessageProtocolHeader(exchangeHeader),
 		message.WithMessagePayload([]byte{}),
 	)
-}
-
-// IsAckRequested checks if the received message has the reliability flag set,
-// indicating that an acknowledgement is requested.
-func IsAckRequested(msg message.Message) bool {
-	return msg.IsReliability()
 }

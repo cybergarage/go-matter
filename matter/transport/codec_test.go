@@ -19,7 +19,6 @@ import (
 	"testing"
 
 	"github.com/cybergarage/go-matter/matter/encoding/message"
-	"github.com/cybergarage/go-matter/matter/protocol/mrp"
 )
 
 // mockTransport is a simple mock implementation of io.Transport for testing.
@@ -275,7 +274,7 @@ func TestIsAckRequestedIntegration(t *testing.T) {
 		message.WithMessagePayload([]byte{}),
 	)
 
-	if !mrp.IsAckRequested(msg) {
+	if !msg.IsReliability() {
 		t.Error("Expected ACK to be requested for message with reliability flag")
 	}
 }

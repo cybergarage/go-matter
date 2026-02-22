@@ -82,7 +82,15 @@ func (c *Codec) Receive(ctx context.Context) (message.Message, error) {
 		log.Debugf("ACK requested for message counter %d", msg.MessageCounter())
 
 		// Build and send standalone ACK
-		ack := mrp.BuildStandaloneAck(msg, c.messageCounter.Next())
+		ack, err := mrp.NewAck(
+			mrp.WithAckReferenceMessage(msg),
+			mrp.WithAckMessageCounter(c.messageCounter.Next()),
+		)
+		if err != nil {
+			log.Warnf("Failed to create standalone ACK: %v", err)
+			// Don't return error - the message was received successfully
+			return msg, nil
+		}
 		ackBytes := ack.Bytes()
 
 		log.Debugf("Sending standalone ACK: %s", ack.String())
