@@ -27,6 +27,10 @@ type VendorID = types.VendorID
 // 2.5.3. Product Identifier (Product ID, PID).
 type ProductID = types.ProductID
 
+// ProtocolID represents a protocol ID.
+// 4.4.3.4. Protocol ID (16 bits).
+type ProtocolID uint16
+
 type MessageCounter = message.MessageCounter
 
 // Header represents the protocol layer header.
