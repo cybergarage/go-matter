@@ -220,7 +220,7 @@ func TestCodecMessageCounter(t *testing.T) {
 	codec := NewCodec(mock, false)
 
 	// Get several counter values
-	counters := []uint32{
+	counters := []MessageCounter{
 		codec.NextMessageCounter(),
 		codec.NextMessageCounter(),
 		codec.NextMessageCounter(),
@@ -228,8 +228,8 @@ func TestCodecMessageCounter(t *testing.T) {
 
 	// Verify they increment
 	for idx, counter := range counters {
-		if counter != uint32(idx) {
-			t.Errorf("Expected counter value %d, got %d", idx, counter)
+		if counter != MessageCounter(idx+1) {
+			t.Errorf("Expected counter value %d, got %d", idx+1, counter)
 		}
 	}
 }

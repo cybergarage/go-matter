@@ -36,7 +36,7 @@ type Header interface {
 	// SecurityFlags returns the security flags byte, which contains encryption and authentication flags.
 	SecurityFlags() SecurityFlag
 	// MessageCounter returns the message counter field (32 bits).
-	MessageCounter() uint32
+	MessageCounter() MessageCounter
 	// SourceNodeID returns the source node ID field (64 bits) if present, and a boolean indicating whether it is present.
 	SourceNodeID() (NodeID, bool)
 	// DestinationNodeID returns the destination node ID field (64 bits) if present, and a boolean indicating whether it is present.

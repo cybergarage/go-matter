@@ -61,9 +61,9 @@ func WithHeaderSecurityFlags(flags SecurityFlag) HeaderOption {
 }
 
 // WithHeaderMessageCounter sets the message counter.
-func WithHeaderMessageCounter(counter uint32) HeaderOption {
+func WithHeaderMessageCounter(counter MessageCounter) HeaderOption {
 	return func(h *header) {
-		h.msgCounter = counter
+		h.msgCounter = uint32(counter)
 	}
 }
 
@@ -168,8 +168,8 @@ func (h *header) SecurityFlags() SecurityFlag {
 	return h.securityFlags
 }
 
-func (h *header) MessageCounter() uint32 {
-	return h.msgCounter
+func (h *header) MessageCounter() MessageCounter {
+	return MessageCounter(h.msgCounter)
 }
 
 func (h *header) SourceNodeID() (NodeID, bool) {

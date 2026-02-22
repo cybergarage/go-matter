@@ -42,7 +42,7 @@ func TestBuildStandaloneAck(t *testing.T) {
 		protocol.WithMessagePayload([]byte{0x01, 0x02, 0x03}),
 	)
 
-	outboundCounter := uint32(100)
+	outboundCounter := MessageCounter(100)
 	ackMsg := BuildStandaloneAck(receivedMsg, outboundCounter)
 
 	// Verify ACK packet header
@@ -98,7 +98,7 @@ func TestBuildStandaloneAckWithSourceNode(t *testing.T) {
 		protocol.WithMessagePayload([]byte{0x01, 0x02, 0x03}),
 	)
 
-	outboundCounter := uint32(100)
+	outboundCounter := MessageCounter(100)
 	ackMsg := BuildStandaloneAck(receivedMsg, outboundCounter)
 
 	// Verify that the ACK has the destination node ID set to the source of the received message
@@ -178,28 +178,6 @@ func TestIsAckRequested(t *testing.T) {
 	}
 }
 
-func TestMessageCounter(t *testing.T) {
-	counter := NewMessageCounter()
-
-	// Test initial value
-	if counter.Current() != 0 {
-		t.Errorf("Initial counter value should be 0, got %d", counter.Current())
-	}
-
-	// Test Next() increments
-	for i := range uint32(10) {
-		val := counter.Next()
-		if val != i {
-			t.Errorf("Expected counter value %d, got %d", i, val)
-		}
-	}
-
-	// Test current value after incrementing
-	if counter.Current() != 10 {
-		t.Errorf("Expected current counter value 10, got %d", counter.Current())
-	}
-}
-
 func TestAckEncodeDecodeRoundtrip(t *testing.T) {
 	// Create a message that requests acknowledgement
 	receivedMsg := protocol.NewMessage(
@@ -220,7 +198,7 @@ func TestAckEncodeDecodeRoundtrip(t *testing.T) {
 		protocol.WithMessagePayload([]byte{0x01, 0x02, 0x03}),
 	)
 
-	outboundCounter := uint32(100)
+	outboundCounter := MessageCounter(100)
 	ackMsg := BuildStandaloneAck(receivedMsg, outboundCounter)
 
 	// Encode ACK

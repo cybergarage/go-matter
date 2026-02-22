@@ -24,11 +24,15 @@ import (
 	"github.com/cybergarage/go-matter/matter/protocol/mrp"
 )
 
+// MessageCounter tracks outbound message counters for a session.
+// 4.4.1.4. Message Counter (32 bits).
+type MessageCounter = mrp.MessageCounter
+
 // Codec wraps a raw Transport and provides Matter message framing and MRP ACK handling.
 // It automatically decodes incoming messages and sends standalone ACKs when requested.
 type Codec struct {
 	transport      io.Transport
-	messageCounter *mrp.MessageCounter
+	messageCounter MessageCounter
 	autoAck        bool
 }
 
@@ -98,8 +102,9 @@ func (c *Codec) ReceiveBytes(ctx context.Context) ([]byte, error) {
 }
 
 // NextMessageCounter returns the next message counter value for outbound messages.
-func (c *Codec) NextMessageCounter() uint32 {
-	return c.messageCounter.Next()
+func (c *Codec) NextMessageCounter() MessageCounter {
+	c.messageCounter = c.messageCounter.Next()
+	return c.messageCounter
 }
 
 // SetAutoAck enables or disables automatic ACK sending.

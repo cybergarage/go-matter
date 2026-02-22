@@ -77,10 +77,10 @@ func WithHeaderVendorID(vendorID VendorID) HeaderOption {
 }
 
 // WithHeaderAckCounter sets the acknowledgement counter.
-func WithHeaderAckCounter(counter uint32) HeaderOption {
+func WithHeaderAckCounter(counter MessageCounter) HeaderOption {
 	return func(h *header) {
 		h.exchangeFlags |= ExchangeFlagAck
-		h.ackCounter = counter
+		h.ackCounter = uint32(counter)
 	}
 }
 
@@ -217,11 +217,11 @@ func (h *header) VendorID() (VendorID, bool) {
 }
 
 // AckCounter returns the acknowledgement counter if present.
-func (h *header) AckCounter() (uint32, bool) {
+func (h *header) AckCounter() (MessageCounter, bool) {
 	if !h.IsAcknowledgement() {
 		return 0, false
 	}
-	return h.ackCounter, true
+	return MessageCounter(h.ackCounter), true
 }
 
 // SecuredExtensions returns the secured extensions bytes if present, along with a boolean indicating their presence.

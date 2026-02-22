@@ -15,6 +15,7 @@
 package protocol
 
 import (
+	"github.com/cybergarage/go-matter/matter/encoding/message"
 	"github.com/cybergarage/go-matter/matter/types"
 )
 
@@ -25,6 +26,8 @@ type VendorID = types.VendorID
 // ProductID represents a product ID.
 // 2.5.3. Product Identifier (Product ID, PID).
 type ProductID = types.ProductID
+
+type MessageCounter = message.MessageCounter
 
 // Header represents the protocol layer header.
 // 4.4.3. Protocol Header Field Descriptions.
@@ -40,7 +43,7 @@ type Header interface {
 	// VendorID returns the vendor ID if present.
 	VendorID() (VendorID, bool)
 	// AckCounter returns the acknowledgement counter if present.
-	AckCounter() (uint32, bool)
+	AckCounter() (MessageCounter, bool)
 	// SecuredExtensions returns the secured extensions bytes if present.
 	SecuredExtensions() ([]byte, bool)
 	// IsInitiator returns true if the initiator flag is set.

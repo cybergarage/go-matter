@@ -15,8 +15,6 @@
 package mrp
 
 import (
-	"sync/atomic"
-
 	"github.com/cybergarage/go-matter/matter/encoding/message"
 	"github.com/cybergarage/go-matter/matter/protocol"
 )
@@ -24,7 +22,7 @@ import (
 // BuildStandaloneAck creates a standalone acknowledgement message for a received message.
 // The ACK references the message counter of the original message.
 // Reference: Matter Core Spec 1.5, Section 4.11.8 (Standalone Acknowledgement).
-func BuildStandaloneAck(receivedMsg protocol.Message, outboundCounter uint32) protocol.Message {
+func BuildStandaloneAck(receivedMsg protocol.Message, outboundCounter MessageCounter) protocol.Message {
 	// Build message header for ACK: preserve version/control and security context
 	msgHeaderOpts := []message.HeaderOption{
 		message.WithHeaderFlags(receivedMsg.Flags()),
@@ -68,27 +66,4 @@ func BuildStandaloneAck(receivedMsg protocol.Message, outboundCounter uint32) pr
 // indicating that an acknowledgement is requested.
 func IsAckRequested(msg protocol.Message) bool {
 	return msg.IsReliability()
-}
-
-// MessageCounter tracks outbound message counters for a session.
-// It is safe for concurrent use by multiple goroutines.
-type MessageCounter struct {
-	counter uint32
-}
-
-// NewMessageCounter creates a new message counter starting from 0.
-func NewMessageCounter() *MessageCounter {
-	return &MessageCounter{counter: 0}
-}
-
-// Next returns the next message counter value and increments the internal counter.
-// This method is thread-safe using atomic operations.
-func (mc *MessageCounter) Next() uint32 {
-	return atomic.AddUint32(&mc.counter, 1) - 1
-}
-
-// Current returns the current counter value without incrementing.
-// This method is thread-safe using atomic operations.
-func (mc *MessageCounter) Current() uint32 {
-	return atomic.LoadUint32(&mc.counter)
 }
