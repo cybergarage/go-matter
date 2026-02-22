@@ -69,12 +69,12 @@ func NewErrInvalidField(name string, value any) error {
 	return fmt.Errorf("%w: %s = %v", ErrInvalidField, name, value)
 }
 
-// NewErrTypeMismatch creates a new error indicating an unexpected TLV element type was encountered.
+// NewErrExpectedType creates a new error indicating an unexpected TLV element type was encountered.
 func NewErrExpectedType(expected ElementType, actual Element) error {
 	return fmt.Errorf("%w: expected %s, got %s", ErrTypeMismatch, expected, actual.Type())
 }
 
-// NewErrTagMismatch creates a new error indicating an unexpected TLV tag was encountered.
+// NewErrExpectedTag creates a new error indicating an unexpected TLV tag was encountered.
 func NewErrExpectedTag(expected TagControl, actual Tag) error {
 	return fmt.Errorf("%w: expected tag type %s, got %s", ErrTagMismatch, expected, actual.Control())
 }

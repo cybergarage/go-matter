@@ -19,7 +19,7 @@ import (
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 )
 
-// PakeOptions defines a functional option for configuring the Pake1 message.
+// Pake1Option defines a functional option for configuring the Pake1 message.
 type Pake1Option func(*pake1)
 
 // WithPake1PA sets the initiator random value (pA) in the Pake1 message.
@@ -50,20 +50,20 @@ func NewPake1(opts ...Pake1Option) Pake1 {
 
 // NewPake1FromBytes creates a new Pake1 message by parsing the given byte slice.
 func NewPake1FromBytes(data []byte) (Pake1, error) {
-	r := newPake1()
-	if err := r.ParseBytes(data); err != nil {
+	p := newPake1()
+	if err := p.ParseBytes(data); err != nil {
 		return nil, err
 	}
-	return r, nil
+	return p, nil
 }
 
 // ParseBytes parses the given byte slice into the PBKDFPake1 structure.
-func (r *pake1) ParseBytes(data []byte) error {
-	return r.Decode(tlv.NewDecoderWithBytes(data))
+func (p *pake1) ParseBytes(data []byte) error {
+	return p.Decode(tlv.NewDecoderWithBytes(data))
 }
 
 // Decode decodes the given TLV decoder into the Pake1 structure.
-func (r *pake1) Decode(dec tlv.Decoder) error {
+func (p *pake1) Decode(dec tlv.Decoder) error {
 	// 4.14.1.2. Protocol Details
 	// pake-1-struct => STRUCTURE [ tag-order ]
 	// {
@@ -95,7 +95,7 @@ func (r *pake1) Decode(dec tlv.Decoder) error {
 				if !ok {
 					return tlv.NewErrExpectedType(tlv.OctetString1, elem)
 				}
-				r.pa = b
+				p.pa = b
 			default:
 				return tlv.NewErrExpectedTag(tlv.TagContext, elem.Tag())
 			}

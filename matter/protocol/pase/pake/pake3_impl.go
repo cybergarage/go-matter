@@ -19,7 +19,7 @@ import (
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 )
 
-// PakeOptions defines a functional option for configuring the Pake3 message.
+// Pake3Option defines a functional option for configuring the Pake3 message.
 type Pake3Option func(*pake3)
 
 // WithPake3CA sets the cA value in the Pake3 message.
@@ -48,20 +48,20 @@ func NewPake3(opts ...Pake3Option) Pake3 {
 }
 
 func NewPake3FromBytes(data []byte) (Pake3, error) {
-	r := newPake3()
-	if err := r.ParseBytes(data); err != nil {
+	p := newPake3()
+	if err := p.ParseBytes(data); err != nil {
 		return nil, err
 	}
-	return r, nil
+	return p, nil
 }
 
 // ParseBytes parses the given byte slice into the PBKDFPake3 structure.
-func (r *pake3) ParseBytes(data []byte) error {
-	return r.Decode(tlv.NewDecoderWithBytes(data))
+func (p *pake3) ParseBytes(data []byte) error {
+	return p.Decode(tlv.NewDecoderWithBytes(data))
 }
 
 // Decode decodes the given TLV decoder into the Pake3 structure.
-func (r *pake3) Decode(dec tlv.Decoder) error {
+func (p *pake3) Decode(dec tlv.Decoder) error {
 	// 4.14.1.2. Protocol Details
 	// pake-2-struct => STRUCTURE [ tag-order ]
 	// {
@@ -94,7 +94,7 @@ func (r *pake3) Decode(dec tlv.Decoder) error {
 				if !ok {
 					return tlv.NewErrExpectedType(tlv.OctetString1, elem)
 				}
-				r.ca = b
+				p.ca = b
 			default:
 				return tlv.NewErrExpectedTag(tlv.TagContext, elem.Tag())
 			}
