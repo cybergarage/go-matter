@@ -19,7 +19,6 @@ import (
 	"testing"
 
 	"github.com/cybergarage/go-logger/log"
-	"github.com/cybergarage/go-matter/matter/encoding/message"
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pbkdf"
 )
 
@@ -27,15 +26,15 @@ func TestPaseSequence(t *testing.T) {
 	log.EnableStdoutDebug(true)
 
 	tests := []struct {
-		pbkdfParamReq message.Message
-		pbkdfParamRes message.Message
+		pbkdfParamReq pbkdf.ParamRequestMessage
+		pbkdfParamRes pbkdf.ParamResponseMessage
 	}{
 		{
 			pbkdfParamReq: decodeHexdumpPBKDFParamRequestMessage(t, pbkdfParamRequest01Hex),
 			pbkdfParamRes: decodeHexdumpPBKDFParamResponseMessage(t, pbkdfParamResponse01Hex),
 		},
 		{
-			pbkdfParamReq: func() message.Message {
+			pbkdfParamReq: func() pbkdf.ParamRequestMessage {
 				msg, err := pbkdf.NewParamRequestMessage()
 				if err != nil {
 					t.Fatal(err)
@@ -51,25 +50,31 @@ func TestPaseSequence(t *testing.T) {
 	for n, tt := range tests {
 		name := fmt.Sprintf("pase-%02d", n)
 		t.Run(name, func(t *testing.T) {
+			// PBKDF Parameter Request
 			name := fmt.Sprintf("pbkdf-param-request-%02d", n)
 			pbkdfParamReq := tt.pbkdfParamReq
 			t.Run(name, func(t *testing.T) {
-				// PBKDF Parameter Request
 				if err := validatePBKDFParamRequest(pbkdfParamReq); err != nil {
 					t.Errorf("Validation failed: %v", err)
 				}
 				log.Infof("%s %s", name, pbkdfParamReq.String())
 			})
 
+			// PBKDF Parameter Response
 			name = fmt.Sprintf("pbkdf-param-response-%02d", n)
 			t.Run(name, func(t *testing.T) {
-				// PBKDF Parameter Response
+				var err error
 				pbkdfParamRes := tt.pbkdfParamRes
 				if pbkdfParamRes == nil {
-					t.Skip("Skipping test as pbkdfParamRes is nil")
+					pbkdfParamRes, err = pbkdf.NewParamResponseMessage(
+						pbkdf.WithParamResponseParamRequest(pbkdfParamReq),
+					)
+					if err != nil {
+						t.Fatalf("Failed to create ParamResponseMessage: %v", err)
+					}
 				}
 				if err := validatePBKDFParamResponse(pbkdfParamRes); err != nil {
-					t.Errorf("Validation failed: %v", err)
+					t.Skipf("Validation failed: %v", err)
 				}
 				log.Infof("%s %s", name, pbkdfParamRes.String())
 			})

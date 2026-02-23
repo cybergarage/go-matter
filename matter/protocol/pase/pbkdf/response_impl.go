@@ -55,7 +55,6 @@ func newParamResponse(opts ...ParamResponseOption) *paramResponse {
 func WithParamResponseParamRequest(req ParamRequest) ParamResponseOption {
 	return func(r *paramResponse) {
 		r.paremRequest = req
-		r.initiatorRandom = req.InitiatorRandom()
 	}
 }
 
@@ -107,9 +106,12 @@ func NewParamResponse(opts ...ParamResponseOption) (ParamResponse, error) {
 	}
 	if r.pbkdfParams == nil {
 		opts := []ParamsOption{}
-		if r.paremRequest != nil && !r.paremRequest.HasPBKDFParams() {
-			opts = append(opts, WithParamsSalt(crypto.CryptoTRNG(PBKDBFSaltMin)))
-			opts = append(opts, WithParamsIterations(PBKDBFIterationsMin))
+		if r.paremRequest != nil {
+			r.initiatorRandom = r.paremRequest.InitiatorRandom()
+			if !r.paremRequest.HasPBKDFParams() {
+				opts = append(opts, WithParamsSalt(crypto.CryptoTRNG(PBKDBFSaltMin)))
+				opts = append(opts, WithParamsIterations(PBKDBFIterationsMin))
+			}
 		}
 		r.pbkdfParams = NewParams(opts...)
 	}

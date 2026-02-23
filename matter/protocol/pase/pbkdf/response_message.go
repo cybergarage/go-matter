@@ -16,6 +16,7 @@ package pbkdf
 import (
 	"github.com/cybergarage/go-matter/matter/encoding/json"
 	"github.com/cybergarage/go-matter/matter/encoding/message"
+	"github.com/cybergarage/go-matter/matter/types"
 )
 
 type paramResponseMessage struct {
@@ -38,6 +39,58 @@ func NewParamResponseMessageFromBytes(data []byte) (ParamResponseMessage, error)
 	return &paramResponseMessage{
 		Message:       msg,
 		ParamResponse: paramReq,
+	}, nil
+}
+
+// NewParamResponseMessage creates a new ParamResponseMessage with the given options.
+func NewParamResponseMessage(opts ...any) (ParamResponseMessage, error) {
+	// 4.14.1.1. Protocol Overview
+
+	headerOps := []message.HeaderOption{
+		message.WithHeaderFlags(message.SourceNodeIDPresentFlag),
+		message.WithHeaderSessionID(0x0000),
+		message.WithHeaderSecurityFlags(0x00),
+		message.WithHeaderMessageCounter(message.NewMessageCounter()),
+		message.WithHeaderSourceNodeID(types.NewOperationalNodeID()),
+	}
+
+	protocolOps := []message.ProtocolHeaderOption{
+		message.WithHeaderExchangeFlags(message.InitiatorFlag | message.ReliabilityFlag), // 4.10. Message Exchanges
+		message.WithHeaderOpcode(message.PBKDFParamResponse),                             // 4.11.1. Secure Channel Protocol Messages.
+		message.WithHeaderExchangeID(message.NewFirstExchangeID()),                       // 4.10.2. Exchange ID
+		message.WithHeaderProtocolID(message.SecureChannel),                              // 4.4.3.4. Protocol ID (16 bits)
+	}
+
+	paramOps := []ParamResponseOption{}
+
+	for _, opt := range opts {
+		switch opt := opt.(type) {
+		case message.HeaderOption:
+			headerOps = append(headerOps, opt)
+		case message.ProtocolHeaderOption:
+			protocolOps = append(protocolOps, opt)
+		case ParamResponseOption:
+			paramOps = append(paramOps, opt)
+		}
+	}
+
+	paramRes, err := NewParamResponse(paramOps...)
+	if err != nil {
+		return nil, err
+	}
+
+	payload, err := paramRes.Bytes()
+	if err != nil {
+		return nil, err
+	}
+
+	return &paramResponseMessage{
+		Message: message.NewMessage(
+			message.WithMessageFrameHeader(message.NewHeader(headerOps...)),
+			message.WithMessageProtocolHeader(message.NewProtocolHeader(protocolOps...)),
+			message.WithMessagePayload(payload),
+		),
+		ParamResponse: paramRes,
 	}, nil
 }
 
