@@ -38,7 +38,7 @@ func NewPBKDBParamRequestMessage(opts ...any) (Message, error) {
 	protocolOps := []message.ProtocolHeaderOption{
 		message.WithHeaderExchangeFlags(message.InitiatorFlag | message.ReliabilityFlag), // 4.10. Message Exchanges
 		message.WithHeaderOpcode(message.PBKDFParamRequest),                              // 4.11.1. Secure Channel Protocol Messages.
-		message.WithHeaderExchangeID(0x1234),                                             // 4.10. Message Exchanges
+		message.WithHeaderExchangeID(message.NewFirstExchangeID()),                       // 4.10.2. Exchange ID
 		message.WithHeaderProtocolID(message.SecureChannel),                              // 4.4.3.4. Protocol ID (16 bits)
 	}
 

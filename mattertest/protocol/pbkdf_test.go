@@ -100,6 +100,10 @@ func TestPBKDFParamRequestMessage(t *testing.T) {
 				t.Errorf("Expected ExchangeFlags Reliability to be set")
 				log.Infof("Message: %s", msg.String())
 			}
+			exID := msg.ExchangeID()
+			if exID == 0 {
+				t.Errorf("Expected random ExchangeID, got 0x%04X", exID)
+			}
 
 			reqParam, err := pbkdf.NewParamRequestFromBytes(msg.Payload())
 			if err != nil {
