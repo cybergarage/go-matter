@@ -34,24 +34,30 @@ var pbkdfParamResponse01Hex string
 func TestPBKDFParamRequestMessage(t *testing.T) {
 	log.EnableStdoutDebug(true)
 
+	mustDecodeMessage := func(hexStr string) message.Message {
+		hexBytes, err := hex.DecodeString(hexStr)
+		if err != nil {
+			t.Fatalf("Failed to decode hex string: %v", err)
+		}
+		msg, err := message.NewMessageFromBytes(hexBytes)
+		if err != nil {
+			t.Fatalf("Failed to parse Message: %v", err)
+		}
+		return msg
+	}
+
 	tests := []struct {
-		hexStr string
+		msg message.Message
 	}{
 		{
-			hexStr: pbkdfParamRequest01Hex,
+			msg: mustDecodeMessage(pbkdfParamRequest01Hex),
 		},
 	}
 
 	for n, tt := range tests {
-		t.Run(fmt.Sprintf("pbkdf-param-request-%02d", n), func(t *testing.T) {
-			hexBytes, err := hex.DecodeString(tt.hexStr)
-			if err != nil {
-				t.Fatalf("Failed to decode hex string: %v", err)
-			}
-			msg, err := message.NewMessageFromBytes(hexBytes)
-			if err != nil {
-				t.Fatalf("Failed to parse Message: %v", err)
-			}
+		name := fmt.Sprintf("pbkdf-param-request-%02d", n)
+		t.Run(name, func(t *testing.T) {
+			msg := tt.msg
 
 			// 4.14.1. Passcode-Authenticated Session Establishment (PASE)
 			// 4.14.1.2. Protocol Details
@@ -71,10 +77,9 @@ func TestPBKDFParamRequestMessage(t *testing.T) {
 			reqParam, err := pbkdf.NewParamRequestFromBytes(msg.Payload())
 			if err != nil {
 				t.Errorf("Failed to parse ParamRequest: %v", err)
-				log.HexInfo(hexBytes)
 				log.Info(msg.String())
-				log.Info(reqParam.String())
 			}
+			log.Infof("%s %s", name, reqParam.String())
 		})
 	}
 }
@@ -82,24 +87,30 @@ func TestPBKDFParamRequestMessage(t *testing.T) {
 func TestPBKDFParamResponseMessage(t *testing.T) {
 	log.EnableStdoutDebug(true)
 
+	mustDecodeMessage := func(hexStr string) message.Message {
+		hexBytes, err := hex.DecodeString(hexStr)
+		if err != nil {
+			t.Fatalf("Failed to decode hex string: %v", err)
+		}
+		msg, err := message.NewMessageFromBytes(hexBytes)
+		if err != nil {
+			t.Fatalf("Failed to parse Message: %v", err)
+		}
+		return msg
+	}
+
 	tests := []struct {
-		hexStr string
+		msg message.Message
 	}{
 		{
-			hexStr: pbkdfParamResponse01Hex,
+			msg: mustDecodeMessage(pbkdfParamResponse01Hex),
 		},
 	}
 
 	for n, tt := range tests {
-		t.Run(fmt.Sprintf("pbkdf-param-response-%02d", n), func(t *testing.T) {
-			hexBytes, err := hex.DecodeString(tt.hexStr)
-			if err != nil {
-				t.Fatalf("Failed to decode hex string: %v", err)
-			}
-			msg, err := message.NewMessageFromBytes(hexBytes)
-			if err != nil {
-				t.Fatalf("Failed to parse Message: %v", err)
-			}
+		name := fmt.Sprintf("pbkdf-param-response-%02d", n)
+		t.Run(name, func(t *testing.T) {
+			msg := tt.msg
 
 			// 4.14.1. Passcode-Authenticated Session Establishment (PASE)
 			// 4.14.1.2. Protocol Details
@@ -119,10 +130,9 @@ func TestPBKDFParamResponseMessage(t *testing.T) {
 			resParam, err := pbkdf.NewParamResponseFromBytes(msg.Payload())
 			if err != nil {
 				t.Errorf("Failed to parse ParamResponse: %v", err)
-				log.HexInfo(hexBytes)
 				log.Info(msg.String())
-				log.Info(resParam.String())
 			}
+			log.Infof("%s %s", name, resParam.String())
 		})
 	}
 }
