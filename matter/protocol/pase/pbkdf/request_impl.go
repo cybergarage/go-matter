@@ -36,16 +36,18 @@ type paramRequest struct {
 type ParamRequestOption func(*paramRequest)
 
 // WithParamRequestInitiatorSessionID sets the initiator session ID in the ParamRequest.
-func WithParamRequestInitiatorSessionID(sessionID uint16) ParamRequestOption {
+func WithParamRequestInitiatorSessionID(sessionID SessionID) ParamRequestOption {
 	return func(r *paramRequest) {
-		r.initiatorSessionID = &sessionID
+		id := uint16(sessionID)
+		r.initiatorSessionID = &id
 	}
 }
 
 // WithParamRequestPasscodeID sets the passcode ID in the ParamRequest.
-func WithParamRequestPasscodeID(passcodeID uint16) ParamRequestOption {
+func WithParamRequestPasscodeID(passcodeID PasscodeID) ParamRequestOption {
 	return func(r *paramRequest) {
-		r.passcodeID = &passcodeID
+		id := uint16(passcodeID)
+		r.passcodeID = &id
 	}
 }
 
@@ -200,19 +202,19 @@ func (r *paramRequest) InitiatorRandom() []byte {
 }
 
 // InitiatorSessionID returns the initiator session ID from the request.
-func (r *paramRequest) InitiatorSessionID() uint16 {
+func (r *paramRequest) InitiatorSessionID() SessionID {
 	if r.initiatorSessionID == nil {
 		return 0
 	}
-	return *r.initiatorSessionID
+	return SessionID(*r.initiatorSessionID)
 }
 
 // PasscodeID returns the passcode ID from the request.
-func (r *paramRequest) PasscodeID() uint16 {
+func (r *paramRequest) PasscodeID() PasscodeID {
 	if r.passcodeID == nil {
 		return 0
 	}
-	return *r.passcodeID
+	return PasscodeID(*r.passcodeID)
 }
 
 // HasPBKDFParams indicates whether the request includes PBKDF parameters.

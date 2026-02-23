@@ -33,6 +33,10 @@ const (
 	MaxTCPMessageSize               = uint32(64000)
 )
 
+// SessionID represents a session identifier.
+// 4.14.1.1. Protocol Overview.
+type SessionID uint16
+
 // SessionParams defines the interface for accessing session parameters as specified in section 4.13.1.
 // 4.13.1. Session Parameters.
 type SessionParams interface {

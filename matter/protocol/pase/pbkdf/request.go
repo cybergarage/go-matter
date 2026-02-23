@@ -20,9 +20,9 @@ type ParamRequest interface {
 	// InitiatorRandom returns the initiator random value from the request.
 	InitiatorRandom() []byte
 	// InitiatorSessionID returns the initiator session ID from the request.
-	InitiatorSessionID() uint16
+	InitiatorSessionID() SessionID
 	// PasscodeID returns the passcode ID from the request.
-	PasscodeID() uint16
+	PasscodeID() PasscodeID
 	// HasPBKDFParams indicates whether the request includes PBKDF parameters.
 	HasPBKDFParams() bool
 	// InitiatorSessionParams returns the initiator session parameters and a boolean indicating if they are present.
