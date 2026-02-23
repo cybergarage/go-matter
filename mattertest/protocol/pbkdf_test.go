@@ -22,6 +22,7 @@ import (
 
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/encoding/message"
+	"github.com/cybergarage/go-matter/matter/protocol/pase"
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pbkdf"
 )
 
@@ -34,7 +35,7 @@ var pbkdfParamResponse01Hex string
 func TestPBKDFParamRequestMessage(t *testing.T) {
 	log.EnableStdoutDebug(true)
 
-	mustDecodeMessage := func(hexStr string) message.Message {
+	decodeDumpMessage := func(hexStr string) message.Message {
 		hexBytes, err := hex.DecodeString(hexStr)
 		if err != nil {
 			t.Fatalf("Failed to decode hex string: %v", err)
@@ -50,7 +51,16 @@ func TestPBKDFParamRequestMessage(t *testing.T) {
 		msg message.Message
 	}{
 		{
-			msg: mustDecodeMessage(pbkdfParamRequest01Hex),
+			msg: decodeDumpMessage(pbkdfParamRequest01Hex),
+		},
+		{
+			msg: func() message.Message {
+				msg, err := pase.NewPBKDBParamRequestMessage()
+				if err != nil {
+					t.Fatal(err)
+				}
+				return msg
+			}(),
 		},
 	}
 
@@ -70,15 +80,32 @@ func TestPBKDFParamRequestMessage(t *testing.T) {
 			if !msg.Flags().HasSourceNodeID() {
 				t.Errorf("Expected SourceNodeID flag to be set")
 			}
+			sourceNodeID, ok := msg.SourceNodeID()
+			if !ok || !sourceNodeID.IsOperational() {
+				t.Errorf("Expected SourceNodeID to be operational, got %v", sourceNodeID)
+			}
 			if _, ok := msg.DestinationNodeID(); ok {
 				t.Errorf("Expected DestinationNodeID flag to be unset")
+			}
+			if msg.Opcode() != message.PBKDFParamRequest {
+				t.Errorf("Expected OpCode 0x%02X, got 0x%02X", message.PBKDFParamRequest, msg.Opcode())
+			}
+			if msg.ProtocolID() != message.SecureChannel {
+				t.Errorf("Expected ProtocolID 0x%04X, got 0x%04X", message.SecureChannel, msg.ProtocolID())
+			}
+			if !msg.ExchangeFlags().IsInitiator() {
+				t.Errorf("Expected ExchangeFlags Initiator to be set")
+			}
+			if !msg.ExchangeFlags().IsReliability() {
+				t.Errorf("Expected ExchangeFlags Reliability to be set")
+				log.Infof("Message: %s", msg.String())
 			}
 
 			reqParam, err := pbkdf.NewParamRequestFromBytes(msg.Payload())
 			if err != nil {
 				t.Errorf("Failed to parse ParamRequest: %v", err)
-				log.Info(msg.String())
 			}
+			log.Infof("%s %s", name, msg.String())
 			log.Infof("%s %s", name, reqParam.String())
 		})
 	}
@@ -87,7 +114,7 @@ func TestPBKDFParamRequestMessage(t *testing.T) {
 func TestPBKDFParamResponseMessage(t *testing.T) {
 	log.EnableStdoutDebug(true)
 
-	mustDecodeMessage := func(hexStr string) message.Message {
+	decodeDumpMessage := func(hexStr string) message.Message {
 		hexBytes, err := hex.DecodeString(hexStr)
 		if err != nil {
 			t.Fatalf("Failed to decode hex string: %v", err)
@@ -103,7 +130,7 @@ func TestPBKDFParamResponseMessage(t *testing.T) {
 		msg message.Message
 	}{
 		{
-			msg: mustDecodeMessage(pbkdfParamResponse01Hex),
+			msg: decodeDumpMessage(pbkdfParamResponse01Hex),
 		},
 	}
 
@@ -130,8 +157,8 @@ func TestPBKDFParamResponseMessage(t *testing.T) {
 			resParam, err := pbkdf.NewParamResponseFromBytes(msg.Payload())
 			if err != nil {
 				t.Errorf("Failed to parse ParamResponse: %v", err)
-				log.Info(msg.String())
 			}
+			log.Infof("%s %s", name, msg.String())
 			log.Infof("%s %s", name, resParam.String())
 		})
 	}

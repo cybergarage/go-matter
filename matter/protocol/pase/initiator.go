@@ -50,11 +50,11 @@ func NewInitiator(t Transport, passcode Passcode) *Initiator {
 // EstablishSession establishes a PASE session.
 func (i *Initiator) EstablishSession(ctx context.Context) (*Result, error) {
 	// 1) PBKDFParamRequest
-	paramReq, err := pbkdf.NewParamRequest().Bytes()
+	paramReqMsg, err := NewPBKDBParamRequestMessage()
 	if err != nil {
 		return nil, err
 	}
-	reqBytes := append([]byte{opPBKDFParamRequest}, paramReq...)
+	reqBytes := paramReqMsg.Bytes()
 	log.Info("PBKDFParamRequest:")
 	log.HexInfo(reqBytes)
 	if err := i.t.Transmit(ctx, reqBytes); err != nil {
@@ -71,9 +71,6 @@ func (i *Initiator) EstablishSession(ctx context.Context) (*Result, error) {
 	log.Info("PBKDFParamResponse:")
 	log.HexInfo(resBytes)
 
-	if len(resBytes) < 1 || resBytes[0] != opPBKDFParamResponse {
-		return nil, fmt.Errorf("unexpected opcode: %v", resBytes)
-	}
 	pbkdfRes, err := pbkdf.NewParamResponseFromBytes(resBytes[1:])
 	if err != nil {
 		log.Errorf("Failed to decode PBKDFParamResponse: %v", err)
