@@ -24,7 +24,7 @@ import (
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pake"
 )
 
-func TestPake1(t *testing.T) {
+func TestPake1Message(t *testing.T) {
 	log.EnableStdoutDebug(true)
 
 	tests := []struct {
@@ -57,7 +57,7 @@ func TestPake1(t *testing.T) {
 	}
 }
 
-func TestPake2(t *testing.T) {
+func TestPake2Message(t *testing.T) {
 	log.EnableStdoutDebug(true)
 
 	tests := []struct {
@@ -90,7 +90,7 @@ func TestPake2(t *testing.T) {
 	}
 }
 
-func TestPake3(t *testing.T) {
+func TestPake3Message(t *testing.T) {
 	log.EnableStdoutDebug(true)
 
 	tests := []struct {

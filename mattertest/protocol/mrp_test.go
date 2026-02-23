@@ -23,7 +23,7 @@ import (
 	"github.com/cybergarage/go-matter/matter/protocol/mrp"
 )
 
-func TestMRP(t *testing.T) {
+func TestMRPMessage(t *testing.T) {
 	log.EnableStdoutDebug(true)
 
 	type expected struct {

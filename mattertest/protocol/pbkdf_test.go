@@ -47,43 +47,9 @@ func TestPBKDFParamRequestMessage(t *testing.T) {
 		name := fmt.Sprintf("pbkdf-param-request-%02d", n)
 		t.Run(name, func(t *testing.T) {
 			msg := tt.msg
-
-			// 4.14.1. Passcode-Authenticated Session Establishment (PASE)
-			// 4.14.1.2. Protocol Details
-			if msg.SessionID() != 0x0000 {
-				t.Errorf("Expected SessionID 0x0000, got 0x%04X", msg.SessionID())
+			if err := validatePBKDFParamRequest(msg); err != nil {
+				t.Errorf("Validation failed: %v", err)
 			}
-			if msg.SecurityFlags().SessionType() != 0x00 {
-				t.Errorf("Expected SessionType 0x00, got 0x%02X", msg.SecurityFlags().SessionType())
-			}
-			if !msg.Flags().HasSourceNodeID() {
-				t.Errorf("Expected SourceNodeID flag to be set")
-			}
-			sourceNodeID, ok := msg.SourceNodeID()
-			if !ok || !sourceNodeID.IsOperational() {
-				t.Errorf("Expected SourceNodeID to be operational, got %v", sourceNodeID)
-			}
-			if _, ok := msg.DestinationNodeID(); ok {
-				t.Errorf("Expected DestinationNodeID flag to be unset")
-			}
-			if msg.Opcode() != message.PBKDFParamRequest {
-				t.Errorf("Expected OpCode 0x%02X, got 0x%02X", message.PBKDFParamRequest, msg.Opcode())
-			}
-			if msg.ProtocolID() != message.SecureChannel {
-				t.Errorf("Expected ProtocolID 0x%04X, got 0x%04X", message.SecureChannel, msg.ProtocolID())
-			}
-			if !msg.ExchangeFlags().IsInitiator() {
-				t.Errorf("Expected ExchangeFlags Initiator to be set")
-			}
-			if !msg.ExchangeFlags().IsReliability() {
-				t.Errorf("Expected ExchangeFlags Reliability to be set")
-				log.Infof("Message: %s", msg.String())
-			}
-			exID := msg.ExchangeID()
-			if exID == 0 {
-				t.Errorf("Expected random ExchangeID, got 0x%04X", exID)
-			}
-
 			reqParam, err := pbkdf.NewParamRequestFromBytes(msg.Payload())
 			if err != nil {
 				t.Errorf("Failed to parse ParamRequest: %v", err)
@@ -109,22 +75,9 @@ func TestPBKDFParamResponseMessage(t *testing.T) {
 		name := fmt.Sprintf("pbkdf-param-response-%02d", n)
 		t.Run(name, func(t *testing.T) {
 			msg := tt.msg
-
-			// 4.14.1. Passcode-Authenticated Session Establishment (PASE)
-			// 4.14.1.2. Protocol Details
-			if msg.SessionID() != 0x0000 {
-				t.Errorf("Expected SessionID 0x0000, got 0x%04X", msg.SessionID())
+			if err := validatePBKDFParamResponse(msg); err != nil {
+				t.Errorf("Validation failed: %v", err)
 			}
-			if msg.SecurityFlags().SessionType() != 0x00 {
-				t.Errorf("Expected SessionType 0x00, got 0x%02X", msg.SecurityFlags().SessionType())
-			}
-			if msg.Flags().HasSourceNodeID() {
-				t.Errorf("Expected SourceNodeID flag to be unset")
-			}
-			if _, ok := msg.DestinationNodeID(); !ok {
-				t.Errorf("Expected DestinationNodeID flag to be set")
-			}
-
 			resParam, err := pbkdf.NewParamResponseFromBytes(msg.Payload())
 			if err != nil {
 				t.Errorf("Failed to parse ParamResponse: %v", err)
