@@ -27,13 +27,13 @@ func TestPBKDFParamRequestMessage(t *testing.T) {
 	log.EnableStdoutDebug(true)
 
 	tests := []struct {
-		msg message.Message
+		msg pbkdf.ParamRequestMessage
 	}{
 		{
-			msg: decodeHexdumpMessage(t, pbkdfParamRequest01Hex),
+			msg: decodeHexdumpPBKDFParamRequestMessage(t, pbkdfParamRequest01Hex),
 		},
 		{
-			msg: func() message.Message {
+			msg: func() pbkdf.ParamRequestMessage {
 				msg, err := pbkdf.NewParamRequestMessage()
 				if err != nil {
 					t.Fatal(err)

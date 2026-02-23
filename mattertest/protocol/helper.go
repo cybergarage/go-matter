@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/cybergarage/go-matter/matter/encoding/message"
+	"github.com/cybergarage/go-matter/matter/protocol/pase/pbkdf"
 )
 
 func decodeHexdumpMessage(t *testing.T, hexStr string) message.Message {
@@ -31,6 +32,19 @@ func decodeHexdumpMessage(t *testing.T, hexStr string) message.Message {
 	msg, err := message.NewMessageFromBytes(hexBytes)
 	if err != nil {
 		t.Fatalf("Failed to parse Message: %v", err)
+	}
+	return msg
+}
+
+func decodeHexdumpPBKDFParamRequestMessage(t *testing.T, hexStr string) pbkdf.ParamRequestMessage {
+	t.Helper()
+	hexBytes, err := hex.DecodeString(hexStr)
+	if err != nil {
+		t.Fatalf("Failed to decode hex string: %v", err)
+	}
+	msg, err := pbkdf.NewParamRequestMessageFromBytes(hexBytes)
+	if err != nil {
+		t.Fatalf("Failed to parse ParamRequestMessage: %v", err)
 	}
 	return msg
 }

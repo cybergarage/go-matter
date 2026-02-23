@@ -14,16 +14,36 @@
 package pbkdf
 
 import (
+	"github.com/cybergarage/go-matter/matter/encoding/json"
 	"github.com/cybergarage/go-matter/matter/encoding/message"
 	"github.com/cybergarage/go-matter/matter/types"
 )
 
-// Message represents a complete message with frame header, protocol header, and payload.
-// 4.4. Message Frame Format.
-type Message = message.Message
+type paramRequestMessage struct {
+	Message
+	ParamRequest
+}
+
+// NewParamRequestMessageFromBytes parses the given byte slice into a ParamRequestMessage.
+func NewParamRequestMessageFromBytes(data []byte) (ParamRequestMessage, error) {
+	msg, err := message.NewMessageFromBytes(data)
+	if err != nil {
+		return nil, err
+	}
+
+	paramReq, err := NewParamRequestFromBytes(msg.Payload())
+	if err != nil {
+		return nil, err
+	}
+
+	return &paramRequestMessage{
+		Message:      msg,
+		ParamRequest: paramReq,
+	}, nil
+}
 
 // NewParamRequestMessage creates a new PASE PBKDF Parameter Request message with the given options.
-func NewParamRequestMessage(opts ...any) (Message, error) {
+func NewParamRequestMessage(opts ...any) (ParamRequestMessage, error) {
 	// 4.14.1.1. Protocol Overview
 
 	headerOps := []message.HeaderOption{
@@ -60,9 +80,27 @@ func NewParamRequestMessage(opts ...any) (Message, error) {
 		return nil, err
 	}
 
-	return message.NewMessage(
-		message.WithMessageFrameHeader(message.NewHeader(headerOps...)),
-		message.WithMessageProtocolHeader(message.NewProtocolHeader(protocolOps...)),
-		message.WithMessagePayload(payload),
-	), nil
+	return &paramRequestMessage{
+		Message: message.NewMessage(
+			message.WithMessageFrameHeader(message.NewHeader(headerOps...)),
+			message.WithMessageProtocolHeader(message.NewProtocolHeader(protocolOps...)),
+			message.WithMessagePayload(payload),
+		),
+		ParamRequest: paramReq,
+	}, nil
+}
+
+func (r *paramRequestMessage) Bytes() ([]byte, error) {
+	return r.Message.Bytes()
+}
+
+func (r *paramRequestMessage) Map() map[string]any {
+	return map[string]any{
+		"message":              r.Message.Map(),
+		"pbkdfparamreq-struct": r.ParamRequest.Map(),
+	}
+}
+
+func (r *paramRequestMessage) String() string {
+	return json.MustMarshal(r.Map())
 }

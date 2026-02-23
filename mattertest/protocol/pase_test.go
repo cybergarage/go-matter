@@ -31,7 +31,7 @@ func TestPaseSequence(t *testing.T) {
 		pbkdfParamRes message.Message
 	}{
 		{
-			pbkdfParamReq: decodeHexdumpMessage(t, pbkdfParamRequest01Hex),
+			pbkdfParamReq: decodeHexdumpPBKDFParamRequestMessage(t, pbkdfParamRequest01Hex),
 			pbkdfParamRes: decodeHexdumpMessage(t, pbkdfParamResponse01Hex),
 		},
 		{
