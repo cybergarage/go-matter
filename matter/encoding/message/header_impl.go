@@ -70,7 +70,7 @@ func WithHeaderMessageCounter(counter MessageCounter) HeaderOption {
 // WithHeaderSourceNodeID sets the source node ID.
 func WithHeaderSourceNodeID(nodeID NodeID) HeaderOption {
 	return func(h *header) {
-		h.flags |= SourceNodeIDPresentMask
+		h.flags |= SourceNodeIDPresent
 		h.srcNodeID = uint64(nodeID)
 	}
 }
