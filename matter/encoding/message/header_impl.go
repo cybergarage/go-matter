@@ -191,7 +191,7 @@ func (h *header) GroupID() (GroupID, bool) {
 	return groupID, true
 }
 
-func (h *header) Bytes() []byte {
+func (h *header) Bytes() ([]byte, error) {
 	size := minHeaderSize
 	if h.flags.HasSourceNodeIDField() {
 		size += 8
@@ -215,7 +215,7 @@ func (h *header) Bytes() []byte {
 		binary.LittleEndian.PutUint64(buf[offset:offset+8], h.destNodeID)
 	}
 
-	return buf
+	return buf, nil
 }
 
 // Map returns a map representation of the header for easier debugging and logging.

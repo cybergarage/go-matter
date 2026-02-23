@@ -14,6 +14,11 @@
 
 package pbkdf
 
+// type ParamRequestMessage interface {
+// 	message.Message
+// 	ParamRequest
+// }
+
 // ParamRequest represents the PBKDF parameter request message sent by the initiator during PASE handshake.
 // 4.14.1. Passcode-Authenticated Session Establishment (PASE).
 type ParamRequest interface {

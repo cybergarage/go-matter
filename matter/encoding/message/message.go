@@ -25,8 +25,8 @@ type Message interface {
 	Extensions() ([]byte, bool)
 	// Payload returns the payload of the message.
 	Payload() []byte
-	// Bytes serializes the complete message to bytes.
-	Bytes() []byte
+	// Bytes returns the byte representation of the message, ready for transmission.
+	Bytes() ([]byte, error)
 	// Map returns a map representation of the message for easier debugging and logging.
 	Map() map[string]any
 	// String returns a human-readable representation of the message for debugging purposes.

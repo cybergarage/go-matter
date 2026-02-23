@@ -86,7 +86,10 @@ func TestProtocolHeaderEncodeDecodeRoundtrip(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Encode
-			encoded := tt.header.Bytes()
+			encoded, err := tt.header.Bytes()
+			if err != nil {
+				t.Fatalf("ProtocolHeader.Bytes failed: %v", err)
+			}
 
 			// Decode
 			decoded, err := NewProtocolHeaderFromBytes(encoded)

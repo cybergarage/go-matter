@@ -34,8 +34,8 @@ type Ack interface {
 	IsAcknowledgement() bool
 	// MessageCounter returns the acknowledgement counter value from the ACK message if present.
 	MessageCounter() MessageCounter
-	// Bytes serializes the ACK message to bytes for transmission.
-	Bytes() []byte
+	// Bytes returns the byte representation of the ACK message, ready for transmission.
+	Bytes() ([]byte, error)
 }
 
 // AckHelper defines additional helper methods for ACK messages, such as debugging output.

@@ -44,8 +44,8 @@ type ProtocolHeader interface {
 	AckMessageCounter() (MessageCounter, bool)
 	// SecuredExtensions returns the secured extensions bytes if present.
 	SecuredExtensions() ([]byte, bool)
-	// Bytes encodes the header into a byte slice for transmission.
-	Bytes() []byte
+	// Bytes returns the byte representation of the protocol header, ready for transmission.
+	Bytes() ([]byte, error)
 }
 
 type ProtocolHeaderHelper interface {

@@ -54,7 +54,10 @@ func (i *Initiator) EstablishSession(ctx context.Context) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	reqBytes := paramReqMsg.Bytes()
+	reqBytes, err := paramReqMsg.Bytes()
+	if err != nil {
+		return nil, err
+	}
 	log.Info("PBKDFParamRequest:")
 	log.HexInfo(reqBytes)
 	if err := i.t.Transmit(ctx, reqBytes); err != nil {

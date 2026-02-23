@@ -116,9 +116,9 @@ func (a *ack) MessageCounter() MessageCounter {
 	return a.msg.MessageCounter()
 }
 
-func (a *ack) Bytes() []byte {
+func (a *ack) Bytes() ([]byte, error) {
 	if a.msg == nil {
-		return []byte{}
+		return []byte{}, nil
 	}
 	return a.msg.Bytes()
 }

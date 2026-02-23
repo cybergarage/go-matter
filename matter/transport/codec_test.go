@@ -73,7 +73,10 @@ func TestCodecTransmit(t *testing.T) {
 	}
 
 	// Verify the mock received the encoded message
-	expected := msg.Bytes()
+	expected, err := msg.Bytes()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(mock.sendData) != len(expected) {
 		t.Errorf("Transmitted data length mismatch: got %d, want %d", len(mock.sendData), len(expected))
 	}
@@ -98,8 +101,12 @@ func TestCodecReceiveWithoutAck(t *testing.T) {
 		message.WithMessagePayload([]byte{0x01, 0x02, 0x03}),
 	)
 
+	msgBytes, err := msg.Bytes()
+	if err != nil {
+		t.Fatalf("Failed to encode message: %v", err)
+	}
 	mock := &mockTransport{
-		receiveData: msg.Bytes(),
+		receiveData: msgBytes,
 	}
 	codec := NewCodec(mock, true) // Enable auto-ACK
 
@@ -139,8 +146,12 @@ func TestCodecReceiveWithAutoAck(t *testing.T) {
 		message.WithMessagePayload([]byte{0x01, 0x02, 0x03}),
 	)
 
+	msgBytes, err := msg.Bytes()
+	if err != nil {
+		t.Fatal(err)
+	}
 	mock := &mockTransport{
-		receiveData: msg.Bytes(),
+		receiveData: msgBytes,
 	}
 	codec := NewCodec(mock, true) // Enable auto-ACK
 
@@ -196,13 +207,18 @@ func TestCodecReceiveWithAutoAckDisabled(t *testing.T) {
 		message.WithMessagePayload([]byte{0x01, 0x02, 0x03}),
 	)
 
+	msgBytes, err := msg.Bytes()
+	if err != nil {
+		t.Fatalf("Failed to encode message: %v", err)
+	}
+
 	mock := &mockTransport{
-		receiveData: msg.Bytes(),
+		receiveData: msgBytes,
 	}
 	codec := NewCodec(mock, false) // Disable auto-ACK
 
 	ctx := context.Background()
-	_, err := codec.Receive(ctx)
+	_, err = codec.Receive(ctx)
 	if err != nil {
 		t.Fatalf("Receive failed: %v", err)
 	}

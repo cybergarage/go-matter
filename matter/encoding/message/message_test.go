@@ -70,7 +70,10 @@ func TestMessageEncodeDecodeRoundtrip(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Encode
-			encoded := tt.message.Bytes()
+			encoded, err := tt.message.Bytes()
+			if err != nil {
+				t.Fatalf("Message.Bytes failed: %v", err)
+			}
 
 			// Decode
 			decoded, err := NewMessageFromBytes(encoded)

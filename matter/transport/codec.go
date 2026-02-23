@@ -48,7 +48,10 @@ func NewCodec(t io.Transport, autoAck bool) *Codec {
 
 // Transmit encodes a Matter message and sends it over the transport.
 func (c *Codec) Transmit(ctx context.Context, msg message.Message) error {
-	encoded := msg.Bytes()
+	encoded, err := msg.Bytes()
+	if err != nil {
+		return err
+	}
 	log.Debugf("Transmit Matter message: %s", msg.String())
 	return c.transport.Transmit(ctx, encoded)
 }
@@ -91,7 +94,10 @@ func (c *Codec) Receive(ctx context.Context) (message.Message, error) {
 			// Don't return error - the message was received successfully
 			return msg, nil
 		}
-		ackBytes := ack.Bytes()
+		ackBytes, err := ack.Bytes()
+		if err != nil {
+			return msg, err
+		}
 
 		log.Debugf("Sending standalone ACK: %s", ack.String())
 

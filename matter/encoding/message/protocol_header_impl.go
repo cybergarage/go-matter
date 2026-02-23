@@ -233,7 +233,7 @@ func (h *protocolHeader) SecuredExtensions() ([]byte, bool) {
 }
 
 // Bytes serializes the exchange protocolHeader to bytes (little-endian).
-func (h *protocolHeader) Bytes() []byte {
+func (h *protocolHeader) Bytes() ([]byte, error) {
 	buf := make([]byte, minProtocolHeaderSize)
 	buf[0] = byte(h.exchangeFlags)
 	buf[1] = h.opcode
@@ -251,7 +251,7 @@ func (h *protocolHeader) Bytes() []byte {
 		buf = append(buf, payload.PrefixedBytes()...)
 	}
 
-	return buf
+	return buf, nil
 }
 
 // Map returns a map representation of the protocolHeader for easier debugging and logging.

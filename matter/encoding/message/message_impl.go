@@ -133,9 +133,15 @@ func (m *messageImpl) Payload() []byte {
 }
 
 // Bytes serializes the complete message to bytes.
-func (m *messageImpl) Bytes() []byte {
-	packetBytes := m.frameHeader.Bytes()
-	protocolBytes := m.ProtocolHeader.Bytes()
+func (m *messageImpl) Bytes() ([]byte, error) {
+	packetBytes, err := m.frameHeader.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	protocolBytes, err := m.ProtocolHeader.Bytes()
+	if err != nil {
+		return nil, err
+	}
 
 	result := make([]byte, 0, len(packetBytes)+len(protocolBytes)+len(m.payload))
 	result = append(result, packetBytes...)
@@ -146,7 +152,7 @@ func (m *messageImpl) Bytes() []byte {
 	}
 	result = append(result, m.payload...)
 
-	return result
+	return result, nil
 }
 
 // Map returns a map representation of the message for easier debugging and logging.

@@ -159,7 +159,10 @@ func TestAckEncodeDecodeRoundtrip(t *testing.T) {
 	ackMsg := ack.Message()
 
 	// Encode ACK
-	encoded := ackMsg.Bytes()
+	encoded, err := ackMsg.Bytes()
+	if err != nil {
+		t.Fatalf("Failed to encode ACK: %v", err)
+	}
 
 	// Decode ACK
 	decoded, err := message.NewMessageFromBytes(encoded)
