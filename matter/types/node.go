@@ -16,24 +16,29 @@ package types
 
 import (
 	"fmt"
-
-	"github.com/cybergarage/go-safecast/safecast"
 )
 
 // NodeID represents a node ID.
 // 2.5.5. Node Identifier (NID).
 type NodeID uint64
 
-// NewNodeIDFrom creates a new NodeID from the given value.
-func NewNodeIDFrom(v any) (NodeID, error) {
-	var vid uint64
-	if err := safecast.ToUint64(v, &vid); err != nil {
-		return 0, err
-	}
-	return NodeID(vid), nil
+const (
+	UnspecifiedNodeID    = (NodeID)(0x0000000000000000)
+	minOperationalNodeID = (NodeID)(0x0000000000000001)
+	maxOperationalNodeID = (NodeID)(0xFFFFFFFEFFFFFFFF)
+)
+
+// IsUnspecified returns true if the NodeID is the unspecified NodeID.
+func (nid NodeID) IsUnspecified() bool {
+	return nid == UnspecifiedNodeID
+}
+
+// IsOperational returns true if the NodeID is an operational NodeID.
+func (nid NodeID) IsOperational() bool {
+	return nid >= minOperationalNodeID && nid <= maxOperationalNodeID
 }
 
 // String returns the string representation of the NodeID.
 func (nid NodeID) String() string {
-	return fmt.Sprintf("%d", uint(nid))
+	return fmt.Sprintf("%d", uint64(nid))
 }

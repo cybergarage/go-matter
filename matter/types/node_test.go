@@ -12,12 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package matter
+package types
 
 import (
-	"github.com/cybergarage/go-matter/matter/types"
+	"testing"
 )
 
-// NodeID represents a node ID.
-// 2.5.5. Node Identifier (NID).
-type NodeID = types.NodeID
+func TestNodeID(t *testing.T) {
+	id := NodeID(12345)
+	if id != 12345 {
+		t.Errorf("Expected NodeID to be 12345, got %v", id)
+	}
+
+	// Test UnspecifiedNodeID constant
+	if UnspecifiedNodeID != NodeID(0x0000000000000000) {
+		t.Errorf("Expected UnspecifiedNodeID to be 0, got %v", UnspecifiedNodeID)
+	}
+
+	// Test NewOperationalNodeID returns a valid NodeID
+	randomID := NewOperationalNodeID()
+	if !randomID.IsOperational() {
+		t.Errorf("NewOperationalNodeID returned out of range value: got %v, expected between %v and %v", randomID, minOperationalNodeID, maxOperationalNodeID)
+	}
+}
