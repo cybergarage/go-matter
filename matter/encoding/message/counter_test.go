@@ -19,8 +19,14 @@ import (
 )
 
 func TestMessageCounter(t *testing.T) {
+	// Test that the NewMessageCounter initializes within the valid range.
+	mc := NewMessageCounter()
+	if mc < MessageCounter(minInitialMessageCounter) || mc > MessageCounter(maxInitialMessageCounter) {
+		t.Errorf("NewMessageCounter initialized out of range: got %d, expected between %d and %d", mc, minInitialMessageCounter, maxInitialMessageCounter)
+	}
+
 	// Test that the MessageCounter increments correctly and wraps around at the maximum value.
-	mc := MessageCounter(0)
+	mc = NewMessageCounter()
 	for range 10 {
 		next := mc.Next()
 		if next < mc {
@@ -30,16 +36,10 @@ func TestMessageCounter(t *testing.T) {
 	}
 
 	// Test overflow behavior
-	mc = MessageCounter(^uint32(0)) // max uint32
+	mc = MessageCounter(maxMessageCounter) // max uint32
 	next := mc.Next()
 	if next != 0 {
 		t.Errorf("MessageCounter did not wrap around: got %d, expected 0", next)
-	}
-
-	// Test NewMessageCounter starts at 0
-	mc = NewMessageCounter()
-	if mc != 0 {
-		t.Errorf("NewMessageCounter did not start at 0: got %d", mc)
 	}
 
 	// Test incrementing from a random value
