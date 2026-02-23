@@ -14,6 +14,12 @@
 
 package pbkdf
 
+// ParamResponseMessage represents the PBKDF parameter response message sent by the responder during PASE handshake.
+type ParamResponseMessage interface {
+	Message
+	ParamResponse
+}
+
 // ParamResponse represents the PBKDF parameter response message sent by the responder during PASE handshake.
 // 4.14.1. Passcode-Authenticated Session Establishment (PASE).
 type ParamResponse interface {

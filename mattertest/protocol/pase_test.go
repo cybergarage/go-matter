@@ -32,7 +32,7 @@ func TestPaseSequence(t *testing.T) {
 	}{
 		{
 			pbkdfParamReq: decodeHexdumpPBKDFParamRequestMessage(t, pbkdfParamRequest01Hex),
-			pbkdfParamRes: decodeHexdumpMessage(t, pbkdfParamResponse01Hex),
+			pbkdfParamRes: decodeHexdumpPBKDFParamResponseMessage(t, pbkdfParamResponse01Hex),
 		},
 		{
 			pbkdfParamReq: func() message.Message {
@@ -58,12 +58,7 @@ func TestPaseSequence(t *testing.T) {
 				if err := validatePBKDFParamRequest(pbkdfParamReq); err != nil {
 					t.Errorf("Validation failed: %v", err)
 				}
-				reqParam, err := pbkdf.NewParamRequestFromBytes(pbkdfParamReq.Payload())
-				if err != nil {
-					t.Errorf("Failed to parse ParamRequest: %v", err)
-				}
-				log.Infof("%s %s", name, reqParam.String())
-				log.Infof("%s %s", name, reqParam.String())
+				log.Infof("%s %s", name, pbkdfParamReq.String())
 			})
 
 			name = fmt.Sprintf("pbkdf-param-response-%02d", n)
@@ -76,12 +71,7 @@ func TestPaseSequence(t *testing.T) {
 				if err := validatePBKDFParamResponse(pbkdfParamRes); err != nil {
 					t.Errorf("Validation failed: %v", err)
 				}
-				resParam, err := pbkdf.NewParamResponseFromBytes(pbkdfParamRes.Payload())
-				if err != nil {
-					t.Errorf("Failed to parse ParamResponse: %v", err)
-				}
 				log.Infof("%s %s", name, pbkdfParamRes.String())
-				log.Infof("%s %s", name, resParam.String())
 			})
 		})
 	}

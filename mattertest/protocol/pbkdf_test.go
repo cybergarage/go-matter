@@ -19,7 +19,6 @@ import (
 	"testing"
 
 	"github.com/cybergarage/go-logger/log"
-	"github.com/cybergarage/go-matter/matter/encoding/message"
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pbkdf"
 )
 
@@ -50,12 +49,7 @@ func TestPBKDFParamRequestMessage(t *testing.T) {
 			if err := validatePBKDFParamRequest(msg); err != nil {
 				t.Errorf("Validation failed: %v", err)
 			}
-			reqParam, err := pbkdf.NewParamRequestFromBytes(msg.Payload())
-			if err != nil {
-				t.Errorf("Failed to parse ParamRequest: %v", err)
-			}
 			log.Infof("%s %s", name, msg.String())
-			log.Infof("%s %s", name, reqParam.String())
 		})
 	}
 }
@@ -64,10 +58,10 @@ func TestPBKDFParamResponseMessage(t *testing.T) {
 	log.EnableStdoutDebug(true)
 
 	tests := []struct {
-		msg message.Message
+		msg pbkdf.ParamResponseMessage
 	}{
 		{
-			msg: decodeHexdumpMessage(t, pbkdfParamResponse01Hex),
+			msg: decodeHexdumpPBKDFParamResponseMessage(t, pbkdfParamResponse01Hex),
 		},
 	}
 
@@ -78,12 +72,7 @@ func TestPBKDFParamResponseMessage(t *testing.T) {
 			if err := validatePBKDFParamResponse(msg); err != nil {
 				t.Errorf("Validation failed: %v", err)
 			}
-			resParam, err := pbkdf.NewParamResponseFromBytes(msg.Payload())
-			if err != nil {
-				t.Errorf("Failed to parse ParamResponse: %v", err)
-			}
 			log.Infof("%s %s", name, msg.String())
-			log.Infof("%s %s", name, resParam.String())
 		})
 	}
 }

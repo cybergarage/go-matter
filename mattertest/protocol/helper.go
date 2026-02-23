@@ -49,6 +49,19 @@ func decodeHexdumpPBKDFParamRequestMessage(t *testing.T, hexStr string) pbkdf.Pa
 	return msg
 }
 
+func decodeHexdumpPBKDFParamResponseMessage(t *testing.T, hexStr string) pbkdf.ParamResponseMessage {
+	t.Helper()
+	hexBytes, err := hex.DecodeString(hexStr)
+	if err != nil {
+		t.Fatalf("Failed to decode hex string: %v", err)
+	}
+	msg, err := pbkdf.NewParamResponseMessageFromBytes(hexBytes)
+	if err != nil {
+		t.Fatalf("Failed to parse ParamResponseMessage: %v", err)
+	}
+	return msg
+}
+
 func validatePBKDFParamRequest(msg message.Message) error {
 	if msg.SessionID() != 0x0000 {
 		return fmt.Errorf("expected SessionID 0x0000, got 0x%04X", msg.SessionID())
