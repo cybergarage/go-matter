@@ -28,7 +28,7 @@ type ProductID = types.ProductID
 
 // ProtocolID represents a protocol ID.
 // 4.4.3.4. Protocol ID (16 bits).
-type ProtocolID uint16
+type ProtocolID = types.ProtocolID
 
 // ProtocolHeader represents the protocol layer header.
 // 4.4.3. Protocol ProtocolHeader Field Descriptions.
