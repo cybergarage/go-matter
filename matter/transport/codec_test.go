@@ -225,9 +225,10 @@ func TestCodecMessageCounter(t *testing.T) {
 	}
 
 	// Verify they increment
-	for idx, counter := range counters {
-		if counter != MessageCounter(idx+1) {
-			t.Errorf("Expected counter value %d, got %d", idx+1, counter)
+	for _, counter := range counters {
+		nc := counter.Next()
+		if nc != counter+1 {
+			t.Errorf("Expected next counter to be %d, got %d", counter+1, nc)
 		}
 	}
 }
