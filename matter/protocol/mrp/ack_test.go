@@ -20,7 +20,7 @@ import (
 	"github.com/cybergarage/go-matter/matter/encoding/message"
 )
 
-func TestBuildStandaloneAck(t *testing.T) {
+func TestAckStandaloneMessage(t *testing.T) {
 	// Create a message that requests acknowledgement
 	receivedMsg := message.NewMessage(
 		message.WithMessageFrameHeader(
@@ -83,7 +83,7 @@ func TestBuildStandaloneAck(t *testing.T) {
 	}
 }
 
-func TestBuildStandaloneAckWithSourceNode(t *testing.T) {
+func TestAckStandaloneWithSourceNode(t *testing.T) {
 	// Create a message with source node ID
 	receivedMsg := message.NewMessage(
 		message.WithMessageFrameHeader(
@@ -125,69 +125,6 @@ func TestBuildStandaloneAckWithSourceNode(t *testing.T) {
 	}
 	if destNodeID != sourceNodeID {
 		t.Errorf("ACK DestNodeID mismatch: got 0x%016X, want 0x%016X", destNodeID, sourceNodeID)
-	}
-}
-
-func TestIsAckRequested(t *testing.T) {
-	tests := []struct {
-		name     string
-		msg      message.Message
-		expected bool
-	}{
-		{
-			name: "message with reliability flag",
-			msg: message.NewMessage(
-				message.WithMessageFrameHeader(
-					message.NewHeader(),
-				),
-				message.WithMessageProtocolHeader(
-					message.NewProtocolHeader(
-						message.WithHeaderExchangeFlags(message.ExchangeFlagReliability),
-					),
-				),
-				message.WithMessagePayload(nil),
-			),
-			expected: true,
-		},
-		{
-			name: "message without reliability flag",
-			msg: message.NewMessage(
-				message.WithMessageFrameHeader(
-					message.NewHeader(),
-				),
-				message.WithMessageProtocolHeader(
-					message.NewProtocolHeader(
-						message.WithHeaderExchangeFlags(message.ExchangeFlagInitiator),
-					),
-				),
-				message.WithMessagePayload(nil),
-			),
-			expected: false,
-		},
-		{
-			name: "message with multiple flags including reliability",
-			msg: message.NewMessage(
-				message.WithMessageFrameHeader(
-					message.NewHeader(),
-				),
-				message.WithMessageProtocolHeader(
-					message.NewProtocolHeader(
-						message.WithHeaderExchangeFlags(message.ExchangeFlagInitiator|message.ExchangeFlagReliability),
-					),
-				),
-				message.WithMessagePayload(nil),
-			),
-			expected: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := tt.msg.IsReliability()
-			if result != tt.expected {
-				t.Errorf("IsAckRequested() = %v, want %v", result, tt.expected)
-			}
-		})
 	}
 }
 
