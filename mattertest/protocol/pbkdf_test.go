@@ -15,8 +15,6 @@
 package protocol
 
 import (
-	_ "embed"
-	"encoding/hex"
 	"fmt"
 	"testing"
 
@@ -25,32 +23,14 @@ import (
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pbkdf"
 )
 
-//go:embed dumps/pase-01-pbkdf-param-request.hex
-var pbkdfParamRequest01Hex string
-
-//go:embed dumps/pase-01-pbkdf-param-response.hex
-var pbkdfParamResponse01Hex string
-
 func TestPBKDFParamRequestMessage(t *testing.T) {
 	log.EnableStdoutDebug(true)
-
-	decodeDumpMessage := func(hexStr string) message.Message {
-		hexBytes, err := hex.DecodeString(hexStr)
-		if err != nil {
-			t.Fatalf("Failed to decode hex string: %v", err)
-		}
-		msg, err := message.NewMessageFromBytes(hexBytes)
-		if err != nil {
-			t.Fatalf("Failed to parse Message: %v", err)
-		}
-		return msg
-	}
 
 	tests := []struct {
 		msg message.Message
 	}{
 		{
-			msg: decodeDumpMessage(pbkdfParamRequest01Hex),
+			msg: decodeHexdumpMessage(t, pbkdfParamRequest01Hex),
 		},
 		{
 			msg: func() message.Message {
@@ -117,23 +97,11 @@ func TestPBKDFParamRequestMessage(t *testing.T) {
 func TestPBKDFParamResponseMessage(t *testing.T) {
 	log.EnableStdoutDebug(true)
 
-	decodeDumpMessage := func(hexStr string) message.Message {
-		hexBytes, err := hex.DecodeString(hexStr)
-		if err != nil {
-			t.Fatalf("Failed to decode hex string: %v", err)
-		}
-		msg, err := message.NewMessageFromBytes(hexBytes)
-		if err != nil {
-			t.Fatalf("Failed to parse Message: %v", err)
-		}
-		return msg
-	}
-
 	tests := []struct {
 		msg message.Message
 	}{
 		{
-			msg: decodeDumpMessage(pbkdfParamResponse01Hex),
+			msg: decodeHexdumpMessage(t, pbkdfParamResponse01Hex),
 		},
 	}
 

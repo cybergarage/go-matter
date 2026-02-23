@@ -15,7 +15,6 @@
 package protocol
 
 import (
-	_ "embed"
 	"encoding/hex"
 	"fmt"
 	"testing"
@@ -23,12 +22,6 @@ import (
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/protocol/mrp"
 )
-
-//go:embed dumps/pase-01-pbkdf-param-response-ack.hex
-var mrp01Hex string
-
-//go:embed dumps/pase-01-pake1-ack.hex
-var mrp02Hex string
 
 func TestMRP(t *testing.T) {
 	log.EnableStdoutDebug(true)

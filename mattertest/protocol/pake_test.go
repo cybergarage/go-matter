@@ -15,7 +15,6 @@
 package protocol
 
 import (
-	_ "embed"
 	"encoding/hex"
 	"fmt"
 	"testing"
@@ -24,15 +23,6 @@ import (
 	"github.com/cybergarage/go-matter/matter/encoding/message"
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pake"
 )
-
-//go:embed dumps/pase-01-pake1.hex
-var pake101Hex string
-
-//go:embed dumps/pase-01-pake2.hex
-var pake201Hex string
-
-//go:embed dumps/pase-01-pake3.hex
-var pake301Hex string
 
 func TestPake1(t *testing.T) {
 	log.EnableStdoutDebug(true)
