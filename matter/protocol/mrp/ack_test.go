@@ -32,7 +32,7 @@ func TestAckStandaloneMessage(t *testing.T) {
 			)),
 		message.WithMessageProtocolHeader(
 			message.NewProtocolHeader(
-				message.WithHeaderExchangeFlags(message.ExchangeFlagInitiator|message.ExchangeFlagReliability),
+				message.WithHeaderExchangeFlags(message.InitiatorFlag|message.ReliabilityFlag),
 				message.WithHeaderOpcode(0x20),
 				message.WithHeaderExchangeID(0x5678),
 				message.WithHeaderProtocolID(0x0000),
@@ -96,7 +96,7 @@ func TestAckStandaloneWithSourceNode(t *testing.T) {
 		),
 		message.WithMessageProtocolHeader(
 			message.NewProtocolHeader(
-				message.WithHeaderExchangeFlags(message.ExchangeFlagInitiator|message.ExchangeFlagReliability),
+				message.WithHeaderExchangeFlags(message.InitiatorFlag|message.ReliabilityFlag),
 				message.WithHeaderOpcode(0x20),
 				message.WithHeaderExchangeID(0x5678),
 				message.WithHeaderProtocolID(0x0000),
@@ -140,7 +140,7 @@ func TestAckEncodeDecodeRoundtrip(t *testing.T) {
 			)),
 		message.WithMessageProtocolHeader(
 			message.NewProtocolHeader(
-				message.WithHeaderExchangeFlags(message.ExchangeFlagInitiator|message.ExchangeFlagReliability),
+				message.WithHeaderExchangeFlags(message.InitiatorFlag|message.ReliabilityFlag),
 				message.WithHeaderOpcode(0x20),
 				message.WithHeaderExchangeID(0x5678),
 				message.WithHeaderProtocolID(0x0000),

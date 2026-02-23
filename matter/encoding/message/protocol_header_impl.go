@@ -71,7 +71,7 @@ func WithHeaderProtocolID(protocolID ProtocolID) ProtocolHeaderOption {
 // WithHeaderVendorID sets the vendor ID.
 func WithHeaderVendorID(vendorID VendorID) ProtocolHeaderOption {
 	return func(h *protocolHeader) {
-		h.exchangeFlags |= ExchangeFlagVendor
+		h.exchangeFlags |= VendorFlag
 		h.vendorID = uint16(vendorID)
 	}
 }
@@ -79,7 +79,7 @@ func WithHeaderVendorID(vendorID VendorID) ProtocolHeaderOption {
 // WithHeaderAckCounter sets the acknowledgement counter.
 func WithHeaderAckCounter(counter MessageCounter) ProtocolHeaderOption {
 	return func(h *protocolHeader) {
-		h.exchangeFlags |= ExchangeFlagAck
+		h.exchangeFlags |= AckFlag
 		h.ackCounter = uint32(counter)
 	}
 }
@@ -87,7 +87,7 @@ func WithHeaderAckCounter(counter MessageCounter) ProtocolHeaderOption {
 // WithHeaderSecuredExtensions sets the secured extensions.
 func WithHeaderSecuredExtensions(ext []byte) ProtocolHeaderOption {
 	return func(h *protocolHeader) {
-		h.exchangeFlags |= ExchangeFlagSecuredExtensions
+		h.exchangeFlags |= SecuredExtensionsFlag
 		h.securedExtensions = ext
 	}
 }

@@ -70,7 +70,7 @@ func WithHeaderMessageCounter(counter MessageCounter) HeaderOption {
 // WithHeaderSourceNodeID sets the source node ID.
 func WithHeaderSourceNodeID(nodeID NodeID) HeaderOption {
 	return func(h *header) {
-		h.flags |= SourceNodeIDPresent
+		h.flags |= SourceNodeIDPresentFlag
 		h.srcNodeID = uint64(nodeID)
 	}
 }
@@ -78,7 +78,7 @@ func WithHeaderSourceNodeID(nodeID NodeID) HeaderOption {
 // WithHeaderDestinationNodeID sets the destination node ID.
 func WithHeaderDestinationNodeID(nodeID NodeID) HeaderOption {
 	return func(h *header) {
-		h.flags |= DestinationNodeIDPresent
+		h.flags |= DestinationNodeIDPresentFlag
 		h.destNodeID = uint64(nodeID)
 	}
 }
@@ -86,7 +86,7 @@ func WithHeaderDestinationNodeID(nodeID NodeID) HeaderOption {
 // WithHeaderGroupID sets the group ID, which is encoded in the destination node ID field with the destination node ID presence flag.
 func WithHeaderGroupID(groupID GroupID) HeaderOption {
 	return func(h *header) {
-		h.flags |= GroupIDPresent
+		h.flags |= GroupIDPresentFlag
 		h.destNodeID = uint64(groupID)
 	}
 }

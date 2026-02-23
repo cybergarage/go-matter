@@ -25,39 +25,39 @@ type ExchangeID uint16
 type ExchangeFlag uint8
 
 const (
-	// ExchangeFlagInitiator (I) indicates the sender is the initiator (bit 0).
-	ExchangeFlagInitiator = 0x01
-	// ExchangeFlagAck (A) indicates this is an acknowledgement (bit 1).
-	ExchangeFlagAck = 0x02
-	// ExchangeFlagReliability (R) indicates reliable transmission is requested (bit 2).
-	ExchangeFlagReliability = 0x04
-	// ExchangeFlagSecuredExtensions (SX) indicates secured extensions are present (bit 3).
-	ExchangeFlagSecuredExtensions = 0x08
-	// ExchangeFlagVendor (V) indicates a vendor-specific protocol (bit 4).
-	ExchangeFlagVendor = 0x10
+	// InitiatorFlag (I) indicates the sender is the initiator (bit 0).
+	InitiatorFlag = 0x01
+	// AckFlag (A) indicates this is an acknowledgement (bit 1).
+	AckFlag = 0x02
+	// ReliabilityFlag (R) indicates reliable transmission is requested (bit 2).
+	ReliabilityFlag = 0x04
+	// SecuredExtensionsFlag (SX) indicates secured extensions are present (bit 3).
+	SecuredExtensionsFlag = 0x08
+	// VendorFlag (V) indicates a vendor-specific protocol (bit 4).
+	VendorFlag = 0x10
 )
 
 // IsInitiator returns true if the flag is initiator.
 func (flag ExchangeFlag) IsInitiator() bool {
-	return (flag & ExchangeFlagInitiator) != 0
+	return (flag & InitiatorFlag) != 0
 }
 
 // IsAcknowledgement returns true if the flag is acknowledgement.
 func (flag ExchangeFlag) IsAcknowledgement() bool {
-	return (flag & ExchangeFlagAck) != 0
+	return (flag & AckFlag) != 0
 }
 
 // IsReliability returns true if the flag is reliability.
 func (flag ExchangeFlag) IsReliability() bool {
-	return (flag & ExchangeFlagReliability) != 0
+	return (flag & ReliabilityFlag) != 0
 }
 
 // HasSecuredExtensions returns true if the flag is secured extension.
 func (flag ExchangeFlag) HasSecuredExtensions() bool {
-	return (flag & ExchangeFlagSecuredExtensions) != 0
+	return (flag & SecuredExtensionsFlag) != 0
 }
 
 // HasVendorID returns true if the flag is vendor.
 func (flag ExchangeFlag) HasVendorID() bool {
-	return (flag & ExchangeFlagVendor) != 0
+	return (flag & VendorFlag) != 0
 }

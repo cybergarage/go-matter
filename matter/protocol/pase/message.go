@@ -28,7 +28,7 @@ func NewPBKDBParamRequestMessage(opts ...any) (Message, error) {
 	// 4.14.1.1. Protocol Overview
 
 	headerOps := []message.HeaderOption{
-		message.WithHeaderFlags(message.SourceNodeIDPresent),
+		message.WithHeaderFlags(message.SourceNodeIDPresentFlag),
 		message.WithHeaderSessionID(0x0000),
 		message.WithHeaderSecurityFlags(0x00),
 		message.WithHeaderMessageCounter(message.NewMessageCounter()),
@@ -36,10 +36,10 @@ func NewPBKDBParamRequestMessage(opts ...any) (Message, error) {
 	}
 
 	protocolOps := []message.ProtocolHeaderOption{
-		message.WithHeaderExchangeFlags(message.ExchangeFlagInitiator | message.ExchangeFlagReliability), // 4.10. Message Exchanges
-		message.WithHeaderOpcode(message.PBKDFParamRequest),                                              // 4.11.1. Secure Channel Protocol Messages.
-		message.WithHeaderExchangeID(0x1234),                                                             // 4.10. Message Exchanges
-		message.WithHeaderProtocolID(message.SecureChannel),                                              // 4.4.3.4. Protocol ID (16 bits)
+		message.WithHeaderExchangeFlags(message.InitiatorFlag | message.ReliabilityFlag), // 4.10. Message Exchanges
+		message.WithHeaderOpcode(message.PBKDFParamRequest),                              // 4.11.1. Secure Channel Protocol Messages.
+		message.WithHeaderExchangeID(0x1234),                                             // 4.10. Message Exchanges
+		message.WithHeaderProtocolID(message.SecureChannel),                              // 4.4.3.4. Protocol ID (16 bits)
 	}
 
 	paramOps := []pbkdf.ParamRequestOption{}

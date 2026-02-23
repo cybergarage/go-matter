@@ -162,8 +162,8 @@ func newAckMessageWith(receivedMsg message.Message, outboundCounter MessageCount
 	// - Opcode can be 0x00 (no protocol operation, just ACK)
 	// - AckCounter field references the message being acknowledged
 	exchangeHeader := message.NewProtocolHeader(
-		message.WithHeaderExchangeFlags(message.ExchangeFlagAck), // A flag only
-		message.WithHeaderOpcode(0x00),                           // Standalone ACK has no opcode
+		message.WithHeaderExchangeFlags(message.AckFlag), // A flag only
+		message.WithHeaderOpcode(0x00),                   // Standalone ACK has no opcode
 		message.WithHeaderExchangeID(receivedMsg.ExchangeID()),
 		message.WithHeaderProtocolID(receivedMsg.ProtocolID()),
 		message.WithHeaderAckCounter(receivedMsg.MessageCounter()),

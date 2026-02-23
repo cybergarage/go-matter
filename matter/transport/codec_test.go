@@ -58,7 +58,7 @@ func TestCodecTransmit(t *testing.T) {
 			)),
 		message.WithMessageProtocolHeader(
 			message.NewProtocolHeader(
-				message.WithHeaderExchangeFlags(message.ExchangeFlagInitiator),
+				message.WithHeaderExchangeFlags(message.InitiatorFlag),
 				message.WithHeaderOpcode(0x20),
 				message.WithHeaderExchangeID(0x5678),
 				message.WithHeaderProtocolID(0x0000),
@@ -90,7 +90,7 @@ func TestCodecReceiveWithoutAck(t *testing.T) {
 			)),
 		message.WithMessageProtocolHeader(
 			message.NewProtocolHeader(
-				message.WithHeaderExchangeFlags(message.ExchangeFlagInitiator), // No reliability flag
+				message.WithHeaderExchangeFlags(message.InitiatorFlag), // No reliability flag
 				message.WithHeaderOpcode(0x20),
 				message.WithHeaderExchangeID(0x5678),
 				message.WithHeaderProtocolID(0x0000),
@@ -131,7 +131,7 @@ func TestCodecReceiveWithAutoAck(t *testing.T) {
 			)),
 		message.WithMessageProtocolHeader(
 			message.NewProtocolHeader(
-				message.WithHeaderExchangeFlags(message.ExchangeFlagInitiator|message.ExchangeFlagReliability),
+				message.WithHeaderExchangeFlags(message.InitiatorFlag|message.ReliabilityFlag),
 				message.WithHeaderOpcode(0x20),
 				message.WithHeaderExchangeID(0x5678),
 				message.WithHeaderProtocolID(0x0000),
@@ -188,7 +188,7 @@ func TestCodecReceiveWithAutoAckDisabled(t *testing.T) {
 			)),
 		message.WithMessageProtocolHeader(
 			message.NewProtocolHeader(
-				message.WithHeaderExchangeFlags(message.ExchangeFlagInitiator|message.ExchangeFlagReliability),
+				message.WithHeaderExchangeFlags(message.InitiatorFlag|message.ReliabilityFlag),
 				message.WithHeaderOpcode(0x20),
 				message.WithHeaderExchangeID(0x5678),
 				message.WithHeaderProtocolID(0x0000),
@@ -266,7 +266,7 @@ func TestIsAckRequestedIntegration(t *testing.T) {
 			)),
 		message.WithMessageProtocolHeader(
 			message.NewProtocolHeader(
-				message.WithHeaderExchangeFlags(message.ExchangeFlagReliability),
+				message.WithHeaderExchangeFlags(message.ReliabilityFlag),
 				message.WithHeaderOpcode(0x20),
 				message.WithHeaderExchangeID(0x1234),
 				message.WithHeaderProtocolID(0x0000),

@@ -29,14 +29,14 @@ const (
 	VersionMask = 0xF0
 	// VersionShift is the bit position shift for the version field (bits 7-4).
 	VersionShift = 4
-	// SourceNodeIDPresent indicates whether the source node ID is present (bit 2).
-	SourceNodeIDPresent = 0x04
+	// SourceNodeIDPresentFlag indicates whether the source node ID is present (bit 2).
+	SourceNodeIDPresentFlag = 0x04
 	// DSIZMask extracts the DSIZ field (bits 0-1 in second byte for extended format).
 	DSIZMask = 0x03
-	// DestinationNodeIDPresent indicates whether the destination node ID field is the destination node ID (DSIZ == 1).
-	DestinationNodeIDPresent = 0x01
-	// GroupIDPresent indicates whether the destination node ID field is the group ID (DSIZ == 2).
-	GroupIDPresent = 0x02
+	// DestinationNodeIDPresentFlag indicates whether the destination node ID field is the destination node ID (DSIZ == 1).
+	DestinationNodeIDPresentFlag = 0x01
+	// GroupIDPresentFlag indicates whether the destination node ID field is the group ID (DSIZ == 2).
+	GroupIDPresentFlag = 0x02
 )
 
 // Version returns the version of the message, which is encoded in the upper 4 bits of the Flag field.
@@ -46,7 +46,7 @@ func (f Flag) Version() uint8 {
 
 // HasSourceNodeIDField returns true if the source node ID field is present, which is indicated by bit 6 of the Flag field.
 func (f Flag) HasSourceNodeIDField() bool {
-	return (f & SourceNodeIDPresent) != 0
+	return (f & SourceNodeIDPresentFlag) != 0
 }
 
 // HasSourceNodeID returns true if the source node ID field is present.
@@ -61,12 +61,12 @@ func (f Flag) HasDestinationNodeIDField() bool {
 
 // HasDestinationNodeID returns true if the destination node ID field is a destination node ID.
 func (f Flag) HasDestinationNodeID() bool {
-	return (f & DSIZMask) == DestinationNodeIDPresent
+	return (f & DSIZMask) == DestinationNodeIDPresentFlag
 }
 
 // HasGroupID returns true if the destination node ID field is a group ID.
 func (f Flag) HasGroupID() bool {
-	return (f & DSIZMask) == GroupIDPresent
+	return (f & DSIZMask) == GroupIDPresentFlag
 }
 
 // Map returns a map representation of the flags for easier debugging and logging.
