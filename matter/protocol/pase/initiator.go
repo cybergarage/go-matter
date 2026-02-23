@@ -50,7 +50,7 @@ func NewInitiator(t Transport, passcode Passcode) *Initiator {
 // EstablishSession establishes a PASE session.
 func (i *Initiator) EstablishSession(ctx context.Context) (*Result, error) {
 	// 1) PBKDFParamRequest
-	paramReqMsg, err := NewPBKDBParamRequestMessage()
+	paramReqMsg, err := pbkdf.NewParamRequestMessage()
 	if err != nil {
 		return nil, err
 	}

@@ -22,7 +22,6 @@ import (
 
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/encoding/message"
-	"github.com/cybergarage/go-matter/matter/protocol/pase"
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pbkdf"
 )
 
@@ -55,7 +54,7 @@ func TestPBKDFParamRequestMessage(t *testing.T) {
 		},
 		{
 			msg: func() message.Message {
-				msg, err := pase.NewPBKDBParamRequestMessage()
+				msg, err := pbkdf.NewParamRequestMessage()
 				if err != nil {
 					t.Fatal(err)
 				}

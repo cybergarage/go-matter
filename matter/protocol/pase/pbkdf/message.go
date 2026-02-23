@@ -11,11 +11,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package pase
+package pbkdf
 
 import (
 	"github.com/cybergarage/go-matter/matter/encoding/message"
-	"github.com/cybergarage/go-matter/matter/protocol/pase/pbkdf"
 	"github.com/cybergarage/go-matter/matter/types"
 )
 
@@ -23,8 +22,8 @@ import (
 // 4.4. Message Frame Format.
 type Message = message.Message
 
-// NewPBKDBParamRequestMessage creates a new PASE PBKDF Parameter Request message with the given options.
-func NewPBKDBParamRequestMessage(opts ...any) (Message, error) {
+// NewParamRequestMessage creates a new PASE PBKDF Parameter Request message with the given options.
+func NewParamRequestMessage(opts ...any) (Message, error) {
 	// 4.14.1.1. Protocol Overview
 
 	headerOps := []message.HeaderOption{
@@ -42,7 +41,7 @@ func NewPBKDBParamRequestMessage(opts ...any) (Message, error) {
 		message.WithHeaderProtocolID(message.SecureChannel),                              // 4.4.3.4. Protocol ID (16 bits)
 	}
 
-	paramOps := []pbkdf.ParamRequestOption{}
+	paramOps := []ParamRequestOption{}
 
 	for _, opt := range opts {
 		switch opt := opt.(type) {
@@ -50,12 +49,12 @@ func NewPBKDBParamRequestMessage(opts ...any) (Message, error) {
 			headerOps = append(headerOps, opt)
 		case message.ProtocolHeaderOption:
 			protocolOps = append(protocolOps, opt)
-		case pbkdf.ParamRequestOption:
+		case ParamRequestOption:
 			paramOps = append(paramOps, opt)
 		}
 	}
 
-	paramReq := pbkdf.NewParamRequest(paramOps...)
+	paramReq := NewParamRequest(paramOps...)
 	payload, err := paramReq.Bytes()
 	if err != nil {
 		return nil, err
