@@ -30,7 +30,7 @@ const (
 type MessageCounter uint32
 
 // NewMessageCounter creates a new initialized random message counter.
-// 4.6. Message Counters
+// 4.6. Message Counters.
 func NewMessageCounter() MessageCounter {
 	// 4.6.1.1. Message Counter Initialization
 	// Generate a random uint32 in [min, max)
