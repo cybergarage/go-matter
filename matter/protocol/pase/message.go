@@ -43,6 +43,7 @@ func NewPBKDBParamRequestMessage(opts ...any) (Message, error) {
 	}
 
 	paramOps := []pbkdf.ParamRequestOption{}
+
 	for _, opt := range opts {
 		switch opt := opt.(type) {
 		case message.HeaderOption:
