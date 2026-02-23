@@ -72,7 +72,7 @@ func TestDecodeRealWorldPayloads(t *testing.T) {
 				if !msg.IsAcknowledgement() {
 					t.Error("Expected ACK flag to be set")
 				}
-				ackCounterm, hasAckCounter := msg.AckCounter()
+				ackCounterm, hasAckCounter := msg.AckMessageCounter()
 				if !hasAckCounter {
 					t.Error("Expected AckCounter to be present")
 				} else if ackCounterm != 42 {

@@ -48,9 +48,9 @@ func WithHeaderExchangeFlags(flags ExchangeFlag) ProtocolHeaderOption {
 }
 
 // WithHeaderOpcode sets the opcode.
-func WithHeaderOpcode(opcode uint8) ProtocolHeaderOption {
+func WithHeaderOpcode(opcode Opcode) ProtocolHeaderOption {
 	return func(h *protocolHeader) {
-		h.opcode = opcode
+		h.opcode = uint8(opcode)
 	}
 }
 
@@ -169,8 +169,8 @@ func (h *protocolHeader) ExchangeFlags() ExchangeFlag {
 }
 
 // Opcode returns the opcode.
-func (h *protocolHeader) Opcode() uint8 {
-	return h.opcode
+func (h *protocolHeader) Opcode() Opcode {
+	return Opcode(h.opcode)
 }
 
 // ExchangeID returns the exchange ID.
@@ -216,8 +216,8 @@ func (h *protocolHeader) VendorID() (VendorID, bool) {
 	return VendorID(h.vendorID), true
 }
 
-// AckCounter returns the acknowledgement counter if present.
-func (h *protocolHeader) AckCounter() (MessageCounter, bool) {
+// AckMessageCounter returns the acknowledgement counter if present.
+func (h *protocolHeader) AckMessageCounter() (MessageCounter, bool) {
 	if !h.IsAcknowledgement() {
 		return 0, false
 	}

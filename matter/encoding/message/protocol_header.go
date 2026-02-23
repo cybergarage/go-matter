@@ -26,27 +26,29 @@ type VendorID = types.VendorID
 // 2.5.3. Product Identifier (Product ID, PID).
 type ProductID = types.ProductID
 
-// ProtocolID represents a protocol ID.
-// 4.4.3.4. Protocol ID (16 bits).
-type ProtocolID = types.ProtocolID
-
 // ProtocolHeader represents the protocol layer header.
 // 4.4.3. Protocol ProtocolHeader Field Descriptions.
 type ProtocolHeader interface {
+	ProtocolHeaderHelper
 	// ExchangeFlags returns the exchange flags.
 	ExchangeFlags() ExchangeFlag
 	// Opcode returns the opcode.
-	Opcode() uint8
+	Opcode() Opcode
 	// ExchangeID returns the exchange ID.
 	ExchangeID() ExchangeID
 	// ProtocolID returns the protocol ID.
 	ProtocolID() ProtocolID
 	// VendorID returns the vendor ID if present.
 	VendorID() (VendorID, bool)
-	// AckCounter returns the acknowledgement counter if present.
-	AckCounter() (MessageCounter, bool)
+	// AckMessageCounter returns the acknowledgement counter if present.
+	AckMessageCounter() (MessageCounter, bool)
 	// SecuredExtensions returns the secured extensions bytes if present.
 	SecuredExtensions() ([]byte, bool)
+	// Bytes encodes the header into a byte slice for transmission.
+	Bytes() []byte
+}
+
+type ProtocolHeaderHelper interface {
 	// IsInitiator returns true if the initiator flag is set.
 	IsInitiator() bool
 	// IsAcknowledgement returns true if the acknowledgement flag is set.
@@ -57,8 +59,6 @@ type ProtocolHeader interface {
 	HasSecuredExtensions() bool
 	// HasVendorID returns true if the vendor ID flag is set.
 	HasVendorID() bool
-	// Bytes encodes the header into a byte slice for transmission.
-	Bytes() []byte
 	// Map returns a map representation of the header for easier debugging and logging.
 	Map() map[string]any
 	// String returns a human-readable representation of the header for debugging purposes.

@@ -69,7 +69,7 @@ func TestAckStandaloneMessage(t *testing.T) {
 	if ackMsg.ExchangeID() != receivedMsg.ExchangeID() {
 		t.Errorf("ACK ExchangeID mismatch: got 0x%04X, want 0x%04X", ackMsg.ExchangeID(), receivedMsg.ExchangeID())
 	}
-	ackCounter, hasAckCounter := ackMsg.AckCounter()
+	ackCounter, hasAckCounter := ackMsg.AckMessageCounter()
 	receivedMsgCounter := receivedMsg.MessageCounter()
 	if !hasAckCounter {
 		t.Error("Expected AckCounter to be present")
@@ -171,7 +171,7 @@ func TestAckEncodeDecodeRoundtrip(t *testing.T) {
 	if !decoded.IsAcknowledgement() {
 		t.Error("Decoded message should have ACK flag set")
 	}
-	ackCounter, hasAckCounter := decoded.AckCounter()
+	ackCounter, hasAckCounter := decoded.AckMessageCounter()
 	receivedMsgCounter := receivedMsg.MessageCounter()
 	if !hasAckCounter {
 		t.Error("Expected AckCounter to be present")

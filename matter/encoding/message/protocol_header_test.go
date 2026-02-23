@@ -112,8 +112,8 @@ func TestProtocolHeaderEncodeDecodeRoundtrip(t *testing.T) {
 			if tt.header.HasVendorID() && (!decordedHasVendorID || decodedVendorID != ttHasVendorID) {
 				t.Errorf("VendorID mismatch: got 0x%04X, want 0x%04X", decodedVendorID, ttHasVendorID)
 			}
-			decordedAckCounter, decordedHasAckCounter := decoded.AckCounter()
-			ttHasAckCounter, _ := tt.header.AckCounter()
+			decordedAckCounter, decordedHasAckCounter := decoded.AckMessageCounter()
+			ttHasAckCounter, _ := tt.header.AckMessageCounter()
 			if tt.header.IsAcknowledgement() && (!decordedHasAckCounter || decordedAckCounter != ttHasAckCounter) {
 				t.Errorf("AckCounter mismatch: got 0x%08X, want 0x%08X", decordedAckCounter, ttHasAckCounter)
 			}
