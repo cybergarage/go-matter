@@ -15,8 +15,18 @@
 package pbkdf
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 )
+
+// ErrInvalid indicates that the provided data is invalid.
+var ErrInvalid = errors.New("invalid")
+
+func errInvalidOption(opt any) error {
+	return fmt.Errorf("invalid option type: %T", opt)
+}
 
 func checkRandomLength(name string, b []byte, expectedLength int) error {
 	if b == nil {
