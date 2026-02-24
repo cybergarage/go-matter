@@ -61,6 +61,13 @@ func (i *Initiator) EstablishSession(ctx context.Context) (*Result, error) {
 	}
 	log.Infof("PBKDFParamRequest: %s", paramReqMsg.String())
 	log.HexInfo(reqBytes)
+
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, pbkdf.DefaultSessionActiveThreshold)
+		defer cancel()
+	}
+
 	if err := i.t.Transmit(ctx, reqBytes); err != nil {
 		log.Errorf("Failed to transmit PBKDFParamRequest: %v", err)
 		return nil, err
