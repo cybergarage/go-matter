@@ -190,7 +190,7 @@ func (h *protocolHeader) IsInitiator() bool {
 
 // IsAcknowledgement returns true if the acknowledgement flag is set.
 func (h *protocolHeader) IsAcknowledgement() bool {
-	return h.exchangeFlags.IsAcknowledgement()
+	return h.exchangeFlags.IsAck()
 }
 
 // IsReliabilityRequested returns true if the reliability flag is set.

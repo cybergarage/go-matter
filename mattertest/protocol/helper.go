@@ -49,7 +49,7 @@ func decodeHexdumpPBKDFParamResponseMessage(t *testing.T, hexStr string) pbkdf.P
 	return msg
 }
 
-func validatePBKDFParamRequest(msg message.Message) error {
+func validatePBKDFParamRequest(msg pbkdf.ParamRequestMessage) error {
 	if msg.SessionID() != 0x0000 {
 		return fmt.Errorf("expected SessionID 0x0000, got 0x%04X", msg.SessionID())
 	}
@@ -82,10 +82,20 @@ func validatePBKDFParamRequest(msg message.Message) error {
 	if exID == 0 {
 		return fmt.Errorf("expected random ExchangeID, got 0x%04X", exID)
 	}
+	// pbkdfparamreq-struct
+	if len(msg.InitiatorRandom()) != pbkdf.InitiatorRandomLength {
+		return fmt.Errorf("expected InitiatorRandom length %d, got %d", pbkdf.InitiatorRandomLength, len(msg.InitiatorRandom()))
+	}
+	if msg.PasscodeID() != 0 {
+		return fmt.Errorf("expected PasscodeID 0, got %d", msg.PasscodeID())
+	}
+	if msg.HasPBKDFParams() {
+		return fmt.Errorf("expected PBKDFParams flag to be unset")
+	}
 	return nil
 }
 
-func validatePBKDFParamResponse(msg message.Message) error {
+func validatePBKDFParamResponse(msg pbkdf.ParamResponseMessage) error {
 	if msg.SessionID() != 0x0000 {
 		return fmt.Errorf("expected SessionID 0x0000, got 0x%04X", msg.SessionID())
 	}
@@ -97,6 +107,12 @@ func validatePBKDFParamResponse(msg message.Message) error {
 	}
 	if _, ok := msg.DestinationNodeID(); !ok {
 		return fmt.Errorf("expected DestinationNodeID flag to be set")
+	}
+	if !msg.ExchangeFlags().IsAck() {
+		return fmt.Errorf("expected ExchangeFlags Acknowledgement to be set")
+	}
+	if !msg.ExchangeFlags().IsReliability() {
+		return fmt.Errorf("expected ExchangeFlags Reliability to be set")
 	}
 	return nil
 }

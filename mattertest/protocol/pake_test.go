@@ -36,7 +36,7 @@ func TestPake1Message(t *testing.T) {
 	}
 
 	for n, tt := range tests {
-		t.Run(fmt.Sprintf("pak1-%02d", n), func(t *testing.T) {
+		t.Run(fmt.Sprintf("pake1-%02d", n), func(t *testing.T) {
 			hexBytes, err := hex.DecodeString(tt.hexStr)
 			if err != nil {
 				t.Fatalf("Failed to decode hex string: %v", err)
@@ -53,6 +53,7 @@ func TestPake1Message(t *testing.T) {
 				log.Info(msg.String())
 				log.Info(reqParam.String())
 			}
+			log.Infof("pake1: %s", reqParam.String())
 		})
 	}
 }
@@ -69,7 +70,7 @@ func TestPake2Message(t *testing.T) {
 	}
 
 	for n, tt := range tests {
-		t.Run(fmt.Sprintf("pak2-%02d", n), func(t *testing.T) {
+		t.Run(fmt.Sprintf("pake2-%02d", n), func(t *testing.T) {
 			hexBytes, err := hex.DecodeString(tt.hexStr)
 			if err != nil {
 				t.Fatalf("Failed to decode hex string: %v", err)
@@ -86,6 +87,7 @@ func TestPake2Message(t *testing.T) {
 				log.Info(msg.String())
 				log.Info(reqParam.String())
 			}
+			log.Infof("pake2: %s", reqParam.String())
 		})
 	}
 }
@@ -102,7 +104,7 @@ func TestPake3Message(t *testing.T) {
 	}
 
 	for n, tt := range tests {
-		t.Run(fmt.Sprintf("pak3-%02d", n), func(t *testing.T) {
+		t.Run(fmt.Sprintf("pake3-%02d", n), func(t *testing.T) {
 			hexBytes, err := hex.DecodeString(tt.hexStr)
 			if err != nil {
 				t.Fatalf("Failed to decode hex string: %v", err)
@@ -119,6 +121,7 @@ func TestPake3Message(t *testing.T) {
 				log.Info(msg.String())
 				log.Info(reqParam.String())
 			}
+			log.Infof("pake3: %s", reqParam.String())
 		})
 	}
 }
