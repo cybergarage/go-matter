@@ -49,27 +49,26 @@ func TestAckStandaloneMessage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create ACK: %v", err)
 	}
-	ackMsg := ack.Message()
 
 	// Verify ACK packet header
-	if ackMsg.SessionID() != receivedMsg.SessionID() {
-		t.Errorf("ACK SessionID mismatch: got 0x%04X, want 0x%04X", ackMsg.SessionID(), receivedMsg.SessionID())
+	if ack.SessionID() != receivedMsg.SessionID() {
+		t.Errorf("ACK SessionID mismatch: got 0x%04X, want 0x%04X", ack.SessionID(), receivedMsg.SessionID())
 	}
-	if ackMsg.MessageCounter() != outboundCounter {
-		t.Errorf("ACK MessageCounter mismatch: got %d, want %d", ackMsg.MessageCounter(), outboundCounter)
+	if ack.MessageCounter() != outboundCounter {
+		t.Errorf("ACK MessageCounter mismatch: got %d, want %d", ack.MessageCounter(), outboundCounter)
 	}
 
 	// Verify ACK exchange header
-	if !ackMsg.IsAcknowledgement() {
+	if !ack.IsAcknowledgement() {
 		t.Error("Expected ACK flag to be set")
 	}
-	if ackMsg.IsReliability() {
+	if ack.IsReliability() {
 		t.Error("ACK should not have reliability flag set")
 	}
-	if ackMsg.ExchangeID() != receivedMsg.ExchangeID() {
-		t.Errorf("ACK ExchangeID mismatch: got 0x%04X, want 0x%04X", ackMsg.ExchangeID(), receivedMsg.ExchangeID())
+	if ack.ExchangeID() != receivedMsg.ExchangeID() {
+		t.Errorf("ACK ExchangeID mismatch: got 0x%04X, want 0x%04X", ack.ExchangeID(), receivedMsg.ExchangeID())
 	}
-	ackCounter, hasAckCounter := ackMsg.AckMessageCounter()
+	ackCounter, hasAckCounter := ack.AckMessageCounter()
 	receivedMsgCounter := receivedMsg.MessageCounter()
 	if !hasAckCounter {
 		t.Error("Expected AckCounter to be present")
@@ -78,8 +77,8 @@ func TestAckStandaloneMessage(t *testing.T) {
 	}
 
 	// Verify ACK has no payload
-	if len(ackMsg.Payload()) != 0 {
-		t.Errorf("Expected empty payload for standalone ACK, got %d bytes", len(ackMsg.Payload()))
+	if len(ack.Payload()) != 0 {
+		t.Errorf("Expected empty payload for standalone ACK, got %d bytes", len(ack.Payload()))
 	}
 }
 
@@ -112,10 +111,9 @@ func TestAckStandaloneWithSourceNode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create ACK: %v", err)
 	}
-	ackMsg := ack.Message()
 
 	// Verify that the ACK has the destination node ID set to the source of the received message
-	destNodeID, hasDestNodeID := ackMsg.DestinationNodeID()
+	destNodeID, hasDestNodeID := ack.DestinationNodeID()
 	if !hasDestNodeID {
 		t.Error("Expected ACK to have destination node ID set")
 	}
@@ -156,10 +154,9 @@ func TestAckEncodeDecodeRoundtrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create ACK: %v", err)
 	}
-	ackMsg := ack.Message()
 
 	// Encode ACK
-	encoded, err := ackMsg.Bytes()
+	encoded, err := ack.Bytes()
 	if err != nil {
 		t.Fatalf("Failed to encode ACK: %v", err)
 	}

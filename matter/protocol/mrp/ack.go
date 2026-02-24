@@ -26,16 +26,7 @@ type Message = message.Message
 // 4.12. Message Reliability Protocol (MRP).
 type Ack interface {
 	AckHelper
-	// Message returns the underlying message that this ACK represents.
-	Message() Message
-	// IsReliability returns true if the ACK message is a reliability ACK.
-	IsReliability() bool
-	// IsAcknowledgement returns true if the ACK message is an acknowledgement.
-	IsAcknowledgement() bool
-	// MessageCounter returns the acknowledgement counter value from the ACK message if present.
-	MessageCounter() MessageCounter
-	// Bytes returns the byte representation of the ACK message, ready for transmission.
-	Bytes() ([]byte, error)
+	Message
 }
 
 // AckHelper defines additional helper methods for ACK messages, such as debugging output.

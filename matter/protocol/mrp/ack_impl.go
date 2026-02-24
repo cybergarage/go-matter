@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/cybergarage/go-matter/matter/encoding/json"
 	"github.com/cybergarage/go-matter/matter/encoding/message"
 )
 
@@ -43,20 +42,20 @@ func WithAckMessageCounter(counter MessageCounter) AckOption {
 type ack struct {
 	refMsg     message.Message
 	outCounter MessageCounter
-	msg        message.Message
+	message.Message
 }
 
 func newAck(opts ...AckOption) *ack {
 	a := &ack{
 		refMsg:     nil,
 		outCounter: 0,
-		msg:        nil,
+		Message:    nil,
 	}
 	for _, opt := range opts {
 		opt(a)
 	}
 	if a.refMsg != nil {
-		a.msg = newAckMessageWith(a.refMsg, a.outCounter)
+		a.Message = newAckMessageWith(a.refMsg, a.outCounter)
 	}
 	return a
 }
@@ -64,7 +63,7 @@ func newAck(opts ...AckOption) *ack {
 // NewAck creates a new ACK message based on the provided options.
 func NewAck(opts ...AckOption) (Ack, error) {
 	a := newAck(opts...)
-	if a.msg == nil {
+	if a.Message == nil {
 		return nil, fmt.Errorf("failed to create ACK message")
 	}
 	return a, nil
@@ -73,7 +72,7 @@ func NewAck(opts ...AckOption) (Ack, error) {
 // NewAckFromMessage creates an ACK message from an existing message, extracting relevant fields.
 func NewAckFromMessage(msg message.Message) Ack {
 	return newAck(func(a *ack) {
-		a.msg = msg
+		a.Message = msg
 	})
 }
 
@@ -91,55 +90,9 @@ func NewAckFromBytes(b []byte) (Ack, error) {
 	return NewAckFromReader(bytes.NewReader(b))
 }
 
-func (a *ack) Message() message.Message {
-	return a.msg
-}
-
-func (a *ack) IsReliability() bool {
-	if a.msg == nil {
-		return false
-	}
-	return a.msg.IsReliability()
-}
-
-func (a *ack) IsAcknowledgement() bool {
-	if a.msg == nil {
-		return false
-	}
-	return a.msg.IsAcknowledgement()
-}
-
-func (a *ack) MessageCounter() MessageCounter {
-	if a.msg == nil {
-		return MessageCounter(0)
-	}
-	return a.msg.MessageCounter()
-}
-
-func (a *ack) Bytes() ([]byte, error) {
-	if a.msg == nil {
-		return []byte{}, nil
-	}
-	return a.msg.Bytes()
-}
-
-func (a *ack) Map() map[string]any {
-	m := map[string]any{}
-	if a.msg != nil {
-		m["reliability"] = a.IsReliability()
-		m["acknowledgement"] = a.IsAcknowledgement()
-		m["messageCounter"] = a.MessageCounter()
-	}
-	return m
-}
-
-func (a *ack) String() string {
-	return json.MustMarshal(a.Map())
-}
-
 func newAckMessageWith(receivedMsg message.Message, outboundCounter MessageCounter) message.Message {
 	// Build message header for ACK: preserve version/control and security context
-	msgHeaderOpts := []message.HeaderOption{
+	headerOpts := []message.HeaderOption{
 		message.WithHeaderFlags(receivedMsg.Flags()),
 		message.WithHeaderSessionID(receivedMsg.SessionID()),
 		message.WithHeaderSecurityFlags(receivedMsg.SecurityFlags()),
@@ -149,10 +102,10 @@ func newAckMessageWith(receivedMsg message.Message, outboundCounter MessageCount
 	// If received message had source node, send it back as destination
 	msgSrcNodeID, msgHasSrcNodeID := receivedMsg.SourceNodeID()
 	if msgHasSrcNodeID {
-		msgHeaderOpts = append(msgHeaderOpts, message.WithHeaderDestinationNodeID(msgSrcNodeID))
+		headerOpts = append(headerOpts, message.WithHeaderDestinationNodeID(msgSrcNodeID))
 	}
 
-	msgHeader := message.NewHeader(msgHeaderOpts...)
+	header := message.NewHeader(headerOpts...)
 
 	// Build exchange header for ACK
 	// Reference: Matter Core Spec 1.5, Section 4.11.8
@@ -161,7 +114,7 @@ func newAckMessageWith(receivedMsg message.Message, outboundCounter MessageCount
 	// - No R flag (reliability not requested for ACK itself)
 	// - Opcode can be 0x00 (no protocol operation, just ACK)
 	// - AckCounter field references the message being acknowledged
-	exchangeHeader := message.NewProtocolHeader(
+	protocolHeader := message.NewProtocolHeader(
 		message.WithHeaderExchangeFlags(message.AckFlag), // A flag only
 		message.WithHeaderOpcode(0x00),                   // Standalone ACK has no opcode
 		message.WithHeaderExchangeID(receivedMsg.ExchangeID()),
@@ -171,8 +124,8 @@ func newAckMessageWith(receivedMsg message.Message, outboundCounter MessageCount
 
 	// Standalone ACK has no payload
 	return message.NewMessage(
-		message.WithMessageFrameHeader(msgHeader),
-		message.WithMessageProtocolHeader(exchangeHeader),
+		message.WithMessageFrameHeader(header),
+		message.WithMessageProtocolHeader(protocolHeader),
 		message.WithMessagePayload([]byte{}),
 	)
 }
