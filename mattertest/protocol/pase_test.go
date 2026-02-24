@@ -122,6 +122,7 @@ func TestPaseSequence(t *testing.T) {
 				if pbkdfParamRes == nil {
 					pbkdfParamRes, err = pbkdf.NewParamResponseMessage(
 						pbkdf.WithParamResponseMessageParamRequestMessage(pbkdfParamReq),
+						message.WithHeaderMessageCounter(pbkdfParamReqAck.MessageCounter().Next()),
 					)
 					if err != nil {
 						t.Fatalf("Failed to create ParamResponseMessage: %v", err)
@@ -154,6 +155,12 @@ func TestPaseSequence(t *testing.T) {
 
 				if pbkdfParamRes.ResponderSessionID() == uint16(pbkdfParamReq.InitiatorSessionID()) {
 					t.Errorf("Responder Session ID should not match Initiator Session ID: got %d", pbkdfParamRes.ResponderSessionID())
+				}
+
+				// Validate that the response corresponds to the request ACK
+
+				if pbkdfParamRes.MessageCounter() <= pbkdfParamReqAck.MessageCounter() {
+					t.Errorf("Response MessageCounter should be greater than ACK MessageCounter: got %d, want > %d", pbkdfParamRes.MessageCounter(), pbkdfParamReqAck.MessageCounter())
 				}
 
 				log.Infof("%s %s", name, pbkdfParamRes.String())

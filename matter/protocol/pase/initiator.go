@@ -20,6 +20,7 @@ import (
 
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/io"
+	"github.com/cybergarage/go-matter/matter/protocol/mrp"
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pake"
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pbkdf"
 )
@@ -58,11 +59,27 @@ func (i *Initiator) EstablishSession(ctx context.Context) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Info("PBKDFParamRequest:")
+	log.Infof("PBKDFParamRequest: %s", paramReqMsg.String())
 	log.HexInfo(reqBytes)
 	if err := i.t.Transmit(ctx, reqBytes); err != nil {
 		log.Errorf("Failed to transmit PBKDFParamRequest: %v", err)
 		return nil, err
+	}
+
+	// 2) PBKDFParamRequest ACK (optional)
+	if paramReqMsg.IsReliability() {
+		resBytes, err := i.t.Receive(ctx)
+		if err != nil {
+			log.Errorf("Failed to receive PBKDFParamResponse ACK: %v", err)
+			return nil, err
+		}
+		paramReqMsgAck, err := mrp.NewAckFromBytes(resBytes)
+		if err != nil {
+			log.Errorf("Failed to decode PBKDFParamResponse ACK: %v", err)
+			return nil, err
+		}
+		log.Infof("PBKDFParamRequest ACK: %s", paramReqMsgAck.String())
+		log.HexInfo(resBytes)
 	}
 
 	// 2) PBKDFParamResponse
@@ -71,14 +88,13 @@ func (i *Initiator) EstablishSession(ctx context.Context) (*Result, error) {
 		log.Errorf("Failed to receive PBKDFParamResponse: %v", err)
 		return nil, err
 	}
-	log.Info("PBKDFParamResponse:")
-	log.HexInfo(resBytes)
-
 	pbkdfRes, err := pbkdf.NewParamResponseFromBytes(resBytes[1:])
 	if err != nil {
 		log.Errorf("Failed to decode PBKDFParamResponse: %v", err)
 		return nil, err
 	}
+	log.Infof("PBKDFParamResponse: %s", pbkdfRes.String())
+	log.HexInfo(resBytes)
 
 	// 3) SPAKE2+ (PASE)
 	salt, ok := pbkdfRes.PBKDFParams().Salt()
