@@ -69,7 +69,7 @@ func TestDecodeRealWorldPayloads(t *testing.T) {
 				"", // No payload
 			validateFunc: func(t *testing.T, msg message.Message) {
 				t.Helper()
-				if !msg.IsAcknowledgement() {
+				if !msg.IsAck() {
 					t.Error("Expected ACK flag to be set")
 				}
 				ackCounterm, hasAckCounter := msg.AckMessageCounter()

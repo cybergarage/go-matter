@@ -137,7 +137,7 @@ func NewProtocolHeaderFromReader(reader io.Reader) (ProtocolHeader, error) {
 	}
 
 	// 4.4.3.6. Acknowledged Message Counter (32 bits)
-	if h.IsAcknowledgement() {
+	if h.IsAck() {
 		var abuf [4]byte
 		_, err := io.ReadAtLeast(reader, abuf[:], 4)
 		if err != nil {
@@ -188,8 +188,8 @@ func (h *protocolHeader) IsInitiator() bool {
 	return h.exchangeFlags.IsInitiator()
 }
 
-// IsAcknowledgement returns true if the acknowledgement flag is set.
-func (h *protocolHeader) IsAcknowledgement() bool {
+// IsAck returns true if the acknowledgement flag is set.
+func (h *protocolHeader) IsAck() bool {
 	return h.exchangeFlags.IsAck()
 }
 
@@ -218,7 +218,7 @@ func (h *protocolHeader) VendorID() (VendorID, bool) {
 
 // AckMessageCounter returns the acknowledgement counter if present.
 func (h *protocolHeader) AckMessageCounter() (MessageCounter, bool) {
-	if !h.IsAcknowledgement() {
+	if !h.IsAck() {
 		return 0, false
 	}
 	return MessageCounter(h.ackCounter), true
@@ -243,7 +243,7 @@ func (h *protocolHeader) Bytes() ([]byte, error) {
 	if h.HasVendorID() {
 		buf = binary.LittleEndian.AppendUint16(buf, h.vendorID)
 	}
-	if h.IsAcknowledgement() {
+	if h.IsAck() {
 		buf = binary.LittleEndian.AppendUint32(buf, h.ackCounter)
 	}
 	if ext, ok := h.SecuredExtensions(); ok {
@@ -266,7 +266,7 @@ func (h *protocolHeader) Map() map[string]any {
 	if h.HasVendorID() {
 		m["VendorID"] = fmt.Sprintf("0x%04X", h.vendorID)
 	}
-	if h.IsAcknowledgement() {
+	if h.IsAck() {
 		m["AckCounter"] = h.ackCounter
 	}
 	if ext, ok := h.SecuredExtensions(); ok {

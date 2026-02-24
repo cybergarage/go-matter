@@ -20,20 +20,20 @@ type Opcode uint8
 
 // 4.11.1. Secure Channel Protocol Messages.
 const (
-	MsgCounterSyncReq            Opcode = 0x00
-	MsgCounterSyncRsp            Opcode = 0x01
-	MRPStandaloneAcknowledgement Opcode = 0x10
-	PBKDFParamRequest            Opcode = 0x20
-	PBKDFParamResponse           Opcode = 0x21
-	PASEPake1                    Opcode = 0x22
-	PASEPake2                    Opcode = 0x23
-	PASEPake3                    Opcode = 0x24
-	CASESigma1                   Opcode = 0x30
-	CASESigma2                   Opcode = 0x31
-	CASESigma3                   Opcode = 0x32
-	CASESigma2Resume             Opcode = 0x33
-	StatusReport                 Opcode = 0x40
-	ICDCheckInMessage            Opcode = 0x50
+	MsgCounterSyncReq  Opcode = 0x00
+	MsgCounterSyncRsp  Opcode = 0x01
+	MRPStandaloneAck   Opcode = 0x10
+	PBKDFParamRequest  Opcode = 0x20
+	PBKDFParamResponse Opcode = 0x21
+	PASEPake1          Opcode = 0x22
+	PASEPake2          Opcode = 0x23
+	PASEPake3          Opcode = 0x24
+	CASESigma1         Opcode = 0x30
+	CASESigma2         Opcode = 0x31
+	CASESigma3         Opcode = 0x32
+	CASESigma2Resume   Opcode = 0x33
+	StatusReport       Opcode = 0x40
+	ICDCheckInMessage  Opcode = 0x50
 )
 
 // IsMsgCounterSyncReq returns true if the opcode is MsgCounterSyncReq.
@@ -46,9 +46,9 @@ func (o Opcode) IsMsgCounterSyncRsp() bool {
 	return o == MsgCounterSyncRsp
 }
 
-// IsMRPStandaloneAcknowledgement returns true if the opcode is MRPStandaloneAcknowledgement.
-func (o Opcode) IsMRPStandaloneAcknowledgement() bool {
-	return o == MRPStandaloneAcknowledgement
+// IsMRPStandaloneAck returns true if the opcode is MRPStandaloneAcknowledgement.
+func (o Opcode) IsMRPStandaloneAck() bool {
+	return o == MRPStandaloneAck
 }
 
 // IsPBKDFParamRequest returns true if the opcode is PBKDFParamRequest.

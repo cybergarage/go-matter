@@ -24,15 +24,7 @@ type Message = message.Message
 
 // Ack defines the interface for MRP ACK messages.
 // 4.12. Message Reliability Protocol (MRP).
+// 4.12.7. MRP Messages.
 type Ack interface {
-	AckHelper
 	Message
-}
-
-// AckHelper defines additional helper methods for ACK messages, such as debugging output.
-type AckHelper interface {
-	// Map returns a map representation of the ACK message for debugging purposes.
-	Map() map[string]any
-	// String returns a human-readable string representation of the ACK message.
-	String() string
 }

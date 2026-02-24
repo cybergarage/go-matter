@@ -51,8 +51,8 @@ type ProtocolHeader interface {
 type ProtocolHeaderHelper interface {
 	// IsInitiator returns true if the initiator flag is set.
 	IsInitiator() bool
-	// IsAcknowledgement returns true if the acknowledgement flag is set.
-	IsAcknowledgement() bool
+	// IsAck returns true if the acknowledgement flag is set.
+	IsAck() bool
 	// IsReliability returns true if the reliability requested flag is set.
 	IsReliability() bool
 	// HasSecuredExtensions returns true if the secured extensions flag is set.

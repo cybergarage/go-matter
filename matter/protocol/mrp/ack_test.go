@@ -59,7 +59,7 @@ func TestAckStandaloneMessage(t *testing.T) {
 	}
 
 	// Verify ACK exchange header
-	if !ack.IsAcknowledgement() {
+	if !ack.IsAck() {
 		t.Error("Expected ACK flag to be set")
 	}
 	if ack.IsReliability() {
@@ -168,7 +168,7 @@ func TestAckEncodeDecodeRoundtrip(t *testing.T) {
 	}
 
 	// Verify decoded ACK matches original
-	if !decoded.IsAcknowledgement() {
+	if !decoded.IsAck() {
 		t.Error("Decoded message should have ACK flag set")
 	}
 	ackCounter, hasAckCounter := decoded.AckMessageCounter()

@@ -27,9 +27,7 @@ func TestMRPMessage(t *testing.T) {
 	log.EnableStdoutDebug(true)
 
 	type expected struct {
-		reliability     bool
-		acknowledgement bool
-		messageCounter  mrp.MessageCounter
+		messageCounter mrp.MessageCounter
 	}
 
 	tests := []struct {
@@ -39,17 +37,13 @@ func TestMRPMessage(t *testing.T) {
 		{
 			hexStr: mrp01Hex,
 			expected: expected{
-				reliability:     false,
-				acknowledgement: true,
-				messageCounter:  0xF0E9E46,
+				messageCounter: 0xF0E9E46,
 			},
 		},
 		{
 			hexStr: mrp02Hex,
 			expected: expected{
-				reliability:     false,
-				acknowledgement: true,
-				messageCounter:  0xF0E9E48,
+				messageCounter: 0xF0E9E48,
 			},
 		},
 	}
@@ -64,18 +58,16 @@ func TestMRPMessage(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to parse Message: %v", err)
 			}
-			if ack.IsReliability() != tt.expected.reliability {
-				t.Errorf("Expected reliability %v, got %v", tt.expected.reliability, ack.IsReliability())
-				log.Infof("ACK: %s", ack.String())
+
+			if err := validateAckMessage(ack); err != nil {
+				t.Errorf("Validation failed: %v", err)
 			}
-			if ack.IsAcknowledgement() != tt.expected.acknowledgement {
-				t.Errorf("Expected acknowledgement %v, got %v", tt.expected.acknowledgement, ack.IsAcknowledgement())
-				log.Infof("ACK: %s", ack.String())
-			}
+
 			if ack.MessageCounter() != tt.expected.messageCounter {
 				t.Errorf("Expected messageCounter 0x%04X, got 0x%04X", tt.expected.messageCounter, ack.MessageCounter())
 				log.Infof("ACK: %s", ack.String())
 			}
+
 			log.Infof("ACK: %s", ack.String())
 		})
 	}

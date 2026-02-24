@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/cybergarage/go-matter/matter/encoding/message"
+	"github.com/cybergarage/go-matter/matter/protocol/mrp"
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pbkdf"
 )
 
@@ -50,6 +51,8 @@ func decodeHexdumpPBKDFParamResponseMessage(t *testing.T, hexStr string) pbkdf.P
 }
 
 func validatePBKDFParamRequest(msg pbkdf.ParamRequestMessage) error {
+	// 4.14.1.2. Protocol Details
+
 	if msg.SessionID() != 0x0000 {
 		return fmt.Errorf("expected SessionID 0x0000, got 0x%04X", msg.SessionID())
 	}
@@ -83,7 +86,15 @@ func validatePBKDFParamRequest(msg pbkdf.ParamRequestMessage) error {
 		return fmt.Errorf("expected random ExchangeID, got 0x%04X", exID)
 	}
 
-	// pbkdfparamreq-struct
+	// 4.14.1.2. Protocol Details
+	// pbkdfparamreq-struct => STRUCTURE [ tag-order ]
+	// {
+	//   initiatorRandom [1] : OCTET STRING [ length 32 ],
+	//   initiatorSessionId [2] : UNSIGNED INTEGER [ range 16-bits ],
+	//   passcodeId [3] : UNSIGNED INTEGER [ length 16-bits ],
+	//   HasPBKDFParams [4] : BOOLEAN,
+	//   initiatorSessionParams [5, optional] : session-parameter-struct
+	// }
 
 	if len(msg.InitiatorRandom()) != pbkdf.InitiatorRandomLength {
 		return fmt.Errorf("expected InitiatorRandom length %d, got %d", pbkdf.InitiatorRandomLength, len(msg.InitiatorRandom()))
@@ -98,6 +109,8 @@ func validatePBKDFParamRequest(msg pbkdf.ParamRequestMessage) error {
 }
 
 func validatePBKDFParamResponse(msg pbkdf.ParamResponseMessage) error {
+	// 4.14.1.2. Protocol Details
+
 	if msg.SessionID() != 0x0000 {
 		return fmt.Errorf("expected SessionID 0x0000, got 0x%04X", msg.SessionID())
 	}
@@ -117,7 +130,15 @@ func validatePBKDFParamResponse(msg pbkdf.ParamResponseMessage) error {
 		return fmt.Errorf("expected ExchangeFlags Reliability to be set")
 	}
 
-	// pbkdfparamresp-struct
+	// 4.14.1.2. Protocol Details
+	// pbkdfparamresp-struct => STRUCTURE [ tag-order ]
+	// {
+	//   initiatorRandom [1] : OCTET STRING [ length 32 ],
+	//   responderRandom [2] : OCTET STRING [ length 32 ],
+	//   responderSessionId [3] : UNSIGNED INTEGER [ range 16-bits ],
+	//   pbkdf_parameters [4] : Crypto_PBKDFParameterSet,
+	//   responderSessionParams [5, optional] : session-parameter-struct
+	// }
 
 	if len(msg.InitiatorRandom()) != pbkdf.InitiatorRandomLength {
 		return fmt.Errorf("expected InitiatorRandom length %d, got %d", pbkdf.InitiatorRandomLength, len(msg.InitiatorRandom()))
@@ -130,6 +151,28 @@ func validatePBKDFParamResponse(msg pbkdf.ParamResponseMessage) error {
 	}
 	if salt, ok := msg.PBKDFParams().Salt(); !ok || len(salt) < pbkdf.PBKDBFSaltMin {
 		return fmt.Errorf("expected PBKDFParams to be present")
+	}
+
+	return nil
+}
+
+func validateAckMessage(msg mrp.Ack) error {
+	// 4.12.7.1. MRP Standalone Acknowledgement
+
+	if !msg.IsAck() {
+		return fmt.Errorf("expected ACK flag to be set")
+	}
+	if _, ok := msg.AckMessageCounter(); !ok {
+		return fmt.Errorf("expected AckMessageCounter to be present")
+	}
+	if !msg.Opcode().IsMRPStandaloneAck() {
+		return fmt.Errorf("expected opcode to be MRPStandaloneAck")
+	}
+	if msg.IsReliability() {
+		return fmt.Errorf("ACK should not have reliability flag set")
+	}
+	if len(msg.Payload()) != 0 {
+		return fmt.Errorf("expected empty payload for standalone ACK, got %d bytes", len(msg.Payload()))
 	}
 
 	return nil

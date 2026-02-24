@@ -25,38 +25,66 @@ import (
 // AckOption defines a functional option for configuring the Ack.
 type AckOption func(*ack)
 
+type ack struct {
+	headerOpts   []message.HeaderOption
+	protocolOpts []message.ProtocolHeaderOption
+	message.Message
+}
+
 // WithAckReferenceMessage sets the reference message for the ACK, which is used to extract relevant fields for the ACK response.
-func WithAckReferenceMessage(msg message.Message) AckOption {
+func WithAckReferenceMessage(refMsg message.Message) AckOption {
 	return func(a *ack) {
-		a.refMsg = msg
+		a.headerOpts = append(a.headerOpts,
+			message.WithHeaderFlags(refMsg.Flags()),
+			message.WithHeaderSessionID(refMsg.SessionID()),
+			message.WithHeaderSecurityFlags(refMsg.SecurityFlags()),
+		)
+		refSrcNodeID, hasRefSrcNodeID := refMsg.SourceNodeID()
+		if hasRefSrcNodeID {
+			a.headerOpts = append(a.headerOpts, message.WithHeaderDestinationNodeID(refSrcNodeID))
+		}
+		a.protocolOpts = append(a.protocolOpts,
+			message.WithHeaderExchangeID(refMsg.ExchangeID()),
+			message.WithHeaderProtocolID(refMsg.ProtocolID()),
+			message.WithHeaderAckCounter(refMsg.MessageCounter()),
+		)
 	}
 }
 
 // WithAckMessageCounter sets the message counter to be used in the ACK message. This is typically the next counter value for outgoing messages.
 func WithAckMessageCounter(counter MessageCounter) AckOption {
 	return func(a *ack) {
-		a.outCounter = counter
+		a.headerOpts = append(a.headerOpts,
+			message.WithHeaderMessageCounter(counter),
+		)
 	}
-}
-
-type ack struct {
-	refMsg     message.Message
-	outCounter MessageCounter
-	message.Message
 }
 
 func newAck(opts ...AckOption) *ack {
 	a := &ack{
-		refMsg:     nil,
-		outCounter: 0,
-		Message:    nil,
+		headerOpts: []message.HeaderOption{},
+		// 4.12.7.1. MRP Standalone Acknowledgement
+		protocolOpts: []message.ProtocolHeaderOption{
+			message.WithHeaderExchangeFlags(message.AckFlag),
+			message.WithHeaderProtocolID(message.SecureChannel),
+			message.WithHeaderOpcode(message.MRPStandaloneAck),
+		},
+		Message: nil,
 	}
 	for _, opt := range opts {
 		opt(a)
 	}
-	if a.refMsg != nil {
-		a.Message = newAckMessageWith(a.refMsg, a.outCounter)
+	if a.Message != nil {
+		return a
 	}
+
+	// Standalone ACK has no payload
+	a.Message = message.NewMessage(
+		message.WithMessageFrameHeader(message.NewHeader(a.headerOpts...)),
+		message.WithMessageProtocolHeader(message.NewProtocolHeader(a.protocolOpts...)),
+		message.WithMessagePayload([]byte{}),
+	)
+
 	return a
 }
 
@@ -69,11 +97,9 @@ func NewAck(opts ...AckOption) (Ack, error) {
 	return a, nil
 }
 
-// NewAckFromMessage creates an ACK message from an existing message, extracting relevant fields.
-func NewAckFromMessage(msg message.Message) Ack {
-	return newAck(func(a *ack) {
-		a.Message = msg
-	})
+// NewAckWithMessage creates an ACK message from an existing message, extracting relevant fields.
+func NewAckWithMessage(msg message.Message) Ack {
+	return msg
 }
 
 // NewAckFromReader creates an ACK message by reading and parsing a message from the provided reader.
@@ -82,50 +108,10 @@ func NewAckFromReader(r io.Reader) (Ack, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewAckFromMessage(msg), nil
+	return NewAckWithMessage(msg), nil
 }
 
 // NewAckFromBytes creates an ACK message by parsing a byte slice into a message.
 func NewAckFromBytes(b []byte) (Ack, error) {
 	return NewAckFromReader(bytes.NewReader(b))
-}
-
-func newAckMessageWith(receivedMsg message.Message, outboundCounter MessageCounter) message.Message {
-	// Build message header for ACK: preserve version/control and security context
-	headerOpts := []message.HeaderOption{
-		message.WithHeaderFlags(receivedMsg.Flags()),
-		message.WithHeaderSessionID(receivedMsg.SessionID()),
-		message.WithHeaderSecurityFlags(receivedMsg.SecurityFlags()),
-		message.WithHeaderMessageCounter(outboundCounter),
-	}
-
-	// If received message had source node, send it back as destination
-	msgSrcNodeID, msgHasSrcNodeID := receivedMsg.SourceNodeID()
-	if msgHasSrcNodeID {
-		headerOpts = append(headerOpts, message.WithHeaderDestinationNodeID(msgSrcNodeID))
-	}
-
-	header := message.NewHeader(headerOpts...)
-
-	// Build exchange header for ACK
-	// Reference: Matter Core Spec 1.5, Section 4.11.8
-	// An ACK message has:
-	// - A flag set (bit 1)
-	// - No R flag (reliability not requested for ACK itself)
-	// - Opcode can be 0x00 (no protocol operation, just ACK)
-	// - AckCounter field references the message being acknowledged
-	protocolHeader := message.NewProtocolHeader(
-		message.WithHeaderExchangeFlags(message.AckFlag), // A flag only
-		message.WithHeaderOpcode(0x00),                   // Standalone ACK has no opcode
-		message.WithHeaderExchangeID(receivedMsg.ExchangeID()),
-		message.WithHeaderProtocolID(receivedMsg.ProtocolID()),
-		message.WithHeaderAckCounter(receivedMsg.MessageCounter()),
-	)
-
-	// Standalone ACK has no payload
-	return message.NewMessage(
-		message.WithMessageFrameHeader(header),
-		message.WithMessageProtocolHeader(protocolHeader),
-		message.WithMessagePayload([]byte{}),
-	)
 }

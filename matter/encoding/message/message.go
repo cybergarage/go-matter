@@ -19,7 +19,7 @@ package message
 type Message interface {
 	// Header represents the frame header of the message.
 	Header
-	// Header represents the protocol header of the message.
+	// ProtocolHeader represents the protocol header of the message.
 	ProtocolHeader
 	// Extensions returns the message extensions, if any.
 	Extensions() ([]byte, bool)
