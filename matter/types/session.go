@@ -14,13 +14,18 @@
 
 package types
 
-// SessionType represents the session type for the message.
-// 4.4.1.3. Security Flags (8 bits).
-type SessionType uint8
-
 const (
 	// UnicastSession indicates a unicast session.
 	UnicastSession SessionType = 0x00
 	// GroupSession indicates a group session.
 	GroupSession SessionType = 0x01
 )
+
+// SessionType represents the session type for the message.
+// 4.4.1.3. Security Flags (8 bits).
+type SessionType uint8
+
+// SessionID represents a session identifier.
+// 4.14.1.1. Protocol Overview.
+// 4.13.2.4. Choosing Secure Unicast Session Identifiers.
+type SessionID uint16

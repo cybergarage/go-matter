@@ -18,11 +18,14 @@ import (
 	"github.com/cybergarage/go-matter/matter/types"
 )
 
-// NodeID represents a node ID in the Matter protocol.
+// NodeID represents a node ID.
 type NodeID = types.NodeID
 
-// GroupID represents a group ID in the Matter protocol.
+// GroupID represents a group ID.
 type GroupID = types.GroupID
+
+// SessionID represents a session ID.
+type SessionID = types.SessionID
 
 // Header represents the Matter message frame header.
 // 4.4.1. Message Header Field Descriptions.
@@ -32,7 +35,7 @@ type Header interface {
 	// Flags returns the header flags byte, which contains version and presence flags.
 	Flags() Flag
 	// SessionID returns the session ID field (16 bits) if present, or 0 if not present.
-	SessionID() uint16
+	SessionID() SessionID
 	// SecurityFlags returns the security flags byte, which contains encryption and authentication flags.
 	SecurityFlags() SecurityFlag
 	// MessageCounter returns the message counter field (32 bits).

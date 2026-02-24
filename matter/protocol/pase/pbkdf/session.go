@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
+	"github.com/cybergarage/go-matter/matter/types"
 )
 
 // 4.13.1. Session Parameters.
@@ -35,7 +36,7 @@ const (
 
 // SessionID represents a session identifier.
 // 4.14.1.1. Protocol Overview.
-type SessionID uint16
+type SessionID = types.SessionID
 
 // SessionParams defines the interface for accessing session parameters as specified in section 4.13.1.
 // 4.13.1. Session Parameters.

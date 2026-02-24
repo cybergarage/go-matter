@@ -47,9 +47,9 @@ func WithHeaderFlags(flags Flag) HeaderOption {
 }
 
 // WithHeaderSessionID sets the session ID.
-func WithHeaderSessionID(sessionID uint16) HeaderOption {
+func WithHeaderSessionID(sessionID SessionID) HeaderOption {
 	return func(h *header) {
-		h.sessionID = sessionID
+		h.sessionID = uint16(sessionID)
 	}
 }
 
@@ -160,8 +160,8 @@ func (h *header) Flags() Flag {
 	return h.flags
 }
 
-func (h *header) SessionID() uint16 {
-	return h.sessionID
+func (h *header) SessionID() SessionID {
+	return SessionID(h.sessionID)
 }
 
 func (h *header) SecurityFlags() SecurityFlag {
