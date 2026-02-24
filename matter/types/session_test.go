@@ -27,7 +27,7 @@ func TestSessionID(t *testing.T) {
 	}
 
 	// Test that NewSessionIDExcept returns a different ID than the given one
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		orig := NewSessionID()
 		newID := NewSessionIDExcept(orig)
 		if newID == orig {
