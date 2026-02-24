@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	initiatorRandomLength = 32
+	InitiatorRandomLength = 32
 )
 
 type paramRequest struct {
@@ -83,7 +83,7 @@ func NewParamRequest(opts ...ParamRequestOption) ParamRequest {
 	r := newParamRequest(opts...)
 	// 4.14.1. Passcode-Authenticated Session Establishment (PASE)
 	if r.initiatorRandom == nil {
-		r.initiatorRandom = crypto.CryptoDRBG(initiatorRandomLength)
+		r.initiatorRandom = crypto.CryptoDRBG(InitiatorRandomLength)
 	}
 	if r.initiatorSessionID == nil {
 		// 4.13.2.4. Choosing Secure Unicast Session Identifiers
@@ -233,7 +233,7 @@ func (r *paramRequest) InitiatorSessionParams() (SessionParams, bool) {
 }
 
 func (r *paramRequest) Validate() error {
-	if err := checkRandomLength("initiatorRandom", r.initiatorRandom, initiatorRandomLength); err != nil {
+	if err := checkRandomLength("initiatorRandom", r.initiatorRandom, InitiatorRandomLength); err != nil {
 		return err
 	}
 	if r.initiatorSessionID == nil {

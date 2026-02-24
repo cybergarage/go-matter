@@ -82,7 +82,9 @@ func validatePBKDFParamRequest(msg pbkdf.ParamRequestMessage) error {
 	if exID == 0 {
 		return fmt.Errorf("expected random ExchangeID, got 0x%04X", exID)
 	}
+
 	// pbkdfparamreq-struct
+
 	if len(msg.InitiatorRandom()) != pbkdf.InitiatorRandomLength {
 		return fmt.Errorf("expected InitiatorRandom length %d, got %d", pbkdf.InitiatorRandomLength, len(msg.InitiatorRandom()))
 	}
@@ -114,5 +116,21 @@ func validatePBKDFParamResponse(msg pbkdf.ParamResponseMessage) error {
 	if !msg.ExchangeFlags().IsReliability() {
 		return fmt.Errorf("expected ExchangeFlags Reliability to be set")
 	}
+
+	// pbkdfparamresp-struct
+
+	if len(msg.InitiatorRandom()) != pbkdf.InitiatorRandomLength {
+		return fmt.Errorf("expected InitiatorRandom length %d, got %d", pbkdf.InitiatorRandomLength, len(msg.InitiatorRandom()))
+	}
+	if len(msg.ResponderRandom()) != pbkdf.ResponderRandomLength {
+		return fmt.Errorf("expected ResponderRandom length %d, got %d", pbkdf.ResponderRandomLength, len(msg.ResponderRandom()))
+	}
+	if iter, ok := msg.PBKDFParams().Iterations(); !ok || iter < pbkdf.PBKDBFIterationsMin {
+		return fmt.Errorf("expected PBKDFParams IterationCount to be at least %d, got %d", pbkdf.PBKDBFIterationsMin, iter)
+	}
+	if salt, ok := msg.PBKDFParams().Salt(); !ok || len(salt) < pbkdf.PBKDBFSaltMin {
+		return fmt.Errorf("expected PBKDFParams to be present")
+	}
+
 	return nil
 }

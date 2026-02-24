@@ -15,6 +15,7 @@
 package protocol
 
 import (
+	"bytes"
 	"fmt"
 	"testing"
 
@@ -67,15 +68,33 @@ func TestPaseSequence(t *testing.T) {
 				pbkdfParamRes := tt.pbkdfParamRes
 				if pbkdfParamRes == nil {
 					pbkdfParamRes, err = pbkdf.NewParamResponseMessage(
-						pbkdf.WithParamResponseParamRequest(pbkdfParamReq),
+						pbkdf.WithParamResponseMessageParamRequestMessage(pbkdfParamReq),
 					)
 					if err != nil {
 						t.Fatalf("Failed to create ParamResponseMessage: %v", err)
 					}
 				}
+
 				if err := validatePBKDFParamResponse(pbkdfParamRes); err != nil {
-					t.Skipf("Validation failed: %v", err)
+					t.Errorf("Validation failed: %v", err)
 				}
+
+				if pbkdfParamReq.ExchangeID() != pbkdfParamRes.ExchangeID() {
+					t.Errorf("Exchange ID mismatch: request %d, response %d", pbkdfParamReq.ExchangeID(), pbkdfParamRes.ExchangeID())
+				}
+
+				sourceNodeIDReq, hasSourceNodeIDReq := pbkdfParamReq.SourceNodeID()
+				destNodeIDRes, hasDestNodeIDRes := pbkdfParamRes.DestinationNodeID()
+				if !hasSourceNodeIDReq || !hasDestNodeIDRes {
+					t.Errorf("Missing Node ID: request hasSourceNodeID %v, response hasDestinationNodeID %v", hasSourceNodeIDReq, hasDestNodeIDRes)
+				} else if sourceNodeIDReq != destNodeIDRes {
+					t.Errorf("Node ID mismatch: request source %d, response destination %d", sourceNodeIDReq, destNodeIDRes)
+				}
+
+				if !bytes.Equal(pbkdfParamRes.InitiatorRandom(), pbkdfParamReq.InitiatorRandom()) {
+					t.Errorf("Initiator Random mismatch: request %s, response %s", pbkdfParamReq.InitiatorRandom(), pbkdfParamRes.InitiatorRandom())
+				}
+
 				log.Infof("%s %s", name, pbkdfParamRes.String())
 			})
 		})

@@ -76,6 +76,7 @@ func TestMRPMessage(t *testing.T) {
 				t.Errorf("Expected messageCounter 0x%04X, got 0x%04X", tt.expected.messageCounter, ack.MessageCounter())
 				log.Infof("ACK: %s", ack.String())
 			}
+			log.Infof("ACK: %s", ack.String())
 		})
 	}
 }

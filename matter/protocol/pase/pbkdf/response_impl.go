@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	responderRandomLength = 32
+	ResponderRandomLength = 32
 )
 
 type paramResponse struct {
@@ -98,7 +98,7 @@ func NewParamResponse(opts ...ParamResponseOption) (ParamResponse, error) {
 	r := newParamResponse(opts...)
 	// 4.14.1. Passcode-Authenticated Session Establishment (PASE)
 	if r.responderRandom == nil {
-		r.responderRandom = crypto.CryptoDRBG(responderRandomLength)
+		r.responderRandom = crypto.CryptoDRBG(ResponderRandomLength)
 	}
 	if r.responderSessionID == nil {
 		// 4.13.2.4. Choosing Secure Unicast Session Identifiers
@@ -232,10 +232,10 @@ func (r *paramResponse) Decode(dec tlv.Decoder) error {
 }
 
 func (r *paramResponse) Validate() error {
-	if err := checkRandomLength("initiatorRandom", r.initiatorRandom, initiatorRandomLength); err != nil {
+	if err := checkRandomLength("initiatorRandom", r.initiatorRandom, InitiatorRandomLength); err != nil {
 		return err
 	}
-	if err := checkRandomLength("responderRandom", r.responderRandom, responderRandomLength); err != nil {
+	if err := checkRandomLength("responderRandom", r.responderRandom, ResponderRandomLength); err != nil {
 		return err
 	}
 	if r.responderSessionID == nil {
