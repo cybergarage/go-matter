@@ -64,7 +64,13 @@ func (i *Initiator) EstablishSession(ctx context.Context) (*Result, error) {
 
 	if _, ok := ctx.Deadline(); !ok {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, pbkdf.DefaultSessionActiveThreshold)
+		ts := pbkdf.DefaultSessionActiveThreshold
+		if sessionParams, ok := paramReqMsg.InitiatorSessionParams(); ok {
+			if at, ok := sessionParams.SessionActiveThreshold(); ok {
+				ts = at
+			}
+		}
+		ctx, cancel = context.WithTimeout(ctx, ts)
 		defer cancel()
 	}
 
