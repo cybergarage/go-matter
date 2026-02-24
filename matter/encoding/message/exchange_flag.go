@@ -37,8 +37,8 @@ func (flag ExchangeFlag) IsInitiator() bool {
 	return (flag & InitiatorFlag) != 0
 }
 
-// IsAcknowledgement returns true if the flag is acknowledgement.
-func (flag ExchangeFlag) IsAcknowledgement() bool {
+// IsAck returns true if the flag is acknowledgement.
+func (flag ExchangeFlag) IsAck() bool {
 	return (flag & AckFlag) != 0
 }
 
