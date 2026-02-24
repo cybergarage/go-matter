@@ -16,6 +16,7 @@ package pbkdf
 import (
 	"github.com/cybergarage/go-matter/matter/encoding/json"
 	"github.com/cybergarage/go-matter/matter/encoding/message"
+	"github.com/cybergarage/go-matter/matter/types"
 )
 
 type paramResponseMessage struct {
@@ -34,11 +35,21 @@ func WithParamResponseMessageParamRequestMessage(paramReqMsg ParamRequestMessage
 	return func(m *paramResponseMessage) {
 		// 4.14.1.2. Protocol Details
 		if sourceNodeID, ok := paramReqMsg.SourceNodeID(); ok {
-			m.headerOps = append(m.headerOps, message.WithHeaderDestinationNodeID(sourceNodeID))
+			m.headerOps = append(m.headerOps,
+				message.WithHeaderDestinationNodeID(sourceNodeID),
+			)
 		}
-		m.paramResOps = append(m.paramResOps, WithParamResponseParamRequest(paramReqMsg))
+		m.paramResOps = append(m.paramResOps,
+			// 4.13.2.4. Choosing Secure Unicast Session Identifiers
+			WithParamResponseResponderSessionID(types.NewSessionIDExcept(paramReqMsg.InitiatorSessionID())),
+		)
+		m.paramResOps = append(m.paramResOps,
+			WithParamResponseParamRequest(paramReqMsg),
+		)
 		// 4.10.2. Exchange ID
-		m.protocolOps = append(m.protocolOps, message.WithHeaderExchangeID(paramReqMsg.ExchangeID()))
+		m.protocolOps = append(m.protocolOps,
+			message.WithHeaderExchangeID(paramReqMsg.ExchangeID()),
+		)
 	}
 }
 

@@ -18,6 +18,7 @@ import (
 	"github.com/cybergarage/go-matter/matter/crypto"
 	"github.com/cybergarage/go-matter/matter/encoding/json"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
+	"github.com/cybergarage/go-matter/matter/types"
 )
 
 const (
@@ -73,9 +74,10 @@ func WithParamResponseResponderRandom(random []byte) ParamResponseOption {
 }
 
 // WithParamResponseResponderSessionID sets the responder session ID in the ParamResponse.
-func WithParamResponseResponderSessionID(sessionID uint16) ParamResponseOption {
+func WithParamResponseResponderSessionID(sessionID SessionID) ParamResponseOption {
 	return func(r *paramResponse) {
-		r.responderSessionID = &sessionID
+		id := uint16(sessionID)
+		r.responderSessionID = &id
 	}
 }
 
@@ -102,7 +104,8 @@ func NewParamResponse(opts ...ParamResponseOption) (ParamResponse, error) {
 	}
 	if r.responderSessionID == nil {
 		// 4.13.2.4. Choosing Secure Unicast Session Identifiers
-		r.responderSessionID = &unicastSessionID
+		id := uint16(types.NewSessionID())
+		r.responderSessionID = &id
 	}
 	if r.pbkdfParams == nil {
 		opts := []ParamsOption{}

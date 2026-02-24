@@ -18,6 +18,7 @@ import (
 	"github.com/cybergarage/go-matter/matter/crypto"
 	"github.com/cybergarage/go-matter/matter/encoding/json"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
+	"github.com/cybergarage/go-matter/matter/types"
 )
 
 const (
@@ -87,7 +88,8 @@ func NewParamRequest(opts ...ParamRequestOption) ParamRequest {
 	}
 	if r.initiatorSessionID == nil {
 		// 4.13.2.4. Choosing Secure Unicast Session Identifiers
-		r.initiatorSessionID = &unicastSessionID
+		id := uint16(types.NewSessionID())
+		r.initiatorSessionID = &id
 	}
 	if r.passcodeID == nil {
 		passcodeID := uint16(0)

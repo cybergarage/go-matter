@@ -95,6 +95,10 @@ func TestPaseSequence(t *testing.T) {
 					t.Errorf("Initiator Random mismatch: request %s, response %s", pbkdfParamReq.InitiatorRandom(), pbkdfParamRes.InitiatorRandom())
 				}
 
+				if pbkdfParamRes.ResponderSessionID() == uint16(pbkdfParamReq.InitiatorSessionID()) {
+					t.Errorf("Responder Session ID should not match Initiator Session ID: got %d", pbkdfParamRes.ResponderSessionID())
+				}
+
 				log.Infof("%s %s", name, pbkdfParamRes.String())
 			})
 		})
