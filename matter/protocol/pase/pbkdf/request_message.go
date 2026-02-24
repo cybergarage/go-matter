@@ -20,8 +20,21 @@ import (
 )
 
 type paramRequestMessage struct {
+	headerOps   []message.HeaderOption
+	protocolOps []message.ProtocolHeaderOption
+	paramReqOps []ParamRequestOption
 	Message
 	ParamRequest
+}
+
+// ParamRequestMessageOption defines a functional option for configuring the ParamRequestMessage.
+type ParamRequestMessageOption func(*paramRequestMessage)
+
+// WithParamRequestMessageCounter sets the message counter in the ParamRequestMessage header.
+func WithParamRequestMessageCounter(counter message.MessageCounter) ParamRequestMessageOption {
+	return func(m *paramRequestMessage) {
+		m.headerOps = append(m.headerOps, message.WithHeaderMessageCounter(counter))
+	}
 }
 
 // NewParamRequestMessageFromBytes parses the given byte slice into a ParamRequestMessage.
@@ -37,6 +50,9 @@ func NewParamRequestMessageFromBytes(data []byte) (ParamRequestMessage, error) {
 	}
 
 	return &paramRequestMessage{
+		headerOps:    nil,
+		protocolOps:  nil,
+		paramReqOps:  nil,
 		Message:      msg,
 		ParamRequest: paramReq,
 	}, nil
@@ -46,53 +62,56 @@ func NewParamRequestMessageFromBytes(data []byte) (ParamRequestMessage, error) {
 func NewParamRequestMessage(opts ...any) (ParamRequestMessage, error) {
 	// 4.14.1.1. Protocol Overview
 
-	headerOps := []message.HeaderOption{
-		message.WithHeaderSessionID(0x0000),
-		message.WithHeaderSecurityFlags(0x00),
-		message.WithHeaderMessageCounter(message.NewMessageCounter()),
-		message.WithHeaderSourceNodeID(types.NewOperationalNodeID()),
+	msg := &paramRequestMessage{
+		headerOps: []message.HeaderOption{
+			message.WithHeaderSessionID(0x0000),
+			message.WithHeaderSecurityFlags(0x00),
+			message.WithHeaderMessageCounter(message.NewMessageCounter()),
+			message.WithHeaderSourceNodeID(types.NewOperationalNodeID()),
+		},
+		protocolOps: []message.ProtocolHeaderOption{
+			// 4.10. Message Exchanges
+			message.WithHeaderExchangeFlags(message.InitiatorFlag | message.ReliabilityFlag),
+			// 4.11.1. Secure Channel Protocol Messages
+			message.WithHeaderOpcode(message.PBKDFParamRequest),
+			// 4.10.2. Exchange ID
+			message.WithHeaderExchangeID(message.NewFirstExchangeID()),
+			// 4.4.3.4. Protocol ID (16 bits)
+			message.WithHeaderProtocolID(message.SecureChannel),
+		},
+		paramReqOps:  []ParamRequestOption{},
+		Message:      nil,
+		ParamRequest: nil,
 	}
-
-	protocolOps := []message.ProtocolHeaderOption{
-		// 4.10. Message Exchanges
-		message.WithHeaderExchangeFlags(message.InitiatorFlag | message.ReliabilityFlag),
-		// 4.11.1. Secure Channel Protocol Messages
-		message.WithHeaderOpcode(message.PBKDFParamRequest),
-		// 4.10.2. Exchange ID
-		message.WithHeaderExchangeID(message.NewFirstExchangeID()),
-		// 4.4.3.4. Protocol ID (16 bits)
-		message.WithHeaderProtocolID(message.SecureChannel),
-	}
-
-	paramOps := []ParamRequestOption{}
 
 	for _, opt := range opts {
 		switch opt := opt.(type) {
 		case message.HeaderOption:
-			headerOps = append(headerOps, opt)
+			msg.headerOps = append(msg.headerOps, opt)
 		case message.ProtocolHeaderOption:
-			protocolOps = append(protocolOps, opt)
+			msg.protocolOps = append(msg.protocolOps, opt)
 		case ParamRequestOption:
-			paramOps = append(paramOps, opt)
+			msg.paramReqOps = append(msg.paramReqOps, opt)
+		case ParamRequestMessageOption:
+			opt(msg)
 		default:
 			return nil, errInvalidOption(opt)
 		}
 	}
 
-	paramReq := NewParamRequest(paramOps...)
-	payload, err := paramReq.Bytes()
+	msg.ParamRequest = NewParamRequest(msg.paramReqOps...)
+	payload, err := msg.ParamRequest.Bytes()
 	if err != nil {
 		return nil, err
 	}
 
-	return &paramRequestMessage{
-		Message: message.NewMessage(
-			message.WithMessageFrameHeader(message.NewHeader(headerOps...)),
-			message.WithMessageProtocolHeader(message.NewProtocolHeader(protocolOps...)),
-			message.WithMessagePayload(payload),
-		),
-		ParamRequest: paramReq,
-	}, nil
+	msg.Message = message.NewMessage(
+		message.WithMessageFrameHeader(message.NewHeader(msg.headerOps...)),
+		message.WithMessageProtocolHeader(message.NewProtocolHeader(msg.protocolOps...)),
+		message.WithMessagePayload(payload),
+	)
+
+	return msg, nil
 }
 
 func (r *paramRequestMessage) Bytes() ([]byte, error) {

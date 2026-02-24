@@ -50,9 +50,25 @@ func decodeHexdumpPBKDFParamResponseMessage(t *testing.T, hexStr string) pbkdf.P
 	return msg
 }
 
+func decodeHexdumpMRPAck(t *testing.T, hexStr string) mrp.Ack {
+	t.Helper()
+	hexBytes, err := hex.DecodeString(hexStr)
+	if err != nil {
+		t.Fatalf("Failed to decode hex string: %v", err)
+	}
+	msg, err := mrp.NewAckFromBytes(hexBytes)
+	if err != nil {
+		t.Fatalf("Failed to parse Ack: %v", err)
+	}
+	return msg
+}
+
 func validatePBKDFParamRequest(msg pbkdf.ParamRequestMessage) error {
 	// 4.14.1.2. Protocol Details
 
+	if !msg.ProtocolID().IsSecureChannel() {
+		return fmt.Errorf("expected ProtocolID to be SecureChannel, got 0x%04X", msg.ProtocolID())
+	}
 	if msg.SessionID() != 0x0000 {
 		return fmt.Errorf("expected SessionID 0x0000, got 0x%04X", msg.SessionID())
 	}
@@ -71,9 +87,6 @@ func validatePBKDFParamRequest(msg pbkdf.ParamRequestMessage) error {
 	}
 	if msg.Opcode() != message.PBKDFParamRequest {
 		return fmt.Errorf("expected OpCode 0x%02X, got 0x%02X", message.PBKDFParamRequest, msg.Opcode())
-	}
-	if msg.ProtocolID() != message.SecureChannel {
-		return fmt.Errorf("expected ProtocolID 0x%04X, got 0x%04X", message.SecureChannel, msg.ProtocolID())
 	}
 	if !msg.ExchangeFlags().IsInitiator() {
 		return fmt.Errorf("expected ExchangeFlags Initiator to be set")
@@ -111,6 +124,9 @@ func validatePBKDFParamRequest(msg pbkdf.ParamRequestMessage) error {
 func validatePBKDFParamResponse(msg pbkdf.ParamResponseMessage) error {
 	// 4.14.1.2. Protocol Details
 
+	if !msg.ProtocolID().IsSecureChannel() {
+		return fmt.Errorf("expected ProtocolID to be SecureChannel, got 0x%04X", msg.ProtocolID())
+	}
 	if msg.SessionID() != 0x0000 {
 		return fmt.Errorf("expected SessionID 0x0000, got 0x%04X", msg.SessionID())
 	}
@@ -159,6 +175,9 @@ func validatePBKDFParamResponse(msg pbkdf.ParamResponseMessage) error {
 func validateAckMessage(msg mrp.Ack) error {
 	// 4.12.7.1. MRP Standalone Acknowledgement
 
+	if !msg.ProtocolID().IsSecureChannel() {
+		return fmt.Errorf("expected ProtocolID to be SecureChannel, got 0x%04X", msg.ProtocolID())
+	}
 	if !msg.IsAck() {
 		return fmt.Errorf("expected ACK flag to be set")
 	}

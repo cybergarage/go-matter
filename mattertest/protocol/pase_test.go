@@ -20,34 +20,46 @@ import (
 	"testing"
 
 	"github.com/cybergarage/go-logger/log"
+	"github.com/cybergarage/go-matter/matter/encoding/message"
+	"github.com/cybergarage/go-matter/matter/protocol/mrp"
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pbkdf"
 )
 
 func TestPaseSequence(t *testing.T) {
 	log.EnableStdoutDebug(true)
 
+	var err error
+	reqMsgCounter := message.NewMessageCounter()
+	// resMsgCounter := message.NewMessageCounter()
+
 	tests := []struct {
-		pbkdfParamReq pbkdf.ParamRequestMessage
-		pbkdfParamRes pbkdf.ParamResponseMessage
+		pbkdfParamReq    pbkdf.ParamRequestMessage
+		pbkdfParamReqAck mrp.Ack
+		pbkdfParamRes    pbkdf.ParamResponseMessage
 	}{
 		{
-			pbkdfParamReq: decodeHexdumpPBKDFParamRequestMessage(t, pbkdfParamRequest01Hex),
-			pbkdfParamRes: decodeHexdumpPBKDFParamResponseMessage(t, pbkdfParamResponse01Hex),
+			pbkdfParamReq:    decodeHexdumpPBKDFParamRequestMessage(t, pbkdfParamRequest01Hex),
+			pbkdfParamReqAck: decodeHexdumpMRPAck(t, pbkdfParamRequestAck01Hex),
+			pbkdfParamRes:    decodeHexdumpPBKDFParamResponseMessage(t, pbkdfParamResponse01Hex),
 		},
 		{
 			pbkdfParamReq: func() pbkdf.ParamRequestMessage {
-				msg, err := pbkdf.NewParamRequestMessage()
+				msg, err := pbkdf.NewParamRequestMessage(
+					pbkdf.WithParamRequestMessageCounter(reqMsgCounter),
+				)
 				if err != nil {
 					t.Fatal(err)
 				}
 				return msg
 			}(),
-			pbkdfParamRes: nil,
+			pbkdfParamReqAck: nil,
+			pbkdfParamRes:    nil,
 		},
 	}
 
 	// 4.14.1. Passcode-Authenticated Session Establishment (PASE)
 	// 4.14.1.2. Protocol Details
+
 	for n, tt := range tests {
 		name := fmt.Sprintf("pase-%02d", n)
 		t.Run(name, func(t *testing.T) {
@@ -61,11 +73,52 @@ func TestPaseSequence(t *testing.T) {
 				log.Infof("%s %s", name, pbkdfParamReq.String())
 			})
 
+			// PBKDF Parameter Request Ack
+			name = fmt.Sprintf("pbkdf-param-request-ack-%02d", n)
+			pbkdfParamReqAck := tt.pbkdfParamReqAck
+			t.Run(name, func(t *testing.T) {
+				if pbkdfParamReqAck == nil {
+					pbkdfParamReqAck, err = mrp.NewAck(
+						mrp.WithAckReferenceMessage(pbkdfParamReq),
+						mrp.WithAckMessageCounter(reqMsgCounter),
+					)
+				}
+
+				// Validate the ACK message
+
+				if err := validateAckMessage(pbkdfParamReqAck); err != nil {
+					t.Errorf("Validation failed: %v", err)
+				}
+
+				// Validate that the ACK corresponds to the request
+
+				sourceNodeIDReq, hasSourceNodeIDReq := pbkdfParamReq.SourceNodeID()
+				destNodeIDRes, hasDestNodeIDRes := pbkdfParamReqAck.DestinationNodeID()
+				if !hasSourceNodeIDReq || !hasDestNodeIDRes {
+					t.Errorf("Missing Node ID: request hasSourceNodeID %v, response hasDestinationNodeID %v", hasSourceNodeIDReq, hasDestNodeIDRes)
+				} else if sourceNodeIDReq != destNodeIDRes {
+					t.Errorf("Node ID mismatch: request source %d, response destination %d", sourceNodeIDReq, destNodeIDRes)
+				}
+
+				ackCounter, hasAckCounter := pbkdfParamReqAck.AckMessageCounter()
+				reqMsgCounter := pbkdfParamReq.MessageCounter()
+				if !hasAckCounter {
+					t.Error("Expected ACK to have message counter")
+				} else if ackCounter != reqMsgCounter {
+					t.Errorf("ACK message counter mismatch: got %d, want %d", ackCounter, reqMsgCounter)
+				}
+
+				if pbkdfParamReqAck.ExchangeID() != pbkdfParamReq.ExchangeID() {
+					t.Errorf("ACK ExchangeID mismatch: got 0x%04X, want 0x%04X", pbkdfParamReqAck.ExchangeID(), pbkdfParamReq.ExchangeID())
+				}
+
+				log.Infof("%s %s", name, pbkdfParamReqAck.String())
+			})
+
 			// PBKDF Parameter Response
 			name = fmt.Sprintf("pbkdf-param-response-%02d", n)
+			pbkdfParamRes := tt.pbkdfParamRes
 			t.Run(name, func(t *testing.T) {
-				var err error
-				pbkdfParamRes := tt.pbkdfParamRes
 				if pbkdfParamRes == nil {
 					pbkdfParamRes, err = pbkdf.NewParamResponseMessage(
 						pbkdf.WithParamResponseMessageParamRequestMessage(pbkdfParamReq),
@@ -75,9 +128,13 @@ func TestPaseSequence(t *testing.T) {
 					}
 				}
 
+				// Validate the response message
+
 				if err := validatePBKDFParamResponse(pbkdfParamRes); err != nil {
 					t.Errorf("Validation failed: %v", err)
 				}
+
+				// Validate that the response corresponds to the request
 
 				if pbkdfParamReq.ExchangeID() != pbkdfParamRes.ExchangeID() {
 					t.Errorf("Exchange ID mismatch: request %d, response %d", pbkdfParamReq.ExchangeID(), pbkdfParamRes.ExchangeID())

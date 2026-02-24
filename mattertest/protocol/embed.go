@@ -33,8 +33,8 @@ var pake201Hex string
 //go:embed dumps/pase-01-pake3.hex
 var pake301Hex string
 
-//go:embed dumps/pase-01-pbkdf-param-response-ack.hex
-var mrp01Hex string
+//go:embed dumps/pase-01-pbkdf-param-request-ack.hex
+var pbkdfParamRequestAck01Hex string
 
 //go:embed dumps/pase-01-pake1-ack.hex
-var mrp02Hex string
+var pake1Ack01Hex string
