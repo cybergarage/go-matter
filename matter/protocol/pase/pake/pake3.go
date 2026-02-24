@@ -14,6 +14,12 @@
 
 package pake
 
+// Pake3Message represents the PASE PAKE3 message, which includes the cA value and other parameters.
+type Pake3Message interface {
+	Message
+	Pake3
+}
+
 // Pake3 represents the PASE PAKE3 message, which includes the cA value and other parameters.
 type Pake3 interface {
 	Pake3Helper

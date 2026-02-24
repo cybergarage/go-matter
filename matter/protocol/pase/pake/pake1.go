@@ -14,6 +14,12 @@
 
 package pake
 
+// Pake1Message represents the PASE PAKE1 message, which includes the initiator random, responder random, and other parameters.
+type Pake1Message interface {
+	Message
+	Pake1
+}
+
 // Pake1 represents the PASE PAKE1 message, which includes the initiator random, responder random, and other parameters.
 type Pake1 interface {
 	Pake1Helper

@@ -20,7 +20,6 @@ import (
 	"testing"
 
 	"github.com/cybergarage/go-logger/log"
-	"github.com/cybergarage/go-matter/matter/encoding/message"
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pake"
 )
 
@@ -41,19 +40,15 @@ func TestPake1Message(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to decode hex string: %v", err)
 			}
-			msg, err := message.NewMessageFromBytes(hexBytes)
+			msg, err := pake.NewPake1MessageFromBytes(hexBytes)
 			if err != nil {
-				t.Fatalf("Failed to parse Message: %v", err)
+				t.Fatalf("Failed to parse Pake1Message: %v", err)
 			}
-
-			reqParam, err := pake.NewPake1FromBytes(msg.Payload())
 			if err != nil {
 				t.Errorf("Failed to parse ParamRequest: %v", err)
 				log.HexInfo(hexBytes)
-				log.Info(msg.String())
-				log.Info(reqParam.String())
 			}
-			log.Infof("pake1: %s", reqParam.String())
+			log.Infof("pake1: %s", msg.String())
 		})
 	}
 }
@@ -75,19 +70,15 @@ func TestPake2Message(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to decode hex string: %v", err)
 			}
-			msg, err := message.NewMessageFromBytes(hexBytes)
+			msg, err := pake.NewPake2MessageFromBytes(hexBytes)
 			if err != nil {
-				t.Fatalf("Failed to parse Message: %v", err)
+				t.Fatalf("Failed to parse Pake2Message: %v", err)
 			}
-
-			reqParam, err := pake.NewPake2FromBytes(msg.Payload())
 			if err != nil {
 				t.Errorf("Failed to parse ParamRequest: %v", err)
 				log.HexInfo(hexBytes)
-				log.Info(msg.String())
-				log.Info(reqParam.String())
 			}
-			log.Infof("pake2: %s", reqParam.String())
+			log.Infof("pake2: %s", msg.String())
 		})
 	}
 }
@@ -109,19 +100,15 @@ func TestPake3Message(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to decode hex string: %v", err)
 			}
-			msg, err := message.NewMessageFromBytes(hexBytes)
+			msg, err := pake.NewPake3MessageFromBytes(hexBytes)
 			if err != nil {
-				t.Fatalf("Failed to parse Message: %v", err)
+				t.Fatalf("Failed to parse Pake3Message: %v", err)
 			}
-
-			reqParam, err := pake.NewPake3FromBytes(msg.Payload())
 			if err != nil {
 				t.Errorf("Failed to parse ParamRequest: %v", err)
 				log.HexInfo(hexBytes)
-				log.Info(msg.String())
-				log.Info(reqParam.String())
 			}
-			log.Infof("pake3: %s", reqParam.String())
+			log.Infof("pake3: %s", msg.String())
 		})
 	}
 }
