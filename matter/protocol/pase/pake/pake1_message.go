@@ -15,6 +15,7 @@
 package pake
 
 import (
+	"github.com/cybergarage/go-matter/matter/encoding/json"
 	"github.com/cybergarage/go-matter/matter/encoding/message"
 )
 
@@ -52,5 +53,5 @@ func (m *pake1Message) Map() map[string]any {
 }
 
 func (m *pake1Message) String() string {
-	return "Pake1Message"
+	return json.MustMarshal(m.Map())
 }
