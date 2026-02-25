@@ -15,6 +15,7 @@
 package crypto
 
 import (
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 )
@@ -72,4 +73,14 @@ func CryptoHash(message []byte) []byte {
 	//   byte[CRYPTO_HASH_LEN_BYTES] SHA-256(M := message)
 	hash := sha256.Sum256(message)
 	return hash[:CryptoHashLenBytes]
+}
+
+// CryptoHMAC computes the keyed-hash message authentication code (HMAC) of a message using a given key.
+// 3.4. Keyed-Hash Message Authentication Code (HMAC).
+func CryptoHMAC(key []byte, message []byte) []byte {
+	// 	Crypto_HMAC(key, message) :=
+	// byte[CRYPTO_HASH_LEN_BYTES] HMAC(K := key, text := message)
+	mac := hmac.New(sha256.New, key)
+	mac.Write(message)
+	return mac.Sum(nil)[:CryptoHashLenBytes]
 }
