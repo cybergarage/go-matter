@@ -110,29 +110,29 @@ func (i *Initiator) EstablishSession(ctx context.Context) (*Result, error) {
 	log.HexInfo(resBytes)
 
 	// 3) SPAKE2+ (PASE)
-	salt, ok := pbkdfRes.PBKDFParams().Salt()
+	_, ok := pbkdfRes.PBKDFParams().Salt()
 	if !ok {
 		return nil, fmt.Errorf("PBKDF parameters missing salt")
 	}
-	iter, ok := pbkdfRes.PBKDFParams().Iterations()
+	_, ok = pbkdfRes.PBKDFParams().Iterations()
 	if !ok {
 		return nil, fmt.Errorf("PBKDF parameters missing iterations")
 	}
-	hs, err := NewHandshake(HandshakeRoleClient, HandshakeOptions{
-		Passcode:  i.passcode.Bytes(),
-		Salt:      salt,
-		PBKDFIter: iter,
-		Hash:      nil, // TODO: support different hash algorithms
-	})
-	if err != nil {
-		return nil, err
-	}
+	// hs, err := NewHandshake(HandshakeRoleClient, HandshakeOptions{
+	// 	Passcode:  i.passcode.Bytes(),
+	// 	Salt:      salt,
+	// 	PBKDFIter: iter,
+	// 	Hash:      nil, // TODO: support different hash algorithms
+	// })
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	// 3-1) Pake1
-	_, err = hs.Start() // TODO: spake2p.Start(), not implemented yet
-	if err != nil {
-		return nil, err
-	}
+	// _, err = hs.Start() // TODO: spake2p.Start(), not implemented yet
+	// if err != nil {
+	// 	return nil, err
+	// }
 	pake1 := pake.NewPake1()
 	pake1Bytes, err := pake1.Bytes()
 	if err != nil {
