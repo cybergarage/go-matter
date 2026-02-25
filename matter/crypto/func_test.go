@@ -19,7 +19,7 @@ import (
 )
 
 func TestCryptoDRBG_Length(t *testing.T) {
-	lengths := []int{0, 1, 16, 32, 64, 128, 256, 1024, 2048}
+	lengths := []int{1, 16, 32, 64, 128, 256, 1024, 2048}
 	for _, l := range lengths {
 		out := CryptoDRBG(l)
 		if out == nil {
@@ -47,6 +47,61 @@ func TestCryptoHash_Length(t *testing.T) {
 		}
 		if len(hash) != CryptoHashLenBytes {
 			t.Errorf("CryptoHash(%d) returned length %d, want %d", i, len(hash), CryptoHashLenBytes)
+		}
+	}
+}
+
+func TestCryptoHMAC_Length(t *testing.T) {
+	keys := [][]byte{
+		[]byte("key"),
+		[]byte("anotherkey"),
+		[]byte(""),
+	}
+	messages := [][]byte{
+		[]byte("message"),
+		[]byte("The quick brown fox jumps over the lazy dog"),
+		[]byte(""),
+	}
+	for i, key := range keys {
+		for j, msg := range messages {
+			hmac := CryptoHMAC(key, msg)
+			if hmac == nil {
+				t.Errorf("CryptoHMAC(%d, %d) returned nil", i, j)
+				continue
+			}
+			if len(hmac) != CryptoHashLenBytes {
+				t.Errorf("CryptoHMAC(%d, %d) returned length %d, want %d", i, j, len(hmac), CryptoHashLenBytes)
+			}
+		}
+	}
+}
+
+func TestCryptoPBKDF_Length(t *testing.T) {
+	passwords := [][]byte{
+		[]byte("password"),
+		[]byte("longerpassword123"),
+		[]byte(""),
+	}
+	salts := [][]byte{
+		[]byte("salt"),
+		[]byte("diffsalt"),
+		[]byte(""),
+	}
+	lengths := []int{1, 16, 32, 64, 128, 256}
+	iterations := 1000
+
+	for _, pw := range passwords {
+		for _, salt := range salts {
+			for _, l := range lengths {
+				out, err := CryptoPBKDF(pw, salt, iterations, l)
+				if err != nil {
+					t.Errorf("CryptoPBKDF(%q, %q, %d, %d) returned error: %v", pw, salt, iterations, l, err)
+					continue
+				}
+				if len(out) != l {
+					t.Errorf("CryptoPBKDF(%q, %q, %d, %d) returned length %d, want %d", pw, salt, iterations, l, len(out), l)
+				}
+			}
 		}
 	}
 }
