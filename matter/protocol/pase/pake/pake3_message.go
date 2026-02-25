@@ -47,7 +47,7 @@ func (m *pake3Message) Bytes() ([]byte, error) {
 func (m *pake3Message) Map() map[string]any {
 	return map[string]any{
 		"message":       m.Message.Map(),
-		"pake-2-struct": m.Pake3.Map(),
+		"pake-3-struct": m.Pake3.Map(),
 	}
 }
 
