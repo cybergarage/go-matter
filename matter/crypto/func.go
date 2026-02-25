@@ -21,18 +21,6 @@ import (
 	"crypto/sha256"
 )
 
-const (
-	// CryptoHashLenBytes defines the length of the hash output in bytes for the CryptoHash function.
-	// 3.3. Hash function (Hash).
-	CryptoHashLenBytes = 32
-	// CryptoGroupSizeBytes defines the size of the group elements in bytes for the CryptoGroup operations.
-	// 3.5. Public Key Cryptography.
-	CryptoGroupSizeBytes = 32
-	// CryptoPublicKeySizeBytes defines the size of the public key in bytes for the CryptoGroup operations.
-	// 3.5. Public Key Cryptography.
-	CryptoPublicKeySizeBytes = (CryptoGroupSizeBytes * 2) + 1
-)
-
 // CryptoDRBG is a placeholder function for a deterministic random bit generator (DRBG) used in cryptographic operations.
 // 3.1. Deterministic Random Bit Generator (DRBG).
 func CryptoDRBG(l int) []byte {

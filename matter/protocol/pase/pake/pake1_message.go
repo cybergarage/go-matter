@@ -42,7 +42,7 @@ func WithPake1MessageParamResponseMessage(paramRes pbkdf.ParamResponseMessage) P
 	}
 }
 
-// WithPake1MessageParamRequest sets the ParamRequest in the Pake1Message, which is used to construct the Pake1 payload.
+// WithPake1MessageMessageCounter sets the message counter in the Pake1Message.
 func WithPake1MessageMessageCounter(counter message.MessageCounter) Pake1MessageOption {
 	return func(m *pake1Message) {
 		m.headerOps = append(m.headerOps, message.WithHeaderMessageCounter(counter))
