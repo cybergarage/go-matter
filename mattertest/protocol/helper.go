@@ -21,6 +21,7 @@ import (
 
 	"github.com/cybergarage/go-matter/matter/encoding/message"
 	"github.com/cybergarage/go-matter/matter/protocol/mrp"
+	"github.com/cybergarage/go-matter/matter/protocol/pase/pake"
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pbkdf"
 )
 
@@ -59,6 +60,45 @@ func decodeHexdumpMRPAck(t *testing.T, hexStr string) mrp.Ack {
 	msg, err := mrp.NewAckFromBytes(hexBytes)
 	if err != nil {
 		t.Fatalf("Failed to parse Ack: %v", err)
+	}
+	return msg
+}
+
+func decodeHexdumpPake1Message(t *testing.T, hexStr string) pake.Pake1Message {
+	t.Helper()
+	hexBytes, err := hex.DecodeString(hexStr)
+	if err != nil {
+		t.Fatalf("Failed to decode hex string: %v", err)
+	}
+	msg, err := pake.NewPake1MessageFromBytes(hexBytes)
+	if err != nil {
+		t.Fatalf("Failed to parse Pake1Message: %v", err)
+	}
+	return msg
+}
+
+func decodeHexdumpPake2Message(t *testing.T, hexStr string) pake.Pake2Message {
+	t.Helper()
+	hexBytes, err := hex.DecodeString(hexStr)
+	if err != nil {
+		t.Fatalf("Failed to decode hex string: %v", err)
+	}
+	msg, err := pake.NewPake2MessageFromBytes(hexBytes)
+	if err != nil {
+		t.Fatalf("Failed to parse Pake2Message: %v", err)
+	}
+	return msg
+}
+
+func decodeHexdumpPake3Message(t *testing.T, hexStr string) pake.Pake3Message {
+	t.Helper()
+	hexBytes, err := hex.DecodeString(hexStr)
+	if err != nil {
+		t.Fatalf("Failed to decode hex string: %v", err)
+	}
+	msg, err := pake.NewPake3MessageFromBytes(hexBytes)
+	if err != nil {
+		t.Fatalf("Failed to parse Pake3Message: %v", err)
 	}
 	return msg
 }
@@ -194,5 +234,17 @@ func validateAckMessage(msg mrp.Ack) error {
 		return fmt.Errorf("expected empty payload for standalone ACK, got %d bytes", len(msg.Payload()))
 	}
 
+	return nil
+}
+
+func validatePake1Message(msg pake.Pake1Message) error {
+	return nil
+}
+
+func validatePake2Message(msg pake.Pake2Message) error {
+	return nil
+}
+
+func validatePake3Message(msg pake.Pake3Message) error {
 	return nil
 }

@@ -17,11 +17,36 @@ package pake
 import (
 	"github.com/cybergarage/go-matter/matter/encoding/json"
 	"github.com/cybergarage/go-matter/matter/encoding/message"
+	"github.com/cybergarage/go-matter/matter/protocol/pase/pbkdf"
+	"github.com/cybergarage/go-matter/matter/types"
 )
 
 type pake1Message struct {
+	headerOps   []message.HeaderOption
+	protocolOps []message.ProtocolHeaderOption
+	pake1ReqOps []Pake1Option
 	Message
 	Pake1
+}
+
+// Pake1MessageOption defines a functional option for configuring the Pake1Message.
+type Pake1MessageOption func(*pake1Message)
+
+// WithPake1MessageParamResponseMessage sets the ParamResponseMessage in the Pake1Message, which is used to construct the Pake1 payload.
+func WithPake1MessageParamResponseMessage(paramRes pbkdf.ParamResponseMessage) Pake1MessageOption {
+	return func(m *pake1Message) {
+		// 4.10.2. Exchange ID
+		m.protocolOps = append(m.protocolOps,
+			message.WithHeaderExchangeID(paramRes.ExchangeID()),
+		)
+	}
+}
+
+// WithPake1MessageParamRequest sets the ParamRequest in the Pake1Message, which is used to construct the Pake1 payload.
+func WithPake1MessageMessageCounter(counter message.MessageCounter) Pake1MessageOption {
+	return func(m *pake1Message) {
+		m.headerOps = append(m.headerOps, message.WithHeaderMessageCounter(counter))
+	}
 }
 
 // NewPake1MessageFromBytes creates a new Pake1Message from the given byte slice, which is expected to be a valid message containing a Pake1 payload.
@@ -34,11 +59,67 @@ func NewPake1MessageFromBytes(data []byte) (Pake1Message, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return &pake1Message{
-		Message: msg,
-		Pake1:   pake,
+		headerOps:   nil,
+		protocolOps: nil,
+		pake1ReqOps: nil,
+		Message:     msg,
+		Pake1:       pake,
 	}, nil
+}
+
+// NewPake1Message creates a new Pake1Message using the provided options.
+func NewPake1Message(opts ...any) (Pake1Message, error) {
+	msg := &pake1Message{
+		headerOps: []message.HeaderOption{
+			message.WithHeaderSessionID(0x0000),
+			message.WithHeaderSecurityFlags(0x00),
+			message.WithHeaderMessageCounter(message.NewMessageCounter()),
+			message.WithHeaderSourceNodeID(types.NewOperationalNodeID()),
+		},
+		protocolOps: []message.ProtocolHeaderOption{
+			// 4.10. Message Exchanges
+			message.WithHeaderExchangeFlags(message.InitiatorFlag | message.ReliabilityFlag),
+			// 4.11.1. Secure Channel Protocol Messages
+			message.WithHeaderOpcode(message.PBKDFParamRequest),
+			// 4.10.2. Exchange ID
+			message.WithHeaderExchangeID(message.NewFirstExchangeID()),
+			// 4.4.3.4. Protocol ID (16 bits)
+			message.WithHeaderProtocolID(message.SecureChannel),
+		},
+		pake1ReqOps: []Pake1Option{},
+		Message:     nil,
+		Pake1:       nil,
+	}
+
+	for _, opt := range opts {
+		switch opt := opt.(type) {
+		case message.HeaderOption:
+			msg.headerOps = append(msg.headerOps, opt)
+		case message.ProtocolHeaderOption:
+			msg.protocolOps = append(msg.protocolOps, opt)
+		case Pake1Option:
+			msg.pake1ReqOps = append(msg.pake1ReqOps, opt)
+		case Pake1MessageOption:
+			opt(msg)
+		default:
+			return nil, errInvalidOption(opt)
+		}
+	}
+
+	msg.Pake1 = NewPake1(msg.pake1ReqOps...)
+	payload, err := msg.Pake1.Bytes()
+	if err != nil {
+		return nil, err
+	}
+
+	msg.Message = message.NewMessage(
+		message.WithMessageFrameHeader(message.NewHeader(msg.headerOps...)),
+		message.WithMessageProtocolHeader(message.NewProtocolHeader(msg.protocolOps...)),
+		message.WithMessagePayload(payload),
+	)
+
+	return msg, nil
 }
 
 func (m *pake1Message) Bytes() ([]byte, error) {

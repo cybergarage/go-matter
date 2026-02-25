@@ -29,7 +29,7 @@ func TestPBKDFParamRequestMessage(t *testing.T) {
 		msg pbkdf.ParamRequestMessage
 	}{
 		{
-			msg: decodeHexdumpPBKDFParamRequestMessage(t, pbkdfParamRequest01Hex),
+			msg: decodeHexdumpPBKDFParamRequestMessage(t, pbkdfParamRequestHex01),
 		},
 		{
 			msg: func() pbkdf.ParamRequestMessage {
@@ -61,7 +61,7 @@ func TestPBKDFParamResponseMessage(t *testing.T) {
 		msg pbkdf.ParamResponseMessage
 	}{
 		{
-			msg: decodeHexdumpPBKDFParamResponseMessage(t, pbkdfParamResponse01Hex),
+			msg: decodeHexdumpPBKDFParamResponseMessage(t, pbkdfParamResponseHex01),
 		},
 	}
 

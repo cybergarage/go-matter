@@ -35,13 +35,13 @@ func TestMRPMessage(t *testing.T) {
 		expected expected
 	}{
 		{
-			hexStr: pbkdfParamRequestAck01Hex,
+			hexStr: pbkdfParamRequestAckHex01,
 			expected: expected{
 				messageCounter: 0xF0E9E46,
 			},
 		},
 		{
-			hexStr: pake1Ack01Hex,
+			hexStr: pake1AckHex01,
 			expected: expected{
 				messageCounter: 0xF0E9E48,
 			},

@@ -22,6 +22,7 @@ import (
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/encoding/message"
 	"github.com/cybergarage/go-matter/matter/protocol/mrp"
+	"github.com/cybergarage/go-matter/matter/protocol/pase/pake"
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pbkdf"
 )
 
@@ -36,11 +37,19 @@ func TestPaseSequence(t *testing.T) {
 		pbkdfParamReq    pbkdf.ParamRequestMessage
 		pbkdfParamReqAck mrp.Ack
 		pbkdfParamRes    pbkdf.ParamResponseMessage
+		pake1            pake.Pake1Message
+		pake1Ack         mrp.Ack
+		pake2            pake.Pake2Message
+		pake3            pake.Pake3Message
 	}{
 		{
-			pbkdfParamReq:    decodeHexdumpPBKDFParamRequestMessage(t, pbkdfParamRequest01Hex),
-			pbkdfParamReqAck: decodeHexdumpMRPAck(t, pbkdfParamRequestAck01Hex),
-			pbkdfParamRes:    decodeHexdumpPBKDFParamResponseMessage(t, pbkdfParamResponse01Hex),
+			pbkdfParamReq:    decodeHexdumpPBKDFParamRequestMessage(t, pbkdfParamRequestHex01),
+			pbkdfParamReqAck: decodeHexdumpMRPAck(t, pbkdfParamRequestAckHex01),
+			pbkdfParamRes:    decodeHexdumpPBKDFParamResponseMessage(t, pbkdfParamResponseHex01),
+			pake1:            decodeHexdumpPake1Message(t, pake1Hex01),
+			pake1Ack:         decodeHexdumpMRPAck(t, pake1AckHex01),
+			pake2:            decodeHexdumpPake2Message(t, pake2Hex01),
+			pake3:            decodeHexdumpPake3Message(t, pake3Hex01),
 		},
 		{
 			pbkdfParamReq: func() pbkdf.ParamRequestMessage {
@@ -54,6 +63,10 @@ func TestPaseSequence(t *testing.T) {
 			}(),
 			pbkdfParamReqAck: nil,
 			pbkdfParamRes:    nil,
+			pake1:            nil,
+			pake1Ack:         nil,
+			pake2:            nil,
+			pake3:            nil,
 		},
 	}
 
@@ -164,6 +177,139 @@ func TestPaseSequence(t *testing.T) {
 				}
 
 				log.Infof("%s %s", name, pbkdfParamRes.String())
+			})
+
+			// PAKE1
+			name = fmt.Sprintf("pake1-%02d", n)
+			pake1 := tt.pake1
+			t.Run(name, func(t *testing.T) {
+				if pake1 == nil {
+					pake1, err = pake.NewPake1Message(
+						pake.WithPake1MessageParamResponseMessage(pbkdfParamRes),
+						message.WithHeaderMessageCounter(pbkdfParamReq.MessageCounter().Next()),
+					)
+					if err != nil {
+						t.Skipf("Failed to create ParamResponseMessage: %v", err)
+						return
+					}
+				}
+
+				// Validate the PAKE1 message
+
+				if err := validatePake1Message(pake1); err != nil {
+					t.Errorf("Validation failed: %v", err)
+				}
+
+				// Validate that the PAKE1 message corresponds to the PBKDF Parameter Reuest
+
+				if pake1.MessageCounter() <= pbkdfParamReq.MessageCounter() {
+					t.Errorf("PAKE1 MessageCounter should be greater than PBKDF request MessageCounter: got %d, want > %d", pake1.MessageCounter(), pbkdfParamReq.MessageCounter())
+				}
+
+				// Validate that the PAKE1 message corresponds to the PBKDF Parameter Response
+
+				if pake1.ExchangeID() != pbkdfParamRes.ExchangeID() {
+					t.Errorf("Exchange ID mismatch: PBKDF response %d, PAKE1 %d", pbkdfParamRes.ExchangeID(), pake1.ExchangeID())
+				}
+
+				log.Infof("%s %s", name, pake1.String())
+			})
+
+			if pake1 == nil {
+				// If PAKE1 message is not available, skip the rest of the sequence
+				return
+			}
+
+			// PAKE1 Ack
+			name = fmt.Sprintf("pake1-ack-%02d", n)
+			pake1Ack := tt.pake1Ack
+			t.Run(name, func(t *testing.T) {
+				if pake1Ack == nil {
+					pake1Ack, err = mrp.NewAck(
+						mrp.WithAckReferenceMessage(pake1),
+						mrp.WithAckMessageCounter(pake1.MessageCounter()),
+					)
+					if err != nil {
+						t.Fatalf("Failed to create PAKE1 ACK: %v", err)
+					}
+				}
+
+				// Validate the ACK message
+
+				if err := validateAckMessage(pake1Ack); err != nil {
+					t.Errorf("Validation failed: %v", err)
+				}
+
+				// Validate that the ACK corresponds to the PAKE1 message
+
+				sourceNodeIDPake1, hasSourceNodeIDPake1 := pake1.SourceNodeID()
+				destNodeIDAck, hasDestNodeIDAck := pake1Ack.DestinationNodeID()
+				if !hasSourceNodeIDPake1 || !hasDestNodeIDAck {
+					t.Errorf("Missing Node ID: PAKE1 hasSourceNodeID %v, ACK hasDestinationNodeID %v", hasSourceNodeIDPake1, hasDestNodeIDAck)
+				} else if sourceNodeIDPake1 != destNodeIDAck {
+					t.Errorf("Node ID mismatch: PAKE1 source %d, ACK destination %d", sourceNodeIDPake1, destNodeIDAck)
+				}
+
+				ackCounter, hasAckCounter := pake1Ack.AckMessageCounter()
+				pake1MsgCounter := pake1.MessageCounter()
+				if !hasAckCounter {
+					t.Error("Expected ACK to have message counter")
+				} else if ackCounter != pake1MsgCounter {
+					t.Errorf("ACK message counter mismatch: got %d, want %d", ackCounter, pake1MsgCounter)
+				}
+
+				if pake1Ack.ExchangeID() != pake1.ExchangeID() {
+					t.Errorf("ACK ExchangeID mismatch: got 0x%04X, want 0x%04X", pake1Ack.ExchangeID(), pake1.ExchangeID())
+				}
+
+				log.Infof("%s %s", name, pake1Ack.String())
+			})
+
+			// PAKE2
+			name = fmt.Sprintf("pake2-%02d", n)
+			pake2 := tt.pake2
+			t.Run(name, func(t *testing.T) {
+				if pake2 == nil {
+					pake2, err = pake.NewPake2Message(
+						pake.WithPake2MessagePake1Message(pake1),
+						message.WithHeaderMessageCounter(pake1.MessageCounter().Next()),
+					)
+					if err != nil {
+						t.Skipf("Failed to create PAKE2 message: %v", err)
+						return
+					}
+				}
+
+				// Validate the PAKE2 message
+
+				if err := validatePake2Message(pake2); err != nil {
+					t.Errorf("Validation failed: %v", err)
+				}
+
+				log.Infof("%s %s", name, pake2.String())
+			})
+
+			// PAKE3
+			name = fmt.Sprintf("pake3-%02d", n)
+			pake3 := tt.pake3
+			t.Run(name, func(t *testing.T) {
+				if pake3 == nil {
+					pake3, err = pake.NewPake3Message(
+						pake.WithPake3MessagePake2Message(pake2),
+						message.WithHeaderMessageCounter(pake2.MessageCounter().Next()),
+					)
+					if err != nil {
+						t.Skipf("Failed to create PAKE3 message: %v", err)
+						return
+					}
+				}
+
+				// Validate the PAKE3 message
+				if err := validatePake3Message(pake3); err != nil {
+					t.Errorf("Validation failed: %v", err)
+				}
+
+				log.Infof("%s %s", name, pake3.String())
 			})
 		})
 	}

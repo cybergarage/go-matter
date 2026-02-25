@@ -30,7 +30,7 @@ func TestPake1Message(t *testing.T) {
 		hexStr string
 	}{
 		{
-			hexStr: pake101Hex,
+			hexStr: pake1Hex01,
 		},
 	}
 
@@ -60,7 +60,7 @@ func TestPake2Message(t *testing.T) {
 		hexStr string
 	}{
 		{
-			hexStr: pake201Hex,
+			hexStr: pake2Hex01,
 		},
 	}
 
@@ -90,7 +90,7 @@ func TestPake3Message(t *testing.T) {
 		hexStr string
 	}{
 		{
-			hexStr: pake301Hex,
+			hexStr: pake3Hex01,
 		},
 	}
 

@@ -17,11 +17,35 @@ package pake
 import (
 	"github.com/cybergarage/go-matter/matter/encoding/json"
 	"github.com/cybergarage/go-matter/matter/encoding/message"
+	"github.com/cybergarage/go-matter/matter/types"
 )
 
 type pake2Message struct {
+	headerOps   []message.HeaderOption
+	protocolOps []message.ProtocolHeaderOption
+	pake2ReqOps []Pake2Option
 	Message
 	Pake2
+}
+
+// Pake2MessageOption defines a functional option for configuring the Pake2Message.
+type Pake2MessageOption func(*pake2Message)
+
+// WithPake2MessagePake1Message sets the Pake1Message in the Pake2Message, which is used to construct the Pake2 payload.
+func WithPake2MessagePake1Message(pake1 Pake1Message) Pake2MessageOption {
+	return func(m *pake2Message) {
+		// 4.10.2. Exchange ID
+		m.protocolOps = append(m.protocolOps,
+			message.WithHeaderExchangeID(pake1.ExchangeID()),
+		)
+	}
+}
+
+// WithPake2MessageMessageCounter sets the message counter in the Pake2Message.
+func WithPake2MessageMessageCounter(counter message.MessageCounter) Pake2MessageOption {
+	return func(m *pake2Message) {
+		m.headerOps = append(m.headerOps, message.WithHeaderMessageCounter(counter))
+	}
 }
 
 // NewPake2MessageFromBytes creates a new Pake2Message from the given byte slice, which is expected to be a valid message containing a Pake2 payload.
@@ -35,9 +59,66 @@ func NewPake2MessageFromBytes(data []byte) (Pake2Message, error) {
 		return nil, err
 	}
 	return &pake2Message{
-		Message: msg,
-		Pake2:   pake,
+		headerOps:   nil,
+		protocolOps: nil,
+		pake2ReqOps: nil,
+		Message:     msg,
+		Pake2:       pake,
 	}, nil
+}
+
+// NewPake2Message creates a new Pake2Message using the provided options.
+func NewPake2Message(opts ...any) (Pake2Message, error) {
+	msg := &pake2Message{
+		headerOps: []message.HeaderOption{
+			message.WithHeaderSessionID(0x0000),
+			message.WithHeaderSecurityFlags(0x00),
+			message.WithHeaderMessageCounter(message.NewMessageCounter()),
+			message.WithHeaderSourceNodeID(types.NewOperationalNodeID()),
+		},
+		protocolOps: []message.ProtocolHeaderOption{
+			// 4.10. Message Exchanges
+			message.WithHeaderExchangeFlags(message.InitiatorFlag | message.ReliabilityFlag),
+			// 4.11.1. Secure Channel Protocol Messages
+			message.WithHeaderOpcode(message.PBKDFParamRequest),
+			// 4.10.2. Exchange ID
+			message.WithHeaderExchangeID(message.NewFirstExchangeID()),
+			// 4.4.3.4. Protocol ID (16 bits)
+			message.WithHeaderProtocolID(message.SecureChannel),
+		},
+		pake2ReqOps: []Pake2Option{},
+		Message:     nil,
+		Pake2:       nil,
+	}
+
+	for _, opt := range opts {
+		switch opt := opt.(type) {
+		case message.HeaderOption:
+			msg.headerOps = append(msg.headerOps, opt)
+		case message.ProtocolHeaderOption:
+			msg.protocolOps = append(msg.protocolOps, opt)
+		case Pake2Option:
+			msg.pake2ReqOps = append(msg.pake2ReqOps, opt)
+		case Pake2MessageOption:
+			opt(msg)
+		default:
+			return nil, errInvalidOption(opt)
+		}
+	}
+
+	msg.Pake2 = NewPake2(msg.pake2ReqOps...)
+	payload, err := msg.Pake2.Bytes()
+	if err != nil {
+		return nil, err
+	}
+
+	msg.Message = message.NewMessage(
+		message.WithMessageFrameHeader(message.NewHeader(msg.headerOps...)),
+		message.WithMessageProtocolHeader(message.NewProtocolHeader(msg.protocolOps...)),
+		message.WithMessagePayload(payload),
+	)
+
+	return msg, nil
 }
 
 func (m *pake2Message) Bytes() ([]byte, error) {
