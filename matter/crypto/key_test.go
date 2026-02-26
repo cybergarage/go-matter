@@ -19,14 +19,22 @@ import (
 )
 
 func TestCryptoGenerateKeypair(t *testing.T) {
-	kp, err := CryptoGenerateKeypair()
+	kp, err := CryptoGenerateKeyPair()
 	if err != nil {
 		t.Fatalf("CryptoGenerateKeypair returned error: %v", err)
 	}
-	if kp.Public() == nil {
-		t.Error("Expected non-nil PublicKey")
-	}
 	if kp.Private() == nil {
 		t.Error("Expected non-nil PrivateKey")
+	}
+	if kp.Public() == nil {
+		t.Error("Expected non-nil PublicKey")
+		return
+	}
+	pubBytes, err := kp.Public().Bytes()
+	if err != nil {
+		t.Errorf("PublicKey.Bytes() returned error: %v", err)
+	}
+	if len(pubBytes) != CryptoPublicKeySizeBytes {
+		t.Errorf("PublicKey.Bytes() returned %d bytes, expected %d", len(pubBytes), CryptoPublicKeySizeBytes)
 	}
 }

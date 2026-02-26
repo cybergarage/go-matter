@@ -60,9 +60,9 @@ func (k *keypair) Private() PrivateKey {
 	return k.prv
 }
 
-// CryptoGenerateKeypair generates a new key pair for use in cryptographic operations.
+// CryptoGenerateKeyPair generates a new key pair for use in cryptographic operations.
 // 3.5.2. Key generation.
-func CryptoGenerateKeypair() (KeyPair, error) {
+func CryptoGenerateKeyPair() (KeyPair, error) {
 	// Crypto_GenerateKeypair() :=
 	// KeyPair ECCGenerateKeypair()
 	return ECCGenerateKeypair()
