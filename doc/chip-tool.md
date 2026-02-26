@@ -38,3 +38,4 @@ ninja -C out/host
 
 - [project-chip/connectedhomeip: Matter (formerly Project CHIP)](https://github.com/project-chip/connectedhomeip)
 - [Welcome to Matter’s documentation — Matter documentation](https://project-chip.github.io/connectedhomeip-doc/index.html)
+- [SPAKE2P Parameters Tool — Matter documentation](https://project-chip.github.io/connectedhomeip-doc/src/tools/spake2p/README.html)
