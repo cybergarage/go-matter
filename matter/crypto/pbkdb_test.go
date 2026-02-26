@@ -12,23 +12,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package pbkdf
+package crypto
 
 import (
-	"crypto/sha256"
 	"testing"
 )
 
 func TestCryptoPBKDF(t *testing.T) {
-	p := NewParams(
-		WithParamsPassword([]byte("password")),
-		WithParamsSalt([]byte("salt")),
-		WithParamsIterations(1000),
-		WithParamsKeyLength(32),
-		WithParamsHash(sha256.New),
-	)
-	_, err := CryptoPBKDF(p)
-	if err != nil {
-		t.Fatalf("CryptoPBKDF failed: %v", err)
+	passwords := [][]byte{
+		[]byte("password"),
+		[]byte("longerpassword123"),
+		[]byte(""),
+	}
+	salts := [][]byte{
+		[]byte("salt"),
+		[]byte("diffsalt"),
+		[]byte(""),
+	}
+	lengths := []int{1, 16, 32, 64, 128, 256}
+	iterations := 1000
+
+	for _, pw := range passwords {
+		for _, salt := range salts {
+			for _, l := range lengths {
+				out, err := CryptoPBKDF(pw, salt, iterations, l)
+				if err != nil {
+					t.Errorf("CryptoPBKDF(%q, %q, %d, %d) returned error: %v", pw, salt, iterations, l, err)
+					continue
+				}
+				if len(out) != l {
+					t.Errorf("CryptoPBKDF(%q, %q, %d, %d) returned length %d, want %d", pw, salt, iterations, l, len(out), l)
+				}
+			}
+		}
 	}
 }

@@ -16,7 +16,6 @@ package crypto
 
 import (
 	"crypto/hmac"
-	"crypto/pbkdf2"
 	"crypto/rand"
 	"crypto/sha256"
 )
@@ -78,10 +77,4 @@ func CryptoHMAC(key []byte, message []byte) []byte {
 	mac := hmac.New(sha256.New, key)
 	mac.Write(message)
 	return mac.Sum(nil)[:CryptoHashLenBytes]
-}
-
-// CryptoPBKDF computes the password-based key derivation function (PBKDF) of a password using a given salt and iteration count.
-// 3.9. Password-Based Key Derivation Function (PBKDF).
-func CryptoPBKDF(input []byte, salt []byte, iterations int, length int) ([]byte, error) {
-	return pbkdf2.Key(sha256.New, string(input), salt, iterations, length)
 }

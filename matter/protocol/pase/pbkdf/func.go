@@ -15,40 +15,17 @@
 package pbkdf
 
 import (
-	"crypto/pbkdf2"
-
+	"github.com/cybergarage/go-matter/matter/crypto"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 )
 
 // 3.9. Password-Based Key Derivation Function (PBKDF).
 const (
-	PBKDBFIterationsMin = 1000
-	PBKDBFIterationsMax = 100000
-	PBKDBFSaltMin       = 16
-	PBKDBFSaltMax       = 32
+	PBKDBFIterationsMin = crypto.PBKDBFIterationsMin
+	PBKDBFIterationsMax = crypto.PBKDBFIterationsMax
+	PBKDBFSaltMin       = crypto.PBKDBFSaltMin
+	PBKDBFSaltMax       = crypto.PBKDBFSaltMax
 )
-
-// CryptoPBKDF implements PBKDF2 as per RFC 2898
-// 3.9. Password-Based Key Derivation Function (PBKDF).
-func CryptoPBKDF(p Params) ([]byte, error) {
-	password, ok := p.Password()
-	if !ok {
-		return nil, tlv.NewErrMissingField("password")
-	}
-	salt, ok := p.Salt()
-	if !ok {
-		return nil, tlv.NewErrMissingField("salt")
-	}
-	iterations, ok := p.Iterations()
-	if !ok {
-		return nil, tlv.NewErrMissingField("iterations")
-	}
-	keyLength, ok := p.KeyLength()
-	if !ok {
-		return nil, tlv.NewErrMissingField("keyLength")
-	}
-	return pbkdf2.Key(p.Hash, string(password), salt, iterations, keyLength)
-}
 
 // CryptoPBKDFParameterSet encodes the PBKDF parameters into the given TLV encoder according to the Matter specification.
 // 3.9. Password-Based Key Derivation Function (PBKDF).
