@@ -18,28 +18,26 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"math/big"
 )
 
 // PrivateKey represents a private key used in cryptographic operations.
-type PrivateKey *big.Int
+type PrivateKey interface {
+	// Bytes returns the byte representation of the private key.
+	Bytes() ([]byte, error)
+}
+
+type privateKey struct {
+	*ecdsa.PrivateKey
+}
 
 // PublicKey represents a public key used in cryptographic operations.
 type PublicKey interface {
-	X() *big.Int
-	Y() *big.Int
+	// Bytes returns the byte representation of the public key.
+	Bytes() ([]byte, error)
 }
 
 type publicKey struct {
-	x, y *big.Int
-}
-
-func (p *publicKey) X() *big.Int {
-	return p.x
-}
-
-func (p *publicKey) Y() *big.Int {
-	return p.y
+	*ecdsa.PublicKey
 }
 
 // KeyPair represents a pair of public and private keys used in cryptographic operations.
@@ -50,16 +48,16 @@ type KeyPair interface {
 }
 
 type keypair struct {
-	priv *ecdsa.PrivateKey
-	pub  publicKey
+	prv *privateKey
+	pub *publicKey
 }
 
 func (k *keypair) Public() PublicKey {
-	return &k.pub
+	return k.pub
 }
 
 func (k *keypair) Private() PrivateKey {
-	return k.priv.D
+	return k.prv
 }
 
 // CryptoGenerateKeypair generates a new key pair for use in cryptographic operations.
@@ -78,10 +76,11 @@ func ECCGenerateKeypair() (KeyPair, error) {
 		return nil, err
 	}
 	return &keypair{
-		priv: priv,
-		pub: publicKey{
-			x: priv.PublicKey.X,
-			y: priv.PublicKey.Y,
+		prv: &privateKey{
+			PrivateKey: priv,
+		},
+		pub: &publicKey{
+			PublicKey: &priv.PublicKey,
 		},
 	}, nil
 }
