@@ -80,7 +80,7 @@ func NewPake2Message(opts ...any) (Pake2Message, error) {
 			// 4.10. Message Exchanges
 			message.WithHeaderExchangeFlags(message.InitiatorFlag | message.ReliabilityFlag),
 			// 4.11.1. Secure Channel Protocol Messages
-			message.WithHeaderOpcode(message.PBKDFParamRequest),
+			message.WithHeaderOpcode(message.PASEPake2),
 			// 4.10.2. Exchange ID
 			message.WithHeaderExchangeID(message.NewFirstExchangeID()),
 			// 4.4.3.4. Protocol ID (16 bits)
