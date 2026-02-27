@@ -14,30 +14,16 @@
 
 package crypto
 
-import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
-)
-
 // PrivateKey represents a private key used in cryptographic operations.
 type PrivateKey interface {
 	// Bytes returns the byte representation of the private key.
 	Bytes() ([]byte, error)
 }
 
-type privateKey struct {
-	*ecdsa.PrivateKey
-}
-
 // PublicKey represents a public key used in cryptographic operations.
 type PublicKey interface {
 	// Bytes returns the byte representation of the public key.
 	Bytes() ([]byte, error)
-}
-
-type publicKey struct {
-	*ecdsa.PublicKey
 }
 
 // KeyPair represents a pair of public and private keys used in cryptographic operations.
@@ -47,40 +33,10 @@ type KeyPair interface {
 	Private() PrivateKey
 }
 
-type keypair struct {
-	prv *privateKey
-	pub *publicKey
-}
-
-func (k *keypair) Public() PublicKey {
-	return k.pub
-}
-
-func (k *keypair) Private() PrivateKey {
-	return k.prv
-}
-
 // CryptoGenerateKeyPair generates a new key pair for use in cryptographic operations.
 // 3.5.2. Key generation.
 func CryptoGenerateKeyPair() (KeyPair, error) {
 	// Crypto_GenerateKeypair() :=
 	// KeyPair ECCGenerateKeypair()
 	return ECCGenerateKeypair()
-}
-
-// ECCGenerateKeypair() SHALL generate a key pair according to Section 3.2.1 of SEC 1.
-// 3.5.2. Key generation.
-func ECCGenerateKeypair() (KeyPair, error) {
-	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		return nil, err
-	}
-	return &keypair{
-		prv: &privateKey{
-			PrivateKey: priv,
-		},
-		pub: &publicKey{
-			PublicKey: &priv.PublicKey,
-		},
-	}, nil
 }

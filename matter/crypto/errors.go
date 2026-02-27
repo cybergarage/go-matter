@@ -25,3 +25,7 @@ var ErrInvalid = errors.New("invalid")
 func newErrInvalid(msg string) error {
 	return fmt.Errorf("%w: %s", ErrInvalid, msg)
 }
+
+func newErrInvalidLen(name string, expected, got int) error {
+	return fmt.Errorf("%w length for %s: expected %d, got %d", ErrInvalid, name, expected, got)
+}
