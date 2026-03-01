@@ -97,7 +97,16 @@ func CryptoPAKEValuesResponder(passcode []byte, salt []byte, iterations int) ([]
 func CryptoPA(w0, w1 []byte) ([]byte, error) {
 	// Crypto_pA(Crypto_PAKEValues_Initiator) :=
 	//   byte pA[CRYPTO_PUBLIC_KEY_SIZE_BYTES]
-	return cryptoP(w0, w1)
+	// Validate inputs
+	if len(w0) != CryptoGroupSizeBytes {
+		return nil, newErrInvalidLen("w0", CryptoGroupSizeBytes, len(w0))
+	}
+	if len(w1) != CryptoGroupSizeBytes {
+		return nil, newErrInvalidLen("w1", CryptoGroupSizeBytes, len(w1))
+	}
+	// In the Matter/CHIP spec, pA is derived from the PAKE values.
+	// Since w1 is a scalar, convert it to a curve point: pA = w1 * P.
+	return cryptoPAKEMultP(w1)
 }
 
 // CryptoPB returns the public key pB computed by the responder using w0 and L.
@@ -105,7 +114,13 @@ func CryptoPA(w0, w1 []byte) ([]byte, error) {
 func CryptoPB(w0, l []byte) ([]byte, error) {
 	// Crypto_pB(Crypto_PAKEValues_Responder) :=
 	//	byte pB[CRYPTO_PUBLIC_KEY_SIZE_BYTES]
-	return cryptoP(w0, l)
+	// Validate w0 length
+	if len(w0) != CryptoGroupSizeBytes {
+		return nil, newErrInvalidLen("w0", CryptoGroupSizeBytes, len(w0))
+	}
+	// L is already a curve point (w1 * P from CryptoPAKEValuesResponder),
+	// so validate it and return.
+	return cryptoValidatePoint(l)
 }
 
 // 3.10.3. Computation of transcript TT
@@ -161,33 +176,26 @@ func cryptoPAKEMultP(in []byte) ([]byte, error) {
 	return out, nil
 }
 
-func cryptoP(xb, yb []byte) ([]byte, error) {
+// cryptoValidatePoint validates that the input is a valid SEC1-encoded P-256 point.
+func cryptoValidatePoint(pointBytes []byte) ([]byte, error) {
 	curve := ellipticCurve
-	p := curve.Params().P
-	// Basic length sanity (avoid absurd sizes)
-	if len(xb) != CryptoGroupSizeBytes || len(yb) != CryptoGroupSizeBytes {
-		return nil, fmt.Errorf("invalid coordinate length: expected %d bytes each, got %d and %d", CryptoGroupSizeBytes, len(xb), len(yb))
+	// Check length: 0x04 || X || Y
+	if len(pointBytes) != CryptoPublicKeySizeBytes {
+		return nil, newErrInvalidLen("public key point", CryptoPublicKeySizeBytes, len(pointBytes))
 	}
-	// Convert to big.Int (treat as unsigned big-endian)
-	x := new(big.Int).SetBytes(xb)
-	y := new(big.Int).SetBytes(yb)
-	// Range checks: 0 <= x,y < p
-	// (elliptic.Marshal doesn't validate curve membership; Unmarshal does on decode,
-	//  but for safety we validate here too.)
-	if x.Sign() < 0 || y.Sign() < 0 {
-		return nil, errors.New("negative coordinate")
+	// Check SEC1 uncompressed format prefix
+	if pointBytes[0] != 0x04 {
+		return nil, fmt.Errorf("invalid point encoding: expected 0x04 prefix, got 0x%02x", pointBytes[0])
 	}
-	if x.Cmp(p) >= 0 || y.Cmp(p) >= 0 {
-		return nil, errors.New("coordinate out of field range")
-	}
-	// Curve membership check
-	if !curve.IsOnCurve(x, y) {
+	// Unmarshal validates curve membership
+	x, y := elliptic.Unmarshal(curve, pointBytes)
+	if x == nil || y == nil {
 		return nil, errors.New("point is not on P-256 curve")
 	}
-	// SEC1 uncompressed encoding: 0x04||X||Y (fixed width)
-	pA := elliptic.Marshal(curve, x, y)
-	if len(pA) != CryptoPublicKeySizeBytes || pA[0] != 0x04 {
-		return nil, fmt.Errorf("unexpected encoding: len=%d prefix=0x%02x", len(pA), pA[0])
+	// Re-marshal to ensure canonical form
+	out := elliptic.Marshal(curve, x, y)
+	if len(out) != CryptoPublicKeySizeBytes {
+		return nil, newErrInvalidLen("marshaled point", CryptoPublicKeySizeBytes, len(out))
 	}
-	return pA, nil
+	return out, nil
 }
