@@ -20,6 +20,7 @@ import (
 
 	"github.com/cybergarage/go-matter/matter/encoding/json"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
+	"github.com/cybergarage/go-matter/matter/types"
 )
 
 // PBKDFParamRequest/Response fields are defined by the Matter specification using
@@ -32,10 +33,20 @@ const (
 // ParamsOption defines a functional option for configuring PBKDF parameters.
 type ParamsOption func(*params)
 
+// Passcode represents a passcode.
+type Passcode = types.Passcode
+
 // WithParamsPassword sets the password (e.g., the pairing code) for PBKDF key derivation.
 func WithParamsPassword(password []byte) ParamsOption {
 	return func(p *params) {
 		p.password = password
+	}
+}
+
+// WithParamsPasscode sets the passcode for PBKDF key derivation, which is a specific type of password.
+func WithParamsPasscode(passcode Passcode) ParamsOption {
+	return func(p *params) {
+		p.password = passcode.Bytes()
 	}
 }
 
