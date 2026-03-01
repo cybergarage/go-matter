@@ -57,3 +57,66 @@ func TestCryptoPAKEValuesResponder_Basic(t *testing.T) {
 		t.Errorf("w0 and l should not be equal")
 	}
 }
+func TestCryptoPA_Basic(t *testing.T) {
+	passcode := []byte("testpasscode")
+	salt := []byte("testsalt")
+	iterations := 1000
+
+	w0, w1, err := CryptoPAKEValuesInitiator(passcode, salt, iterations)
+	if err != nil {
+		t.Fatalf("CryptoPAKEValuesInitiator failed: %v", err)
+	}
+
+	pA, err := CryptoPA(w0, w1)
+	if err != nil {
+		t.Fatalf("CryptoPA failed: %v", err)
+	}
+	if len(pA) != CryptoPublicKeySizeBytes {
+		t.Errorf("pA length = %d, want %d", len(pA), CryptoPublicKeySizeBytes)
+	}
+	if pA[0] != 0x04 {
+		t.Errorf("pA prefix = 0x%02x, want 0x04", pA[0])
+	}
+}
+
+func TestCryptoPA_InvalidInputLength(t *testing.T) {
+	w0 := make([]byte, CryptoGroupSizeBytes-1)
+	w1 := make([]byte, CryptoGroupSizeBytes)
+
+	_, err := CryptoPA(w0, w1)
+	if err == nil {
+		t.Errorf("CryptoPA should fail with invalid w0 length")
+	}
+}
+
+func TestCryptoPB_Basic(t *testing.T) {
+	passcode := []byte("testpasscode")
+	salt := []byte("testsalt")
+	iterations := 1000
+
+	w0, l, err := CryptoPAKEValuesResponder(passcode, salt, iterations)
+	if err != nil {
+		t.Fatalf("CryptoPAKEValuesResponder failed: %v", err)
+	}
+
+	pB, err := CryptoPB(w0, l)
+	if err != nil {
+		t.Fatalf("CryptoPB failed: %v", err)
+	}
+	if len(pB) != CryptoPublicKeySizeBytes {
+		t.Errorf("pB length = %d, want %d", len(pB), CryptoPublicKeySizeBytes)
+	}
+	if pB[0] != 0x04 {
+		t.Errorf("pB prefix = 0x%02x, want 0x04", pB[0])
+	}
+}
+
+func TestCryptoPB_InvalidInputLength(t *testing.T) {
+	w0 := make([]byte, CryptoGroupSizeBytes)
+	l := make([]byte, CryptoPublicKeySizeBytes-1)
+
+	_, err := CryptoPB(w0, l)
+	if err == nil {
+		t.Errorf("CryptoPB should fail with invalid l length")
+	}
+}

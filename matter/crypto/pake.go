@@ -16,6 +16,7 @@ package crypto
 
 import (
 	"crypto/elliptic"
+	"errors"
 	"fmt"
 	"math/big"
 )
@@ -27,32 +28,6 @@ const (
 	// CryptoWSizeBits := CRYPTO_W_SIZE_BYTES * 8.
 	CryptoWSizeBits = CryptoWSizeBytes * 8
 )
-
-func cryptoPAKEModP(in []byte) []byte {
-	p := ellipticCurve.Params().P
-	n := new(big.Int).SetBytes(in)
-	n.Mod(n, p)
-	out := n.Bytes()
-	if len(out) >= CryptoGroupSizeBytes {
-		return out[len(out)-CryptoGroupSizeBytes:]
-	}
-	fixed := make([]byte, CryptoGroupSizeBytes)
-	copy(fixed[CryptoGroupSizeBytes-len(out):], out)
-	return fixed
-}
-
-func cryptoPAKEMultP(in []byte) ([]byte, error) {
-	curve := ellipticCurve
-	x, y := curve.ScalarBaseMult(in)
-	if x == nil || y == nil {
-		return nil, fmt.Errorf("failed to derive public key")
-	}
-	out := elliptic.Marshal(curve, x, y)
-	if len(out) != CryptoPublicKeySizeBytes {
-		return nil, newErrInvalidLen("public key", CryptoPublicKeySizeBytes, len(out))
-	}
-	return out, nil
-}
 
 // CryptoPAKEValuesInitiator := (w0, w1) where w0 and w1 SHALL be computed as follows:
 // 3.10. Password-Authenticated Key Exchange (PAKE).
@@ -117,13 +92,21 @@ func CryptoPAKEValuesResponder(passcode []byte, salt []byte, iterations int) ([]
 	return w0, l, nil
 }
 
-// 3.10.1. Computation of pA
-// Crypto_pA(Crypto_PAKEValues_Initiator) :=
-//   byte pA[CRYPTO_PUBLIC_KEY_SIZE_BYTES]
+// CryptoPA returns the public key pA computed by the initiator using w0 and w1.
+// 3.10.1. Computation of pA.
+func CryptoPA(w0, w1 []byte) ([]byte, error) {
+	// Crypto_pA(Crypto_PAKEValues_Initiator) :=
+	//   byte pA[CRYPTO_PUBLIC_KEY_SIZE_BYTES]
+	return cryptoP(w0, w1)
+}
 
-// 3.10.2. Computation of pB
-// Crypto_pB(Crypto_PAKEValues_Responder) :=
-//   byte pB[CRYPTO_PUBLIC_KEY_SIZE_BYTES]
+// CryptoPB returns the public key pB computed by the responder using w0 and L.
+// 3.10.2. Computation of pB.
+func CryptoPB(w0, l []byte) ([]byte, error) {
+	// Crypto_pB(Crypto_PAKEValues_Responder) :=
+	//	byte pB[CRYPTO_PUBLIC_KEY_SIZE_BYTES]
+	return cryptoP(w0, l)
+}
 
 // 3.10.3. Computation of transcript TT
 // Crypto_Transcript(PBKDFParamRequest, PBKDFParamResponse, pA, pB) :=
@@ -151,3 +134,60 @@ func CryptoPAKEValuesResponder(passcode []byte, salt []byte, iterations int) ([]
 //   {byte cA[CRYPTO_HASH_LEN_BYTES],
 //   byte cB[CRYPTO_HASH_LEN_BYTES],
 //   byte Ke[CRYPTO_HASH_LEN_BYTES/2]}
+
+func cryptoPAKEModP(in []byte) []byte {
+	p := ellipticCurve.Params().P
+	n := new(big.Int).SetBytes(in)
+	n.Mod(n, p)
+	out := n.Bytes()
+	if len(out) >= CryptoGroupSizeBytes {
+		return out[len(out)-CryptoGroupSizeBytes:]
+	}
+	fixed := make([]byte, CryptoGroupSizeBytes)
+	copy(fixed[CryptoGroupSizeBytes-len(out):], out)
+	return fixed
+}
+
+func cryptoPAKEMultP(in []byte) ([]byte, error) {
+	curve := ellipticCurve
+	x, y := curve.ScalarBaseMult(in)
+	if x == nil || y == nil {
+		return nil, fmt.Errorf("failed to derive public key")
+	}
+	out := elliptic.Marshal(curve, x, y)
+	if len(out) != CryptoPublicKeySizeBytes {
+		return nil, newErrInvalidLen("public key", CryptoPublicKeySizeBytes, len(out))
+	}
+	return out, nil
+}
+
+func cryptoP(xb, yb []byte) ([]byte, error) {
+	curve := ellipticCurve
+	p := curve.Params().P
+	// Basic length sanity (avoid absurd sizes)
+	if len(xb) != CryptoGroupSizeBytes || len(yb) != CryptoGroupSizeBytes {
+		return nil, fmt.Errorf("invalid coordinate length: expected %d bytes each, got %d and %d", CryptoGroupSizeBytes, len(xb), len(yb))
+	}
+	// Convert to big.Int (treat as unsigned big-endian)
+	x := new(big.Int).SetBytes(xb)
+	y := new(big.Int).SetBytes(yb)
+	// Range checks: 0 <= x,y < p
+	// (elliptic.Marshal doesn't validate curve membership; Unmarshal does on decode,
+	//  but for safety we validate here too.)
+	if x.Sign() < 0 || y.Sign() < 0 {
+		return nil, errors.New("negative coordinate")
+	}
+	if x.Cmp(p) >= 0 || y.Cmp(p) >= 0 {
+		return nil, errors.New("coordinate out of field range")
+	}
+	// Curve membership check
+	if !curve.IsOnCurve(x, y) {
+		return nil, errors.New("point is not on P-256 curve")
+	}
+	// SEC1 uncompressed encoding: 0x04||X||Y (fixed width)
+	pA := elliptic.Marshal(curve, x, y)
+	if len(pA) != CryptoPublicKeySizeBytes || pA[0] != 0x04 {
+		return nil, fmt.Errorf("unexpected encoding: len=%d prefix=0x%02x", len(pA), pA[0])
+	}
+	return pA, nil
+}

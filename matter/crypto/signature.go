@@ -14,12 +14,6 @@
 
 package crypto
 
-import (
-	"crypto/ecdsa"
-	"crypto/rand"
-	"math/big"
-)
-
 // Signature represents a digital signature used in cryptographic operations.
 // 3.5.3. Signature and verification.
 type Signature interface {
@@ -53,43 +47,10 @@ func CryptoSign(privateKey PrivateKey, message []byte) (Signature, error) {
 	return ECDSASign(privateKey, message)
 }
 
-// ECDSASign() SHALL be the ECDSA signature function as defined in Section 4.1 of SEC 1 using Crypto_Hash() as the underlying hash Hash() function.
-func ECDSASign(privKey PrivateKey, message []byte) (Signature, error) {
-	// 1) Hash the message using Crypto_Hash.
-	hashed := CryptoHash(message)
-	// 2) Sign the hashed message using ECDSA with the given private key.
-	privateKey, ok := privKey.(*privateKey)
-	if !ok {
-		return nil, newErrInvalid("private key")
-	}
-	r, s, err := ecdsa.Sign(rand.Reader, privateKey.PrivateKey, hashed)
-	if err != nil {
-		return nil, err
-	}
-	return (&sig{
-		r: r.Bytes(),
-		s: s.Bytes(),
-	}), nil
-}
-
 // CryptoVerify verifies the digital signature of a message using a given public key.
 // 3.5.3.2. Signature verification.
 func CryptoVerify(pubKey PublicKey, message []byte, sig Signature) bool {
 	// Crypto_Verify(publicKey, message, signature) :=
 	// boolean ECDSAVerify(QU := publicKey, M := message, S := signature)
 	return ECDSAVerify(pubKey, message, sig)
-}
-
-func ECDSAVerify(pubKey PublicKey, message []byte, sig Signature) bool {
-	// 1) Hash the message using Crypto_Hash.
-	hashed := CryptoHash(message)
-	// 2) Verify the signature using ECDSA with the given public key.
-	v, ok := pubKey.(*publicKey)
-	if !ok {
-		return false
-	}
-
-	r := sig.R()
-	s := sig.S()
-	return ecdsa.Verify(v.PublicKey, hashed, new(big.Int).SetBytes(r), new(big.Int).SetBytes(s))
 }
