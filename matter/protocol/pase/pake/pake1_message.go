@@ -15,6 +15,7 @@
 package pake
 
 import (
+	"github.com/cybergarage/go-matter/matter/crypto"
 	"github.com/cybergarage/go-matter/matter/encoding/json"
 	"github.com/cybergarage/go-matter/matter/encoding/message"
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pbkdf"
@@ -30,22 +31,38 @@ type pake1Message struct {
 }
 
 // Pake1MessageOption defines a functional option for configuring the Pake1Message.
-type Pake1MessageOption func(*pake1Message)
+type Pake1MessageOption func(*pake1Message) error
 
 // WithPake1MessageParamResponseMessage sets the ParamResponseMessage in the Pake1Message, which is used to construct the Pake1 payload.
 func WithPake1MessageParamResponseMessage(paramRes pbkdf.ParamResponseMessage) Pake1MessageOption {
-	return func(m *pake1Message) {
+	return func(m *pake1Message) error {
+		// 4.14.1.2. Protocol Details
+		passwd, ok := paramRes.PBKDFParams().Password()
+		if !ok {
+			return errInvalidParam("passcode", nil)
+		}
+		salt, ok := paramRes.PBKDFParams().Salt()
+		if !ok {
+			return errInvalidParam("salt", nil)
+		}
+		iterations, ok := paramRes.PBKDFParams().Iterations()
+		if !ok {
+			return errInvalidParam("iterations", nil)
+		}
+		crypto.CryptoPAKEValuesInitiator(passwd, salt, iterations)
 		// 4.10.2. Exchange ID
 		m.protocolOps = append(m.protocolOps,
 			message.WithHeaderExchangeID(paramRes.ExchangeID()),
 		)
+		return nil
 	}
 }
 
 // WithPake1MessageMessageCounter sets the message counter in the Pake1Message.
 func WithPake1MessageMessageCounter(counter message.MessageCounter) Pake1MessageOption {
-	return func(m *pake1Message) {
+	return func(m *pake1Message) error {
 		m.headerOps = append(m.headerOps, message.WithHeaderMessageCounter(counter))
+		return nil
 	}
 }
 
@@ -101,7 +118,9 @@ func NewPake1Message(opts ...any) (Pake1Message, error) {
 		case Pake1Option:
 			msg.pake1ReqOps = append(msg.pake1ReqOps, opt)
 		case Pake1MessageOption:
-			opt(msg)
+			if err := opt(msg); err != nil {
+				return nil, err
+			}
 		default:
 			return nil, errInvalidOption(opt)
 		}

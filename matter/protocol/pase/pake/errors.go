@@ -25,7 +25,11 @@ import (
 var ErrInvalid = errors.New("invalid")
 
 func errInvalidOption(opt any) error {
-	return fmt.Errorf("invalid option type: %T", opt)
+	return fmt.Errorf("%w option type: %T", ErrInvalid, opt)
+}
+
+func errInvalidParam(name string, value any) error {
+	return fmt.Errorf("%w parameter %s: %v", ErrInvalid, name, value)
 }
 
 func checkRandomLength(name string, b []byte, expectedLength int) error {
