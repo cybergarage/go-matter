@@ -28,6 +28,10 @@ func errInvalidOption(opt any) error {
 	return fmt.Errorf("invalid option type: %T", opt)
 }
 
+func errInvalidParam(name string, value any) error {
+	return fmt.Errorf("invalid parameter: %s=%v", name, value)
+}
+
 func checkRandomLength(name string, b []byte, expectedLength int) error {
 	if b == nil {
 		return tlv.NewErrMissingField(name)

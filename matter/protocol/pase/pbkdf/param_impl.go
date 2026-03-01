@@ -15,9 +15,6 @@
 package pbkdf
 
 import (
-	"crypto/sha256"
-	"hash"
-
 	"github.com/cybergarage/go-matter/matter/encoding/json"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 	"github.com/cybergarage/go-matter/matter/types"
@@ -71,10 +68,21 @@ func WithParamsKeyLength(keyLen int) ParamsOption {
 	}
 }
 
-// WithParamsHash sets the hash function for PBKDF key derivation.
-func WithParamsHash(hashFunc func() hash.Hash) ParamsOption {
+// WithParamsParamResponse sets the PBKDF parameters in the Params based on the provided ParamResponse, which is typically obtained from a ParamResponseMessage.
+func WithParamsParamResponse(paramRes Params) ParamsOption {
 	return func(p *params) {
-		p.hash = hashFunc
+		if paramRes == nil {
+			return
+		}
+		if passwd, ok := paramRes.Password(); ok {
+			p.password = passwd
+		}
+		if salt, ok := paramRes.Salt(); ok {
+			p.salt = salt
+		}
+		if iterations, ok := paramRes.Iterations(); ok {
+			p.iter = &iterations
+		}
 	}
 }
 
@@ -83,16 +91,14 @@ type params struct {
 	salt     []byte
 	iter     *int
 	keyLen   *int
-	hash     func() hash.Hash
 }
 
 func newParams(opts ...ParamsOption) *params {
 	p := &params{
-		password: nil,        // Default password (should be set by caller)
-		salt:     nil,        // Default salt (should be set by caller)
-		iter:     nil,        // Default iteration count
-		keyLen:   nil,        // Default key length (e.g., 256 bits)
-		hash:     sha256.New, // Default hash function
+		password: nil, // Default password (should be set by caller)
+		salt:     nil, // Default salt (should be set by caller)
+		iter:     nil, // Default iteration count
+		keyLen:   nil, // Default key length (e.g., 256 bits)
 	}
 	for _, opt := range opts {
 		opt(p)
@@ -140,10 +146,6 @@ func (p *params) KeyLength() (int, bool) {
 		return 0, false
 	}
 	return *p.keyLen, true
-}
-
-func (p *params) Hash() hash.Hash {
-	return p.hash()
 }
 
 func (p *params) Decode(dec tlv.Decoder) error {

@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/cybergarage/go-logger/log"
+	"github.com/cybergarage/go-matter/matter/encoding"
 	"github.com/cybergarage/go-matter/matter/encoding/message"
 	"github.com/cybergarage/go-matter/matter/protocol/mrp"
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pake"
@@ -30,8 +31,11 @@ func TestPaseSequence(t *testing.T) {
 	log.EnableStdoutDebug(true)
 
 	var err error
-	reqMsgCounter := message.NewMessageCounter()
-	// resMsgCounter := message.NewMessageCounter()
+	initMsgCounter := message.NewMessageCounter()
+	initPasscode, err := encoding.NewPairingCodeFromString("3035-750-7966")
+	if err != nil {
+		t.Fatalf("Failed to create PairingCode: %v", err)
+	}
 
 	tests := []struct {
 		pbkdfParamReq    pbkdf.ParamRequestMessage
@@ -54,7 +58,7 @@ func TestPaseSequence(t *testing.T) {
 		{
 			pbkdfParamReq: func() pbkdf.ParamRequestMessage {
 				msg, err := pbkdf.NewParamRequestMessage(
-					pbkdf.WithParamRequestMessageCounter(reqMsgCounter),
+					pbkdf.WithParamRequestMessageCounter(initMsgCounter),
 				)
 				if err != nil {
 					t.Fatal(err)
@@ -93,7 +97,7 @@ func TestPaseSequence(t *testing.T) {
 				if pbkdfParamReqAck == nil {
 					pbkdfParamReqAck, err = mrp.NewAck(
 						mrp.WithAckReferenceMessage(pbkdfParamReq),
-						mrp.WithAckMessageCounter(reqMsgCounter),
+						mrp.WithAckMessageCounter(initMsgCounter),
 					)
 				}
 
@@ -184,8 +188,13 @@ func TestPaseSequence(t *testing.T) {
 			pake1 := tt.pake1
 			t.Run(name, func(t *testing.T) {
 				if pake1 == nil {
+					resParams := pbkdf.NewParams(
+						pbkdf.WithParamsPasscode(initPasscode.Passcode()),
+						pbkdf.WithParamsParamResponse(pbkdfParamRes.PBKDFParams()),
+					)
 					pake1, err = pake.NewPake1Message(
-						pake.WithPake1MessageParamResponseMessage(pbkdfParamRes),
+						pake.WithPake1MessageParamResponse(resParams),
+						message.WithHeaderExchangeID(pbkdfParamRes.ExchangeID()),
 						message.WithHeaderMessageCounter(pbkdfParamReq.MessageCounter().Next()),
 					)
 					if err != nil {

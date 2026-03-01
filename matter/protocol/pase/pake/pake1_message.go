@@ -33,27 +33,23 @@ type pake1Message struct {
 // Pake1MessageOption defines a functional option for configuring the Pake1Message.
 type Pake1MessageOption func(*pake1Message) error
 
-// WithPake1MessageParamResponseMessage sets the ParamResponseMessage in the Pake1Message, which is used to construct the Pake1 payload.
-func WithPake1MessageParamResponseMessage(paramRes pbkdf.ParamResponseMessage) Pake1MessageOption {
+// WithPake1MessageParamResponse sets the ParamResponseMessage in the Pake1Message, which is used to construct the Pake1 payload.
+func WithPake1MessageParamResponse(resParams pbkdf.Params) Pake1MessageOption {
 	return func(m *pake1Message) error {
 		// 4.14.1.2. Protocol Details
-		passwd, ok := paramRes.PBKDFParams().Password()
+		passwd, ok := resParams.Password()
 		if !ok {
 			return errInvalidParam("passcode", nil)
 		}
-		salt, ok := paramRes.PBKDFParams().Salt()
+		salt, ok := resParams.Salt()
 		if !ok {
 			return errInvalidParam("salt", nil)
 		}
-		iterations, ok := paramRes.PBKDFParams().Iterations()
+		iterations, ok := resParams.Iterations()
 		if !ok {
 			return errInvalidParam("iterations", nil)
 		}
 		crypto.CryptoPAKEValuesInitiator(passwd, salt, iterations)
-		// 4.10.2. Exchange ID
-		m.protocolOps = append(m.protocolOps,
-			message.WithHeaderExchangeID(paramRes.ExchangeID()),
-		)
 		return nil
 	}
 }
