@@ -14,6 +14,22 @@
 
 package pbkdf
 
+import "fmt"
+
 // PasscodeID represents a passcode identifier.
 // 4.14.1.1. Protocol Overview.
 type PasscodeID uint16
+
+// Bytes returns the little-endian 2-octet representation of the PasscodeID.
+func (p PasscodeID) Bytes() []byte {
+	b := make([]byte, 2)
+	b[0] = byte(p & 0xff)
+	b[1] = byte((p >> 8) & 0xff)
+	return b
+}
+
+// String returns the string representation of the PasscodeID.
+func (p PasscodeID) String() string {
+	b := p.Bytes()
+	return fmt.Sprintf("%02x:%02x", b[0], b[1])
+}

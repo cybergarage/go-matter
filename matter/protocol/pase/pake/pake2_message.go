@@ -15,15 +15,19 @@
 package pake
 
 import (
+	"github.com/cybergarage/go-matter/matter/crypto"
 	"github.com/cybergarage/go-matter/matter/encoding/json"
 	"github.com/cybergarage/go-matter/matter/encoding/message"
+	"github.com/cybergarage/go-matter/matter/protocol/pase/pbkdf"
 	"github.com/cybergarage/go-matter/matter/types"
 )
 
 type pake2Message struct {
-	headerOps   []message.HeaderOption
-	protocolOps []message.ProtocolHeaderOption
-	pake2ReqOps []Pake2Option
+	paramRequest  pbkdf.ParamRequestMessage
+	paramResponse pbkdf.ParamResponseMessage
+	headerOps     []message.HeaderOption
+	protocolOps   []message.ProtocolHeaderOption
+	pake2ReqOps   []Pake2Option
 	Message
 	Pake2
 }
@@ -31,11 +35,25 @@ type pake2Message struct {
 // Pake2MessageOption defines a functional option for configuring the Pake2Message.
 type Pake2MessageOption func(*pake2Message)
 
+// WithPake2MessageParamRequestMessage sets the ParamRequestMessage in the Pake2Message, which is used to construct the Pake2 payload.
+func WithPake2MessageParamRequestMessage(paramRequest pbkdf.ParamRequestMessage) Pake2MessageOption {
+	return func(m *pake2Message) {
+		m.paramRequest = paramRequest
+	}
+}
+
+// WithPake2MessageParamResponseMessage sets the ParamResponseMessage in the Pake2Message, which is used to construct the Pake2 payload.
+func WithPake2MessageParamResponseMessage(paramResponse pbkdf.ParamResponseMessage) Pake2MessageOption {
+	return func(msg *pake2Message) {
+		msg.paramResponse = paramResponse
+	}
+}
+
 // WithPake2MessagePake1Message sets the Pake1Message in the Pake2Message, which is used to construct the Pake2 payload.
 func WithPake2MessagePake1Message(pake1 Pake1Message) Pake2MessageOption {
-	return func(m *pake2Message) {
+	return func(msg *pake2Message) {
 		// 4.10.2. Exchange ID
-		m.protocolOps = append(m.protocolOps,
+		msg.protocolOps = append(msg.protocolOps,
 			message.WithHeaderExchangeID(pake1.ExchangeID()),
 		)
 	}
@@ -43,8 +61,8 @@ func WithPake2MessagePake1Message(pake1 Pake1Message) Pake2MessageOption {
 
 // WithPake2MessageMessageCounter sets the message counter in the Pake2Message.
 func WithPake2MessageMessageCounter(counter message.MessageCounter) Pake2MessageOption {
-	return func(m *pake2Message) {
-		m.headerOps = append(m.headerOps, message.WithHeaderMessageCounter(counter))
+	return func(msg *pake2Message) {
+		msg.headerOps = append(msg.headerOps, message.WithHeaderMessageCounter(counter))
 	}
 }
 
@@ -105,6 +123,45 @@ func NewPake2Message(opts ...any) (Pake2Message, error) {
 			return nil, errInvalidOption(opt)
 		}
 	}
+
+	computePB := func(paramRequest pbkdf.ParamRequestMessage, paramResponse pbkdf.ParamResponseMessage) ([]byte, error) {
+		if msg.paramRequest == nil {
+			return nil, errInvalidParam("paramRequest", msg.paramRequest)
+		}
+		if msg.paramResponse == nil {
+			return nil, errInvalidParam("paramResponse", msg.paramResponse)
+		}
+		passcodeId := msg.paramRequest.PasscodeID()
+		salt, ok := msg.paramResponse.PBKDFParams().Salt()
+		if !ok {
+			return nil, errInvalidParam("paramResponse.Salt", salt)
+		}
+		iterations, ok := msg.paramResponse.PBKDFParams().Iterations()
+		if !ok {
+			return nil, errInvalidParam("paramResponse.Iterations", iterations)
+		}
+		w0, l, err := crypto.CryptoPAKEValuesResponder(
+			passcodeId.Bytes(),
+			salt,
+			iterations,
+		)
+		if err != nil {
+			return nil, err
+		}
+		pB, err := crypto.CryptoPB(w0, l)
+		if err != nil {
+			return nil, err
+		}
+		return pB, nil
+	}
+
+	// pB
+	pB, err := computePB(msg.paramRequest, msg.paramResponse)
+	if err != nil {
+
+		return nil, err
+	}
+	msg.pake2ReqOps = append(msg.pake2ReqOps, WithPake2PB(pB))
 
 	msg.Pake2 = NewPake2(msg.pake2ReqOps...)
 	payload, err := msg.Pake2.Bytes()

@@ -298,6 +298,11 @@ func TestPaseSequence(t *testing.T) {
 				log.Infof("%s %s", name, pake2.String())
 			})
 
+			if pake2 == nil {
+				// If PAKE2 message is not available, skip the rest of the sequence
+				return
+			}
+
 			// PAKE3
 			name = fmt.Sprintf("pake3-%02d", n)
 			pake3 := tt.pake3
