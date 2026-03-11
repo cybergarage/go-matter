@@ -123,7 +123,9 @@ func (p *pake1) Bytes() ([]byte, error) {
 	if err := enc.PutOctet1(tlv.NewContextTag(1), p.pa); err != nil {
 		return nil, err
 	}
-	enc.EndContainer()
+	if err := enc.EndContainer(); err != nil {
+		return nil, err
+	}
 	return enc.Bytes(), nil
 }
 
