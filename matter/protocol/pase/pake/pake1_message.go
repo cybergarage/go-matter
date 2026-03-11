@@ -49,7 +49,15 @@ func WithPake1MessageParamResponse(resParams pbkdf.Params) Pake1MessageOption {
 		if !ok {
 			return errInvalidParam("iterations", nil)
 		}
-		crypto.CryptoPAKEValuesInitiator(passwd, salt, iterations)
+		w0, w1, err := crypto.CryptoPAKEValuesInitiator(passwd, salt, iterations)
+		if err != nil {
+			return err
+		}
+		pA, err := crypto.CryptoPA(w0, w1)
+		if err != nil {
+			return err
+		}
+		m.pake1ReqOps = append(m.pake1ReqOps, WithPake1PA(pA))
 		return nil
 	}
 }

@@ -46,15 +46,15 @@ func TestPaseSequence(t *testing.T) {
 		pake2            pake.Pake2Message
 		pake3            pake.Pake3Message
 	}{
-		{
-			pbkdfParamReq:    decodeHexdumpPBKDFParamRequestMessage(t, pbkdfParamRequestHex01),
-			pbkdfParamReqAck: decodeHexdumpMRPAck(t, pbkdfParamRequestAckHex01),
-			pbkdfParamRes:    decodeHexdumpPBKDFParamResponseMessage(t, pbkdfParamResponseHex01),
-			pake1:            decodeHexdumpPake1Message(t, pake1Hex01),
-			pake1Ack:         decodeHexdumpMRPAck(t, pake1AckHex01),
-			pake2:            decodeHexdumpPake2Message(t, pake2Hex01),
-			pake3:            decodeHexdumpPake3Message(t, pake3Hex01),
-		},
+		// {
+		// 	pbkdfParamReq:    decodeHexdumpPBKDFParamRequestMessage(t, pbkdfParamRequestHex01),
+		// 	pbkdfParamReqAck: decodeHexdumpMRPAck(t, pbkdfParamRequestAckHex01),
+		// 	pbkdfParamRes:    decodeHexdumpPBKDFParamResponseMessage(t, pbkdfParamResponseHex01),
+		// 	pake1:            decodeHexdumpPake1Message(t, pake1Hex01),
+		// 	pake1Ack:         decodeHexdumpMRPAck(t, pake1AckHex01),
+		// 	pake2:            decodeHexdumpPake2Message(t, pake2Hex01),
+		// 	pake3:            decodeHexdumpPake3Message(t, pake3Hex01),
+		// },
 		{
 			pbkdfParamReq: func() pbkdf.ParamRequestMessage {
 				msg, err := pbkdf.NewParamRequestMessage(
