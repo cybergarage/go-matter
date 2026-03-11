@@ -29,7 +29,7 @@ func TestPasscode(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		s := string(test.passcode.Bytes())
+		s := test.passcode.String()
 		if s != test.bytes {
 			t.Errorf("Unexpected passcode bytes: got %v, want %v", s, test.bytes)
 		}

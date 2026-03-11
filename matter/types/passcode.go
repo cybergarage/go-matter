@@ -28,11 +28,6 @@ func NewPasscode(code uint32) Passcode {
 
 // Bytes returns the little-endian 4-octet representation of the Passcode.
 func (p Passcode) Bytes() []byte {
-	return []byte(p.String())
-}
-
-// String returns the string representation of the Passcode.
-func (p Passcode) String() string {
 	// 3.10. Password-Authenticated Key Exchange (PAKE)
 	// passcode, is the Passcode defined in Section 5.1.1.6, “Passcode”, serialized as little-endian over 4
 	// octets. For example, passcode 18924017 would be encoded as the octet string f1:c1:20:01 and
@@ -42,5 +37,15 @@ func (p Passcode) String() string {
 	b[1] = byte((p >> 8) & 0xff)
 	b[2] = byte((p >> 16) & 0xff)
 	b[3] = byte((p >> 24) & 0xff)
+	return b
+}
+
+// String returns the string representation of the Passcode.
+func (p Passcode) String() string {
+	// 3.10. Password-Authenticated Key Exchange (PAKE)
+	// passcode, is the Passcode defined in Section 5.1.1.6, “Passcode”, serialized as little-endian over 4
+	// octets. For example, passcode 18924017 would be encoded as the octet string f1:c1:20:01 and
+	// the passcode 00000005 would be encoded as the octet string 05:00:00:00.
+	b := p.Bytes()
 	return fmt.Sprintf("%02x:%02x:%02x:%02x", b[0], b[1], b[2], b[3])
 }
