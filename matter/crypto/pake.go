@@ -16,6 +16,7 @@ package crypto
 
 import (
 	"crypto/elliptic"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/big"
@@ -123,26 +124,79 @@ func CryptoPB(w0, l []byte) ([]byte, error) {
 	return cryptoValidatePoint(l)
 }
 
-// 3.10.3. Computation of transcript TT
-// Crypto_Transcript(PBKDFParamRequest, PBKDFParamResponse, pA, pB) :=
-//   byte[] TT
-// byte ContextPrefixValue [26] = {
-// 0x43, 0x48, 0x49, 0x50, 0x20, 0x50, 0x41, 0x4b, 0x45, 0x20, 0x56, 0x31, 0x20, 0x43,
-// 0x6f, 0x6d,
-// 0x6d, 0x69, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x69, 0x6e, 0x67
-// } // "CHIP PAKE V1 Commissioning" - The usage of CHIP here is intentional and due to
-// implementation in the SDK before the name change, should not be renamed to Matter.
-// Context := Crypto_Hash(ContextPrefixValue || PBKDFParamRequest || PBKDFParamResponse)
-// TT :=
-//   lengthInBytes(Context) || Context ||
-//   0x0000000000000000 || 0x0000000000000000 ||
-//   lengthInBytes(M) || M ||
-//   lengthInBytes(N) || N ||
-//   lengthInBytes(pA) || pA ||
-//   lengthInBytes(pB) || pB ||
-//   lengthInBytes(Z) || Z ||
-//   lengthInBytes(V) || V ||
-//   lengthInBytes(w0) || w0
+// CryptoTranscript computes the transcript TT used for PAKE confirmation-key derivation.
+// 3.10.3. Computation of transcript TT.
+//
+// Z and V are the shared elliptic-curve points computed during ECDH key agreement.
+// w0 is the PAKE password element derived by CryptoPAKEValuesInitiator/Responder.
+func CryptoTranscript(pbkdfParamRequest, pbkdfParamResponse, pA, pB, Z, V, w0 []byte) ([]byte, error) {
+	// byte ContextPrefixValue [26] = "CHIP PAKE V1 Commissioning"
+	// The usage of CHIP here is intentional and due to implementation in the SDK
+	// before the name change; should not be renamed to Matter.
+	contextPrefix := []byte{
+		0x43, 0x48, 0x49, 0x50, 0x20, 0x50, 0x41, 0x4b, 0x45, 0x20, 0x56, 0x31, 0x20, 0x43,
+		0x6f, 0x6d, 0x6d, 0x69, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x69, 0x6e, 0x67,
+	}
+
+	// Context := Crypto_Hash(ContextPrefixValue || PBKDFParamRequest || PBKDFParamResponse)
+	contextInput := make([]byte, 0, len(contextPrefix)+len(pbkdfParamRequest)+len(pbkdfParamResponse))
+	contextInput = append(contextInput, contextPrefix...)
+	contextInput = append(contextInput, pbkdfParamRequest...)
+	contextInput = append(contextInput, pbkdfParamResponse...)
+	context := CryptoHash(contextInput)
+
+	// Fixed SPAKE2+ generator points M and N for P-256 (uncompressed SEC1, 65 bytes).
+	// From connectedhomeip / RFC 9383 Table 4.
+	spake2pM := []byte{
+		0x04, 0x88, 0x6e, 0x2f, 0x97, 0xac, 0xe4, 0x6e, 0x55, 0xba, 0x9d,
+		0xd7, 0x24, 0x25, 0x79, 0xf2, 0x99, 0x3b, 0x64, 0xe1, 0x6e, 0xf3,
+		0xdc, 0xab, 0x95, 0xaf, 0xd4, 0x97, 0x33, 0x3d, 0x8f, 0xa1, 0x2f,
+		0x5f, 0xf3, 0x55, 0x16, 0x3e, 0x43, 0xce, 0x22, 0x4e, 0x0b, 0x0e,
+		0x65, 0xff, 0x02, 0xac, 0x8e, 0x5c, 0x7b, 0xe0, 0x94, 0x19, 0xc7,
+		0x85, 0xe0, 0xca, 0x54, 0x7d, 0x55, 0xa1, 0x2e, 0x2d, 0x20,
+	}
+	spake2pN := []byte{
+		0x04, 0xd8, 0xbb, 0xd6, 0xc6, 0x39, 0xc6, 0x29, 0x37, 0xb0, 0x4d,
+		0x99, 0x7f, 0x38, 0xc3, 0x77, 0x07, 0x19, 0xc6, 0x29, 0xd7, 0x01,
+		0x4d, 0x49, 0xa2, 0x4b, 0x4f, 0x98, 0xba, 0xa1, 0x29, 0x2b, 0x49,
+		0x07, 0xd6, 0x0a, 0xa6, 0xbf, 0xad, 0xe4, 0x50, 0x08, 0xa6, 0x36,
+		0x33, 0x7f, 0x51, 0x68, 0xc6, 0x4d, 0x9b, 0xd3, 0x60, 0x34, 0x80,
+		0x8c, 0xd5, 0x64, 0x49, 0x0b, 0x1e, 0x65, 0x6e, 0xdb, 0xe7,
+	}
+
+	// TT :=
+	//   lengthInBytes(Context) || Context ||
+	//   0x0000000000000000 || 0x0000000000000000 ||   (idProver=0, idVerifier=0)
+	//   lengthInBytes(M) || M ||
+	//   lengthInBytes(N) || N ||
+	//   lengthInBytes(pA) || pA ||
+	//   lengthInBytes(pB) || pB ||
+	//   lengthInBytes(Z) || Z ||
+	//   lengthInBytes(V) || V ||
+	//   lengthInBytes(w0) || w0
+	//
+	// lengthInBytes is encoded as little-endian uint64.
+	var tt []byte
+	tt = appendSized(tt, context)
+	tt = append(tt, make([]byte, 16)...) // idProver=0 (8 bytes) || idVerifier=0 (8 bytes)
+	tt = appendSized(tt, spake2pM)
+	tt = appendSized(tt, spake2pN)
+	tt = appendSized(tt, pA)
+	tt = appendSized(tt, pB)
+	tt = appendSized(tt, Z)
+	tt = appendSized(tt, V)
+	tt = appendSized(tt, w0)
+	return tt, nil
+}
+
+// appendSized appends a little-endian uint64 length prefix followed by data to dst.
+func appendSized(dst, data []byte) []byte {
+	var lenBuf [8]byte
+	binary.LittleEndian.PutUint64(lenBuf[:], uint64(len(data)))
+	dst = append(dst, lenBuf[:]...)
+	dst = append(dst, data...)
+	return dst
+}
 
 // 3.10.4. Computation of cA, cB and Ke
 // Crypto_P2(TT, pA, pB) :=

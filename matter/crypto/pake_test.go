@@ -120,3 +120,50 @@ func TestCryptoPB_InvalidInputLength(t *testing.T) {
 		t.Errorf("CryptoPB should fail with invalid l length")
 	}
 }
+
+func TestCryptoTranscript_Basic(t *testing.T) {
+	passcode := []byte("testpasscode")
+	salt := []byte("testsalt")
+	iter := 1000
+
+	w0, w1, err := CryptoPAKEValuesInitiator(passcode, salt, iter)
+	if err != nil {
+		t.Fatalf("CryptoPAKEValuesInitiator failed: %v", err)
+	}
+	pA, err := CryptoPA(w0, w1)
+	if err != nil {
+		t.Fatalf("CryptoPA failed: %v", err)
+	}
+	_, l, err := CryptoPAKEValuesResponder(passcode, salt, iter)
+	if err != nil {
+		t.Fatalf("CryptoPAKEValuesResponder failed: %v", err)
+	}
+	pB, err := CryptoPB(w0, l)
+	if err != nil {
+		t.Fatalf("CryptoPB failed: %v", err)
+	}
+
+	// Use pA/pB as stand-in Z/V (valid-length curve points) for a basic test.
+	Z := pA
+	V := pB
+
+	pbkdfReq := []byte("pbkdf-param-request")
+	pbkdfResp := []byte("pbkdf-param-response")
+
+	tt, err := CryptoTranscript(pbkdfReq, pbkdfResp, pA, pB, Z, V, w0)
+	if err != nil {
+		t.Fatalf("CryptoTranscript failed: %v", err)
+	}
+	if len(tt) == 0 {
+		t.Fatal("CryptoTranscript returned empty TT")
+	}
+
+	// Different PBKDFParamRequest must produce a different TT.
+	tt2, err := CryptoTranscript([]byte("other-req"), pbkdfResp, pA, pB, Z, V, w0)
+	if err != nil {
+		t.Fatalf("CryptoTranscript (tt2) failed: %v", err)
+	}
+	if bytes.Equal(tt, tt2) {
+		t.Error("TT should differ when pbkdfParamRequest changes")
+	}
+}
