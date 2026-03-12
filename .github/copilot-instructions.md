@@ -1,5 +1,9 @@
 # Copilot Instructions for go-matter
 
+## Specification & Reference
+
+`go-matter` implements Matter Specification Version 1.5. Code comments cite relevant spec sections (e.g., `// 2.5.2. Vendor Identifier`). The implementation is based on the official C++ reference: https://github.com/project-chip/connectedhomeip.
+
 ## Build, Test, and Lint
 
 ```sh

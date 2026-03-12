@@ -2,6 +2,14 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Specification & Reference
+
+`go-matter` implements Matter Specification Version 1.5. Code comments cite relevant spec sections (e.g., `// 2.5.2. Vendor Identifier`). The implementation is based on the official C++ reference: https://github.com/project-chip/connectedhomeip.
+
+## Reference Implementation
+
+The Matter implementation is based on the official C++ implementation: https://github.com/project-chip/connectedhomeip.
+
 ## Commands
 
 ```sh
@@ -26,10 +34,6 @@ go test -v -p 1 -timeout 10m -cover -coverpkg=github.com/cybergarage/go-matter/m
 ```
 
 Tests run with `-p 1` (single-threaded) because BLE and mDNS operations are not concurrency-safe across test cases.
-
-## Architecture
-
-`go-matter` is a Go library implementing the [Matter](https://buildwithmatter.com/) smart home/IoT protocol. Module root: `github.com/cybergarage/go-matter`.
 
 ### Package Layout
 

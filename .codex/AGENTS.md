@@ -1,5 +1,9 @@
 # Repository Guidelines
 
+## Specification & Reference
+
+`go-matter` implements Matter Specification Version 1.5. Code comments cite relevant spec sections (e.g., `// 2.5.2. Vendor Identifier`). The implementation is based on the official C++ reference: https://github.com/project-chip/connectedhomeip.
+
 ## Project Structure & Module Organization
 - `matter/`: Core library packages (protocols, crypto, encoding, BLE, mDNS).
 - `mattertest/`: Integration tests that exercise the public `matter` API.
