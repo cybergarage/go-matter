@@ -33,8 +33,31 @@ type pake1Message struct {
 // Pake1MessageOption defines a functional option for configuring the Pake1Message.
 type Pake1MessageOption func(*pake1Message) error
 
-// WithPake1MessageParamResponse sets the ParamResponseMessage in the Pake1Message, which is used to construct the Pake1 payload.
-func WithPake1MessageParamResponse(resParams pbkdf.Params) Pake1MessageOption {
+// WithPake1MessageParamRequestMessage sets the ParamRequestMessage in the Pake1Message, which is used to construct the Pake1 payload and also sets the appropriate header and protocol options based on the ParamRequestMessage.
+func WithPake1MessageParamRequestMessage(reqMsg pbkdf.ParamRequestMessage) Pake1MessageOption {
+	return func(m *pake1Message) error {
+		// Header options
+		if sourceID, ok := reqMsg.SourceNodeID(); ok {
+			m.headerOps = append(m.headerOps, message.WithHeaderSourceNodeID(sourceID))
+		}
+		m.headerOps = append(m.headerOps, message.WithHeaderMessageCounter(reqMsg.MessageCounter().Next()))
+		// Protocol options
+		m.protocolOps = append(m.protocolOps, message.WithHeaderExchangeID(reqMsg.ExchangeID()))
+		return nil
+	}
+}
+
+// WithPake1MessageParamResponseMessage sets the ParamResponseMessage in the Pake1Message, which is used to construct the Pake1 payload.
+func WithPake1MessageParamResponseMessage(resMsg pbkdf.ParamResponseMessage) Pake1MessageOption {
+	return func(m *pake1Message) error {
+		// Protocol options
+		m.protocolOps = append(m.protocolOps, message.WithHeaderAckCounter(resMsg.MessageCounter()))
+		return nil
+	}
+}
+
+// WithPake1MessagePBKDFParams is a convenience option that sets the ParamResponseMessage in the Pake1Message using the given PBKDF parameters, which is used to construct the Pake1 payload. This is useful when you have the PBKDF parameters but not the full ParamResponseMessage, and it will internally create a ParamResponseMessage with the given parameters and use it to set the appropriate protocol options and construct the Pake1 payload.
+func WithPake1MessagePBKDFParams(resParams pbkdf.Params) Pake1MessageOption {
 	return func(m *pake1Message) error {
 		// 4.14.1.2. Protocol Details
 		passwd, ok := resParams.Password()
@@ -58,14 +81,6 @@ func WithPake1MessageParamResponse(resParams pbkdf.Params) Pake1MessageOption {
 			return err
 		}
 		m.pake1ReqOps = append(m.pake1ReqOps, WithPake1PA(pA))
-		return nil
-	}
-}
-
-// WithPake1MessageMessageCounter sets the message counter in the Pake1Message.
-func WithPake1MessageMessageCounter(counter message.MessageCounter) Pake1MessageOption {
-	return func(m *pake1Message) error {
-		m.headerOps = append(m.headerOps, message.WithHeaderMessageCounter(counter))
 		return nil
 	}
 }

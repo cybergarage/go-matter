@@ -188,14 +188,14 @@ func TestPaseSequence(t *testing.T) {
 			pake1 := tt.pake1
 			t.Run(name, func(t *testing.T) {
 				if pake1 == nil {
-					resParams := pbkdf.NewParams(
+					pake1Params := pbkdf.NewParams(
 						pbkdf.WithParamsPasscode(initPasscode.Passcode()),
 						pbkdf.WithParamsParamResponse(pbkdfParamRes.PBKDFParams()),
 					)
 					pake1, err = pake.NewPake1Message(
-						pake.WithPake1MessageParamResponse(resParams),
-						message.WithHeaderExchangeID(pbkdfParamRes.ExchangeID()),
-						message.WithHeaderMessageCounter(pbkdfParamReq.MessageCounter().Next()),
+						pake.WithPake1MessageParamRequestMessage(pbkdfParamReq),
+						pake.WithPake1MessageParamResponseMessage(pbkdfParamRes),
+						pake.WithPake1MessagePBKDFParams(pake1Params),
 					)
 					if err != nil {
 						t.Skipf("Failed to create ParamResponseMessage: %v", err)

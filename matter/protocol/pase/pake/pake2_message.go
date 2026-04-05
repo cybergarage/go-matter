@@ -158,7 +158,6 @@ func NewPake2Message(opts ...any) (Pake2Message, error) {
 	// pB
 	pB, err := computePB(msg.paramRequest, msg.paramResponse)
 	if err != nil {
-
 		return nil, err
 	}
 	msg.pake2ReqOps = append(msg.pake2ReqOps, WithPake2PB(pB))

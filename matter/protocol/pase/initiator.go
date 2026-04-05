@@ -101,23 +101,36 @@ func (i *Initiator) EstablishSession(ctx context.Context) (*Result, error) {
 		log.Errorf("Failed to receive PBKDFParamResponse: %v", err)
 		return nil, err
 	}
-	pbkdfRes, err := pbkdf.NewParamResponseFromBytes(resBytes[1:])
+	pbkdfResMsg, err := pbkdf.NewParamResponseMessageFromBytes(resBytes)
 	if err != nil {
 		log.Errorf("Failed to decode PBKDFParamResponse: %v", err)
 		return nil, err
 	}
-	log.Infof("PBKDFParamResponse: %s", pbkdfRes.String())
+	log.Infof("PBKDFParamResponse: %s", pbkdfResMsg.String())
 	log.HexInfo(resBytes)
 
-	// 3) SPAKE2+ (PASE)
-	_, ok := pbkdfRes.PBKDFParams().Salt()
-	if !ok {
-		return nil, fmt.Errorf("PBKDF parameters missing salt")
+	// 3) Pake1
+	pake1Params := pbkdf.NewParams(
+		pbkdf.WithParamsPasscode(i.passcode),
+		pbkdf.WithParamsParamResponse(pbkdfResMsg.PBKDFParams()),
+	)
+	pake1Msg, err := pake.NewPake1Message(
+		pake.WithPake1MessageParamRequestMessage(paramReqMsg),
+		pake.WithPake1MessageParamResponseMessage(pbkdfResMsg),
+		pake.WithPake1MessagePBKDFParams(pake1Params),
+	)
+	if err != nil {
+		return nil, err
 	}
-	_, ok = pbkdfRes.PBKDFParams().Iterations()
-	if !ok {
-		return nil, fmt.Errorf("PBKDF parameters missing iterations")
+	pake1Bytes, err := pake1Msg.Bytes()
+	if err != nil {
+		return nil, err
 	}
+	if err := i.t.Transmit(ctx, pake1Bytes); err != nil {
+		log.Errorf("Failed to transmit Pake1: %v", err)
+		return nil, err
+	}
+
 	// hs, err := NewHandshake(HandshakeRoleClient, HandshakeOptions{
 	// 	Passcode:  i.passcode.Bytes(),
 	// 	Salt:      salt,
@@ -133,15 +146,6 @@ func (i *Initiator) EstablishSession(ctx context.Context) (*Result, error) {
 	// if err != nil {
 	// 	return nil, err
 	// }
-	pake1 := pake.NewPake1()
-	pake1Bytes, err := pake1.Bytes()
-	if err != nil {
-		return nil, err
-	}
-	if err := i.t.Transmit(ctx, pake1Bytes); err != nil {
-		log.Errorf("Failed to transmit Pake1: %v", err)
-		return nil, err
-	}
 
 	// 3-2) Pake2
 	p2raw, err := i.t.Receive(ctx)
