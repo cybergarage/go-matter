@@ -276,10 +276,10 @@ func TestPaseSequence(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				if pake2 == nil {
 					pake2, err = pake.NewPake2Message(
+						pake.WithPake2MessagePake1Ack(pake1Ack),
 						pake.WithPake2MessageParamRequestMessage(pbkdfParamReq),
 						pake.WithPake2MessageParamResponseMessage(pbkdfParamRes),
 						pake.WithPake2MessagePake1Message(pake1),
-						pake.WithPake2MessagePake1Ack(pake1Ack),
 					)
 					if err != nil {
 						t.Errorf("Failed to create PAKE2 message: %v", err)
