@@ -57,9 +57,7 @@ func TestPaseSequence(t *testing.T) {
 		// },
 		{
 			pbkdfParamReq: func() pbkdf.ParamRequestMessage {
-				msg, err := pbkdf.NewParamRequestMessage(
-					pbkdf.WithParamRequestMessageCounter(initMsgCounter),
-				)
+				msg, err := pbkdf.NewParamRequestMessage()
 				if err != nil {
 					t.Fatal(err)
 				}

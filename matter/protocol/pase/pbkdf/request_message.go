@@ -30,13 +30,6 @@ type paramRequestMessage struct {
 // ParamRequestMessageOption defines a functional option for configuring the ParamRequestMessage.
 type ParamRequestMessageOption func(*paramRequestMessage)
 
-// WithParamRequestMessageCounter sets the message counter in the ParamRequestMessage header.
-func WithParamRequestMessageCounter(counter message.MessageCounter) ParamRequestMessageOption {
-	return func(m *paramRequestMessage) {
-		m.headerOps = append(m.headerOps, message.WithHeaderMessageCounter(counter))
-	}
-}
-
 // NewParamRequestMessageFromBytes parses the given byte slice into a ParamRequestMessage.
 func NewParamRequestMessageFromBytes(data []byte) (ParamRequestMessage, error) {
 	msg, err := message.NewMessageFromBytes(data)
