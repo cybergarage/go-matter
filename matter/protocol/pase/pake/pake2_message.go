@@ -19,7 +19,6 @@ import (
 	"github.com/cybergarage/go-matter/matter/encoding/json"
 	"github.com/cybergarage/go-matter/matter/encoding/message"
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pbkdf"
-	"github.com/cybergarage/go-matter/matter/types"
 )
 
 type pake2Message struct {
@@ -89,8 +88,6 @@ func NewPake2Message(opts ...any) (Pake2Message, error) {
 		headerOps: []message.HeaderOption{
 			message.WithHeaderSessionID(0x0000),
 			message.WithHeaderSecurityFlags(0x00),
-			message.WithHeaderMessageCounter(message.NewMessageCounter()),
-			message.WithHeaderSourceNodeID(types.NewOperationalNodeID()),
 		},
 		protocolOps: []message.ProtocolHeaderOption{
 			// 4.10. Message Exchanges
