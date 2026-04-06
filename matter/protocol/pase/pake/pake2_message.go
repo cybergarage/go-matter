@@ -18,6 +18,7 @@ import (
 	"github.com/cybergarage/go-matter/matter/crypto"
 	"github.com/cybergarage/go-matter/matter/encoding/json"
 	"github.com/cybergarage/go-matter/matter/encoding/message"
+	"github.com/cybergarage/go-matter/matter/protocol/mrp"
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pbkdf"
 )
 
@@ -45,6 +46,13 @@ func WithPake2MessageParamRequestMessage(paramRequest pbkdf.ParamRequestMessage)
 func WithPake2MessageParamResponseMessage(paramResponse pbkdf.ParamResponseMessage) Pake2MessageOption {
 	return func(msg *pake2Message) {
 		msg.paramResponse = paramResponse
+
+		msgCounter := msg.MessageCounter()
+		if msgCounter <= paramResponse.MessageCounter() {
+			msg.protocolOps = append(msg.protocolOps,
+				message.WithHeaderAckCounter(paramResponse.MessageCounter()+1),
+			)
+		}
 	}
 }
 
@@ -60,6 +68,25 @@ func WithPake2MessagePake1Message(pake1 Pake1Message) Pake2MessageOption {
 			message.WithHeaderExchangeID(pake1.ExchangeID()),
 			message.WithHeaderAckCounter(pake1.MessageCounter()),
 		)
+
+		msgCounter := msg.MessageCounter()
+		if msgCounter <= pake1.MessageCounter() {
+			msg.protocolOps = append(msg.protocolOps,
+				message.WithHeaderAckCounter(pake1.MessageCounter()+1),
+			)
+		}
+	}
+}
+
+// WithPake2MessagePake1Ack sets the AckCounter in the Pake2Message based on the given Pake1 Ack, which is used to construct the Pake2 payload. This is important for ensuring that the Pake2 message correctly acknowledges the Pake1 message and maintains the proper message counter sequence.
+func WithPake2MessagePake1Ack(ack mrp.Ack) Pake2MessageOption {
+	return func(msg *pake2Message) {
+		msgCounter := msg.MessageCounter()
+		if msgCounter <= ack.MessageCounter() {
+			msg.protocolOps = append(msg.protocolOps,
+				message.WithHeaderAckCounter(ack.MessageCounter()+1),
+			)
+		}
 	}
 }
 
