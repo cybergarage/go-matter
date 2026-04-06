@@ -115,7 +115,7 @@ func NewPake1Message(opts ...any) (Pake1Message, error) {
 		},
 		protocolOps: []message.ProtocolHeaderOption{
 			// 4.10. Message Exchanges
-			message.WithHeaderExchangeFlags(message.InitiatorFlag | message.ReliabilityFlag),
+			message.WithHeaderExchangeFlags(message.InitiatorFlag | message.AckFlag | message.ReliabilityFlag),
 			// 4.11.1. Secure Channel Protocol Messages
 			message.WithHeaderOpcode(message.PASEPake1),
 			// 4.10.2. Exchange ID

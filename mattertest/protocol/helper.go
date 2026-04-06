@@ -238,6 +238,15 @@ func validateAckMessage(msg mrp.Ack) error {
 }
 
 func validatePake1Message(msg pake.Pake1Message) error {
+	if !msg.ExchangeFlags().IsInitiator() {
+		return fmt.Errorf("expected ExchangeFlags Initiator to be set")
+	}
+	if !msg.ExchangeFlags().IsAck() {
+		return fmt.Errorf("expected ExchangeFlags Acknowledgement to be set")
+	}
+	if !msg.ExchangeFlags().IsReliability() {
+		return fmt.Errorf("expected ExchangeFlags Reliability to be set")
+	}
 	return nil
 }
 
