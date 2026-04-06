@@ -31,7 +31,6 @@ func TestPaseSequence(t *testing.T) {
 	log.EnableStdoutDebug(true)
 
 	var err error
-	initMsgCounter := message.NewMessageCounter()
 	initPasscode, err := encoding.NewPairingCodeFromString("3035-750-7966")
 	if err != nil {
 		t.Fatalf("Failed to create PairingCode: %v", err)
@@ -95,7 +94,6 @@ func TestPaseSequence(t *testing.T) {
 				if pbkdfParamReqAck == nil {
 					pbkdfParamReqAck, err = mrp.NewAck(
 						mrp.WithAckReferenceMessage(pbkdfParamReq),
-						mrp.WithAckMessageCounter(initMsgCounter),
 					)
 				}
 
@@ -234,7 +232,7 @@ func TestPaseSequence(t *testing.T) {
 				if pake1Ack == nil {
 					pake1Ack, err = mrp.NewAck(
 						mrp.WithAckReferenceMessage(pake1),
-						mrp.WithAckMessageCounter(pake1.MessageCounter()),
+						mrp.WithAckPrecedingMessage(pbkdfParamRes),
 					)
 					if err != nil {
 						t.Fatalf("Failed to create PAKE1 ACK: %v", err)

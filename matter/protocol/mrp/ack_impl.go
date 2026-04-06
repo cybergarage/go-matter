@@ -51,18 +51,20 @@ func WithAckReferenceMessage(refMsg message.Message) AckOption {
 	}
 }
 
-// WithAckMessageCounter sets the message counter to be used in the ACK message. This is typically the next counter value for outgoing messages.
-func WithAckMessageCounter(counter MessageCounter) AckOption {
+// WithAckPrecedingMessage sets the message counter in the ACK based on the preceding message, ensuring that the ACK correctly acknowledges the preceding message and maintains the proper message counter sequence.
+func WithAckPrecedingMessage(preMsg message.Message) AckOption {
 	return func(a *ack) {
 		a.headerOpts = append(a.headerOpts,
-			message.WithHeaderMessageCounter(counter),
+			message.WithHeaderMessageCounter(preMsg.MessageCounter().Next()),
 		)
 	}
 }
 
 func newAck(opts ...AckOption) *ack {
 	a := &ack{
-		headerOpts: []message.HeaderOption{},
+		headerOpts: []message.HeaderOption{
+			message.WithHeaderMessageCounter(NewMessageCounter()),
+		},
 		// 4.12.7.1. MRP Standalone Acknowledgement
 		protocolOpts: []message.ProtocolHeaderOption{
 			message.WithHeaderExchangeFlags(message.AckFlag),
