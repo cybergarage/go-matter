@@ -137,7 +137,7 @@ func TestPaseSequence(t *testing.T) {
 				if pbkdfParamRes == nil {
 					pbkdfParamRes, err = pbkdf.NewParamResponseMessage(
 						pbkdf.WithParamResponseMessageParamRequestMessage(pbkdfParamReq),
-						message.WithHeaderMessageCounter(pbkdfParamReqAck.MessageCounter().Next()),
+						pbkdf.WithParamResponseMessageParamRequestAck(pbkdfParamReqAck),
 					)
 					if err != nil {
 						t.Fatalf("Failed to create ParamResponseMessage: %v", err)

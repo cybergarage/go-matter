@@ -16,6 +16,7 @@ package pbkdf
 import (
 	"github.com/cybergarage/go-matter/matter/encoding/json"
 	"github.com/cybergarage/go-matter/matter/encoding/message"
+	"github.com/cybergarage/go-matter/matter/protocol/mrp"
 	"github.com/cybergarage/go-matter/matter/types"
 )
 
@@ -49,6 +50,15 @@ func WithParamResponseMessageParamRequestMessage(paramReqMsg ParamRequestMessage
 		// 4.10.2. Exchange ID
 		m.protocolOps = append(m.protocolOps,
 			message.WithHeaderExchangeID(paramReqMsg.ExchangeID()),
+		)
+	}
+}
+
+// WithParamResponseMessageParamRequestAck sets the AckCounter in the ParamResponseMessage based on the given ParamRequest Ack, which is used to construct the ParamResponse payload. This is important for ensuring that the ParamResponse message correctly acknowledges the ParamRequest message and maintains the proper message counter sequence.
+func WithParamResponseMessageParamRequestAck(ack mrp.Ack) ParamResponseMessageOption {
+	return func(m *paramResponseMessage) {
+		m.headerOps = append(m.headerOps,
+			message.WithHeaderMessageCounter(ack.MessageCounter()+1),
 		)
 	}
 }
