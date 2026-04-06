@@ -118,8 +118,6 @@ func NewPake1Message(opts ...any) (Pake1Message, error) {
 			message.WithHeaderExchangeFlags(message.InitiatorFlag | message.AckFlag | message.ReliabilityFlag),
 			// 4.11.1. Secure Channel Protocol Messages
 			message.WithHeaderOpcode(message.PASEPake1),
-			// 4.10.2. Exchange ID
-			message.WithHeaderExchangeID(message.NewFirstExchangeID()),
 			// 4.4.3.4. Protocol ID (16 bits)
 			message.WithHeaderProtocolID(message.SecureChannel),
 		},
