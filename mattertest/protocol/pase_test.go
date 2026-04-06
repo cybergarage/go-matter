@@ -281,7 +281,7 @@ func TestPaseSequence(t *testing.T) {
 				if pake2 == nil {
 					pake2, err = pake.NewPake2Message(
 						pake.WithPake2MessagePake1Message(pake1),
-						message.WithHeaderMessageCounter(pake1.MessageCounter().Next()),
+						message.WithHeaderMessageCounter(pake1Ack.MessageCounter().Next()),
 					)
 					if err != nil {
 						t.Skipf("Failed to create PAKE2 message: %v", err)

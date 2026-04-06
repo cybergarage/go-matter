@@ -52,17 +52,15 @@ func WithPake2MessageParamResponseMessage(paramResponse pbkdf.ParamResponseMessa
 // WithPake2MessagePake1Message sets the Pake1Message in the Pake2Message, which is used to construct the Pake2 payload.
 func WithPake2MessagePake1Message(pake1 Pake1Message) Pake2MessageOption {
 	return func(msg *pake2Message) {
-		// 4.10.2. Exchange ID
+		refSrcNodeID, hasRefSrcNodeID := pake1.SourceNodeID()
+		if hasRefSrcNodeID {
+			msg.headerOps = append(msg.headerOps, message.WithHeaderDestinationNodeID(refSrcNodeID))
+		}
+
 		msg.protocolOps = append(msg.protocolOps,
 			message.WithHeaderExchangeID(pake1.ExchangeID()),
+			message.WithHeaderAckCounter(pake1.MessageCounter()),
 		)
-	}
-}
-
-// WithPake2MessageMessageCounter sets the message counter in the Pake2Message.
-func WithPake2MessageMessageCounter(counter message.MessageCounter) Pake2MessageOption {
-	return func(msg *pake2Message) {
-		msg.headerOps = append(msg.headerOps, message.WithHeaderMessageCounter(counter))
 	}
 }
 
@@ -96,7 +94,7 @@ func NewPake2Message(opts ...any) (Pake2Message, error) {
 		},
 		protocolOps: []message.ProtocolHeaderOption{
 			// 4.10. Message Exchanges
-			message.WithHeaderExchangeFlags(message.InitiatorFlag | message.ReliabilityFlag),
+			message.WithHeaderExchangeFlags(message.ReliabilityFlag | message.AckFlag),
 			// 4.11.1. Secure Channel Protocol Messages
 			message.WithHeaderOpcode(message.PASEPake2),
 			// 4.10.2. Exchange ID
