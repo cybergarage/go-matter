@@ -107,11 +107,14 @@ func validateReplyMessage(reqMsg message.Message, replyMsg message.Message) erro
 	// Validate that the ACK corresponds to the request
 
 	sourceNodeIDReq, hasSourceNodeIDReq := reqMsg.SourceNodeID()
-	destNodeIDRes, hasDestNodeIDRes := replyMsg.DestinationNodeID()
-	if !hasSourceNodeIDReq || !hasDestNodeIDRes {
-		return fmt.Errorf("Missing Node ID: request hasSourceNodeID %v, response hasDestinationNodeID %v", hasSourceNodeIDReq, hasDestNodeIDRes)
-	} else if sourceNodeIDReq != destNodeIDRes {
-		return fmt.Errorf("Node ID mismatch: request source %d, response destination %d", sourceNodeIDReq, destNodeIDRes)
+	if hasSourceNodeIDReq {
+		destNodeIDRes, hasDestNodeIDRes := replyMsg.DestinationNodeID()
+		if !hasDestNodeIDRes {
+			return fmt.Errorf("Missing Node ID: request hasSourceNodeID %v, response hasDestinationNodeID %v", hasSourceNodeIDReq, hasDestNodeIDRes)
+		}
+		if sourceNodeIDReq != destNodeIDRes {
+			return fmt.Errorf("Node ID mismatch: request source %d, response destination %d", sourceNodeIDReq, destNodeIDRes)
+		}
 	}
 
 	ackCounter, hasAckCounter := replyMsg.AckMessageCounter()

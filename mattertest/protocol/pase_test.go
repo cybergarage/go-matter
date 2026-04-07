@@ -126,15 +126,15 @@ func TestPaseSequence(t *testing.T) {
 					}
 				}
 
-				// Validate that the response corresponds to the request
+				// Validate the response message corresponds to the request ACK
 
-				if err := validateReplyMessage(pbkdfParamReq, pbkdfParamRes); err != nil {
+				if err := validateMessageSequence(pbkdfParamReqAck, pbkdfParamRes); err != nil {
 					t.Errorf("Message sequence validation failed: %v", err)
 				}
 
-				// Validate that the response corresponds to the request ACK
+				// Validate that the response corresponds to the request
 
-				if err := validateMessageSequence(pbkdfParamReqAck, pbkdfParamRes); err != nil {
+				if err := validateReplyMessage(pbkdfParamReq, pbkdfParamRes); err != nil {
 					t.Errorf("Message sequence validation failed: %v", err)
 				}
 
@@ -175,22 +175,22 @@ func TestPaseSequence(t *testing.T) {
 					}
 				}
 
-				// Validate the PAKE1 message
+				// Validate that the PAKE1 message corresponds to the PBKDF Parameter Request
 
-				if err := validatePake1Message(pake1); err != nil {
-					t.Errorf("Validation failed: %v", err)
-				}
-
-				// Validate that the PAKE1 message corresponds to the PBKDF Parameter Reuest
-
-				if pake1.MessageCounter() <= pbkdfParamReq.MessageCounter() {
-					t.Errorf("PAKE1 MessageCounter should be greater than PBKDF request MessageCounter: got %d, want > %d", pake1.MessageCounter(), pbkdfParamReq.MessageCounter())
+				if err := validateMessageSequence(pbkdfParamReq, pake1); err != nil {
+					t.Errorf("Message sequence validation failed: %v", err)
 				}
 
 				// Validate that the PAKE1 message corresponds to the PBKDF Parameter Response
 
-				if pake1.ExchangeID() != pbkdfParamRes.ExchangeID() {
-					t.Errorf("Exchange ID mismatch: PBKDF response %d, PAKE1 %d", pbkdfParamRes.ExchangeID(), pake1.ExchangeID())
+				if err := validateReplyMessage(pbkdfParamRes, pake1); err != nil {
+					t.Errorf("Message sequence validation failed: %v", err)
+				}
+
+				// Validate the PAKE1 message
+
+				if err := validatePake1Message(pake1); err != nil {
+					t.Errorf("Validation failed: %v", err)
 				}
 
 				log.Infof("%s %s", name, pake1.String())
@@ -215,32 +215,22 @@ func TestPaseSequence(t *testing.T) {
 					}
 				}
 
-				// Validate the ACK message
+				// Validate that the ACK corresponds to the PBKDF Parameter Response
 
-				if err := validateAckMessage(pake1Ack); err != nil {
-					t.Errorf("Validation failed: %v", err)
+				if err := validateMessageSequence(pbkdfParamRes, pake1Ack); err != nil {
+					t.Errorf("Message sequence validation failed: %v", err)
 				}
 
 				// Validate that the ACK corresponds to the PAKE1 message
 
-				sourceNodeIDPake1, hasSourceNodeIDPake1 := pake1.SourceNodeID()
-				destNodeIDAck, hasDestNodeIDAck := pake1Ack.DestinationNodeID()
-				if !hasSourceNodeIDPake1 || !hasDestNodeIDAck {
-					t.Errorf("Missing Node ID: PAKE1 hasSourceNodeID %v, ACK hasDestinationNodeID %v", hasSourceNodeIDPake1, hasDestNodeIDAck)
-				} else if sourceNodeIDPake1 != destNodeIDAck {
-					t.Errorf("Node ID mismatch: PAKE1 source %d, ACK destination %d", sourceNodeIDPake1, destNodeIDAck)
+				if err := validateReplyMessage(pake1, pake1Ack); err != nil {
+					t.Errorf("Message sequence validation failed: %v", err)
 				}
 
-				ackCounter, hasAckCounter := pake1Ack.AckMessageCounter()
-				pake1MsgCounter := pake1.MessageCounter()
-				if !hasAckCounter {
-					t.Error("Expected ACK to have message counter")
-				} else if ackCounter != pake1MsgCounter {
-					t.Errorf("ACK message counter mismatch: got %d, want %d", ackCounter, pake1MsgCounter)
-				}
+				// Validate the ACK message
 
-				if pake1Ack.ExchangeID() != pake1.ExchangeID() {
-					t.Errorf("ACK ExchangeID mismatch: got 0x%04X, want 0x%04X", pake1Ack.ExchangeID(), pake1.ExchangeID())
+				if err := validateAckMessage(pake1Ack); err != nil {
+					t.Errorf("Validation failed: %v", err)
 				}
 
 				log.Infof("%s %s", name, pake1Ack.String())
