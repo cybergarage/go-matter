@@ -60,6 +60,14 @@ func WithAckPrecedingMessage(preMsg message.Message) AckOption {
 	}
 }
 
+func withAckMessageCounter(counter message.MessageCounter) AckOption {
+	return func(a *ack) {
+		a.headerOpts = append(a.headerOpts,
+			message.WithHeaderMessageCounter(counter),
+		)
+	}
+}
+
 func newAck(opts ...AckOption) *ack {
 	a := &ack{
 		headerOpts: []message.HeaderOption{

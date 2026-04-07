@@ -44,7 +44,7 @@ func TestAckStandaloneMessage(t *testing.T) {
 	outboundCounter := MessageCounter(100)
 	ack, err := NewAck(
 		WithAckReferenceMessage(receivedMsg),
-		WithAckMessageCounter(outboundCounter),
+		withAckMessageCounter(outboundCounter),
 	)
 	if err != nil {
 		t.Fatalf("Failed to create ACK: %v", err)
@@ -106,7 +106,7 @@ func TestAckStandaloneWithSourceNode(t *testing.T) {
 	outboundCounter := MessageCounter(100)
 	ack, err := NewAck(
 		WithAckReferenceMessage(receivedMsg),
-		WithAckMessageCounter(outboundCounter),
+		withAckMessageCounter(outboundCounter),
 	)
 	if err != nil {
 		t.Fatalf("Failed to create ACK: %v", err)
@@ -149,7 +149,7 @@ func TestAckEncodeDecodeRoundtrip(t *testing.T) {
 	outboundCounter := MessageCounter(100)
 	ack, err := NewAck(
 		WithAckReferenceMessage(receivedMsg),
-		WithAckMessageCounter(outboundCounter),
+		withAckMessageCounter(outboundCounter),
 	)
 	if err != nil {
 		t.Fatalf("Failed to create ACK: %v", err)
