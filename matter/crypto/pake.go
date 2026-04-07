@@ -189,6 +189,32 @@ func CryptoTranscript(pbkdfParamRequest, pbkdfParamResponse, pA, pB, Z, V, w0 []
 	return tt, nil
 }
 
+// CryptoP2 derives cA, cB, and Ke from the transcript TT.
+// 3.10.4. Computation of cA, cB and Ke.
+func CryptoP2(tt, pA, pB []byte) ([]byte, []byte, []byte, error) {
+	if len(tt) == 0 {
+		return nil, nil, nil, newErrInvalid("transcript")
+	}
+	if _, err := cryptoValidatePoint(pA); err != nil {
+		return nil, nil, nil, fmt.Errorf("invalid pA: %w", err)
+	}
+	if _, err := cryptoValidatePoint(pB); err != nil {
+		return nil, nil, nil, fmt.Errorf("invalid pB: %w", err)
+	}
+
+	kaKe := CryptoHash(tt)
+	if len(kaKe) != CryptoHashLenBytes {
+		return nil, nil, nil, newErrInvalidLen("Ka||Ke", CryptoHashLenBytes, len(kaKe))
+	}
+
+	half := CryptoHashLenBytes / 2
+	ka := kaKe[:half]
+	ke := kaKe[half:]
+	cA := CryptoHMAC(ka, pB)
+	cB := CryptoHMAC(ka, pA)
+	return cA, cB, ke, nil
+}
+
 // appendSized appends a little-endian uint64 length prefix followed by data to dst.
 func appendSized(dst, data []byte) []byte {
 	var lenBuf [8]byte

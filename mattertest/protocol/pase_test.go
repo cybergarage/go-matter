@@ -253,6 +253,18 @@ func TestPaseSequence(t *testing.T) {
 					}
 				}
 
+				// Validate that the PAKE2 message corresponds to the PAKE1 ACK
+
+				if err := validateMessageSequence(pake1Ack, pake2); err != nil {
+					t.Errorf("Message sequence validation failed: %v", err)
+				}
+
+				// Validate that the PAKE2 message corresponds to the PAKE1 message
+
+				if err := validateReplyMessage(pake1, pake2); err != nil {
+					t.Errorf("Message sequence validation failed: %v", err)
+				}
+
 				// Validate the PAKE2 message
 
 				if err := validatePake2Message(pake2); err != nil {
@@ -290,5 +302,35 @@ func TestPaseSequence(t *testing.T) {
 				log.Infof("%s %s", name, pake3.String())
 			})
 		})
+	}
+}
+
+func TestPake2MessageRequiresPake1ForCB(t *testing.T) {
+	paramReq, err := pbkdf.NewParamRequestMessage()
+	if err != nil {
+		t.Fatalf("Failed to create ParamRequestMessage: %v", err)
+	}
+
+	paramReqAck, err := mrp.NewAck(
+		mrp.WithAckReferenceMessage(paramReq),
+	)
+	if err != nil {
+		t.Fatalf("Failed to create ParamRequest ACK: %v", err)
+	}
+
+	paramRes, err := pbkdf.NewParamResponseMessage(
+		pbkdf.WithParamResponseMessageParamRequestMessage(paramReq),
+		pbkdf.WithParamResponseMessageParamRequestAck(paramReqAck),
+	)
+	if err != nil {
+		t.Fatalf("Failed to create ParamResponseMessage: %v", err)
+	}
+
+	_, err = pake.NewPake2Message(
+		pake.WithPake2MessageParamRequestMessage(paramReq),
+		pake.WithPake2MessageParamResponseMessage(paramRes),
+	)
+	if err == nil {
+		t.Fatal("expected NewPake2Message to fail without a Pake1 message")
 	}
 }

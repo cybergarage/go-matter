@@ -167,3 +167,68 @@ func TestCryptoTranscript_Basic(t *testing.T) {
 		t.Error("TT should differ when pbkdfParamRequest changes")
 	}
 }
+
+func TestCryptoConfirmationValues_Basic(t *testing.T) {
+	passcode := []byte("testpasscode")
+	salt := []byte("testsalt")
+	iter := 1000
+
+	w0, w1, err := CryptoPAKEValuesInitiator(passcode, salt, iter)
+	if err != nil {
+		t.Fatalf("CryptoPAKEValuesInitiator failed: %v", err)
+	}
+	pA, err := CryptoPA(w0, w1)
+	if err != nil {
+		t.Fatalf("CryptoPA failed: %v", err)
+	}
+	_, l, err := CryptoPAKEValuesResponder(passcode, salt, iter)
+	if err != nil {
+		t.Fatalf("CryptoPAKEValuesResponder failed: %v", err)
+	}
+	pB, err := CryptoPB(w0, l)
+	if err != nil {
+		t.Fatalf("CryptoPB failed: %v", err)
+	}
+
+	tt, err := CryptoTranscript([]byte("pbkdf-param-request"), []byte("pbkdf-param-response"), pA, pB, pA, pB, w0)
+	if err != nil {
+		t.Fatalf("CryptoTranscript failed: %v", err)
+	}
+
+	cA, cB, ke, err := CryptoP2(tt, pA, pB)
+	if err != nil {
+		t.Fatalf("CryptoConfirmationValues failed: %v", err)
+	}
+	if len(cA) != CryptoHashLenBytes {
+		t.Fatalf("cA length = %d, want %d", len(cA), CryptoHashLenBytes)
+	}
+	if len(cB) != CryptoHashLenBytes {
+		t.Fatalf("cB length = %d, want %d", len(cB), CryptoHashLenBytes)
+	}
+	if len(ke) != CryptoHashLenBytes/2 {
+		t.Fatalf("Ke length = %d, want %d", len(ke), CryptoHashLenBytes/2)
+	}
+
+	cA2, cB2, ke2, err := CryptoP2(tt, pA, pB)
+	if err != nil {
+		t.Fatalf("CryptoConfirmationValues second call failed: %v", err)
+	}
+	if !bytes.Equal(cA, cA2) || !bytes.Equal(cB, cB2) || !bytes.Equal(ke, ke2) {
+		t.Fatal("confirmation values should be deterministic")
+	}
+
+	ttChanged, err := CryptoTranscript([]byte("other-request"), []byte("pbkdf-param-response"), pA, pB, pA, pB, w0)
+	if err != nil {
+		t.Fatalf("CryptoTranscript changed failed: %v", err)
+	}
+	cAChanged, cBChanged, _, err := CryptoP2(ttChanged, pA, pB)
+	if err != nil {
+		t.Fatalf("CryptoConfirmationValues changed failed: %v", err)
+	}
+	if bytes.Equal(cA, cAChanged) {
+		t.Fatal("cA should change when TT changes")
+	}
+	if bytes.Equal(cB, cBChanged) {
+		t.Fatal("cB should change when TT changes")
+	}
+}

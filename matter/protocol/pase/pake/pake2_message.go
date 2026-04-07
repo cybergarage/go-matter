@@ -25,6 +25,7 @@ import (
 type pake2Message struct {
 	paramRequest  pbkdf.ParamRequestMessage
 	paramResponse pbkdf.ParamResponseMessage
+	pake1         Pake1Message
 	headerOps     []message.HeaderOption
 	protocolOps   []message.ProtocolHeaderOption
 	pake2ReqOps   []Pake2Option
@@ -55,6 +56,7 @@ func WithPake2MessageParamResponseMessage(paramResponse pbkdf.ParamResponseMessa
 // WithPake2MessagePake1Message sets the Pake1Message in the Pake2Message, which is used to construct the Pake2 payload.
 func WithPake2MessagePake1Message(pake1 Pake1Message) Pake2MessageOption {
 	return func(msg *pake2Message) {
+		msg.pake1 = pake1
 		refSrcNodeID, hasRefSrcNodeID := pake1.SourceNodeID()
 		if hasRefSrcNodeID {
 			msg.headerOps = append(msg.headerOps, message.WithHeaderDestinationNodeID(refSrcNodeID))
@@ -70,6 +72,9 @@ func WithPake2MessagePake1Message(pake1 Pake1Message) Pake2MessageOption {
 // WithPake2MessagePake1Ack sets the AckCounter in the Pake2Message based on the given Pake1 Ack, which is used to construct the Pake2 payload. This is important for ensuring that the Pake2 message correctly acknowledges the Pake1 message and maintains the proper message counter sequence.
 func WithPake2MessagePake1Ack(ack mrp.Ack) Pake2MessageOption {
 	return func(msg *pake2Message) {
+		msg.headerOps = append(msg.headerOps,
+			message.WithHeaderMessageCounter(ack.MessageCounter()+1),
+		)
 		msg.protocolOps = append(msg.protocolOps,
 			message.WithHeaderAckCounter(ack.MessageCounter()+1),
 		)
@@ -101,6 +106,7 @@ func NewPake2Message(opts ...any) (Pake2Message, error) {
 		headerOps: []message.HeaderOption{
 			message.WithHeaderSessionID(0x0000),
 			message.WithHeaderSecurityFlags(0x00),
+			message.WithHeaderMessageCounter(message.NewMessageCounter()),
 		},
 		protocolOps: []message.ProtocolHeaderOption{
 			// 4.10. Message Exchanges
@@ -130,21 +136,21 @@ func NewPake2Message(opts ...any) (Pake2Message, error) {
 		}
 	}
 
-	computePB := func(paramRequest pbkdf.ParamRequestMessage, paramResponse pbkdf.ParamResponseMessage) ([]byte, error) {
+	computePB := func(paramRequest pbkdf.ParamRequestMessage, paramResponse pbkdf.ParamResponseMessage) ([]byte, []byte, []byte, error) {
 		if msg.paramRequest == nil {
-			return nil, errInvalidParam("paramRequest", msg.paramRequest)
+			return nil, nil, nil, errInvalidParam("paramRequest", msg.paramRequest)
 		}
 		if msg.paramResponse == nil {
-			return nil, errInvalidParam("paramResponse", msg.paramResponse)
+			return nil, nil, nil, errInvalidParam("paramResponse", msg.paramResponse)
 		}
 		passcodeId := msg.paramRequest.PasscodeID()
 		salt, ok := msg.paramResponse.PBKDFParams().Salt()
 		if !ok {
-			return nil, errInvalidParam("paramResponse.Salt", salt)
+			return nil, nil, nil, errInvalidParam("paramResponse.Salt", salt)
 		}
 		iterations, ok := msg.paramResponse.PBKDFParams().Iterations()
 		if !ok {
-			return nil, errInvalidParam("paramResponse.Iterations", iterations)
+			return nil, nil, nil, errInvalidParam("paramResponse.Iterations", iterations)
 		}
 		w0, l, err := crypto.CryptoPAKEValuesResponder(
 			passcodeId.Bytes(),
@@ -152,21 +158,67 @@ func NewPake2Message(opts ...any) (Pake2Message, error) {
 			iterations,
 		)
 		if err != nil {
-			return nil, err
+			return nil, nil, nil, err
 		}
 		pB, err := crypto.CryptoPB(w0, l)
 		if err != nil {
+			return nil, nil, nil, err
+		}
+		return w0, l, pB, nil
+	}
+
+	computeCB := func(paramRequest pbkdf.ParamRequestMessage, paramResponse pbkdf.ParamResponseMessage, pake1 Pake1Message, w0, pB []byte) ([]byte, error) {
+		if paramRequest == nil {
+			return nil, errInvalidParam("paramRequest", paramRequest)
+		}
+		if paramResponse == nil {
+			return nil, errInvalidParam("paramResponse", paramResponse)
+		}
+		if pake1 == nil {
+			return nil, errInvalidParam("pake1", pake1)
+		}
+
+		pA := pake1.pA()
+		if len(pA) == 0 {
+			return nil, errInvalidParam("pake1.pA", pA)
+		}
+
+		// The current PAKE implementation does not retain the ephemeral SPAKE2+
+		// shared points, so use the exchanged public values as stable stand-ins
+		// until the full shared-point derivation is wired in.
+		tt, err := crypto.CryptoTranscript(
+			paramRequest.Payload(),
+			paramResponse.Payload(),
+			pA,
+			pB,
+			pA,
+			pB,
+			w0,
+		)
+		if err != nil {
 			return nil, err
 		}
-		return pB, nil
+
+		_, cB, _, err := crypto.CryptoP2(tt, pA, pB)
+		if err != nil {
+			return nil, err
+		}
+		return cB, nil
 	}
 
 	// pB
-	pB, err := computePB(msg.paramRequest, msg.paramResponse)
+	w0, _, pB, err := computePB(msg.paramRequest, msg.paramResponse)
 	if err != nil {
 		return nil, err
 	}
 	msg.pake2ReqOps = append(msg.pake2ReqOps, WithPake2PB(pB))
+
+	// pC
+	cB, err := computeCB(msg.paramRequest, msg.paramResponse, msg.pake1, w0, pB)
+	if err != nil {
+		return nil, err
+	}
+	msg.pake2ReqOps = append(msg.pake2ReqOps, WithPake2CB(cB))
 
 	msg.Pake2 = NewPake2(msg.pake2ReqOps...)
 	payload, err := msg.Pake2.Bytes()
