@@ -49,6 +49,7 @@ func WithParamResponseMessageParamRequestMessage(paramReqMsg ParamRequestMessage
 		)
 		// 4.10.2. Exchange ID
 		m.protocolOps = append(m.protocolOps,
+			message.WithHeaderAckCounter(paramReqMsg.MessageCounter()),
 			message.WithHeaderExchangeID(paramReqMsg.ExchangeID()),
 		)
 	}

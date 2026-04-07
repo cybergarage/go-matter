@@ -103,6 +103,39 @@ func decodeHexdumpPake3Message(t *testing.T, hexStr string) pake.Pake3Message {
 	return msg
 }
 
+func validateReplyMessage(reqMsg message.Message, replyMsg message.Message) error {
+	// Validate that the ACK corresponds to the request
+
+	sourceNodeIDReq, hasSourceNodeIDReq := reqMsg.SourceNodeID()
+	destNodeIDRes, hasDestNodeIDRes := replyMsg.DestinationNodeID()
+	if !hasSourceNodeIDReq || !hasDestNodeIDRes {
+		return fmt.Errorf("Missing Node ID: request hasSourceNodeID %v, response hasDestinationNodeID %v", hasSourceNodeIDReq, hasDestNodeIDRes)
+	} else if sourceNodeIDReq != destNodeIDRes {
+		return fmt.Errorf("Node ID mismatch: request source %d, response destination %d", sourceNodeIDReq, destNodeIDRes)
+	}
+
+	ackCounter, hasAckCounter := replyMsg.AckMessageCounter()
+	reqMsgCounter := reqMsg.MessageCounter()
+	if !hasAckCounter {
+		return fmt.Errorf("Expected ACK to have message counter")
+	} else if ackCounter != reqMsgCounter {
+		return fmt.Errorf("ACK message counter mismatch: got %d, want %d", ackCounter, reqMsgCounter)
+	}
+
+	if replyMsg.ExchangeID() != reqMsg.ExchangeID() {
+		return fmt.Errorf("ACK ExchangeID mismatch: got 0x%04X, want 0x%04X", replyMsg.ExchangeID(), reqMsg.ExchangeID())
+	}
+
+	return nil
+}
+
+func validateMessageSequence(prevMsg message.Message, nextMsg message.Message) error {
+	if nextMsg.MessageCounter() <= prevMsg.MessageCounter() {
+		return fmt.Errorf("Message counter mismatch: next message counter %d should be greater than previous message counter %d", nextMsg.MessageCounter(), prevMsg.MessageCounter())
+	}
+	return nil
+}
+
 func validatePBKDFParamRequest(msg pbkdf.ParamRequestMessage) error {
 	// 4.14.1.2. Protocol Details
 

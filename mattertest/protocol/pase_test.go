@@ -105,24 +105,8 @@ func TestPaseSequence(t *testing.T) {
 
 				// Validate that the ACK corresponds to the request
 
-				sourceNodeIDReq, hasSourceNodeIDReq := pbkdfParamReq.SourceNodeID()
-				destNodeIDRes, hasDestNodeIDRes := pbkdfParamReqAck.DestinationNodeID()
-				if !hasSourceNodeIDReq || !hasDestNodeIDRes {
-					t.Errorf("Missing Node ID: request hasSourceNodeID %v, response hasDestinationNodeID %v", hasSourceNodeIDReq, hasDestNodeIDRes)
-				} else if sourceNodeIDReq != destNodeIDRes {
-					t.Errorf("Node ID mismatch: request source %d, response destination %d", sourceNodeIDReq, destNodeIDRes)
-				}
-
-				ackCounter, hasAckCounter := pbkdfParamReqAck.AckMessageCounter()
-				reqMsgCounter := pbkdfParamReq.MessageCounter()
-				if !hasAckCounter {
-					t.Error("Expected ACK to have message counter")
-				} else if ackCounter != reqMsgCounter {
-					t.Errorf("ACK message counter mismatch: got %d, want %d", ackCounter, reqMsgCounter)
-				}
-
-				if pbkdfParamReqAck.ExchangeID() != pbkdfParamReq.ExchangeID() {
-					t.Errorf("ACK ExchangeID mismatch: got 0x%04X, want 0x%04X", pbkdfParamReqAck.ExchangeID(), pbkdfParamReq.ExchangeID())
+				if err := validateReplyMessage(pbkdfParamReq, pbkdfParamReqAck); err != nil {
+					t.Errorf("Message sequence validation failed: %v", err)
 				}
 
 				log.Infof("%s %s", name, pbkdfParamReqAck.String())
@@ -142,24 +126,22 @@ func TestPaseSequence(t *testing.T) {
 					}
 				}
 
+				// Validate that the response corresponds to the request
+
+				if err := validateReplyMessage(pbkdfParamReq, pbkdfParamRes); err != nil {
+					t.Errorf("Message sequence validation failed: %v", err)
+				}
+
+				// Validate that the response corresponds to the request ACK
+
+				if err := validateMessageSequence(pbkdfParamReqAck, pbkdfParamRes); err != nil {
+					t.Errorf("Message sequence validation failed: %v", err)
+				}
+
 				// Validate the response message
 
 				if err := validatePBKDFParamResponse(pbkdfParamRes); err != nil {
 					t.Errorf("Validation failed: %v", err)
-				}
-
-				// Validate that the response corresponds to the request
-
-				if pbkdfParamReq.ExchangeID() != pbkdfParamRes.ExchangeID() {
-					t.Errorf("Exchange ID mismatch: request %d, response %d", pbkdfParamReq.ExchangeID(), pbkdfParamRes.ExchangeID())
-				}
-
-				sourceNodeIDReq, hasSourceNodeIDReq := pbkdfParamReq.SourceNodeID()
-				destNodeIDRes, hasDestNodeIDRes := pbkdfParamRes.DestinationNodeID()
-				if !hasSourceNodeIDReq || !hasDestNodeIDRes {
-					t.Errorf("Missing Node ID: request hasSourceNodeID %v, response hasDestinationNodeID %v", hasSourceNodeIDReq, hasDestNodeIDRes)
-				} else if sourceNodeIDReq != destNodeIDRes {
-					t.Errorf("Node ID mismatch: request source %d, response destination %d", sourceNodeIDReq, destNodeIDRes)
 				}
 
 				if !bytes.Equal(pbkdfParamRes.InitiatorRandom(), pbkdfParamReq.InitiatorRandom()) {
@@ -168,12 +150,6 @@ func TestPaseSequence(t *testing.T) {
 
 				if pbkdfParamRes.ResponderSessionID() == uint16(pbkdfParamReq.InitiatorSessionID()) {
 					t.Errorf("Responder Session ID should not match Initiator Session ID: got %d", pbkdfParamRes.ResponderSessionID())
-				}
-
-				// Validate that the response corresponds to the request ACK
-
-				if pbkdfParamRes.MessageCounter() <= pbkdfParamReqAck.MessageCounter() {
-					t.Errorf("Response MessageCounter should be greater than ACK MessageCounter: got %d, want > %d", pbkdfParamRes.MessageCounter(), pbkdfParamReqAck.MessageCounter())
 				}
 
 				log.Infof("%s %s", name, pbkdfParamRes.String())
