@@ -23,12 +23,12 @@ import (
 )
 
 type pake2Message struct {
-	paramRequest  pbkdf.ParamRequestMessage
-	paramResponse pbkdf.ParamResponseMessage
-	pake1         Pake1Message
-	headerOps     []message.HeaderOption
-	protocolOps   []message.ProtocolHeaderOption
-	pake2ReqOps   []Pake2Option
+	paramReq    pbkdf.ParamRequestMessage
+	paramRes    pbkdf.ParamResponseMessage
+	pake1       Pake1Message
+	headerOps   []message.HeaderOption
+	protocolOps []message.ProtocolHeaderOption
+	pake2ReqOps []Pake2Option
 	Message
 	Pake2
 }
@@ -37,18 +37,18 @@ type pake2Message struct {
 type Pake2MessageOption func(*pake2Message)
 
 // WithPake2MessageParamRequestMessage sets the ParamRequestMessage in the Pake2Message, which is used to construct the Pake2 payload.
-func WithPake2MessageParamRequestMessage(paramRequest pbkdf.ParamRequestMessage) Pake2MessageOption {
+func WithPake2MessageParamRequestMessage(paramReq pbkdf.ParamRequestMessage) Pake2MessageOption {
 	return func(m *pake2Message) {
-		m.paramRequest = paramRequest
+		m.paramReq = paramReq
 	}
 }
 
 // WithPake2MessageParamResponseMessage sets the ParamResponseMessage in the Pake2Message, which is used to construct the Pake2 payload.
-func WithPake2MessageParamResponseMessage(paramResponse pbkdf.ParamResponseMessage) Pake2MessageOption {
+func WithPake2MessageParamResponseMessage(paramRes pbkdf.ParamResponseMessage) Pake2MessageOption {
 	return func(msg *pake2Message) {
-		msg.paramResponse = paramResponse
+		msg.paramRes = paramRes
 		msg.protocolOps = append(msg.protocolOps,
-			message.WithHeaderAckCounter(paramResponse.MessageCounter()+1),
+			message.WithHeaderAckCounter(paramRes.MessageCounter()+1),
 		)
 	}
 }
@@ -61,7 +61,6 @@ func WithPake2MessagePake1Message(pake1 Pake1Message) Pake2MessageOption {
 		if hasRefSrcNodeID {
 			msg.headerOps = append(msg.headerOps, message.WithHeaderDestinationNodeID(refSrcNodeID))
 		}
-
 		msg.protocolOps = append(msg.protocolOps,
 			message.WithHeaderExchangeID(pake1.ExchangeID()),
 			message.WithHeaderAckCounter(pake1.MessageCounter()),
@@ -137,18 +136,18 @@ func NewPake2Message(opts ...any) (Pake2Message, error) {
 	}
 
 	computePB := func(paramRequest pbkdf.ParamRequestMessage, paramResponse pbkdf.ParamResponseMessage) ([]byte, []byte, []byte, error) {
-		if msg.paramRequest == nil {
-			return nil, nil, nil, errInvalidParam("paramRequest", msg.paramRequest)
+		if msg.paramReq == nil {
+			return nil, nil, nil, errInvalidParam("paramRequest", msg.paramReq)
 		}
-		if msg.paramResponse == nil {
-			return nil, nil, nil, errInvalidParam("paramResponse", msg.paramResponse)
+		if msg.paramRes == nil {
+			return nil, nil, nil, errInvalidParam("paramResponse", msg.paramRes)
 		}
-		passcodeId := msg.paramRequest.PasscodeID()
-		salt, ok := msg.paramResponse.PBKDFParams().Salt()
+		passcodeId := msg.paramReq.PasscodeID()
+		salt, ok := msg.paramRes.PBKDFParams().Salt()
 		if !ok {
 			return nil, nil, nil, errInvalidParam("paramResponse.Salt", salt)
 		}
-		iterations, ok := msg.paramResponse.PBKDFParams().Iterations()
+		iterations, ok := msg.paramRes.PBKDFParams().Iterations()
 		if !ok {
 			return nil, nil, nil, errInvalidParam("paramResponse.Iterations", iterations)
 		}
@@ -207,14 +206,14 @@ func NewPake2Message(opts ...any) (Pake2Message, error) {
 	}
 
 	// pB
-	w0, _, pB, err := computePB(msg.paramRequest, msg.paramResponse)
+	w0, _, pB, err := computePB(msg.paramReq, msg.paramRes)
 	if err != nil {
 		return nil, err
 	}
 	msg.pake2ReqOps = append(msg.pake2ReqOps, WithPake2PB(pB))
 
 	// pC
-	cB, err := computeCB(msg.paramRequest, msg.paramResponse, msg.pake1, w0, pB)
+	cB, err := computeCB(msg.paramReq, msg.paramRes, msg.pake1, w0, pB)
 	if err != nil {
 		return nil, err
 	}

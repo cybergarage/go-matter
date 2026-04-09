@@ -17,9 +17,14 @@ package pake
 import (
 	"github.com/cybergarage/go-matter/matter/encoding/json"
 	"github.com/cybergarage/go-matter/matter/encoding/message"
+	"github.com/cybergarage/go-matter/matter/protocol/pase/pbkdf"
 )
 
 type pake3Message struct {
+	paramReq    pbkdf.ParamRequestMessage
+	paramRes    pbkdf.ParamResponseMessage
+	pake1       Pake1Message
+	pake2       Pake2Message
 	headerOps   []message.HeaderOption
 	protocolOps []message.ProtocolHeaderOption
 	pake3ReqOps []Pake3Option
@@ -30,19 +35,43 @@ type pake3Message struct {
 // Pake3MessageOption defines a functional option for configuring the Pake3Message.
 type Pake3MessageOption func(*pake3Message)
 
-func WithPake3MessagePake2Message(pake2 Pake2Message) Pake3MessageOption {
-	return func(m *pake3Message) {
-		// 4.10.2. Exchange ID
-		m.protocolOps = append(m.protocolOps,
-			message.WithHeaderExchangeID(pake2.ExchangeID()),
+// WithPake3MessageParamRequestMessage sets the ParamRequestMessage in the Pake3Message, which is used to construct the Pake3 payload.
+func WithPake3MessageParamRequestMessage(paramRequest pbkdf.ParamRequestMessage) Pake3MessageOption {
+	return func(msg *pake3Message) {
+		msg.paramReq = paramRequest
+		// Header options
+		if sourceID, ok := paramRequest.SourceNodeID(); ok {
+			msg.headerOps = append(msg.headerOps, message.WithHeaderSourceNodeID(sourceID))
+		}
+	}
+}
+
+// WithPake3MessageParamResponseMessage sets the ParamResponseMessage in the Pake3Message, which is used to construct the Pake3 payload.
+func WithPake3MessageParamResponseMessage(paramResponse pbkdf.ParamResponseMessage) Pake3MessageOption {
+	return func(msg *pake3Message) {
+		msg.paramRes = paramResponse
+	}
+}
+
+// WithPake3MessagePake1Message sets the Pake1Message in the Pake3Message, which is used to construct the Pake3 payload.
+func WithPake3MessagePake1Message(pake1 Pake1Message) Pake3MessageOption {
+	return func(msg *pake3Message) {
+		msg.pake1 = pake1
+		// Header options
+		msg.headerOps = append(msg.headerOps,
+			message.WithHeaderMessageCounter(pake1.MessageCounter()+1),
 		)
 	}
 }
 
-// WithPake3MessageMessageCounter sets the message counter in the Pake3Message.
-func WithPake3MessageMessageCounter(counter message.MessageCounter) Pake3MessageOption {
-	return func(m *pake3Message) {
-		m.headerOps = append(m.headerOps, message.WithHeaderMessageCounter(counter))
+// WithPake3MessagePake2Message sets the Pake2Message in the Pake3Message, which is used to construct the Pake3 payload.
+func WithPake3MessagePake2Message(pake2 Pake2Message) Pake3MessageOption {
+	return func(msg *pake3Message) {
+		msg.pake2 = pake2
+		msg.protocolOps = append(msg.protocolOps,
+			message.WithHeaderExchangeID(pake2.ExchangeID()),
+			message.WithHeaderAckCounter(pake2.MessageCounter()),
+		)
 	}
 }
 
@@ -73,7 +102,7 @@ func NewPake3Message(opts ...any) (Pake3Message, error) {
 		},
 		protocolOps: []message.ProtocolHeaderOption{
 			// 4.10. Message Exchanges
-			message.WithHeaderExchangeFlags(message.InitiatorFlag | message.ReliabilityFlag),
+			message.WithHeaderExchangeFlags(message.InitiatorFlag | message.AckFlag | message.ReliabilityFlag),
 			// 4.11.1. Secure Channel Protocol Messages
 			message.WithHeaderOpcode(message.PASEPake3),
 			// 4.4.3.4. Protocol ID (16 bits)
@@ -98,6 +127,17 @@ func NewPake3Message(opts ...any) (Pake3Message, error) {
 			return nil, errInvalidOption(opt)
 		}
 	}
+
+	computeCA := func(paramRequest pbkdf.ParamRequestMessage, paramResponse pbkdf.ParamResponseMessage, pake1 Pake1Message, pake2 Pake2Message) ([]byte, error) {
+		return nil, nil
+	}
+
+	// cA
+	cA, err := computeCA(msg.paramReq, msg.paramRes, msg.pake1, msg.pake2)
+	if err != nil {
+		return nil, err
+	}
+	msg.pake3ReqOps = append(msg.pake3ReqOps, WithPake3CA(cA))
 
 	msg.Pake3 = NewPake3(msg.pake3ReqOps...)
 	payload, err := msg.Pake3.Bytes()

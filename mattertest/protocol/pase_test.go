@@ -21,7 +21,6 @@ import (
 
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/encoding"
-	"github.com/cybergarage/go-matter/matter/encoding/message"
 	"github.com/cybergarage/go-matter/matter/protocol/mrp"
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pake"
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pbkdf"
@@ -285,13 +284,27 @@ func TestPaseSequence(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				if pake3 == nil {
 					pake3, err = pake.NewPake3Message(
+						pake.WithPake3MessageParamRequestMessage(pbkdfParamReq),
+						pake.WithPake3MessageParamResponseMessage(pbkdfParamRes),
+						pake.WithPake3MessagePake1Message(pake1),
 						pake.WithPake3MessagePake2Message(pake2),
-						message.WithHeaderMessageCounter(pake2.MessageCounter().Next()),
 					)
 					if err != nil {
 						t.Skipf("Failed to create PAKE3 message: %v", err)
 						return
 					}
+				}
+
+				// Validate that the PAKE3 message corresponds to the PAKE1 message
+
+				if err := validateMessageSequence(pake1, pake3); err != nil {
+					t.Errorf("Message sequence validation failed: %v", err)
+				}
+
+				// Validate that the PAKE3 message corresponds to the PAKE2 message
+
+				if err := validateReplyMessage(pake2, pake3); err != nil {
+					t.Errorf("Message sequence validation failed: %v", err)
 				}
 
 				// Validate the PAKE3 message

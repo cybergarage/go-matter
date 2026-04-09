@@ -33,24 +33,24 @@ type pake1Message struct {
 type Pake1MessageOption func(*pake1Message) error
 
 // WithPake1MessageParamRequestMessage sets the ParamRequestMessage in the Pake1Message, which is used to construct the Pake1 payload and also sets the appropriate header and protocol options based on the ParamRequestMessage.
-func WithPake1MessageParamRequestMessage(reqMsg pbkdf.ParamRequestMessage) Pake1MessageOption {
+func WithPake1MessageParamRequestMessage(paramReq pbkdf.ParamRequestMessage) Pake1MessageOption {
 	return func(m *pake1Message) error {
 		// Header options
-		if sourceID, ok := reqMsg.SourceNodeID(); ok {
+		if sourceID, ok := paramReq.SourceNodeID(); ok {
 			m.headerOps = append(m.headerOps, message.WithHeaderSourceNodeID(sourceID))
 		}
-		m.headerOps = append(m.headerOps, message.WithHeaderMessageCounter(reqMsg.MessageCounter().Next()))
+		m.headerOps = append(m.headerOps, message.WithHeaderMessageCounter(paramReq.MessageCounter().Next()))
 		// Protocol options
-		m.protocolOps = append(m.protocolOps, message.WithHeaderExchangeID(reqMsg.ExchangeID()))
+		m.protocolOps = append(m.protocolOps, message.WithHeaderExchangeID(paramReq.ExchangeID()))
 		return nil
 	}
 }
 
 // WithPake1MessageParamResponseMessage sets the ParamResponseMessage in the Pake1Message, which is used to construct the Pake1 payload.
-func WithPake1MessageParamResponseMessage(resMsg pbkdf.ParamResponseMessage) Pake1MessageOption {
+func WithPake1MessageParamResponseMessage(paramRes pbkdf.ParamResponseMessage) Pake1MessageOption {
 	return func(m *pake1Message) error {
 		// Protocol options
-		m.protocolOps = append(m.protocolOps, message.WithHeaderAckCounter(resMsg.MessageCounter()))
+		m.protocolOps = append(m.protocolOps, message.WithHeaderAckCounter(paramRes.MessageCounter()))
 		return nil
 	}
 }
