@@ -61,7 +61,6 @@ func (i *Initiator) EstablishSession(ctx context.Context) (*Result, error) {
 	}
 	log.Infof("PBKDFParamRequest: %s", paramReqMsg.String())
 	log.HexInfo(reqBytes)
-
 	if _, ok := ctx.Deadline(); !ok {
 		var cancel context.CancelFunc
 		ts := pbkdf.DefaultSessionActiveThreshold
@@ -73,7 +72,6 @@ func (i *Initiator) EstablishSession(ctx context.Context) (*Result, error) {
 		ctx, cancel = context.WithTimeout(ctx, ts)
 		defer cancel()
 	}
-
 	if err := i.t.Transmit(ctx, reqBytes); err != nil {
 		log.Errorf("Failed to transmit PBKDFParamRequest: %v", err)
 		return nil, err
@@ -126,35 +124,63 @@ func (i *Initiator) EstablishSession(ctx context.Context) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
+	log.Infof("Pake1: %s", pake1Msg.String())
+	log.HexInfo(pake1Bytes)
 	if err := i.t.Transmit(ctx, pake1Bytes); err != nil {
 		log.Errorf("Failed to transmit Pake1: %v", err)
 		return nil, err
 	}
 
-	// hs, err := NewHandshake(HandshakeRoleClient, HandshakeOptions{
-	// 	Passcode:  i.passcode.Bytes(),
-	// 	Salt:      salt,
-	// 	PBKDFIter: iter,
-	// 	Hash:      nil, // TODO: support different hash algorithms
-	// })
-	// if err != nil {
-	// 	return nil, err
-	// }
+	// 3) Pake2 ACK (optional)
+	if pake1Msg.IsReliability() {
+		resBytes, err := i.t.Receive(ctx)
+		if err != nil {
+			log.Errorf("Failed to receive Pake2 ACK: %v", err)
+			return nil, err
+		}
+		pake2Ack, err := mrp.NewAckFromBytes(resBytes)
+		if err != nil {
+			log.Errorf("Failed to decode Pake2 ACK: %v", err)
+			return nil, err
+		}
+		log.Infof("Pake2 ACK: %s", pake2Ack.String())
+		log.HexInfo(resBytes)
+	}
 
-	// 3-1) Pake1
-	// _, err = hs.Start() // TODO: spake2p.Start(), not implemented yet
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// 3-2) Pake2
-	p2raw, err := i.t.Receive(ctx)
+	// 3) Pake2
+	pake2Bytes, err := i.t.Receive(ctx)
 	if err != nil {
 		log.Errorf("Failed to receive Pake2: %v", err)
 		return nil, err
 	}
-	// TODO: decode p2raw
-	_ = p2raw
+	pake2Msg, err := pake.NewPake2MessageFromBytes(pake2Bytes)
+	if err != nil {
+		log.Errorf("Failed to decode Pake2: %v", err)
+		return nil, err
+	}
+	log.Infof("Pake2: %s", pake2Msg.String())
+	log.HexInfo(pake2Bytes)
+
+	// 4) Pake3
+	pake3Msg, err := pake.NewPake3Message(
+		pake.WithPake3MessageParamRequestMessage(paramReqMsg),
+		pake.WithPake3MessageParamResponseMessage(pbkdfResMsg),
+		pake.WithPake3MessagePake1Message(pake1Msg),
+		pake.WithPake3MessagePake2Message(pake2Msg),
+	)
+	if err != nil {
+		return nil, err
+	}
+	pake3Bytes, err := pake3Msg.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	log.Infof("Pake3: %s", pake3Msg.String())
+	log.HexInfo(pake3Bytes)
+	if err := i.t.Transmit(ctx, pake3Bytes); err != nil {
+		log.Errorf("Failed to transmit Pake3: %v", err)
+		return nil, err
+	}
 
 	return nil, fmt.Errorf("PASE client flow is incomplete: requires spake2p + message parsing")
 }

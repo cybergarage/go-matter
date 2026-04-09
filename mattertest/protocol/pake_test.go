@@ -20,7 +20,10 @@ import (
 	"testing"
 
 	"github.com/cybergarage/go-logger/log"
+	"github.com/cybergarage/go-matter/matter/encoding"
+	"github.com/cybergarage/go-matter/matter/protocol/mrp"
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pake"
+	"github.com/cybergarage/go-matter/matter/protocol/pase/pbkdf"
 )
 
 func TestPake1Message(t *testing.T) {
@@ -83,6 +86,36 @@ func TestPake2Message(t *testing.T) {
 	}
 }
 
+func TestPake2MessageRequiresPake1ForCB(t *testing.T) {
+	paramReq, err := pbkdf.NewParamRequestMessage()
+	if err != nil {
+		t.Fatalf("Failed to create ParamRequestMessage: %v", err)
+	}
+
+	paramReqAck, err := mrp.NewAck(
+		mrp.WithAckReferenceMessage(paramReq),
+	)
+	if err != nil {
+		t.Fatalf("Failed to create ParamRequest ACK: %v", err)
+	}
+
+	paramRes, err := pbkdf.NewParamResponseMessage(
+		pbkdf.WithParamResponseMessageParamRequestMessage(paramReq),
+		pbkdf.WithParamResponseMessageParamRequestAck(paramReqAck),
+	)
+	if err != nil {
+		t.Fatalf("Failed to create ParamResponseMessage: %v", err)
+	}
+
+	_, err = pake.NewPake2Message(
+		pake.WithPake2MessageParamRequestMessage(paramReq),
+		pake.WithPake2MessageParamResponseMessage(paramRes),
+	)
+	if err == nil {
+		t.Fatal("expected NewPake2Message to fail without a Pake1 message")
+	}
+}
+
 func TestPake3Message(t *testing.T) {
 	log.EnableStdoutDebug(true)
 
@@ -110,5 +143,89 @@ func TestPake3Message(t *testing.T) {
 			}
 			log.Infof("pake3: %s", msg.String())
 		})
+	}
+}
+
+func TestPake3MessageRequiresPake1AndPake2ForCA(t *testing.T) {
+	paramReq, err := pbkdf.NewParamRequestMessage()
+	if err != nil {
+		t.Fatalf("Failed to create ParamRequestMessage: %v", err)
+	}
+
+	paramReqAck, err := mrp.NewAck(
+		mrp.WithAckReferenceMessage(paramReq),
+	)
+	if err != nil {
+		t.Fatalf("Failed to create ParamRequest ACK: %v", err)
+	}
+
+	paramRes, err := pbkdf.NewParamResponseMessage(
+		pbkdf.WithParamResponseMessageParamRequestMessage(paramReq),
+		pbkdf.WithParamResponseMessageParamRequestAck(paramReqAck),
+	)
+	if err != nil {
+		t.Fatalf("Failed to create ParamResponseMessage: %v", err)
+	}
+
+	_, err = pake.NewPake3Message(
+		pake.WithPake3MessageParamRequestMessage(paramReq),
+		pake.WithPake3MessageParamResponseMessage(paramRes),
+	)
+	if err == nil {
+		t.Fatal("expected NewPake3Message to fail without Pake1 and Pake2 messages")
+	}
+
+	pairingCode, err := encoding.NewPairingCodeFromString("3035-750-7966")
+	if err != nil {
+		t.Fatalf("Failed to create PairingCode: %v", err)
+	}
+
+	pake1Params := pbkdf.NewParams(
+		pbkdf.WithParamsPasscode(pairingCode.Passcode()),
+		pbkdf.WithParamsParamResponse(paramRes.PBKDFParams()),
+	)
+	pake1, err := pake.NewPake1Message(
+		pake.WithPake1MessageParamRequestMessage(paramReq),
+		pake.WithPake1MessageParamResponseMessage(paramRes),
+		pake.WithPake1MessagePBKDFParams(pake1Params),
+	)
+	if err != nil {
+		t.Fatalf("Failed to create Pake1Message: %v", err)
+	}
+
+	_, err = pake.NewPake3Message(
+		pake.WithPake3MessageParamRequestMessage(paramReq),
+		pake.WithPake3MessageParamResponseMessage(paramRes),
+		pake.WithPake3MessagePake1Message(pake1),
+	)
+	if err == nil {
+		t.Fatal("expected NewPake3Message to fail without a Pake2 message")
+	}
+
+	paramResAck, err := mrp.NewAck(
+		mrp.WithAckReferenceMessage(pake1),
+		mrp.WithAckPrecedingMessage(paramRes),
+	)
+	if err != nil {
+		t.Fatalf("Failed to create Pake1 ACK: %v", err)
+	}
+
+	pake2, err := pake.NewPake2Message(
+		pake.WithPake2MessagePake1Ack(paramResAck),
+		pake.WithPake2MessageParamRequestMessage(paramReq),
+		pake.WithPake2MessageParamResponseMessage(paramRes),
+		pake.WithPake2MessagePake1Message(pake1),
+	)
+	if err != nil {
+		t.Fatalf("Failed to create Pake2Message: %v", err)
+	}
+
+	_, err = pake.NewPake3Message(
+		pake.WithPake3MessageParamRequestMessage(paramReq),
+		pake.WithPake3MessageParamResponseMessage(paramRes),
+		pake.WithPake3MessagePake2Message(pake2),
+	)
+	if err == nil {
+		t.Fatal("expected NewPake3Message to fail without a Pake1 message")
 	}
 }

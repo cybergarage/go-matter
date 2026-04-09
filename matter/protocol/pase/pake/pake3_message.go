@@ -15,6 +15,7 @@
 package pake
 
 import (
+	"github.com/cybergarage/go-matter/matter/crypto"
 	"github.com/cybergarage/go-matter/matter/encoding/json"
 	"github.com/cybergarage/go-matter/matter/encoding/message"
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pbkdf"
@@ -129,7 +130,68 @@ func NewPake3Message(opts ...any) (Pake3Message, error) {
 	}
 
 	computeCA := func(paramRequest pbkdf.ParamRequestMessage, paramResponse pbkdf.ParamResponseMessage, pake1 Pake1Message, pake2 Pake2Message) ([]byte, error) {
-		return nil, nil
+		if paramRequest == nil {
+			return nil, errInvalidParam("paramRequest", paramRequest)
+		}
+		if paramResponse == nil {
+			return nil, errInvalidParam("paramResponse", paramResponse)
+		}
+		if pake1 == nil {
+			return nil, errInvalidParam("pake1", pake1)
+		}
+		if pake2 == nil {
+			return nil, errInvalidParam("pake2", pake2)
+		}
+
+		pA := pake1.pA()
+		if len(pA) == 0 {
+			return nil, errInvalidParam("pake1.pA", pA)
+		}
+
+		pB := pake2.pB()
+		if len(pB) == 0 {
+			return nil, errInvalidParam("pake2.pB", pB)
+		}
+
+		passcodeId := paramRequest.PasscodeID()
+		salt, ok := paramResponse.PBKDFParams().Salt()
+		if !ok {
+			return nil, errInvalidParam("paramResponse.Salt", salt)
+		}
+		iterations, ok := paramResponse.PBKDFParams().Iterations()
+		if !ok {
+			return nil, errInvalidParam("paramResponse.Iterations", iterations)
+		}
+		w0, _, err := crypto.CryptoPAKEValuesResponder(
+			passcodeId.Bytes(),
+			salt,
+			iterations,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// The current PAKE implementation does not retain the ephemeral SPAKE2+
+		// shared points, so use the exchanged public values as stable stand-ins
+		// until the full shared-point derivation is wired in.
+		tt, err := crypto.CryptoTranscript(
+			paramRequest.Payload(),
+			paramResponse.Payload(),
+			pA,
+			pB,
+			pA,
+			pB,
+			w0,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		cA, _, _, err := crypto.CryptoP2(tt, pA, pB)
+		if err != nil {
+			return nil, err
+		}
+		return cA, nil
 	}
 
 	// cA
