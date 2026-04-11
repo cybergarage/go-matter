@@ -204,8 +204,11 @@ func NewPake3Message(opts ...any) (Pake3Message, error) {
 		return cA, nil
 	}
 
-	// cA: use precomputed value if available, otherwise derive via internal computeCA.
+	// Validate precomputed cA
 	if msg.precomputedCA != nil {
+		if len(msg.precomputedCA) == 0 {
+			return nil, errInvalidParam("precomputedCA", msg.precomputedCA)
+		}
 		msg.pake3ReqOps = append(msg.pake3ReqOps, WithPake3CA(msg.precomputedCA))
 	} else {
 		cA, err := computeCA(msg.paramReq, msg.paramRes, msg.pake1, msg.pake2)

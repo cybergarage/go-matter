@@ -15,8 +15,8 @@
 package pase
 
 import (
-	"bytes"
 	"context"
+	"crypto/subtle"
 	"errors"
 	"fmt"
 
@@ -76,8 +76,7 @@ func (i *Initiator) receiveSkipAck(ctx context.Context) ([]byte, error) {
 		}
 		msg, err := message.NewMessageFromBytes(b)
 		if err != nil {
-			// If we can't parse it, return it as-is and let the caller handle the error.
-			return b, nil
+			return nil, fmt.Errorf("failed to parse received message: %w", err)
 		}
 		if msg.Opcode().IsMRPStandaloneAck() {
 			log.Debugf("received standalone MRP ACK, waiting for next message")
@@ -214,8 +213,8 @@ func (i *Initiator) EstablishSession(ctx context.Context) (*Result, error) {
 		return nil, fmt.Errorf("CryptoP2: %w", err)
 	}
 
-	// 8) Verify cB: the received cB must match our expected cB.
-	if !bytes.Equal(cBReceived, cBExpected) {
+	// 8) Verify cB: the received cB must match our expected cB using constant-time comparison.
+	if subtle.ConstantTimeCompare(cBReceived, cBExpected) != 1 {
 		return nil, fmt.Errorf("%w: cB mismatch", ErrPASEVerification)
 	}
 
@@ -260,10 +259,18 @@ func (i *Initiator) EstablishSession(ctx context.Context) (*Result, error) {
 		return nil, fmt.Errorf("session key derivation: %w", err)
 	}
 
+	// Copy each key into an independent slice to prevent memory aliasing.
+	i2rKey := make([]byte, CryptoSymmetricKeyLen)
+	r2iKey := make([]byte, CryptoSymmetricKeyLen)
+	attestationChallenge := make([]byte, CryptoSymmetricKeyLen)
+	copy(i2rKey, sessionKeys[0:CryptoSymmetricKeyLen])
+	copy(r2iKey, sessionKeys[CryptoSymmetricKeyLen:2*CryptoSymmetricKeyLen])
+	copy(attestationChallenge, sessionKeys[2*CryptoSymmetricKeyLen:3*CryptoSymmetricKeyLen])
+
 	return &Result{
-		I2RKey:               sessionKeys[0:CryptoSymmetricKeyLen],
-		R2IKey:               sessionKeys[CryptoSymmetricKeyLen : 2*CryptoSymmetricKeyLen],
-		AttestationChallenge: sessionKeys[2*CryptoSymmetricKeyLen : 3*CryptoSymmetricKeyLen],
+		I2RKey:               i2rKey,
+		R2IKey:               r2iKey,
+		AttestationChallenge: attestationChallenge,
 	}, nil
 }
 
