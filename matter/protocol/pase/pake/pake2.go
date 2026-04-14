@@ -23,10 +23,10 @@ type Pake2Message interface {
 // Pake2 represents the PASE PAKE1 message, which includes the initiator random, responder random, and other parameters.
 type Pake2 interface {
 	Pake2Helper
-	// pB returns the responder random value from the Pake2 message.
-	pB() []byte
-	// cB returns the cB value from the Pake2 message.
-	cB() []byte
+	// PB returns the responder random value from the Pake2 message.
+	PB() []byte
+	// CB returns the cB value from the Pake2 message.
+	CB() []byte
 	// Bytes returns the byte representation of the Pake2 message for transmission.
 	Bytes() ([]byte, error)
 }

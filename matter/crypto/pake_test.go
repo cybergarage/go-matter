@@ -62,12 +62,17 @@ func TestCryptoPA_Basic(t *testing.T) {
 	salt := []byte("testsalt")
 	iterations := 1000
 
-	w0, w1, err := CryptoPAKEValuesInitiator(passcode, salt, iterations)
+	w0, _, err := CryptoPAKEValuesInitiator(passcode, salt, iterations)
 	if err != nil {
 		t.Fatalf("CryptoPAKEValuesInitiator failed: %v", err)
 	}
 
-	pA, err := CryptoPA(w0, w1)
+	x, err := CryptoPAKERandomScalar()
+	if err != nil {
+		t.Fatalf("CryptoPAKERandomScalar failed: %v", err)
+	}
+
+	pA, err := CryptoPA(x, w0)
 	if err != nil {
 		t.Fatalf("CryptoPA failed: %v", err)
 	}
@@ -81,9 +86,9 @@ func TestCryptoPA_Basic(t *testing.T) {
 
 func TestCryptoPA_InvalidInputLength(t *testing.T) {
 	w0 := make([]byte, CryptoGroupSizeBytes-1)
-	w1 := make([]byte, CryptoGroupSizeBytes)
+	x := make([]byte, CryptoGroupSizeBytes)
 
-	_, err := CryptoPA(w0, w1)
+	_, err := CryptoPA(x, w0)
 	if err == nil {
 		t.Errorf("CryptoPA should fail with invalid w0 length")
 	}
@@ -130,7 +135,11 @@ func TestCryptoTranscript_Basic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CryptoPAKEValuesInitiator failed: %v", err)
 	}
-	pA, err := CryptoPA(w0, w1)
+	x, err := CryptoPAKERandomScalar()
+	if err != nil {
+		t.Fatalf("CryptoPAKERandomScalar failed: %v", err)
+	}
+	pA, err := CryptoPA(x, w0)
 	if err != nil {
 		t.Fatalf("CryptoPA failed: %v", err)
 	}
@@ -143,9 +152,11 @@ func TestCryptoTranscript_Basic(t *testing.T) {
 		t.Fatalf("CryptoPB failed: %v", err)
 	}
 
-	// Use pA/pB as stand-in Z/V (valid-length curve points) for a basic test.
-	Z := pA
-	V := pB
+	// Use proper Z/V derivation (use w1 to construct Z/V for test).
+	Z, V, err := CryptoPAKESharedPoints(x, w0, w1, pB)
+	if err != nil {
+		t.Fatalf("CryptoPAKESharedPoints failed: %v", err)
+	}
 
 	pbkdfReq := []byte("pbkdf-param-request")
 	pbkdfResp := []byte("pbkdf-param-response")
@@ -177,7 +188,11 @@ func TestCryptoConfirmationValues_Basic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CryptoPAKEValuesInitiator failed: %v", err)
 	}
-	pA, err := CryptoPA(w0, w1)
+	x, err := CryptoPAKERandomScalar()
+	if err != nil {
+		t.Fatalf("CryptoPAKERandomScalar failed: %v", err)
+	}
+	pA, err := CryptoPA(x, w0)
 	if err != nil {
 		t.Fatalf("CryptoPA failed: %v", err)
 	}
@@ -190,7 +205,12 @@ func TestCryptoConfirmationValues_Basic(t *testing.T) {
 		t.Fatalf("CryptoPB failed: %v", err)
 	}
 
-	tt, err := CryptoTranscript([]byte("pbkdf-param-request"), []byte("pbkdf-param-response"), pA, pB, pA, pB, w0)
+	Z, V, err := CryptoPAKESharedPoints(x, w0, w1, pB)
+	if err != nil {
+		t.Fatalf("CryptoPAKESharedPoints failed: %v", err)
+	}
+
+	tt, err := CryptoTranscript([]byte("pbkdf-param-request"), []byte("pbkdf-param-response"), pA, pB, Z, V, w0)
 	if err != nil {
 		t.Fatalf("CryptoTranscript failed: %v", err)
 	}
@@ -217,7 +237,7 @@ func TestCryptoConfirmationValues_Basic(t *testing.T) {
 		t.Fatal("confirmation values should be deterministic")
 	}
 
-	ttChanged, err := CryptoTranscript([]byte("other-request"), []byte("pbkdf-param-response"), pA, pB, pA, pB, w0)
+	ttChanged, err := CryptoTranscript([]byte("other-request"), []byte("pbkdf-param-response"), pA, pB, Z, V, w0)
 	if err != nil {
 		t.Fatalf("CryptoTranscript changed failed: %v", err)
 	}

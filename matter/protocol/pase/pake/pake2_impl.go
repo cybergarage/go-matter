@@ -119,11 +119,11 @@ func (p *pake2) Decode(dec tlv.Decoder) error {
 	return nil
 }
 
-func (p *pake2) pB() []byte {
+func (p *pake2) PB() []byte {
 	return p.pb
 }
 
-func (p *pake2) cB() []byte {
+func (p *pake2) CB() []byte {
 	return p.cb
 }
 

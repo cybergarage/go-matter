@@ -16,11 +16,15 @@ package pase
 
 import (
 	"context"
+	"crypto/subtle"
+	"errors"
 	"fmt"
 
 	"github.com/cybergarage/go-logger/log"
+	"github.com/cybergarage/go-matter/matter/crypto"
+	"github.com/cybergarage/go-matter/matter/encoding/message"
+	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 	"github.com/cybergarage/go-matter/matter/io"
-	"github.com/cybergarage/go-matter/matter/protocol/mrp"
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pake"
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pbkdf"
 )
@@ -28,10 +32,24 @@ import (
 // Transport represents a PASE transport.
 type Transport = io.Transport
 
+// ErrPASEVerification is returned when PASE verification fails (e.g., cB mismatch).
+var ErrPASEVerification = errors.New("PASE verification failed")
+
+// ErrStatusReport is returned when the device responds with a non-success StatusReport.
+var ErrStatusReport = errors.New("StatusReport indicates failure")
+
+// CryptoSymmetricKeyLen is the length of the AES-CCM session key (128 bits).
+// 3.5. Public Key Cryptography.
+const CryptoSymmetricKeyLen = 16
+
+// Result holds the session keys derived after a successful PASE session.
 type Result struct {
+	// I2RKey is the initiator-to-responder AES-CCM key (16 bytes).
 	I2RKey []byte
+	// R2IKey is the responder-to-initiator AES-CCM key (16 bytes).
 	R2IKey []byte
-	// TODO: add sessionID, etc.
+	// AttestationChallenge is the attestation challenge (16 bytes).
+	AttestationChallenge []byte
 }
 
 // Initiator represents a PASE client.
@@ -48,7 +66,28 @@ func NewInitiator(t Transport, passcode Passcode) *Initiator {
 	}
 }
 
+// receiveSkipAck receives a message from the transport, silently discarding any
+// MRP standalone ACK frames (opcode 0x10) until a non-ACK message arrives.
+func (i *Initiator) receiveSkipAck(ctx context.Context) ([]byte, error) {
+	for {
+		b, err := i.t.Receive(ctx)
+		if err != nil {
+			return nil, err
+		}
+		msg, err := message.NewMessageFromBytes(b)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse received message: %w", err)
+		}
+		if msg.Opcode().IsMRPStandaloneAck() {
+			log.Debugf("received standalone MRP ACK, waiting for next message")
+			continue
+		}
+		return b, nil
+	}
+}
+
 // EstablishSession establishes a PASE session.
+// 4.14.1. PASE – Password-Authenticated Session Establishment.
 func (i *Initiator) EstablishSession(ctx context.Context) (*Result, error) {
 	// 1) PBKDFParamRequest
 	paramReqMsg, err := pbkdf.NewParamRequestMessage()
@@ -77,24 +116,8 @@ func (i *Initiator) EstablishSession(ctx context.Context) (*Result, error) {
 		return nil, err
 	}
 
-	// 2) PBKDFParamRequest ACK (optional)
-	if paramReqMsg.IsReliability() {
-		resBytes, err := i.t.Receive(ctx)
-		if err != nil {
-			log.Errorf("Failed to receive PBKDFParamResponse ACK: %v", err)
-			return nil, err
-		}
-		paramReqMsgAck, err := mrp.NewAckFromBytes(resBytes)
-		if err != nil {
-			log.Errorf("Failed to decode PBKDFParamResponse ACK: %v", err)
-			return nil, err
-		}
-		log.Infof("PBKDFParamRequest ACK: %s", paramReqMsgAck.String())
-		log.HexInfo(resBytes)
-	}
-
-	// 2) PBKDFParamResponse
-	resBytes, err := i.t.Receive(ctx)
+	// 2) PBKDFParamResponse (skip any standalone ACK for the request)
+	resBytes, err := i.receiveSkipAck(ctx)
 	if err != nil {
 		log.Errorf("Failed to receive PBKDFParamResponse: %v", err)
 		return nil, err
@@ -107,15 +130,36 @@ func (i *Initiator) EstablishSession(ctx context.Context) (*Result, error) {
 	log.Infof("PBKDFParamResponse: %s", pbkdfResMsg.String())
 	log.HexInfo(resBytes)
 
-	// 3) Pake1
-	pake1Params := pbkdf.NewParams(
-		pbkdf.WithParamsPasscode(i.passcode),
-		pbkdf.WithParamsParamResponse(pbkdfResMsg.PBKDFParams()),
-	)
+	// 3) Derive SPAKE2+ initiator values from the received PBKDF parameters.
+	// 3.10. Password-Authenticated Key Exchange (PAKE).
+	salt, ok := pbkdfResMsg.PBKDFParams().Salt()
+	if !ok {
+		return nil, fmt.Errorf("PBKDFParamResponse missing salt")
+	}
+	iterations, ok := pbkdfResMsg.PBKDFParams().Iterations()
+	if !ok {
+		return nil, fmt.Errorf("PBKDFParamResponse missing iterations")
+	}
+	passcodeBytes := i.passcode.Bytes()
+	w0, w1, err := crypto.CryptoPAKEValuesInitiator(passcodeBytes, salt, iterations)
+	if err != nil {
+		return nil, fmt.Errorf("CryptoPAKEValuesInitiator: %w", err)
+	}
+	// Generate ephemeral scalar x and compute pA = x·P + w0·M.
+	x, err := crypto.CryptoPAKERandomScalar()
+	if err != nil {
+		return nil, fmt.Errorf("CryptoPAKERandomScalar: %w", err)
+	}
+	pA, err := crypto.CryptoPA(x, w0)
+	if err != nil {
+		return nil, fmt.Errorf("CryptoPA: %w", err)
+	}
+
+	// 4) Pake1: send pA to the responder.
 	pake1Msg, err := pake.NewPake1Message(
 		pake.WithPake1MessageParamRequestMessage(paramReqMsg),
 		pake.WithPake1MessageParamResponseMessage(pbkdfResMsg),
-		pake.WithPake1MessagePBKDFParams(pake1Params),
+		pake.WithPake1PA(pA),
 	)
 	if err != nil {
 		return nil, err
@@ -131,24 +175,8 @@ func (i *Initiator) EstablishSession(ctx context.Context) (*Result, error) {
 		return nil, err
 	}
 
-	// 3) Pake2 ACK (optional)
-	if pake1Msg.IsReliability() {
-		resBytes, err := i.t.Receive(ctx)
-		if err != nil {
-			log.Errorf("Failed to receive Pake2 ACK: %v", err)
-			return nil, err
-		}
-		pake2Ack, err := mrp.NewAckFromBytes(resBytes)
-		if err != nil {
-			log.Errorf("Failed to decode Pake2 ACK: %v", err)
-			return nil, err
-		}
-		log.Infof("Pake2 ACK: %s", pake2Ack.String())
-		log.HexInfo(resBytes)
-	}
-
-	// 3) Pake2
-	pake2Bytes, err := i.t.Receive(ctx)
+	// 5) Pake2: receive pB and cB from the responder (skip any standalone ACK).
+	pake2Bytes, err := i.receiveSkipAck(ctx)
 	if err != nil {
 		log.Errorf("Failed to receive Pake2: %v", err)
 		return nil, err
@@ -161,12 +189,41 @@ func (i *Initiator) EstablishSession(ctx context.Context) (*Result, error) {
 	log.Infof("Pake2: %s", pake2Msg.String())
 	log.HexInfo(pake2Bytes)
 
-	// 4) Pake3
+	// 6) Compute shared points Z and V, then the transcript TT.
+	// 3.10.3. Computation of transcript TT.
+	pB := pake2Msg.PB()
+	cBReceived := pake2Msg.CB()
+	Z, V, err := crypto.CryptoPAKESharedPoints(x, w0, w1, pB)
+	if err != nil {
+		return nil, fmt.Errorf("CryptoPAKESharedPoints: %w", err)
+	}
+	tt, err := crypto.CryptoTranscript(
+		paramReqMsg.Payload(),
+		pbkdfResMsg.Payload(),
+		pA, pB, Z, V, w0,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("CryptoTranscript: %w", err)
+	}
+
+	// 7) Derive cA, cB, and Ke from TT.
+	// 3.10.4. Computation of cA, cB and Ke.
+	cA, cBExpected, Ke, err := crypto.CryptoP2(tt, pA, pB)
+	if err != nil {
+		return nil, fmt.Errorf("CryptoP2: %w", err)
+	}
+
+	// 8) Verify cB: the received cB must match our expected cB using constant-time comparison.
+	if subtle.ConstantTimeCompare(cBReceived, cBExpected) != 1 {
+		return nil, fmt.Errorf("%w: cB mismatch", ErrPASEVerification)
+	}
+
+	// 9) Pake3: send cA to the responder to complete authentication.
 	pake3Msg, err := pake.NewPake3Message(
 		pake.WithPake3MessageParamRequestMessage(paramReqMsg),
-		pake.WithPake3MessageParamResponseMessage(pbkdfResMsg),
 		pake.WithPake3MessagePake1Message(pake1Msg),
 		pake.WithPake3MessagePake2Message(pake2Msg),
+		pake.WithPake3MessagePrecomputedCA(cA),
 	)
 	if err != nil {
 		return nil, err
@@ -182,5 +239,88 @@ func (i *Initiator) EstablishSession(ctx context.Context) (*Result, error) {
 		return nil, err
 	}
 
-	return nil, fmt.Errorf("PASE client flow is incomplete: requires spake2p + message parsing")
+	// 10) StatusReport: receive the final status from the responder.
+	// 4.14.1.2. Protocol Details.
+	statusBytes, err := i.receiveSkipAck(ctx)
+	if err != nil {
+		log.Errorf("Failed to receive StatusReport: %v", err)
+		return nil, err
+	}
+	if err := i.parseStatusReport(statusBytes); err != nil {
+		return nil, err
+	}
+
+	// 11) Derive session keys from Ke via HKDF.
+	// 4.14.1.3. Key Derivation.
+	// I2RKey || R2IKey || AttestationChallenge =
+	//   Crypto_KDF(inputKey := Ke, salt := null, info := "SessionKeys", len := 3*128 bits)
+	sessionKeys, err := crypto.CryptoHKDF(Ke, nil, []byte("SessionKeys"), 3*CryptoSymmetricKeyLen)
+	if err != nil {
+		return nil, fmt.Errorf("session key derivation: %w", err)
+	}
+
+	// Copy each key into an independent slice to prevent memory aliasing.
+	i2rKey := make([]byte, CryptoSymmetricKeyLen)
+	r2iKey := make([]byte, CryptoSymmetricKeyLen)
+	attestationChallenge := make([]byte, CryptoSymmetricKeyLen)
+	copy(i2rKey, sessionKeys[0:CryptoSymmetricKeyLen])
+	copy(r2iKey, sessionKeys[CryptoSymmetricKeyLen:2*CryptoSymmetricKeyLen])
+	copy(attestationChallenge, sessionKeys[2*CryptoSymmetricKeyLen:3*CryptoSymmetricKeyLen])
+
+	return &Result{
+		I2RKey:               i2rKey,
+		R2IKey:               r2iKey,
+		AttestationChallenge: attestationChallenge,
+	}, nil
+}
+
+// parseStatusReport parses a received StatusReport message and returns an error if PASE failed.
+// 2.11.2. Status Report TLV format.
+func (i *Initiator) parseStatusReport(data []byte) error {
+	msg, err := message.NewMessageFromBytes(data)
+	if err != nil {
+		return fmt.Errorf("failed to parse StatusReport message: %w", err)
+	}
+	if !msg.Opcode().IsStatusReport() {
+		return fmt.Errorf("expected StatusReport (0x40), got opcode 0x%02x", uint8(msg.Opcode()))
+	}
+
+	// Parse TLV payload: { GeneralCode [0], ProtocolId [1], ProtocolCode [2] }
+	dec := tlv.NewDecoderWithBytes(msg.Payload())
+	if !dec.Next() {
+		return fmt.Errorf("StatusReport: empty payload")
+	}
+	elem := dec.Element()
+	if !elem.Type().IsStructure() {
+		return fmt.Errorf("StatusReport: expected structure, got %v", elem.Type())
+	}
+	var generalCode uint16
+	var protocolCode uint16
+	for dec.Next() {
+		elem = dec.Element()
+		if elem.Type().IsEndOfContainer() {
+			break
+		}
+		ct, ok := elem.Tag().(tlv.ContextTag)
+		if !ok {
+			continue
+		}
+		switch ct.ContextNumber() {
+		case 0:
+			v, ok := elem.Unsigned2()
+			if ok {
+				generalCode = v
+			}
+		case 2:
+			v, ok := elem.Unsigned2()
+			if ok {
+				protocolCode = v
+			}
+		}
+	}
+	if generalCode != 0 {
+		return fmt.Errorf("%w: GeneralCode=%d ProtocolCode=%d", ErrStatusReport, generalCode, protocolCode)
+	}
+	log.Infof("PASE StatusReport: success (GeneralCode=0, ProtocolCode=%d)", protocolCode)
+	return nil
 }

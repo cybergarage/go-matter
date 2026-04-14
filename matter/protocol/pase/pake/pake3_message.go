@@ -22,13 +22,14 @@ import (
 )
 
 type pake3Message struct {
-	paramReq    pbkdf.ParamRequestMessage
-	paramRes    pbkdf.ParamResponseMessage
-	pake1       Pake1Message
-	pake2       Pake2Message
-	headerOps   []message.HeaderOption
-	protocolOps []message.ProtocolHeaderOption
-	pake3ReqOps []Pake3Option
+	paramReq      pbkdf.ParamRequestMessage
+	paramRes      pbkdf.ParamResponseMessage
+	pake1         Pake1Message
+	pake2         Pake2Message
+	precomputedCA []byte
+	headerOps     []message.HeaderOption
+	protocolOps   []message.ProtocolHeaderOption
+	pake3ReqOps   []Pake3Option
 	Message
 	Pake3
 }
@@ -73,6 +74,15 @@ func WithPake3MessagePake2Message(pake2 Pake2Message) Pake3MessageOption {
 			message.WithHeaderExchangeID(pake2.ExchangeID()),
 			message.WithHeaderAckCounter(pake2.MessageCounter()),
 		)
+	}
+}
+
+// WithPake3MessagePrecomputedCA provides a precomputed cA value for the Pake3 message.
+// When this option is set, the automatic cA derivation inside NewPake3Message is skipped.
+// Use this when the initiator has already computed cA externally via the full SPAKE2+ flow.
+func WithPake3MessagePrecomputedCA(cA []byte) Pake3MessageOption {
+	return func(msg *pake3Message) {
+		msg.precomputedCA = cA
 	}
 }
 
@@ -148,7 +158,7 @@ func NewPake3Message(opts ...any) (Pake3Message, error) {
 			return nil, errInvalidParam("pake1.pA", pA)
 		}
 
-		pB := pake2.pB()
+		pB := pake2.PB()
 		if len(pB) == 0 {
 			return nil, errInvalidParam("pake2.pB", pB)
 		}
@@ -194,12 +204,19 @@ func NewPake3Message(opts ...any) (Pake3Message, error) {
 		return cA, nil
 	}
 
-	// cA
-	cA, err := computeCA(msg.paramReq, msg.paramRes, msg.pake1, msg.pake2)
-	if err != nil {
-		return nil, err
+	// Validate precomputed cA
+	if msg.precomputedCA != nil {
+		if len(msg.precomputedCA) == 0 {
+			return nil, errInvalidParam("precomputedCA", msg.precomputedCA)
+		}
+		msg.pake3ReqOps = append(msg.pake3ReqOps, WithPake3CA(msg.precomputedCA))
+	} else {
+		cA, err := computeCA(msg.paramReq, msg.paramRes, msg.pake1, msg.pake2)
+		if err != nil {
+			return nil, err
+		}
+		msg.pake3ReqOps = append(msg.pake3ReqOps, WithPake3CA(cA))
 	}
-	msg.pake3ReqOps = append(msg.pake3ReqOps, WithPake3CA(cA))
 
 	msg.Pake3 = NewPake3(msg.pake3ReqOps...)
 	payload, err := msg.Pake3.Bytes()

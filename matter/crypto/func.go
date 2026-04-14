@@ -18,6 +18,10 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
+	"fmt"
+	"io"
+
+	"golang.org/x/crypto/hkdf"
 )
 
 // CryptoDRBG is a placeholder function for a deterministic random bit generator (DRBG) used in cryptographic operations.
@@ -77,4 +81,17 @@ func CryptoHMAC(key []byte, message []byte) []byte {
 	mac := hmac.New(sha256.New, key)
 	mac.Write(message)
 	return mac.Sum(nil)[:CryptoHashLenBytes]
+}
+
+// CryptoHKDF derives keying material using HKDF-SHA256.
+// 3.6. Key Derivation Function (HKDF).
+func CryptoHKDF(secret, salt, info []byte, length int) ([]byte, error) {
+	// Crypto_KDF(inputKey, salt, info, len) :=
+	//   bit[len] HKDF-SHA-256(IKM := inputKey, salt := salt, info := info, L := len/8)
+	r := hkdf.New(sha256.New, secret, salt, info)
+	out := make([]byte, length)
+	if _, err := io.ReadFull(r, out); err != nil {
+		return nil, fmt.Errorf("HKDF key derivation failed: %w", err)
+	}
+	return out, nil
 }
