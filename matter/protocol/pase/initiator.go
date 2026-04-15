@@ -42,16 +42,6 @@ var ErrStatusReport = errors.New("StatusReport indicates failure")
 // 3.5. Public Key Cryptography.
 const CryptoSymmetricKeyLen = 16
 
-// Result holds the session keys derived after a successful PASE session.
-type Result struct {
-	// I2RKey is the initiator-to-responder AES-CCM key (16 bytes).
-	I2RKey []byte
-	// R2IKey is the responder-to-initiator AES-CCM key (16 bytes).
-	R2IKey []byte
-	// AttestationChallenge is the attestation challenge (16 bytes).
-	AttestationChallenge []byte
-}
-
 // Initiator represents a PASE client.
 type Initiator struct {
 	t        Transport
@@ -88,7 +78,7 @@ func (i *Initiator) receiveSkipAck(ctx context.Context) ([]byte, error) {
 
 // EstablishSession establishes a PASE session.
 // 4.14.1. PASE – Password-Authenticated Session Establishment.
-func (i *Initiator) EstablishSession(ctx context.Context) (*Result, error) {
+func (i *Initiator) EstablishSession(ctx context.Context) (SessionKeys, error) {
 	// 1) PBKDFParamRequest
 	paramReqMsg, err := pbkdf.NewParamRequestMessage()
 	if err != nil {
@@ -267,11 +257,7 @@ func (i *Initiator) EstablishSession(ctx context.Context) (*Result, error) {
 	copy(r2iKey, sessionKeys[CryptoSymmetricKeyLen:2*CryptoSymmetricKeyLen])
 	copy(attestationChallenge, sessionKeys[2*CryptoSymmetricKeyLen:3*CryptoSymmetricKeyLen])
 
-	return &Result{
-		I2RKey:               i2rKey,
-		R2IKey:               r2iKey,
-		AttestationChallenge: attestationChallenge,
-	}, nil
+	return newSessionKeys(i2rKey, r2iKey, attestationChallenge), nil
 }
 
 // parseStatusReport parses a received StatusReport message and returns an error if PASE failed.
