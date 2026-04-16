@@ -83,9 +83,9 @@ func CryptoHMAC(key []byte, message []byte) []byte {
 	return mac.Sum(nil)[:CryptoHashLenBytes]
 }
 
-// CryptoHKDF derives keying material using HKDF-SHA256.
-// 3.6. Key Derivation Function (HKDF).
-func CryptoHKDF(secret, salt, info []byte, length int) ([]byte, error) {
+// CryptoKDF derives keying material using HKDF-SHA256.
+// 3.8. Key Derivation Function (KDF).
+func CryptoKDF(secret, salt, info []byte, length int) ([]byte, error) {
 	// Crypto_KDF(inputKey, salt, info, len) :=
 	//   bit[len] HKDF-SHA-256(IKM := inputKey, salt := salt, info := info, L := len/8)
 	r := hkdf.New(sha256.New, secret, salt, info)

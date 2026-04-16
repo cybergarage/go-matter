@@ -240,11 +240,11 @@ func (i *Initiator) EstablishSession(ctx context.Context) (SessionKeys, error) {
 		return nil, err
 	}
 
-	// 11) Derive session keys from Ke via HKDF.
+	// 11) Derive session keys from Ke via KDF.
 	// 4.14.1.3. Key Derivation.
 	// I2RKey || R2IKey || AttestationChallenge =
 	//   Crypto_KDF(inputKey := Ke, salt := null, info := "SessionKeys", len := 3*128 bits)
-	sessionKeys, err := crypto.CryptoHKDF(Ke, nil, []byte("SessionKeys"), 3*CryptoSymmetricKeyLen)
+	sessionKeys, err := crypto.CryptoKDF(Ke, nil, []byte("SessionKeys"), 3*CryptoSymmetricKeyLen)
 	if err != nil {
 		return nil, fmt.Errorf("session key derivation: %w", err)
 	}
