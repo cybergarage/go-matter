@@ -14,7 +14,10 @@
 
 package pase
 
+import "github.com/cybergarage/go-matter/matter/types"
+
 // SessionKeys represents the session keys derived after a successful PASE session.
+// 4.14.1.3. Key Derivation.
 type SessionKeys interface {
 	// I2RKey returns the initiator-to-responder AES-CCM key.
 	I2RKey() []byte
@@ -22,19 +25,39 @@ type SessionKeys interface {
 	R2IKey() []byte
 	// AttestationChallenge returns the attestation challenge.
 	AttestationChallenge() []byte
+	// InitiatorSessionID returns the session ID chosen by the initiator.
+	// 4.13.2.4. Choosing Secure Unicast Session Identifiers.
+	InitiatorSessionID() SessionID
+	// ResponderSessionID returns the session ID chosen by the responder.
+	// 4.13.2.4. Choosing Secure Unicast Session Identifiers.
+	ResponderSessionID() SessionID
+	// LocalNodeID returns the source node ID the initiator used in the PASE handshake.
+	LocalNodeID() NodeID
 }
+
+// SessionID represents a session identifier.
+type SessionID = types.SessionID
+
+// NodeID represents a node identifier.
+type NodeID = types.NodeID
 
 type sessionKeys struct {
 	i2rKey               []byte
 	r2iKey               []byte
 	attestationChallenge []byte
+	initiatorSessionID   SessionID
+	responderSessionID   SessionID
+	localNodeID          NodeID
 }
 
-func newSessionKeys(i2rKey, r2iKey, attestationChallenge []byte) SessionKeys {
+func newSessionKeys(i2rKey, r2iKey, attestationChallenge []byte, initiatorSID, responderSID SessionID, localNodeID NodeID) SessionKeys {
 	return &sessionKeys{
 		i2rKey:               cloneBytes(i2rKey),
 		r2iKey:               cloneBytes(r2iKey),
 		attestationChallenge: cloneBytes(attestationChallenge),
+		initiatorSessionID:   initiatorSID,
+		responderSessionID:   responderSID,
+		localNodeID:          localNodeID,
 	}
 }
 
@@ -48,6 +71,18 @@ func (keys *sessionKeys) R2IKey() []byte {
 
 func (keys *sessionKeys) AttestationChallenge() []byte {
 	return cloneBytes(keys.attestationChallenge)
+}
+
+func (keys *sessionKeys) InitiatorSessionID() SessionID {
+	return keys.initiatorSessionID
+}
+
+func (keys *sessionKeys) ResponderSessionID() SessionID {
+	return keys.responderSessionID
+}
+
+func (keys *sessionKeys) LocalNodeID() NodeID {
+	return keys.localNodeID
 }
 
 func cloneBytes(b []byte) []byte {

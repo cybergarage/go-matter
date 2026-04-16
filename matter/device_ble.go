@@ -21,6 +21,7 @@ import (
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/ble"
 	"github.com/cybergarage/go-matter/matter/protocol/pase"
+	"github.com/cybergarage/go-matter/matter/protocol/session"
 	"github.com/cybergarage/go-matter/matter/types"
 )
 
@@ -104,9 +105,15 @@ func (dev *bleDevice) Commission(ctx context.Context, payload OnboardingPayload)
 	log.Infof("Handshake response: %s", res.String())
 
 	paseClient := pase.NewInitiator(dev, payload.Passcode())
-	_, err = paseClient.EstablishSession(ctx)
+	sessionKeys, err := paseClient.EstablishSession(ctx)
 	if err != nil {
 		log.Errorf("Failed to establish PASE session with device (%s): %v", dev.String(), err)
+		return err
+	}
+
+	sess := session.NewSecureSession(dev, sessionKeys)
+	if err := commissionWithSession(sess); err != nil {
+		log.Errorf("Commissioning failed for device (%s): %v", dev.String(), err)
 		return err
 	}
 

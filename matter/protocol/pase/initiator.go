@@ -90,6 +90,8 @@ func (i *Initiator) EstablishSession(ctx context.Context) (SessionKeys, error) {
 	}
 	log.Infof("PBKDFParamRequest: %s", paramReqMsg.String())
 	log.HexInfo(reqBytes)
+	// Capture the source node ID used by the initiator for later use in the session nonce.
+	initiatorNodeID, _ := paramReqMsg.SourceNodeID()
 	if _, ok := ctx.Deadline(); !ok {
 		var cancel context.CancelFunc
 		ts := pbkdf.DefaultSessionActiveThreshold
@@ -257,7 +259,11 @@ func (i *Initiator) EstablishSession(ctx context.Context) (SessionKeys, error) {
 	copy(r2iKey, sessionKeys[CryptoSymmetricKeyLen:2*CryptoSymmetricKeyLen])
 	copy(attestationChallenge, sessionKeys[2*CryptoSymmetricKeyLen:3*CryptoSymmetricKeyLen])
 
-	return newSessionKeys(i2rKey, r2iKey, attestationChallenge), nil
+	return newSessionKeys(i2rKey, r2iKey, attestationChallenge,
+		paramReqMsg.InitiatorSessionID(),
+		SessionID(pbkdfResMsg.ResponderSessionID()),
+		initiatorNodeID,
+	), nil
 }
 
 // parseStatusReport parses a received StatusReport message and returns an error if PASE failed.
