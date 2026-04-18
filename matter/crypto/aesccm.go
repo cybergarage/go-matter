@@ -180,7 +180,7 @@ func ccmCTRKeystream(block cipher.Block, nonce, plaintext, tag, out []byte) {
 	s0 := make([]byte, ccmBlockSize)
 	block.Encrypt(s0, ctr)
 	// Encrypt tag: out[len(plaintext):] = tag XOR s0[:ccmTagLen]
-	for i := 0; i < ccmTagLen; i++ {
+	for i := range ccmTagLen {
 		out[len(plaintext)+i] = tag[i] ^ s0[i]
 	}
 	// Encrypt plaintext blocks with counters A_1, A_2, ...
@@ -189,10 +189,7 @@ func ccmCTRKeystream(block cipher.Block, nonce, plaintext, tag, out []byte) {
 		ctr = ccmCounterBlock(nonce, counterVal)
 		si := make([]byte, ccmBlockSize)
 		block.Encrypt(si, ctr)
-		end := i + ccmBlockSize
-		if end > len(plaintext) {
-			end = len(plaintext)
-		}
+		end := min(i+ccmBlockSize, len(plaintext))
 		for j := i; j < end; j++ {
 			out[j] = plaintext[j] ^ si[j-i]
 		}
@@ -205,7 +202,7 @@ func ccmCTRDecryptKeystream(block cipher.Block, nonce, ciphertext, encTag, plain
 	ctr := ccmCounterBlock(nonce, 0)
 	s0 := make([]byte, ccmBlockSize)
 	block.Encrypt(s0, ctr)
-	for i := 0; i < ccmTagLen; i++ {
+	for i := range ccmTagLen {
 		tag[i] = encTag[i] ^ s0[i]
 	}
 	// Decrypt ciphertext blocks.
@@ -214,10 +211,7 @@ func ccmCTRDecryptKeystream(block cipher.Block, nonce, ciphertext, encTag, plain
 		ctr = ccmCounterBlock(nonce, counterVal)
 		si := make([]byte, ccmBlockSize)
 		block.Encrypt(si, ctr)
-		end := i + ccmBlockSize
-		if end > len(ciphertext) {
-			end = len(ciphertext)
-		}
+		end := min(i+ccmBlockSize, len(ciphertext))
 		for j := i; j < end; j++ {
 			plaintext[j] = ciphertext[j] ^ si[j-i]
 		}
