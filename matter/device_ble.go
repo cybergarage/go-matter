@@ -118,7 +118,7 @@ func (dev *bleDevice) Commission(ctx context.Context, payload OnboardingPayload,
 	}
 
 	sess := session.NewSecureSession(dev, sessionKeys)
-	if err := commissionWithSession(sess); err != nil {
+	if err := commissionWithSession(sess, dev.baseDevice); err != nil {
 		log.Errorf("Commissioning failed for device (%s): %v", dev.String(), err)
 		return err
 	}
