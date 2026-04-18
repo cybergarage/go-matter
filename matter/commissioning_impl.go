@@ -69,14 +69,14 @@ type networkCommissioningInputs struct {
 //  5. CommissioningComplete – releases the fail-safe and completes commissioning
 //
 // 5.5. Commissioning Flows.
-func commissionWithSession(sess session.SecureSession) error {
+func commissionWithSession(sess session.SecureSession, dev *baseDevice) error {
 	const (
 		armFailSafeExpiry uint16 = 60 // seconds
 		breadcrumb        uint64 = 1
 	)
 
 	// Step 1: ArmFailSafe
-	// 11.9.7.1. ArmFailSafe Command.
+	// 11.10.7.2. ArmFailSafe Command.
 	log.Infof("Commissioning: ArmFailSafe (expiry=%ds, breadcrumb=%d)", armFailSafeExpiry, breadcrumb)
 	if err := generalcommissioning.ArmFailSafe(sess, defaultEndpointID, armFailSafeExpiry, breadcrumb); err != nil {
 		return err
@@ -92,19 +92,19 @@ func commissionWithSession(sess session.SecureSession) error {
 	// Step 3: Operational Credentials
 	// 11.18.7.6. AddNOC Command.
 	log.Infof("Commissioning: Operational Credentials")
-	if err := commissionOperationalCredentials(sess, loadOperationalCredentialInputs()); err != nil {
+	if err := commissionOperationalCredentials(sess, loadOperationalCredentialInputs(dev)); err != nil {
 		return err
 	}
 
 	// Step 4: Network Commissioning
-	// 11.8.7.3. AddOrUpdateWiFiNetwork Command.
+	// 11.9.7.3. AddOrUpdateWiFiNetwork Command.
 	log.Infof("Commissioning: Network Commissioning")
-	if err := commissionNetwork(sess, loadNetworkCommissioningInputs()); err != nil {
+	if err := commissionNetwork(sess, loadNetworkCommissioningInputs(dev)); err != nil {
 		return err
 	}
 
 	// Step 5: CommissioningComplete
-	// 11.9.7.7. CommissioningComplete Command.
+	// 11.10.7.6. CommissioningComplete Command.
 	log.Infof("Commissioning: CommissioningComplete")
 	if err := generalcommissioning.CommissioningComplete(sess, defaultEndpointID); err != nil {
 		return err
@@ -222,12 +222,44 @@ func commissionNetwork(sess session.SecureSession, inputs networkCommissioningIn
 	return nil
 }
 
-func loadOperationalCredentialInputs() operationalCredentialInputs {
-	// TODO: Wire this from commissioner/device provisioning inputs once PKI material is supported.
-	return operationalCredentialInputs{}
+func loadOperationalCredentialInputs(dev *baseDevice) operationalCredentialInputs {
+	cfg, ok := dev.OperationalCredentialsConfig()
+	if !ok {
+		return operationalCredentialInputs{}
+	}
+	inputs := operationalCredentialInputs{}
+	if v, ok := cfg.RootCertificate(); ok {
+		inputs.rootCertificate = v
+	}
+	if v, ok := cfg.NOC(); ok {
+		inputs.noc = v
+	}
+	if v, ok := cfg.ICAC(); ok {
+		inputs.icac = v
+	}
+	if v, ok := cfg.IPK(); ok {
+		inputs.ipk = v
+	}
+	if v, ok := cfg.CASEAdminNodeID(); ok {
+		inputs.caseAdminNodeID = v
+	}
+	if v, ok := cfg.AdminVendorID(); ok {
+		inputs.adminVendorID = v
+	}
+	return inputs
 }
 
-func loadNetworkCommissioningInputs() networkCommissioningInputs {
-	// TODO: Wire this from commissioning options (e.g., pairing code-wifi SSID/password inputs).
-	return networkCommissioningInputs{}
+func loadNetworkCommissioningInputs(dev *baseDevice) networkCommissioningInputs {
+	cfg, ok := dev.WiFiNetworkConfig()
+	if !ok {
+		return networkCommissioningInputs{}
+	}
+	inputs := networkCommissioningInputs{}
+	if v, ok := cfg.SSID(); ok {
+		inputs.ssid = v
+	}
+	if v, ok := cfg.Credentials(); ok {
+		inputs.credentials = v
+	}
+	return inputs
 }

@@ -16,9 +16,34 @@ package matter
 
 import (
 	"fmt"
+
+	"github.com/cybergarage/go-matter/matter/config"
 )
 
 type baseDevice struct {
+	wifiConfig          config.WiFiNetworkConfig
+	operationCredConfig config.OperationalCredentialsConfig
+}
+
+func newBaseDevice() *baseDevice {
+	return &baseDevice{
+		wifiConfig:          nil,
+		operationCredConfig: nil,
+	}
+}
+
+func (baseDev *baseDevice) parseCommissionOptions(opts ...CommissionOption) error {
+	for _, opt := range opts {
+		switch o := opt.(type) {
+		case config.WiFiNetworkConfig:
+			baseDev.wifiConfig = o
+		case config.OperationalCredentialsConfig:
+			baseDev.operationCredConfig = o
+		default:
+			return fmt.Errorf("unsupported commission option type: %T", opt)
+		}
+	}
+	return nil
 }
 
 func (baseDev *baseDevice) matchesOnboardingPayload(dev Device, payload OnboardingPayload) bool {
@@ -32,6 +57,14 @@ func (baseDev *baseDevice) matchesOnboardingPayload(dev Device, payload Onboardi
 		return false
 	}
 	return true
+}
+
+func (baseDev *baseDevice) WiFiNetworkConfig() (config.WiFiNetworkConfig, bool) {
+	return baseDev.wifiConfig, baseDev.wifiConfig != nil
+}
+
+func (baseDev *baseDevice) OperationalCredentialsConfig() (config.OperationalCredentialsConfig, bool) {
+	return baseDev.operationCredConfig, baseDev.operationCredConfig != nil
 }
 
 func (baseDev *baseDevice) marshalObject(dev CommissionableDevice) any {

@@ -110,17 +110,17 @@ func validateReplyMessage(reqMsg message.Message, replyMsg message.Message) erro
 	if hasSourceNodeIDReq {
 		destNodeIDRes, hasDestNodeIDRes := replyMsg.DestinationNodeID()
 		if !hasDestNodeIDRes {
-			return fmt.Errorf("Missing Node ID: request hasSourceNodeID %v, response hasDestinationNodeID %v", hasSourceNodeIDReq, hasDestNodeIDRes)
+			return fmt.Errorf("missing Node ID: request hasSourceNodeID %v, response hasDestinationNodeID %v", hasSourceNodeIDReq, hasDestNodeIDRes)
 		}
 		if sourceNodeIDReq != destNodeIDRes {
-			return fmt.Errorf("Node ID mismatch: request source %d, response destination %d", sourceNodeIDReq, destNodeIDRes)
+			return fmt.Errorf("node ID mismatch: request source %d, response destination %d", sourceNodeIDReq, destNodeIDRes)
 		}
 	}
 
 	ackCounter, hasAckCounter := replyMsg.AckMessageCounter()
 	reqMsgCounter := reqMsg.MessageCounter()
 	if !hasAckCounter {
-		return fmt.Errorf("Expected ACK to have message counter")
+		return fmt.Errorf("expected ACK to have message counter")
 	} else if ackCounter != reqMsgCounter {
 		return fmt.Errorf("ACK message counter mismatch: got %d, want %d", ackCounter, reqMsgCounter)
 	}
@@ -134,7 +134,7 @@ func validateReplyMessage(reqMsg message.Message, replyMsg message.Message) erro
 
 func validateMessageSequence(prevMsg message.Message, nextMsg message.Message) error {
 	if nextMsg.MessageCounter() <= prevMsg.MessageCounter() {
-		return fmt.Errorf("Message counter mismatch: next message counter %d should be greater than previous message counter %d", nextMsg.MessageCounter(), prevMsg.MessageCounter())
+		return fmt.Errorf("message counter mismatch: next message counter %d should be greater than previous message counter %d", nextMsg.MessageCounter(), prevMsg.MessageCounter())
 	}
 	return nil
 }

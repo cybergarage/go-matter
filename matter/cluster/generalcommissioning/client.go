@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package generalcommissioning provides a client for the Matter General Commissioning cluster (0x0030).
-// Reference: Matter Core Spec 1.5, Section 11.9.
+// Reference: Matter Core Spec 1.5, Section 11.10.
 package generalcommissioning
 
 import (
@@ -25,11 +25,11 @@ import (
 )
 
 // ClusterID is the General Commissioning cluster identifier.
-// 11.9. General Commissioning Cluster.
+// 11.10. General Commissioning Cluster.
 const ClusterID im.ClusterID = 0x0030
 
 // Command IDs for the General Commissioning cluster.
-// 11.9.7. Commands.
+// 11.10.7. Commands.
 const (
 	// ArmFailSafeCommandID arms (or disarms) the commissioning fail-safe timer.
 	ArmFailSafeCommandID im.CommandID = 0x00
@@ -40,7 +40,7 @@ const (
 )
 
 // RegulatoryLocationType identifies the regulatory location type.
-// 11.9.5.3. RegulatoryLocationType.
+// 11.10.5.3. RegulatoryLocationType.
 type RegulatoryLocationType uint8
 
 const (
@@ -55,7 +55,7 @@ const (
 // ArmFailSafe arms the commissioning fail-safe timer on the device.
 // The device MUST respond with an ArmFailSafeResponse (command 0x01).
 //
-// ArmFailSafe TLV payload (spec section 11.9.7.1):
+// ArmFailSafe TLV payload (spec section 11.10.7.1):
 //
 //	STRUCTURE {
 //	  0: ExpiryLengthSeconds [UINT16]
@@ -64,7 +64,7 @@ const (
 //
 // expiryLengthSeconds = 0 disarms the timer. The recommended value during commissioning is 60.
 // breadcrumb is a value supplied by the commissioner to track commissioning progress.
-// 11.9.7.1. ArmFailSafe Command.
+// 11.10.7.1. ArmFailSafe Command.
 func ArmFailSafe(sess session.SecureSession, endpointID im.EndpointID, expiryLengthSeconds uint16, breadcrumb uint64) error {
 	fields, err := buildArmFailSafeFields(expiryLengthSeconds, breadcrumb)
 	if err != nil {
@@ -84,7 +84,7 @@ func ArmFailSafe(sess session.SecureSession, endpointID im.EndpointID, expiryLen
 
 // SetRegulatoryConfig sets the regulatory domain configuration on the device.
 //
-// SetRegulatoryConfig TLV payload (spec section 11.9.7.4):
+// SetRegulatoryConfig TLV payload (spec section 11.10.7.4):
 //
 //	STRUCTURE {
 //	  0: NewRegulatoryConfig [UINT8]  (RegulatoryLocationType)
@@ -92,7 +92,7 @@ func ArmFailSafe(sess session.SecureSession, endpointID im.EndpointID, expiryLen
 //	  2: Breadcrumb          [UINT64]
 //	}
 //
-// 11.9.7.4. SetRegulatoryConfig Command.
+// 11.10.7.4. SetRegulatoryConfig Command.
 func SetRegulatoryConfig(sess session.SecureSession, endpointID im.EndpointID, locationType RegulatoryLocationType, countryCode string, breadcrumb uint64) error {
 	fields, err := buildSetRegulatoryConfigFields(locationType, countryCode, breadcrumb)
 	if err != nil {
@@ -112,7 +112,7 @@ func SetRegulatoryConfig(sess session.SecureSession, endpointID im.EndpointID, l
 
 // CommissioningComplete signals the end of the commissioning session, releasing the fail-safe.
 // The device MUST respond with a CommissioningCompleteResponse (command 0x05).
-// 11.9.7.7. CommissioningComplete Command.
+// 11.10.7.7. CommissioningComplete Command.
 func CommissioningComplete(sess session.SecureSession, endpointID im.EndpointID) error {
 	// CommissioningComplete has no command fields.
 	resp, err := im.Invoke(sess, endpointID, ClusterID, CommissioningCompleteCommandID, nil)

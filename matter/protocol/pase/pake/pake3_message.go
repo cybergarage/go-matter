@@ -97,16 +97,26 @@ func NewPake3MessageFromBytes(data []byte) (Pake3Message, error) {
 		return nil, err
 	}
 	return &pake3Message{
-		headerOps:   nil,
-		protocolOps: nil,
-		pake3ReqOps: nil,
-		Message:     msg,
-		Pake3:       pake,
+		paramReq:      nil,
+		paramRes:      nil,
+		pake1:         nil,
+		pake2:         nil,
+		precomputedCA: nil,
+		headerOps:     nil,
+		protocolOps:   nil,
+		pake3ReqOps:   nil,
+		Message:       msg,
+		Pake3:         pake,
 	}, nil
 }
 
 func NewPake3Message(opts ...any) (Pake3Message, error) {
 	msg := &pake3Message{
+		paramReq:      nil,
+		paramRes:      nil,
+		pake1:         nil,
+		pake2:         nil,
+		precomputedCA: nil,
 		headerOps: []message.HeaderOption{
 			message.WithHeaderSessionID(0x0000),
 			message.WithHeaderSecurityFlags(0x00),
@@ -163,7 +173,7 @@ func NewPake3Message(opts ...any) (Pake3Message, error) {
 			return nil, errInvalidParam("pake2.pB", pB)
 		}
 
-		passcodeId := paramRequest.PasscodeID()
+		passcodeID := paramRequest.PasscodeID()
 		salt, ok := paramResponse.PBKDFParams().Salt()
 		if !ok {
 			return nil, errInvalidParam("paramResponse.Salt", salt)
@@ -173,7 +183,7 @@ func NewPake3Message(opts ...any) (Pake3Message, error) {
 			return nil, errInvalidParam("paramResponse.Iterations", iterations)
 		}
 		w0, _, err := crypto.CryptoPAKEValuesResponder(
-			passcodeId.Bytes(),
+			passcodeID.Bytes(),
 			salt,
 			iterations,
 		)
