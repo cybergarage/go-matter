@@ -227,26 +227,20 @@ func loadOperationalCredentialInputs(dev *baseDevice) operationalCredentialInput
 	if !ok {
 		return operationalCredentialInputs{}
 	}
-	inputs := operationalCredentialInputs{}
-	if v, ok := cfg.RootCertificate(); ok {
-		inputs.rootCertificate = v
+	rootCert, _ := cfg.RootCertificate()
+	noc, _ := cfg.NOC()
+	icac, _ := cfg.ICAC()
+	ipk, _ := cfg.IPK()
+	caseAdminNodeID, _ := cfg.CASEAdminNodeID()
+	adminVendorID, _ := cfg.AdminVendorID()
+	return operationalCredentialInputs{
+		rootCertificate: rootCert,
+		noc:             noc,
+		icac:            icac,
+		ipk:             ipk,
+		caseAdminNodeID: caseAdminNodeID,
+		adminVendorID:   adminVendorID,
 	}
-	if v, ok := cfg.NOC(); ok {
-		inputs.noc = v
-	}
-	if v, ok := cfg.ICAC(); ok {
-		inputs.icac = v
-	}
-	if v, ok := cfg.IPK(); ok {
-		inputs.ipk = v
-	}
-	if v, ok := cfg.CASEAdminNodeID(); ok {
-		inputs.caseAdminNodeID = v
-	}
-	if v, ok := cfg.AdminVendorID(); ok {
-		inputs.adminVendorID = v
-	}
-	return inputs
 }
 
 func loadNetworkCommissioningInputs(dev *baseDevice) networkCommissioningInputs {
@@ -254,12 +248,10 @@ func loadNetworkCommissioningInputs(dev *baseDevice) networkCommissioningInputs 
 	if !ok {
 		return networkCommissioningInputs{}
 	}
-	inputs := networkCommissioningInputs{}
-	if v, ok := cfg.SSID(); ok {
-		inputs.ssid = v
+	ssid, _ := cfg.SSID()
+	credentials, _ := cfg.Credentials()
+	return networkCommissioningInputs{
+		ssid:        ssid,
+		credentials: credentials,
 	}
-	if v, ok := cfg.Credentials(); ok {
-		inputs.credentials = v
-	}
-	return inputs
 }
