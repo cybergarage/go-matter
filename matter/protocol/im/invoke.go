@@ -14,7 +14,7 @@
 
 // Package im provides the Matter Interaction Model (IM) client primitives.
 // It covers InvokeRequest/InvokeResponse as defined in Matter Core Spec
-// section 10.6 (Interaction Model Messages).
+// section 10.7 (Interaction Model Messages).
 package im
 
 import "github.com/cybergarage/go-matter/matter/protocol/session"
@@ -35,7 +35,7 @@ type ClusterID uint32
 type CommandID uint32
 
 // InvokeStatus represents the overall status code returned in an InvokeResponse.
-// 10.6.17.2. Status IB.
+// 10.7.17.2. Status IB.
 type InvokeStatus struct {
 	// ClusterStatus is the cluster-specific status code (0 = success).
 	ClusterStatus uint8
@@ -44,7 +44,7 @@ type InvokeStatus struct {
 }
 
 // InvokeResponse is the parsed result of an InvokeResponse IM message.
-// 10.6.17. InvokeResponseMessage.
+// 10.7.17. InvokeResponseMessage.
 type InvokeResponse struct {
 	// Status contains the status codes for the invocation.
 	Status InvokeStatus

@@ -24,7 +24,7 @@ import (
 // Invoke sends an InvokeRequest IM message over the given secure session and waits
 // for an InvokeResponse. commandFields may be nil for commands with no fields.
 //
-// InvokeRequest TLV layout (spec section 10.6.9):
+// InvokeRequest TLV layout (spec section 10.7.9):
 //
 //	invoke-request-message => STRUCTURE {
 //	  0: suppress-response  [BOOL]
@@ -41,7 +41,7 @@ import (
 //	  }
 //	}
 //
-// 10.6.9. InvokeRequestMessage.
+// 10.7.9. InvokeRequestMessage.
 func Invoke(sess SecureSession, endpointID EndpointID, clusterID ClusterID, commandID CommandID, commandFields []byte) (*InvokeResponse, error) {
 	// Build InvokeRequest TLV payload.
 	payload, err := buildInvokeRequestPayload(endpointID, clusterID, commandID, commandFields)
@@ -137,7 +137,7 @@ func buildIMProtocolHeader(opcode message.Opcode) ([]byte, error) {
 
 // parseInvokeResponse parses the decrypted payload of an InvokeResponse message.
 // It scans for IM status codes embedded in the response TLV.
-// 10.6.17. InvokeResponseMessage.
+// 10.7.17. InvokeResponseMessage.
 func parseInvokeResponse(data []byte) (*InvokeResponse, error) {
 	// Skip protocol header bytes to get to the TLV payload.
 	if len(data) < 6 {
