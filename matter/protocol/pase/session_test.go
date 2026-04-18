@@ -21,7 +21,7 @@ func TestSessionKeysReturnsCopies(t *testing.T) {
 	r2iKey := []byte{0x04, 0x05, 0x06}
 	attestationChallenge := []byte{0x07, 0x08, 0x09}
 
-	keys := newSessionKeys(i2rKey, r2iKey, attestationChallenge)
+	keys := newSessionKeys(i2rKey, r2iKey, attestationChallenge, 0, 0, 0)
 
 	i2rKey[0] = 0xff
 	r2iKey[0] = 0xff

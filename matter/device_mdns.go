@@ -24,6 +24,7 @@ import (
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/mdns"
 	"github.com/cybergarage/go-matter/matter/protocol/pase"
+	"github.com/cybergarage/go-matter/matter/protocol/session"
 	"github.com/cybergarage/go-matter/matter/types"
 )
 
@@ -246,9 +247,15 @@ func (dev *mDNSDevice) Commission(ctx context.Context, payload OnboardingPayload
 	}()
 
 	paseClient := pase.NewInitiator(dev, payload.Passcode())
-	_, err = paseClient.EstablishSession(ctx)
+	sessionKeys, err := paseClient.EstablishSession(ctx)
 	if err != nil {
 		log.Errorf("Failed to establish PASE session with mDNS device (%s): %v", dev.String(), err)
+		return err
+	}
+
+	sess := session.NewSecureSession(dev, sessionKeys)
+	if err := commissionWithSession(sess); err != nil {
+		log.Errorf("Commissioning failed for mDNS device (%s): %v", dev.String(), err)
 		return err
 	}
 
