@@ -41,7 +41,7 @@ func commissionWithSession(sess session.SecureSession) error {
 	)
 
 	// Step 1: ArmFailSafe
-	// 11.9.7.1. ArmFailSafe Command.
+	// 11.10.7.2. ArmFailSafe Command.
 	log.Infof("Commissioning: ArmFailSafe (expiry=%ds, breadcrumb=%d)", armFailSafeExpiry, breadcrumb)
 	if err := generalcommissioning.ArmFailSafe(sess, defaultEndpointID, armFailSafeExpiry, breadcrumb); err != nil {
 		return err
@@ -49,21 +49,21 @@ func commissionWithSession(sess session.SecureSession) error {
 
 	// Step 2: Device Attestation (not yet implemented — requires Matter PKI infrastructure)
 	// TODO: Call operationalcredentials.AttestationRequest, CertificateChainRequest, CSRRequest.
-	// 11.18.7.1. AttestationRequest Command.
+	// 11.18.6.1. AttestationRequest Command.
 	log.Infof("Commissioning: Device Attestation (TODO: not yet implemented)")
 
 	// Step 3: Operational Credentials (not yet implemented — requires Matter PKI infrastructure)
 	// TODO: Call operationalcredentials.AddTrustedRootCertificate, AddNOC.
-	// 11.18.7.6. AddNOC Command.
+	// 11.18.6.8. AddNOC Command.
 	log.Infof("Commissioning: Operational Credentials (TODO: not yet implemented)")
 
 	// Step 4: Network Commissioning (not yet implemented — required for BLE-commissioned devices)
 	// TODO: Call networkcommissioning.AddOrUpdateWiFiNetwork, ConnectNetwork.
-	// 11.8.7.3. AddOrUpdateWiFiNetwork Command.
+	// 11.9.7.3. AddOrUpdateWiFiNetwork Command.
 	log.Infof("Commissioning: Network Commissioning (TODO: not yet implemented)")
 
 	// Step 5: CommissioningComplete
-	// 11.9.7.7. CommissioningComplete Command.
+	// 11.10.7.6. CommissioningComplete Command.
 	log.Infof("Commissioning: CommissioningComplete")
 	if err := generalcommissioning.CommissioningComplete(sess, defaultEndpointID); err != nil {
 		return err
