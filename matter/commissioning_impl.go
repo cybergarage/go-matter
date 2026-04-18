@@ -15,6 +15,7 @@
 package matter
 
 import (
+	"crypto/rand"
 	"errors"
 	"fmt"
 
@@ -94,6 +95,9 @@ func commissionWithSession(sess session.SecureSession) error {
 
 func commissionDeviceAttestation(sess session.SecureSession) error {
 	attestationNonce := make([]byte, attestationNonceLength)
+	if _, err := rand.Read(attestationNonce); err != nil {
+		return fmt.Errorf("commissioning: generate attestation nonce: %w", err)
+	}
 	if _, err := operationalcredentials.AttestationRequest(sess, defaultEndpointID, attestationNonce); err != nil {
 		if errors.Is(err, operationalcredentials.ErrNotImplemented) {
 			log.Infof("Commissioning: Device Attestation skipped: %v", err)
@@ -119,6 +123,9 @@ func commissionDeviceAttestation(sess session.SecureSession) error {
 	}
 
 	csrNonce := make([]byte, csrNonceLength)
+	if _, err := rand.Read(csrNonce); err != nil {
+		return fmt.Errorf("commissioning: generate CSR nonce: %w", err)
+	}
 	if _, err := operationalcredentials.CSRRequest(sess, defaultEndpointID, csrNonce); err != nil {
 		if errors.Is(err, operationalcredentials.ErrNotImplemented) {
 			log.Infof("Commissioning: CSR request skipped: %v", err)
@@ -138,7 +145,7 @@ func commissionOperationalCredentials(sess session.SecureSession) error {
 	ipk := []byte(nil)
 	caseAdminSubject := uint64(0)
 	adminVendorID := uint16(0)
-	if len(rootCertificate) == 0 || len(noc) == 0 || len(ipk) == 0 {
+	if rootCertificate == nil || noc == nil || ipk == nil {
 		log.Infof("Commissioning: Operational Credentials skipped: missing RCAC/NOC/IPK provisioning inputs")
 		return nil
 	}
@@ -166,7 +173,7 @@ func commissionNetwork(sess session.SecureSession) error {
 	// Wi-Fi network credentials are not available yet in the current commissioning inputs.
 	ssid := []byte(nil)
 	credentials := []byte(nil)
-	if len(ssid) == 0 || len(credentials) == 0 {
+	if ssid == nil || credentials == nil {
 		log.Infof("Commissioning: Network Commissioning skipped: missing Wi-Fi SSID/credentials")
 		return nil
 	}
