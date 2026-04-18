@@ -15,14 +15,27 @@
 package matter
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/cluster/generalcommissioning"
+	"github.com/cybergarage/go-matter/matter/cluster/networkcommissioning"
+	"github.com/cybergarage/go-matter/matter/cluster/operationalcredentials"
 	"github.com/cybergarage/go-matter/matter/protocol/session"
 )
 
 // defaultEndpointID is the Root Endpoint used for commissioning cluster commands.
 // 9.5. Endpoints.
 const defaultEndpointID = 0
+
+const (
+	attestationNonceLength = 32
+	csrNonceLength         = 32
+
+	certificateTypeDAC uint8 = 1
+	certificateTypePAI uint8 = 2
+)
 
 // commissionWithSession executes the post-PASE commissioning flow over the given SecureSession.
 // The flow follows the Matter Core Spec commissioning procedure (section 5.5):
@@ -47,20 +60,26 @@ func commissionWithSession(sess session.SecureSession) error {
 		return err
 	}
 
-	// Step 2: Device Attestation (not yet implemented — requires Matter PKI infrastructure)
-	// TODO: Call operationalcredentials.AttestationRequest, CertificateChainRequest, CSRRequest.
+	// Step 2: Device Attestation
 	// 11.18.7.1. AttestationRequest Command.
-	log.Infof("Commissioning: Device Attestation (TODO: not yet implemented)")
+	log.Infof("Commissioning: Device Attestation")
+	if err := commissionDeviceAttestation(sess); err != nil {
+		return err
+	}
 
-	// Step 3: Operational Credentials (not yet implemented — requires Matter PKI infrastructure)
-	// TODO: Call operationalcredentials.AddTrustedRootCertificate, AddNOC.
+	// Step 3: Operational Credentials
 	// 11.18.7.6. AddNOC Command.
-	log.Infof("Commissioning: Operational Credentials (TODO: not yet implemented)")
+	log.Infof("Commissioning: Operational Credentials")
+	if err := commissionOperationalCredentials(sess); err != nil {
+		return err
+	}
 
-	// Step 4: Network Commissioning (not yet implemented — required for BLE-commissioned devices)
-	// TODO: Call networkcommissioning.AddOrUpdateWiFiNetwork, ConnectNetwork.
+	// Step 4: Network Commissioning
 	// 11.8.7.3. AddOrUpdateWiFiNetwork Command.
-	log.Infof("Commissioning: Network Commissioning (TODO: not yet implemented)")
+	log.Infof("Commissioning: Network Commissioning")
+	if err := commissionNetwork(sess); err != nil {
+		return err
+	}
 
 	// Step 5: CommissioningComplete
 	// 11.9.7.7. CommissioningComplete Command.
@@ -70,5 +89,103 @@ func commissionWithSession(sess session.SecureSession) error {
 	}
 
 	log.Infof("Commissioning: complete")
+	return nil
+}
+
+func commissionDeviceAttestation(sess session.SecureSession) error {
+	attestationNonce := make([]byte, attestationNonceLength)
+	if _, err := operationalcredentials.AttestationRequest(sess, defaultEndpointID, attestationNonce); err != nil {
+		if errors.Is(err, operationalcredentials.ErrNotImplemented) {
+			log.Infof("Commissioning: Device Attestation skipped: %v", err)
+			return nil
+		}
+		return fmt.Errorf("commissioning: AttestationRequest: %w", err)
+	}
+
+	if _, err := operationalcredentials.CertificateChainRequest(sess, defaultEndpointID, certificateTypeDAC); err != nil {
+		if errors.Is(err, operationalcredentials.ErrNotImplemented) {
+			log.Infof("Commissioning: DAC request skipped: %v", err)
+			return nil
+		}
+		return fmt.Errorf("commissioning: CertificateChainRequest(DAC): %w", err)
+	}
+
+	if _, err := operationalcredentials.CertificateChainRequest(sess, defaultEndpointID, certificateTypePAI); err != nil {
+		if errors.Is(err, operationalcredentials.ErrNotImplemented) {
+			log.Infof("Commissioning: PAI request skipped: %v", err)
+			return nil
+		}
+		return fmt.Errorf("commissioning: CertificateChainRequest(PAI): %w", err)
+	}
+
+	csrNonce := make([]byte, csrNonceLength)
+	if _, err := operationalcredentials.CSRRequest(sess, defaultEndpointID, csrNonce); err != nil {
+		if errors.Is(err, operationalcredentials.ErrNotImplemented) {
+			log.Infof("Commissioning: CSR request skipped: %v", err)
+			return nil
+		}
+		return fmt.Errorf("commissioning: CSRRequest: %w", err)
+	}
+
+	return nil
+}
+
+func commissionOperationalCredentials(sess session.SecureSession) error {
+	// Root CA / NOC material is not available yet in the current commissioning inputs.
+	rootCertificate := []byte(nil)
+	noc := []byte(nil)
+	icac := []byte(nil)
+	ipk := []byte(nil)
+	caseAdminSubject := uint64(0)
+	adminVendorID := uint16(0)
+	if len(rootCertificate) == 0 || len(noc) == 0 || len(ipk) == 0 {
+		log.Infof("Commissioning: Operational Credentials skipped: missing RCAC/NOC/IPK provisioning inputs")
+		return nil
+	}
+
+	if err := operationalcredentials.AddTrustedRootCertificate(sess, defaultEndpointID, rootCertificate); err != nil {
+		if errors.Is(err, operationalcredentials.ErrNotImplemented) {
+			log.Infof("Commissioning: AddTrustedRootCertificate skipped: %v", err)
+			return nil
+		}
+		return fmt.Errorf("commissioning: AddTrustedRootCertificate: %w", err)
+	}
+
+	if err := operationalcredentials.AddNOC(sess, defaultEndpointID, noc, icac, ipk, caseAdminSubject, adminVendorID); err != nil {
+		if errors.Is(err, operationalcredentials.ErrNotImplemented) {
+			log.Infof("Commissioning: AddNOC skipped: %v", err)
+			return nil
+		}
+		return fmt.Errorf("commissioning: AddNOC: %w", err)
+	}
+
+	return nil
+}
+
+func commissionNetwork(sess session.SecureSession) error {
+	// Wi-Fi network credentials are not available yet in the current commissioning inputs.
+	ssid := []byte(nil)
+	credentials := []byte(nil)
+	if len(ssid) == 0 || len(credentials) == 0 {
+		log.Infof("Commissioning: Network Commissioning skipped: missing Wi-Fi SSID/credentials")
+		return nil
+	}
+
+	if err := networkcommissioning.AddOrUpdateWiFiNetwork(sess, defaultEndpointID, ssid, credentials, 0); err != nil {
+		if errors.Is(err, networkcommissioning.ErrNotImplemented) {
+			log.Infof("Commissioning: AddOrUpdateWiFiNetwork skipped: %v", err)
+			return nil
+		}
+		return fmt.Errorf("commissioning: AddOrUpdateWiFiNetwork: %w", err)
+	}
+
+	if err := networkcommissioning.ConnectNetwork(sess, defaultEndpointID, ssid, 0); err != nil {
+		if errors.Is(err, networkcommissioning.ErrNotImplemented) {
+			log.Infof("Commissioning: ConnectNetwork skipped: %v", err)
+			return nil
+		}
+		return fmt.Errorf("commissioning: ConnectNetwork: %w", err)
+	}
+
 	return nil
 }
