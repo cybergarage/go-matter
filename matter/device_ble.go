@@ -34,7 +34,7 @@ type bleDevice struct {
 
 func newBLEDevice(dev ble.Device, srv ble.Service) CommissionableDevice {
 	return &bleDevice{
-		baseDevice: &baseDevice{},
+		baseDevice: newBaseDevice(),
 		Device:     dev,
 		Service:    srv,
 		transport:  nil,
@@ -69,8 +69,14 @@ func (dev *bleDevice) Receive(ctx context.Context) ([]byte, error) {
 }
 
 // Commission commissions the node with the given commissioning options.
-func (dev *bleDevice) Commission(ctx context.Context, payload OnboardingPayload) error {
+func (dev *bleDevice) Commission(ctx context.Context, payload OnboardingPayload, opts ...CommissionOption) error {
 	log.Infof("Connected to device: %s", dev.String())
+
+	if err := dev.parseCommissionOptions(opts...); err != nil {
+		log.Errorf("Failed to parse commission options for device (%s): %v", dev.String(), err)
+		return err
+	}
+
 	if err := dev.Connect(ctx); err != nil {
 		log.Errorf("Failed to connect to device (%s): %v", dev.String(), err)
 		return err

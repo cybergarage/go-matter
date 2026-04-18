@@ -37,7 +37,7 @@ type mDNSDevice struct {
 
 func newMDNSDevice(node mdns.CommissionableNode) CommissionableDevice {
 	return &mDNSDevice{
-		baseDevice:         &baseDevice{},
+		baseDevice:         newBaseDevice(),
 		CommissionableNode: node,
 		conn:               nil,
 		readBuf:            make([]byte, 1500),
@@ -230,8 +230,13 @@ func (dev *mDNSDevice) Receive(ctx context.Context) ([]byte, error) {
 }
 
 // Commission commissions the node with the given commissioning options.
-func (dev *mDNSDevice) Commission(ctx context.Context, payload OnboardingPayload) error {
+func (dev *mDNSDevice) Commission(ctx context.Context, payload OnboardingPayload, opts ...CommissionOption) error {
 	log.Infof("Opening connection to mDNS device (%s)...", dev.String())
+
+	if err := dev.parseCommissionOptions(opts...); err != nil {
+		log.Errorf("Failed to parse commission options for device (%s): %v", dev.String(), err)
+		return err
+	}
 
 	var err error
 	dev.conn, err = dev.openConn(ctx)

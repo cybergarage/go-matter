@@ -51,6 +51,9 @@ type DeviceType = types.DeviceType
 // Transport represents a transport.
 type Transport = io.Transport
 
+// CommissionOption represents a commissioning option.
+type CommissionOption any
+
 // CommissionableDevice represents a commissionable device interface.
 // 5.4.3. Discovery by Commissioner.
 type CommissionableDevice interface {
@@ -63,7 +66,7 @@ type CommissionableDevice interface {
 	// Address returns the device address.
 	Address() string
 	// Commission commissions the node with the given commissioning options.
-	Commission(ctx context.Context, payload OnboardingPayload) error
+	Commission(ctx context.Context, payload OnboardingPayload, opts ...CommissionOption) error
 	// CommissionableDeviceHelper represents a helper interface for commissionable devices.
 	CommissionableDeviceHelper
 }
