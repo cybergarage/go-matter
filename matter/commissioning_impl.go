@@ -63,9 +63,9 @@ type networkCommissioningInputs struct {
 // The flow follows the Matter Core Spec commissioning procedure (section 5.5):
 //
 //  1. ArmFailSafe – arms the commissioning fail-safe timer (General Commissioning cluster 0x0030)
-//  2. Device Attestation – AttestationRequest, CertificateChainRequest, CSRRequest (TODO)
-//  3. Operational Credentials – AddTrustedRootCertificate, AddNOC (TODO)
-//  4. Network Commissioning – AddOrUpdateWiFiNetwork / ConnectNetwork (TODO, BLE-specific)
+//  2. Device Attestation – AttestationRequest, CertificateChainRequest, CSRRequest
+//  3. Operational Credentials – AddTrustedRootCertificate, AddNOC (when provisioning inputs are available)
+//  4. Network Commissioning – AddOrUpdateWiFiNetwork / ConnectNetwork (when network credentials are available)
 //  5. CommissioningComplete – releases the fail-safe and completes commissioning
 //
 // 5.5. Commissioning Flows.
