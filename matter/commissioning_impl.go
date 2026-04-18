@@ -31,12 +31,33 @@ import (
 const defaultEndpointID = 0
 
 const (
+	// 11.18.7.1. AttestationRequest Command (AttestationNonce is 32 bytes).
 	attestationNonceLength = 32
-	csrNonceLength         = 32
+	// 11.18.7.5. CSRRequest Command (CSRNonce is 32 bytes).
+	csrNonceLength = 32
 
+	// 11.18.5.7. CertificateChainTypeEnum (DAC = 1, PAI = 2).
 	certificateTypeDAC uint8 = 1
 	certificateTypePAI uint8 = 2
+
+	// 11.8.7.3 / 11.8.7.7. Optional breadcrumb field for Network Commissioning commands.
+	networkCommissioningBreadcrumb uint64 = 0
 )
+
+type operationalCredentialInputs struct {
+	rootCertificate []byte // RCAC: Root Certificate Authority Certificate.
+	noc             []byte // NOC: Node Operational Certificate.
+	icac            []byte // ICAC: Intermediate CA Certificate.
+	ipk             []byte // IPK: Identity Protection Key.
+	caseAdminNodeID uint64 // CASE Admin Node ID.
+	adminVendorID   uint16 // Admin Vendor ID.
+}
+
+type networkCommissioningInputs struct {
+	ssid []byte // SSID: Service Set Identifier for Wi-Fi network.
+	// credentials is Wi-Fi authentication data (passphrase or PSK).
+	credentials []byte
+}
 
 // commissionWithSession executes the post-PASE commissioning flow over the given SecureSession.
 // The flow follows the Matter Core Spec commissioning procedure (section 5.5):
@@ -71,14 +92,14 @@ func commissionWithSession(sess session.SecureSession) error {
 	// Step 3: Operational Credentials
 	// 11.18.7.6. AddNOC Command.
 	log.Infof("Commissioning: Operational Credentials")
-	if err := commissionOperationalCredentials(sess); err != nil {
+	if err := commissionOperationalCredentials(sess, loadOperationalCredentialInputs()); err != nil {
 		return err
 	}
 
 	// Step 4: Network Commissioning
 	// 11.8.7.3. AddOrUpdateWiFiNetwork Command.
 	log.Infof("Commissioning: Network Commissioning")
-	if err := commissionNetwork(sess); err != nil {
+	if err := commissionNetwork(sess, loadNetworkCommissioningInputs()); err != nil {
 		return err
 	}
 
@@ -137,20 +158,13 @@ func commissionDeviceAttestation(sess session.SecureSession) error {
 	return nil
 }
 
-func commissionOperationalCredentials(sess session.SecureSession) error {
-	// Root CA / NOC material is not available yet in the current commissioning inputs.
-	rootCertificate := []byte(nil)
-	noc := []byte(nil)
-	icac := []byte(nil)
-	ipk := []byte(nil)
-	caseAdminSubject := uint64(0)
-	adminVendorID := uint16(0)
-	if rootCertificate == nil || noc == nil || ipk == nil {
+func commissionOperationalCredentials(sess session.SecureSession, inputs operationalCredentialInputs) error {
+	if len(inputs.rootCertificate) == 0 || len(inputs.noc) == 0 || len(inputs.ipk) == 0 {
 		log.Infof("Commissioning: Operational Credentials skipped: missing RCAC/NOC/IPK provisioning inputs")
 		return nil
 	}
 
-	if err := operationalcredentials.AddTrustedRootCertificate(sess, defaultEndpointID, rootCertificate); err != nil {
+	if err := operationalcredentials.AddTrustedRootCertificate(sess, defaultEndpointID, inputs.rootCertificate); err != nil {
 		if errors.Is(err, operationalcredentials.ErrNotImplemented) {
 			log.Infof("Commissioning: AddTrustedRootCertificate skipped: %v", err)
 			return nil
@@ -158,7 +172,15 @@ func commissionOperationalCredentials(sess session.SecureSession) error {
 		return fmt.Errorf("commissioning: AddTrustedRootCertificate: %w", err)
 	}
 
-	if err := operationalcredentials.AddNOC(sess, defaultEndpointID, noc, icac, ipk, caseAdminSubject, adminVendorID); err != nil {
+	if err := operationalcredentials.AddNOC(
+		sess,
+		defaultEndpointID,
+		inputs.noc,
+		inputs.icac,
+		inputs.ipk,
+		inputs.caseAdminNodeID,
+		inputs.adminVendorID,
+	); err != nil {
 		if errors.Is(err, operationalcredentials.ErrNotImplemented) {
 			log.Infof("Commissioning: AddNOC skipped: %v", err)
 			return nil
@@ -169,16 +191,19 @@ func commissionOperationalCredentials(sess session.SecureSession) error {
 	return nil
 }
 
-func commissionNetwork(sess session.SecureSession) error {
-	// Wi-Fi network credentials are not available yet in the current commissioning inputs.
-	ssid := []byte(nil)
-	credentials := []byte(nil)
-	if ssid == nil || credentials == nil {
+func commissionNetwork(sess session.SecureSession, inputs networkCommissioningInputs) error {
+	if len(inputs.ssid) == 0 || len(inputs.credentials) == 0 {
 		log.Infof("Commissioning: Network Commissioning skipped: missing Wi-Fi SSID/credentials")
 		return nil
 	}
 
-	if err := networkcommissioning.AddOrUpdateWiFiNetwork(sess, defaultEndpointID, ssid, credentials, 0); err != nil {
+	if err := networkcommissioning.AddOrUpdateWiFiNetwork(
+		sess,
+		defaultEndpointID,
+		inputs.ssid,
+		inputs.credentials,
+		networkCommissioningBreadcrumb,
+	); err != nil {
 		if errors.Is(err, networkcommissioning.ErrNotImplemented) {
 			log.Infof("Commissioning: AddOrUpdateWiFiNetwork skipped: %v", err)
 			return nil
@@ -186,7 +211,7 @@ func commissionNetwork(sess session.SecureSession) error {
 		return fmt.Errorf("commissioning: AddOrUpdateWiFiNetwork: %w", err)
 	}
 
-	if err := networkcommissioning.ConnectNetwork(sess, defaultEndpointID, ssid, 0); err != nil {
+	if err := networkcommissioning.ConnectNetwork(sess, defaultEndpointID, inputs.ssid, networkCommissioningBreadcrumb); err != nil {
 		if errors.Is(err, networkcommissioning.ErrNotImplemented) {
 			log.Infof("Commissioning: ConnectNetwork skipped: %v", err)
 			return nil
@@ -195,4 +220,14 @@ func commissionNetwork(sess session.SecureSession) error {
 	}
 
 	return nil
+}
+
+func loadOperationalCredentialInputs() operationalCredentialInputs {
+	// TODO: Wire this from commissioner/device provisioning inputs once PKI material is supported.
+	return operationalCredentialInputs{}
+}
+
+func loadNetworkCommissioningInputs() networkCommissioningInputs {
+	// TODO: Wire this from commissioning options (e.g., pairing code-wifi SSID/password inputs).
+	return networkCommissioningInputs{}
 }
