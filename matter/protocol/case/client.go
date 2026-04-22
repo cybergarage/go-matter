@@ -18,10 +18,17 @@ package caseprotocol
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
 	"errors"
 	"fmt"
 
+	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/config"
+	mcrypto "github.com/cybergarage/go-matter/matter/crypto"
+	"github.com/cybergarage/go-matter/matter/encoding/message"
 	"github.com/cybergarage/go-matter/matter/io"
 	"github.com/cybergarage/go-matter/matter/protocol/session"
 )
@@ -29,76 +36,277 @@ import (
 // Transport is the underlying byte-oriented transport used for CASE.
 type Transport = io.Transport
 
-// ErrNotImplemented is returned while CASE Sigma exchange support is not yet implemented.
-var ErrNotImplemented = errors.New("case: not yet implemented")
+const (
+	cryptoSymmetricKeyLen = 16
+	randomLen             = 32
+	resumptionIDLen       = 16
+	signatureLen          = 64
+)
+
+var (
+	errStatusReport = errors.New("case: status report indicates failure")
+	sigma2Nonce     = []byte("NCASE_Sigma2N")
+	sigma3Nonce     = []byte("NCASE_Sigma3N")
+	sigma2Info      = []byte("Sigma2")
+	sigma3Info      = []byte("Sigma3")
+	sessionKeysInfo = []byte("SessionKeys")
+)
+
+// Option configures a CASE initiator.
+type Option func(*Initiator)
+
+// WithPeerNodeID sets the target operational node identifier used for Sigma1 destination ID.
+func WithPeerNodeID(nodeID uint64) Option {
+	return func(i *Initiator) {
+		i.peerNodeID = nodeID
+	}
+}
+
+// WithIPK sets the fabric IPK used for destination identifier and CASE KDF salts.
+func WithIPK(ipk []byte) Option {
+	return func(i *Initiator) {
+		i.ipk = cloneBytes(ipk)
+	}
+}
 
 // Initiator represents a CASE client.
 type Initiator struct {
-	t   Transport
-	cfg config.AdministratorConfig
+	t          Transport
+	cfg        config.AdministratorConfig
+	peerNodeID uint64
+	ipk        []byte
 }
 
 // NewInitiator creates a new CASE initiator.
-func NewInitiator(t Transport, cfg config.AdministratorConfig) *Initiator {
-	return &Initiator{
+func NewInitiator(t Transport, cfg config.AdministratorConfig, opts ...Option) *Initiator {
+	i := &Initiator{
 		t:   t,
 		cfg: cfg,
 	}
+	for _, opt := range opts {
+		opt(i)
+	}
+	return i
 }
 
-// EstablishSession validates CASE prerequisites and will eventually establish a CASE session.
-func (i *Initiator) EstablishSession(_ context.Context) (session.SessionKeys, error) {
+// EstablishSession performs the non-resumption CASE Sigma1 / Sigma2 / Sigma3 exchange
+// and returns session keys for the encrypted operational session.
+func (i *Initiator) EstablishSession(ctx context.Context) (session.SessionKeys, error) {
 	if i.t == nil {
 		return nil, fmt.Errorf("case: transport is required")
 	}
-	if i.cfg == nil {
-		return nil, fmt.Errorf("case: administrator config is required")
-	}
-	if _, err := loadAdministratorInputs(i.cfg); err != nil {
+	inputs, err := loadAdministratorInputs(i.cfg)
+	if err != nil {
 		return nil, err
 	}
-	return nil, ErrNotImplemented
+	if i.peerNodeID == 0 {
+		return nil, fmt.Errorf("case: peer node ID is required")
+	}
+	if len(i.ipk) == 0 {
+		return nil, fmt.Errorf("case: IPK is required")
+	}
+
+	initiatorRandom := make([]byte, randomLen)
+	if _, err := rand.Read(initiatorRandom); err != nil {
+		return nil, fmt.Errorf("case: initiator random: %w", err)
+	}
+	initiatorSessionID, err := newSessionID()
+	if err != nil {
+		return nil, fmt.Errorf("case: initiator session ID: %w", err)
+	}
+
+	ephPriv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, fmt.Errorf("case: initiator ephemeral key: %w", err)
+	}
+	initiatorEphPubKey := elliptic.Marshal(elliptic.P256(), ephPriv.PublicKey.X, ephPriv.PublicKey.Y)
+	destinationID := computeDestinationID(i.ipk, initiatorRandom, inputs.rootPublicKey, inputs.fabricID, i.peerNodeID)
+
+	exchangeID := message.NewFirstExchangeID()
+	sigma1Payload, err := encodeSigma1(sigma1{
+		InitiatorRandom:    initiatorRandom,
+		InitiatorSessionID: uint16(initiatorSessionID),
+		DestinationID:      destinationID,
+		InitiatorEphPubKey: initiatorEphPubKey,
+	})
+	if err != nil {
+		return nil, err
+	}
+	sigma1Msg, err := buildCASEMessage(message.CASESigma1, message.InitiatorFlag|message.ReliabilityFlag, exchangeID, sigma1Payload)
+	if err != nil {
+		return nil, err
+	}
+	sigma1Bytes, err := sigma1Msg.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	log.Infof("CASE Sigma1")
+	log.HexInfo(sigma1Bytes)
+	if err := i.t.Transmit(ctx, sigma1Bytes); err != nil {
+		return nil, fmt.Errorf("case: transmit Sigma1: %w", err)
+	}
+
+	sigma2Raw, err := receiveSkipAck(ctx, i.t)
+	if err != nil {
+		return nil, fmt.Errorf("case: receive Sigma2: %w", err)
+	}
+	sigma2Msg, err := message.NewMessageFromBytes(sigma2Raw)
+	if err != nil {
+		return nil, fmt.Errorf("case: parse Sigma2 message: %w", err)
+	}
+	if !sigma2Msg.Opcode().IsCASESigma2() {
+		return nil, fmt.Errorf("case: expected Sigma2, got opcode 0x%02x", uint8(sigma2Msg.Opcode()))
+	}
+	sigma2, err := decodeSigma2(sigma2Msg.Payload())
+	if err != nil {
+		return nil, err
+	}
+
+	sharedSecret, err := ecdhSharedSecret(ephPriv, sigma2.ResponderEphPubKey)
+	if err != nil {
+		return nil, fmt.Errorf("case: shared secret: %w", err)
+	}
+	s2k, err := deriveSigma2Key(sharedSecret, i.ipk, sigma2.ResponderRandom, sigma2.ResponderEphPubKey, sigma1Msg.Payload())
+	if err != nil {
+		return nil, err
+	}
+	tbeData2Bytes, err := mcrypto.CryptoCCMDecrypt(s2k, sigma2Nonce, sigma2.Encrypted2, nil)
+	if err != nil {
+		return nil, fmt.Errorf("case: decrypt Sigma2 payload: %w", err)
+	}
+	tbeData2, err := decodeSigma2TBEData(tbeData2Bytes)
+	if err != nil {
+		return nil, err
+	}
+	if err := verifyCertificateChain(tbeData2.ResponderNOC, tbeData2.ResponderICAC, inputs.rootCertificate); err != nil {
+		return nil, fmt.Errorf("case: verify responder certificate chain: %w", err)
+	}
+	responderLeaf, err := parseCertificateBytes(tbeData2.ResponderNOC)
+	if err != nil {
+		return nil, err
+	}
+	sigma2TBS, err := encodeSigmaTBSData(tbeData2.ResponderNOC, tbeData2.ResponderICAC, sigma2.ResponderEphPubKey, initiatorEphPubKey)
+	if err != nil {
+		return nil, err
+	}
+	if !verifySignatureFromCert(responderLeaf, sigma2TBS, tbeData2.Signature) {
+		return nil, fmt.Errorf("case: responder Sigma2 signature verification failed")
+	}
+
+	sigma3TBS, err := encodeSigmaTBSData(inputs.nocDER, inputs.icacDER, initiatorEphPubKey, sigma2.ResponderEphPubKey)
+	if err != nil {
+		return nil, err
+	}
+	sigma3Sig, err := signWithKey(inputs.privateKey, sigma3TBS)
+	if err != nil {
+		return nil, fmt.Errorf("case: Sigma3 signature: %w", err)
+	}
+	sigma3TBEData, err := encodeSigma3TBEData(sigma3TBEData{
+		InitiatorNOC:  inputs.nocDER,
+		InitiatorICAC: inputs.icacDER,
+		Signature:     sigma3Sig,
+	})
+	if err != nil {
+		return nil, err
+	}
+	s3k, err := deriveSigma3Key(sharedSecret, i.ipk, sigma1Msg.Payload(), sigma2Msg.Payload())
+	if err != nil {
+		return nil, err
+	}
+	encrypted3, err := mcrypto.CryptoCCMEncrypt(s3k, sigma3Nonce, sigma3TBEData, nil)
+	if err != nil {
+		return nil, fmt.Errorf("case: encrypt Sigma3 payload: %w", err)
+	}
+	sigma3Payload, err := encodeSigma3(sigma3{Encrypted3: encrypted3})
+	if err != nil {
+		return nil, err
+	}
+	sigma3Msg, err := buildCASEMessage(message.CASESigma3, message.InitiatorFlag|message.ReliabilityFlag|message.AckFlag, exchangeID, sigma3Payload)
+	if err != nil {
+		return nil, err
+	}
+	sigma3Bytes, err := sigma3Msg.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	log.Infof("CASE Sigma3")
+	log.HexInfo(sigma3Bytes)
+	if err := i.t.Transmit(ctx, sigma3Bytes); err != nil {
+		return nil, fmt.Errorf("case: transmit Sigma3: %w", err)
+	}
+
+	statusRaw, err := receiveSkipAck(ctx, i.t)
+	if err != nil {
+		return nil, fmt.Errorf("case: receive SigmaFinished: %w", err)
+	}
+	if err := parseStatusReport(statusRaw); err != nil {
+		return nil, err
+	}
+
+	sessionKeys, err := deriveSessionKeys(sharedSecret, i.ipk, sigma1RawPayload(sigma1Msg), sigma2RawPayload(sigma2Msg), sigma3RawPayload(sigma3Msg), initiatorSessionID, session.SessionID(sigma2.ResponderSessionID), session.NodeID(inputs.nodeID))
+	if err != nil {
+		return nil, err
+	}
+	return sessionKeys, nil
 }
 
-type administratorInputs struct {
-	nodeID          uint64
-	fabricID        uint64
-	rootCertificate []byte
-	noc             []byte
-	icac            []byte
-	privateKey      []byte
+func sigma1RawPayload(msg message.Message) []byte { return cloneBytes(msg.Payload()) }
+func sigma2RawPayload(msg message.Message) []byte { return cloneBytes(msg.Payload()) }
+func sigma3RawPayload(msg message.Message) []byte { return cloneBytes(msg.Payload()) }
+
+func buildCASEMessage(opcode message.Opcode, flags message.ExchangeFlag, exchangeID message.ExchangeID, payload []byte) (message.Message, error) {
+	msg := message.NewMessage(
+		message.WithMessageFrameHeader(message.NewHeader(
+			message.WithHeaderSessionID(0),
+			message.WithHeaderSecurityFlags(0x00),
+			message.WithHeaderMessageCounter(message.NewMessageCounter()),
+		)),
+		message.WithMessageProtocolHeader(message.NewProtocolHeader(
+			message.WithHeaderExchangeFlags(flags),
+			message.WithHeaderOpcode(opcode),
+			message.WithHeaderExchangeID(exchangeID),
+			message.WithHeaderProtocolID(message.SecureChannel),
+		)),
+		message.WithMessagePayload(payload),
+	)
+	return msg, nil
 }
 
-func loadAdministratorInputs(cfg config.AdministratorConfig) (administratorInputs, error) {
-	nodeID, _ := cfg.NodeID()
-	fabricID, _ := cfg.FabricID()
-	rootCert, _ := cfg.RootCertificate()
-	noc, _ := cfg.NOC()
-	icac, _ := cfg.ICAC()
-	privateKey, _ := cfg.PrivateKey()
+func receiveSkipAck(ctx context.Context, t Transport) ([]byte, error) {
+	for {
+		b, err := t.Receive(ctx)
+		if err != nil {
+			return nil, err
+		}
+		msg, err := message.NewMessageFromBytes(b)
+		if err != nil {
+			return nil, fmt.Errorf("case: parse received message: %w", err)
+		}
+		if msg.Opcode().IsMRPStandaloneAck() {
+			continue
+		}
+		return b, nil
+	}
+}
 
-	if nodeID == 0 {
-		return administratorInputs{}, fmt.Errorf("case: administrator config missing node ID")
+func verifyCertificateChain(leafDER, icacDER []byte, root *x509.Certificate) error {
+	leaf, err := parseCertificateBytes(leafDER)
+	if err != nil {
+		return err
 	}
-	if fabricID == 0 {
-		return administratorInputs{}, fmt.Errorf("case: administrator config missing fabric ID")
+	roots := x509.NewCertPool()
+	roots.AddCert(root)
+	intermediates := x509.NewCertPool()
+	if len(icacDER) != 0 {
+		icac, err := parseCertificateBytes(icacDER)
+		if err != nil {
+			return err
+		}
+		intermediates.AddCert(icac)
 	}
-	if len(rootCert) == 0 {
-		return administratorInputs{}, fmt.Errorf("case: administrator config missing root certificate")
-	}
-	if len(noc) == 0 {
-		return administratorInputs{}, fmt.Errorf("case: administrator config missing NOC")
-	}
-	if len(privateKey) == 0 {
-		return administratorInputs{}, fmt.Errorf("case: administrator config missing private key")
-	}
-
-	return administratorInputs{
-		nodeID:          nodeID,
-		fabricID:        fabricID,
-		rootCertificate: rootCert,
-		noc:             noc,
-		icac:            icac,
-		privateKey:      privateKey,
-	}, nil
+	_, err = leaf.Verify(x509.VerifyOptions{
+		Roots:         roots,
+		Intermediates: intermediates,
+	})
+	return err
 }

@@ -107,7 +107,7 @@ func commissionWithSession(
 		return err
 	}
 
-	if err := finalizeCommissioningOverCASE(ctx, discoverer, adminCfg); err != nil {
+	if err := finalizeCommissioningOverCASE(ctx, discoverer, operationalCfg, adminCfg); err != nil {
 		return err
 	}
 
@@ -163,6 +163,7 @@ func commissionOverPASE(
 func finalizeCommissioningOverCASE(
 	ctx context.Context,
 	discoverer mdnspkg.Discoverer,
+	operationalCfg config.OperationalCredentialsConfig,
 	adminCfg config.AdministratorConfig,
 ) error {
 	if adminCfg == nil {
@@ -172,16 +173,32 @@ func finalizeCommissioningOverCASE(
 		return fmt.Errorf("commissioning: discoverer is required for operational discovery")
 	}
 
+	if operationalCfg == nil {
+		return fmt.Errorf("commissioning: operational credentials config is required for CASE finalization")
+	}
+
+	peer, err := loadOperationalCASEPeer(operationalCfg, adminCfg)
+	if err != nil {
+		return err
+	}
+
 	log.Infof("Commissioning: Operational Discovery")
-	node, err := operationalNodeDiscoverer(ctx, discoverer, adminCfg)
+	node, err := operationalNodeDiscoverer(ctx, discoverer, peer)
 	if err != nil {
 		return err
 	}
 
 	log.Infof("Commissioning: CASE")
-	caseSess, err := establishOperationalCASESession(ctx, node, adminCfg)
+	caseSess, err := establishOperationalCASESession(ctx, node, peer, adminCfg)
 	if err != nil {
 		return err
+	}
+	if closer, ok := caseSess.Transport().(interface{ Close() error }); ok {
+		defer func() {
+			if err := closer.Close(); err != nil {
+				log.Error(err)
+			}
+		}()
 	}
 
 	log.Infof("Commissioning: CommissioningComplete")
@@ -324,9 +341,9 @@ func readSupportsConcurrentConnection(sess session.SecureSession) (bool, error) 
 func discoverOperationalNode(
 	ctx context.Context,
 	discoverer mdnspkg.Discoverer,
-	_ config.AdministratorConfig,
+	peer operationalCASEPeer,
 ) (mdnspkg.CommissionableNode, error) {
-	nodes, err := discoverer.Search(ctx, mdnspkg.NewOperationalNodeQuery(""))
+	nodes, err := discoverer.Search(ctx, mdnspkg.NewOperationalNodeQuery(peer.serviceInstance))
 	if err != nil {
 		return nil, fmt.Errorf("commissioning: operational discovery failed: %w", err)
 	}
@@ -338,21 +355,62 @@ func discoverOperationalNode(
 
 func establishCASESession(
 	ctx context.Context,
-	_ mdnspkg.CommissionableNode,
+	node mdnspkg.CommissionableNode,
+	peer operationalCASEPeer,
 	adminCfg config.AdministratorConfig,
 ) (session.SecureSession, error) {
-	initiator := caseprotocol.NewInitiator(noopTransport{}, adminCfg)
-	_, err := initiator.EstablishSession(ctx)
+	t, err := newOperationalUDPTransport(ctx, node)
 	if err != nil {
 		return nil, fmt.Errorf("commissioning: CASE finalization: %w", err)
 	}
-	return nil, fmt.Errorf("commissioning: CASE finalization: missing secure session result")
+	initiator := caseprotocol.NewInitiator(
+		t,
+		adminCfg,
+		caseprotocol.WithPeerNodeID(peer.nodeID),
+		caseprotocol.WithIPK(peer.ipk),
+	)
+	keys, err := initiator.EstablishSession(ctx)
+	if err != nil {
+		if closeErr := t.Close(); closeErr != nil {
+			log.Error(closeErr)
+		}
+		return nil, fmt.Errorf("commissioning: CASE finalization: %w", err)
+	}
+	return session.NewSecureSession(t, keys), nil
 }
 
-type noopTransport struct{}
+type operationalCASEPeer struct {
+	nodeID          uint64
+	serviceInstance string
+	ipk             []byte
+}
 
-func (noopTransport) Transmit(context.Context, []byte) error  { return nil }
-func (noopTransport) Receive(context.Context) ([]byte, error) { return nil, nil }
+func loadOperationalCASEPeer(cfg config.OperationalCredentialsConfig, adminCfg config.AdministratorConfig) (operationalCASEPeer, error) {
+	inputs, err := loadOperationalCredentialInputs(cfg)
+	if err != nil {
+		return operationalCASEPeer{}, err
+	}
+	adminInputs, err := caseprotocol.LoadAdministratorMetadata(adminCfg)
+	if err != nil {
+		return operationalCASEPeer{}, fmt.Errorf("commissioning: CASE administrator config: %w", err)
+	}
+	if adminInputs.NodeID != inputs.caseAdminNodeID {
+		return operationalCASEPeer{}, fmt.Errorf("commissioning: administrator node ID must match CASE admin node ID")
+	}
+	peerNodeID, err := caseprotocol.ParseCertificateNodeID(inputs.noc)
+	if err != nil {
+		return operationalCASEPeer{}, fmt.Errorf("commissioning: CASE peer identity: %w", err)
+	}
+	compressedFabricID, err := caseprotocol.ComputeCompressedFabricID(adminInputs.RootPublicKey, adminInputs.FabricID)
+	if err != nil {
+		return operationalCASEPeer{}, fmt.Errorf("commissioning: CASE peer identity: %w", err)
+	}
+	return operationalCASEPeer{
+		nodeID:          peerNodeID,
+		serviceInstance: fmt.Sprintf("%016X-%016X", compressedFabricID, peerNodeID),
+		ipk:             append([]byte(nil), inputs.ipk...),
+	}, nil
+}
 
 func loadOperationalCredentialInputs(cfg config.OperationalCredentialsConfig) (operationalCredentialInputs, error) {
 	rootCert, _ := cfg.RootCertificate()

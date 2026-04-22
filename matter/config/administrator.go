@@ -32,11 +32,15 @@ type AdministratorConfig interface {
 	// FabricID returns the target fabric identifier for the CASE session.
 	FabricID() (uint64, bool)
 	// RootCertificate returns the trust anchor used to validate the commissionee's CASE chain.
+	// Accepted encodings are X.509 PEM and DER.
 	RootCertificate() ([]byte, bool)
 	// NOC returns the administrator node operational certificate used for CASE.
+	// Accepted encodings are X.509 PEM and DER.
 	NOC() ([]byte, bool)
 	// ICAC returns the optional intermediate certificate used for CASE.
+	// Accepted encodings are X.509 PEM and DER.
 	ICAC() ([]byte, bool)
 	// PrivateKey returns signer material for CASE Sigma3.
+	// Accepted encodings are PKCS#8 PEM/DER and SEC1 PEM/DER.
 	PrivateKey() ([]byte, bool)
 }

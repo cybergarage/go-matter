@@ -16,9 +16,18 @@ package matter
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/asn1"
+	"encoding/pem"
 	"fmt"
+	"math/big"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/cybergarage/go-matter/matter/config"
 	mdnspkg "github.com/cybergarage/go-matter/matter/mdns"
@@ -215,7 +224,7 @@ func TestCommissionWithSessionReturnsExplicitNonConcurrentError(t *testing.T) {
 }
 
 func TestFinalizeCommissioningOverCASERequiresAdministratorConfig(t *testing.T) {
-	err := finalizeCommissioningOverCASE(context.Background(), &stubDiscoverer{}, nil)
+	err := finalizeCommissioningOverCASE(context.Background(), &stubDiscoverer{}, validOperationalCredentialsConfig(), nil)
 	if err == nil {
 		t.Fatal("finalizeCommissioningOverCASE(...) error = nil, want non-nil")
 	}
@@ -232,15 +241,15 @@ func TestFinalizeCommissioningOverCASEPropagatesOperationalDiscoveryFailure(t *t
 		establishOperationalCASESession = prevEstablishCASE
 	})
 
-	operationalNodeDiscoverer = func(context.Context, mdnspkg.Discoverer, config.AdministratorConfig) (mdnspkg.CommissionableNode, error) {
+	operationalNodeDiscoverer = func(context.Context, mdnspkg.Discoverer, operationalCASEPeer) (mdnspkg.CommissionableNode, error) {
 		return nil, fmt.Errorf("operational discovery timeout")
 	}
-	establishOperationalCASESession = func(context.Context, mdnspkg.CommissionableNode, config.AdministratorConfig) (session.SecureSession, error) {
+	establishOperationalCASESession = func(context.Context, mdnspkg.CommissionableNode, operationalCASEPeer, config.AdministratorConfig) (session.SecureSession, error) {
 		t.Fatal("establishOperationalCASESession should not be called when discovery fails")
 		return nil, nil
 	}
 
-	err := finalizeCommissioningOverCASE(context.Background(), &stubDiscoverer{}, validAdministratorConfig())
+	err := finalizeCommissioningOverCASE(context.Background(), &stubDiscoverer{}, validOperationalCredentialsConfig(), validAdministratorConfig())
 	if err == nil {
 		t.Fatal("finalizeCommissioningOverCASE(...) error = nil, want non-nil")
 	}
@@ -259,21 +268,82 @@ func (*stubDiscoverer) Start() error { return nil }
 func (*stubDiscoverer) Stop() error  { return nil }
 
 func validOperationalCredentialsConfig() config.OperationalCredentialsConfig {
+	rootDER, nocDER := testOperationalCredentialMaterials()
 	return config.NewOperationalCredentialConfig(
-		config.WithRootCertificate([]byte{0x01}),
-		config.WithNOC([]byte{0x02}),
-		config.WithIPK([]byte{0x03}),
+		config.WithRootCertificate(rootDER),
+		config.WithNOC(nocDER),
+		config.WithIPK([]byte("0123456789abcdef")),
 		config.WithCASEAdminNodeID(1),
 		config.WithAdminVendorID(1),
 	)
 }
 
 func validAdministratorConfig() config.AdministratorConfig {
+	rootDER, _, adminNOCDER, adminKeyDER := testAdministratorMaterials()
 	return config.NewAdministratorConfig(
 		config.WithAdministratorNodeID(1),
 		config.WithAdministratorFabricID(2),
-		config.WithAdministratorRootCertificate([]byte{0x01}),
-		config.WithAdministratorNOC([]byte{0x02}),
-		config.WithAdministratorPrivateKey([]byte{0x03}),
+		config.WithAdministratorRootCertificate(rootDER),
+		config.WithAdministratorNOC(adminNOCDER),
+		config.WithAdministratorPrivateKey(adminKeyDER),
 	)
+}
+
+func testOperationalCredentialMaterials() ([]byte, []byte) {
+	rootDER, rootTmpl, rootKey := testRootMaterials()
+	nodeKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	nocTmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(12),
+		Subject: pkix.Name{
+			CommonName: "Commissionee",
+			ExtraNames: []pkix.AttributeTypeAndValue{
+				{Type: asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 37244, 1, 1}, Value: "00000000000000AA"},
+				{Type: asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 37244, 1, 5}, Value: "0000000000000002"},
+			},
+		},
+		NotBefore:   time.Now().Add(-time.Hour),
+		NotAfter:    time.Now().Add(time.Hour),
+		KeyUsage:    x509.KeyUsageDigitalSignature,
+		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+	}
+	nocDER, _ := x509.CreateCertificate(rand.Reader, nocTmpl, rootTmpl, &nodeKey.PublicKey, rootKey)
+	return rootDER, nocDER
+}
+
+func testAdministratorMaterials() ([]byte, []byte, []byte, []byte) {
+	rootDER, rootTmpl, rootKey := testRootMaterials()
+	adminKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	adminTmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(22),
+		Subject: pkix.Name{
+			CommonName: "Administrator",
+			ExtraNames: []pkix.AttributeTypeAndValue{
+				{Type: asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 37244, 1, 1}, Value: "0000000000000001"},
+				{Type: asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 37244, 1, 5}, Value: "0000000000000002"},
+			},
+		},
+		NotBefore:   time.Now().Add(-time.Hour),
+		NotAfter:    time.Now().Add(time.Hour),
+		KeyUsage:    x509.KeyUsageDigitalSignature,
+		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+	}
+	adminNOCDER, _ := x509.CreateCertificate(rand.Reader, adminTmpl, rootTmpl, &adminKey.PublicKey, rootKey)
+	adminKeyDER, _ := x509.MarshalPKCS8PrivateKey(adminKey)
+	return rootDER, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: rootDER}), adminNOCDER, adminKeyDER
+}
+
+func testRootMaterials() ([]byte, *x509.Certificate, *ecdsa.PrivateKey) {
+	rootKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	rootTmpl := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "Root"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(time.Hour),
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+	}
+	rootDER, _ := x509.CreateCertificate(rand.Reader, rootTmpl, rootTmpl, &rootKey.PublicKey, rootKey)
+	rootCert, _ := x509.ParseCertificate(rootDER)
+	return rootDER, rootCert, rootKey
 }
