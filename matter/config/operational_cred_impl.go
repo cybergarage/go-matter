@@ -73,7 +73,19 @@ type operationalCredentialsConfig struct {
 }
 
 func newOperationalCredentialsConfig(opts ...OperationalCredentialsConfigOption) *operationalCredentialsConfig {
-	c := &operationalCredentialsConfig{}
+	// Keep operational credential inputs explicitly unset by default.
+	// Matter does not define universal default values for RCAC, NOC, IPK, CaseAdminSubject, or AdminVendorId;
+	// they must come from the commissioner when issuing AddTrustedRootCertificate / AddNOC.
+	// Matter 1.2 Core Spec 4.13.2 "Certificate Authenticated Session Establishment (CASE)"
+	// also treats ICAC as optional ("ICAC ... if present"), so ICAC remains unset unless supplied.
+	c := &operationalCredentialsConfig{
+		rootCertificate: nil,
+		noc:             nil,
+		icac:            nil,
+		ipk:             nil,
+		caseAdminNodeID: nil,
+		adminVendorID:   nil,
+	}
 	for _, opt := range opts {
 		opt(c)
 	}

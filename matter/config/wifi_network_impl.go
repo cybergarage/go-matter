@@ -31,17 +31,20 @@ func WithSSID(ssid []byte) WiFiNetworkConfigOption {
 // WithCredentials sets the network credentials (passphrase or PSK).
 func WithCredentials(credentials []byte) WiFiNetworkConfigOption {
 	return func(c *wifiNetworkConfig) {
-		c.credentials = credentials
+		c.cred = credentials
 	}
 }
 
 type wifiNetworkConfig struct {
-	ssid        []byte
-	credentials []byte
+	ssid []byte
+	cred []byte
 }
 
 func newWiFiNetworkConfig(opts ...WiFiNetworkConfigOption) *wifiNetworkConfig {
-	c := &wifiNetworkConfig{}
+	c := &wifiNetworkConfig{
+		ssid: []byte{},
+		cred: []byte{},
+	}
 	for _, opt := range opts {
 		opt(c)
 	}
@@ -61,10 +64,10 @@ func (c *wifiNetworkConfig) SSID() ([]byte, bool) {
 }
 
 func (c *wifiNetworkConfig) Credentials() ([]byte, bool) {
-	if c.credentials == nil {
+	if c.cred == nil {
 		return nil, false
 	}
-	return c.credentials, true
+	return c.cred, true
 }
 
 func (c *wifiNetworkConfig) Map() map[string]any {
@@ -72,8 +75,8 @@ func (c *wifiNetworkConfig) Map() map[string]any {
 	if c.ssid != nil {
 		m["ssid"] = c.ssid
 	}
-	if c.credentials != nil {
-		m["credentials"] = c.credentials
+	if c.cred != nil {
+		m["credentials"] = c.cred
 	}
 	return m
 }
