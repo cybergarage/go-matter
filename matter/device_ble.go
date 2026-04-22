@@ -20,6 +20,7 @@ import (
 
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/ble"
+	"github.com/cybergarage/go-matter/matter/mdns"
 	"github.com/cybergarage/go-matter/matter/protocol/pase"
 	"github.com/cybergarage/go-matter/matter/protocol/session"
 	"github.com/cybergarage/go-matter/matter/types"
@@ -29,15 +30,17 @@ type bleDevice struct {
 	*baseDevice
 	ble.Device
 	ble.Service
-	transport ble.Transport
+	transport  ble.Transport
+	discoverer mdns.Discoverer
 }
 
-func newBLEDevice(dev ble.Device, srv ble.Service) CommissionableDevice {
+func newBLEDevice(dev ble.Device, srv ble.Service, discoverer mdns.Discoverer) CommissionableDevice {
 	return &bleDevice{
 		baseDevice: newBaseDevice(),
 		Device:     dev,
 		Service:    srv,
 		transport:  nil,
+		discoverer: discoverer,
 	}
 }
 
@@ -120,7 +123,8 @@ func (dev *bleDevice) Commission(ctx context.Context, payload OnboardingPayload,
 	sess := session.NewSecureSession(dev, sessionKeys)
 	operationalCfg, _ := dev.OperationalCredentialsConfig()
 	wifiCfg, _ := dev.WiFiNetworkConfig()
-	if err := commissionWithSession(sess, operationalCfg, wifiCfg, true); err != nil {
+	adminCfg, _ := dev.AdministratorConfig()
+	if err := commissionWithSession(ctx, sess, dev.discoverer, operationalCfg, wifiCfg, adminCfg, true); err != nil {
 		log.Errorf("Commissioning failed for device (%s): %v", dev.String(), err)
 		return err
 	}

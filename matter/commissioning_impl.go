@@ -15,6 +15,7 @@
 package matter
 
 import (
+	"context"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -24,6 +25,9 @@ import (
 	"github.com/cybergarage/go-matter/matter/cluster/networkcommissioning"
 	"github.com/cybergarage/go-matter/matter/cluster/operationalcredentials"
 	"github.com/cybergarage/go-matter/matter/config"
+	mdnspkg "github.com/cybergarage/go-matter/matter/mdns"
+	caseprotocol "github.com/cybergarage/go-matter/matter/protocol/case"
+	"github.com/cybergarage/go-matter/matter/protocol/im"
 	"github.com/cybergarage/go-matter/matter/protocol/session"
 )
 
@@ -43,6 +47,18 @@ const (
 
 	// 11.8.7.3 / 11.8.7.7. Optional breadcrumb field for Network Commissioning commands.
 	networkCommissioningBreadcrumb uint64 = 0
+)
+
+var (
+	armFailSafeCommand                    = generalcommissioning.ArmFailSafe
+	commissioningCompleteCommand          = generalcommissioning.CommissioningComplete
+	addTrustedRootCertificateCommand      = operationalcredentials.AddTrustedRootCertificate
+	addNOCCommand                         = operationalcredentials.AddNOC
+	addOrUpdateWiFiNetworkCommand         = networkcommissioning.AddOrUpdateWiFiNetwork
+	connectNetworkCommand                 = networkcommissioning.ConnectNetwork
+	supportsConcurrentConnectionAttribute = readSupportsConcurrentConnection
+	operationalNodeDiscoverer             = discoverOperationalNode
+	establishOperationalCASESession       = establishCASESession
 )
 
 type operationalCredentialInputs struct {
@@ -71,6 +87,35 @@ type networkCommissioningInputs struct {
 //
 // 5.5. Commissioning Flows.
 func commissionWithSession(
+	ctx context.Context,
+	sess session.SecureSession,
+	discoverer mdnspkg.Discoverer,
+	operationalCfg config.OperationalCredentialsConfig,
+	wifiCfg config.WiFiNetworkConfig,
+	adminCfg config.AdministratorConfig,
+	requireNetwork bool,
+) error {
+	concurrent, err := supportsConcurrentConnectionAttribute(sess)
+	if err != nil {
+		return fmt.Errorf("commissioning: determine concurrent-connection capability: %w", err)
+	}
+	if !concurrent {
+		return fmt.Errorf("commissioning: non-concurrent commissioning not yet supported")
+	}
+
+	if err := commissionOverPASE(sess, operationalCfg, wifiCfg, requireNetwork); err != nil {
+		return err
+	}
+
+	if err := finalizeCommissioningOverCASE(ctx, discoverer, adminCfg); err != nil {
+		return err
+	}
+
+	log.Infof("Commissioning: complete")
+	return nil
+}
+
+func commissionOverPASE(
 	sess session.SecureSession,
 	operationalCfg config.OperationalCredentialsConfig,
 	wifiCfg config.WiFiNetworkConfig,
@@ -84,7 +129,7 @@ func commissionWithSession(
 	// Step 1: ArmFailSafe
 	// 11.10.7.2. ArmFailSafe Command.
 	log.Infof("Commissioning: ArmFailSafe (expiry=%ds, breadcrumb=%d)", armFailSafeExpiry, breadcrumb)
-	if err := generalcommissioning.ArmFailSafe(sess, defaultEndpointID, armFailSafeExpiry, breadcrumb); err != nil {
+	if err := armFailSafeCommand(sess, defaultEndpointID, armFailSafeExpiry, breadcrumb); err != nil {
 		return err
 	}
 
@@ -112,14 +157,38 @@ func commissionWithSession(
 		return err
 	}
 
-	// Step 5: CommissioningComplete
-	// 11.10.7.6. CommissioningComplete Command.
-	log.Infof("Commissioning: CommissioningComplete")
-	if err := generalcommissioning.CommissioningComplete(sess, defaultEndpointID); err != nil {
+	return nil
+}
+
+func finalizeCommissioningOverCASE(
+	ctx context.Context,
+	discoverer mdnspkg.Discoverer,
+	adminCfg config.AdministratorConfig,
+) error {
+	if adminCfg == nil {
+		return fmt.Errorf("commissioning: administrator config is required for CASE finalization")
+	}
+	if discoverer == nil {
+		return fmt.Errorf("commissioning: discoverer is required for operational discovery")
+	}
+
+	log.Infof("Commissioning: Operational Discovery")
+	node, err := operationalNodeDiscoverer(ctx, discoverer, adminCfg)
+	if err != nil {
 		return err
 	}
 
-	log.Infof("Commissioning: complete")
+	log.Infof("Commissioning: CASE")
+	caseSess, err := establishOperationalCASESession(ctx, node, adminCfg)
+	if err != nil {
+		return err
+	}
+
+	log.Infof("Commissioning: CommissioningComplete")
+	if err := commissioningCompleteCommand(caseSess, defaultEndpointID); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -177,7 +246,7 @@ func commissionOperationalCredentials(sess session.SecureSession, cfg config.Ope
 		return err
 	}
 
-	if err := operationalcredentials.AddTrustedRootCertificate(sess, defaultEndpointID, inputs.rootCertificate); err != nil {
+	if err := addTrustedRootCertificateCommand(sess, defaultEndpointID, inputs.rootCertificate); err != nil {
 		if errors.Is(err, operationalcredentials.ErrNotImplemented) {
 			log.Infof("Commissioning: AddTrustedRootCertificate skipped: %v", err)
 			return nil
@@ -185,7 +254,7 @@ func commissionOperationalCredentials(sess session.SecureSession, cfg config.Ope
 		return fmt.Errorf("commissioning: AddTrustedRootCertificate: %w", err)
 	}
 
-	if err := operationalcredentials.AddNOC(
+	if err := addNOCCommand(
 		sess,
 		defaultEndpointID,
 		inputs.noc,
@@ -218,7 +287,7 @@ func commissionNetwork(sess session.SecureSession, cfg config.WiFiNetworkConfig,
 		return err
 	}
 
-	if err := networkcommissioning.AddOrUpdateWiFiNetwork(
+	if err := addOrUpdateWiFiNetworkCommand(
 		sess,
 		defaultEndpointID,
 		inputs.ssid,
@@ -232,7 +301,7 @@ func commissionNetwork(sess session.SecureSession, cfg config.WiFiNetworkConfig,
 		return fmt.Errorf("commissioning: AddOrUpdateWiFiNetwork: %w", err)
 	}
 
-	if err := networkcommissioning.ConnectNetwork(sess, defaultEndpointID, inputs.ssid, networkCommissioningBreadcrumb); err != nil {
+	if err := connectNetworkCommand(sess, defaultEndpointID, inputs.ssid, networkCommissioningBreadcrumb); err != nil {
 		if errors.Is(err, networkcommissioning.ErrNotImplemented) {
 			log.Infof("Commissioning: ConnectNetwork skipped: %v", err)
 			return nil
@@ -242,6 +311,48 @@ func commissionNetwork(sess session.SecureSession, cfg config.WiFiNetworkConfig,
 
 	return nil
 }
+
+func readSupportsConcurrentConnection(sess session.SecureSession) (bool, error) {
+	return im.ReadBoolAttribute(
+		sess,
+		defaultEndpointID,
+		generalcommissioning.ClusterID,
+		generalcommissioning.SupportsConcurrentConnectionAttributeID,
+	)
+}
+
+func discoverOperationalNode(
+	ctx context.Context,
+	discoverer mdnspkg.Discoverer,
+	_ config.AdministratorConfig,
+) (mdnspkg.CommissionableNode, error) {
+	nodes, err := discoverer.Search(ctx, mdnspkg.NewOperationalNodeQuery(""))
+	if err != nil {
+		return nil, fmt.Errorf("commissioning: operational discovery failed: %w", err)
+	}
+	if len(nodes) == 0 {
+		return nil, fmt.Errorf("commissioning: operational discovery timeout: no operational node found")
+	}
+	return nodes[0], nil
+}
+
+func establishCASESession(
+	ctx context.Context,
+	_ mdnspkg.CommissionableNode,
+	adminCfg config.AdministratorConfig,
+) (session.SecureSession, error) {
+	initiator := caseprotocol.NewInitiator(noopTransport{}, adminCfg)
+	_, err := initiator.EstablishSession(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("commissioning: CASE finalization: %w", err)
+	}
+	return nil, fmt.Errorf("commissioning: CASE finalization: missing secure session result")
+}
+
+type noopTransport struct{}
+
+func (noopTransport) Transmit(context.Context, []byte) error  { return nil }
+func (noopTransport) Receive(context.Context) ([]byte, error) { return nil, nil }
 
 func loadOperationalCredentialInputs(cfg config.OperationalCredentialsConfig) (operationalCredentialInputs, error) {
 	rootCert, _ := cfg.RootCertificate()

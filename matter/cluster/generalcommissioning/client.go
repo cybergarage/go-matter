@@ -39,6 +39,14 @@ const (
 	CommissioningCompleteCommandID im.CommandID = 0x04
 )
 
+// Attribute IDs for the General Commissioning cluster.
+// 11.10.5. Attributes.
+const (
+	// SupportsConcurrentConnectionAttributeID reports whether the Commissionee can
+	// maintain the commissioning channel while also connecting to the operational network.
+	SupportsConcurrentConnectionAttributeID im.AttributeID = 0x0004
+)
+
 // RegulatoryLocationType identifies the regulatory location type.
 // 11.10.5.3. RegulatoryLocationType.
 type RegulatoryLocationType uint8

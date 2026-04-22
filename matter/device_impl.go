@@ -23,12 +23,14 @@ import (
 type baseDevice struct {
 	wifiConfig          config.WiFiNetworkConfig
 	operationCredConfig config.OperationalCredentialsConfig
+	adminConfig         config.AdministratorConfig
 }
 
 func newBaseDevice() *baseDevice {
 	return &baseDevice{
 		wifiConfig:          nil,
 		operationCredConfig: nil,
+		adminConfig:         nil,
 	}
 }
 
@@ -39,6 +41,8 @@ func (baseDev *baseDevice) parseCommissionOptions(opts ...CommissionOption) erro
 			baseDev.wifiConfig = o
 		case config.OperationalCredentialsConfig:
 			baseDev.operationCredConfig = o
+		case config.AdministratorConfig:
+			baseDev.adminConfig = o
 		default:
 			return fmt.Errorf("unsupported commission option type: %T", opt)
 		}
@@ -65,6 +69,10 @@ func (baseDev *baseDevice) WiFiNetworkConfig() (config.WiFiNetworkConfig, bool) 
 
 func (baseDev *baseDevice) OperationalCredentialsConfig() (config.OperationalCredentialsConfig, bool) {
 	return baseDev.operationCredConfig, baseDev.operationCredConfig != nil
+}
+
+func (baseDev *baseDevice) AdministratorConfig() (config.AdministratorConfig, bool) {
+	return baseDev.adminConfig, baseDev.adminConfig != nil
 }
 
 func (baseDev *baseDevice) marshalObject(dev CommissionableDevice) any {

@@ -15,10 +15,15 @@
 package matter
 
 import (
+	"context"
+	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/cybergarage/go-matter/matter/config"
+	mdnspkg "github.com/cybergarage/go-matter/matter/mdns"
+	"github.com/cybergarage/go-matter/matter/protocol/im"
+	"github.com/cybergarage/go-matter/matter/protocol/session"
 )
 
 func TestCommissionOperationalCredentialsNilConfig(t *testing.T) {
@@ -149,4 +154,126 @@ func TestCommissionNetworkMissingRequiredInputs(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCommissionOverPASEDoesNotInvokeCommissioningComplete(t *testing.T) {
+	prevArmFailSafe := armFailSafeCommand
+	prevAddTrustedRoot := addTrustedRootCertificateCommand
+	prevAddNOC := addNOCCommand
+	prevComplete := commissioningCompleteCommand
+	t.Cleanup(func() {
+		armFailSafeCommand = prevArmFailSafe
+		addTrustedRootCertificateCommand = prevAddTrustedRoot
+		addNOCCommand = prevAddNOC
+		commissioningCompleteCommand = prevComplete
+	})
+
+	armFailSafeCommand = func(session.SecureSession, im.EndpointID, uint16, uint64) error { return nil }
+	addTrustedRootCertificateCommand = func(session.SecureSession, im.EndpointID, []byte) error { return nil }
+	addNOCCommand = func(session.SecureSession, im.EndpointID, []byte, []byte, []byte, uint64, uint16) error { return nil }
+
+	calledCommissioningComplete := false
+	commissioningCompleteCommand = func(session.SecureSession, im.EndpointID) error {
+		calledCommissioningComplete = true
+		return nil
+	}
+
+	err := commissionOverPASE(nil, validOperationalCredentialsConfig(), nil, false)
+	if err != nil {
+		t.Fatalf("commissionOverPASE(...) error = %v, want nil", err)
+	}
+	if calledCommissioningComplete {
+		t.Fatal("commissionOverPASE(...) invoked CommissioningComplete, want false")
+	}
+}
+
+func TestCommissionWithSessionReturnsExplicitNonConcurrentError(t *testing.T) {
+	prevSupportsConcurrent := supportsConcurrentConnectionAttribute
+	t.Cleanup(func() {
+		supportsConcurrentConnectionAttribute = prevSupportsConcurrent
+	})
+
+	supportsConcurrentConnectionAttribute = func(session.SecureSession) (bool, error) {
+		return false, nil
+	}
+
+	err := commissionWithSession(
+		context.Background(),
+		nil,
+		nil,
+		validOperationalCredentialsConfig(),
+		nil,
+		validAdministratorConfig(),
+		false,
+	)
+	if err == nil {
+		t.Fatal("commissionWithSession(...) error = nil, want non-nil")
+	}
+	if !strings.Contains(err.Error(), "non-concurrent commissioning not yet supported") {
+		t.Fatalf("commissionWithSession(...) error = %q, want non-concurrent error", err)
+	}
+}
+
+func TestFinalizeCommissioningOverCASERequiresAdministratorConfig(t *testing.T) {
+	err := finalizeCommissioningOverCASE(context.Background(), &stubDiscoverer{}, nil)
+	if err == nil {
+		t.Fatal("finalizeCommissioningOverCASE(...) error = nil, want non-nil")
+	}
+	if !strings.Contains(err.Error(), "administrator config is required") {
+		t.Fatalf("finalizeCommissioningOverCASE(...) error = %q, want missing admin config error", err)
+	}
+}
+
+func TestFinalizeCommissioningOverCASEPropagatesOperationalDiscoveryFailure(t *testing.T) {
+	prevDiscoverOperational := operationalNodeDiscoverer
+	prevEstablishCASE := establishOperationalCASESession
+	t.Cleanup(func() {
+		operationalNodeDiscoverer = prevDiscoverOperational
+		establishOperationalCASESession = prevEstablishCASE
+	})
+
+	operationalNodeDiscoverer = func(context.Context, mdnspkg.Discoverer, config.AdministratorConfig) (mdnspkg.CommissionableNode, error) {
+		return nil, fmt.Errorf("operational discovery timeout")
+	}
+	establishOperationalCASESession = func(context.Context, mdnspkg.CommissionableNode, config.AdministratorConfig) (session.SecureSession, error) {
+		t.Fatal("establishOperationalCASESession should not be called when discovery fails")
+		return nil, nil
+	}
+
+	err := finalizeCommissioningOverCASE(context.Background(), &stubDiscoverer{}, validAdministratorConfig())
+	if err == nil {
+		t.Fatal("finalizeCommissioningOverCASE(...) error = nil, want non-nil")
+	}
+	if !strings.Contains(err.Error(), "operational discovery timeout") {
+		t.Fatalf("finalizeCommissioningOverCASE(...) error = %q, want discovery timeout", err)
+	}
+}
+
+type stubDiscoverer struct{}
+
+func (*stubDiscoverer) Search(context.Context, mdnspkg.Query) ([]mdnspkg.CommissionableNode, error) {
+	return nil, nil
+}
+
+func (*stubDiscoverer) Start() error { return nil }
+func (*stubDiscoverer) Stop() error  { return nil }
+
+func validOperationalCredentialsConfig() config.OperationalCredentialsConfig {
+	return config.NewOperationalCredentialConfig(
+		config.WithRootCertificate([]byte{0x01}),
+		config.WithNOC([]byte{0x02}),
+		config.WithIPK([]byte{0x03}),
+		config.WithCASEAdminNodeID(1),
+		config.WithAdminVendorID(1),
+	)
+}
+
+func validAdministratorConfig() config.AdministratorConfig {
+	return config.NewAdministratorConfig(
+		config.WithAdministratorNodeID(1),
+		config.WithAdministratorFabricID(2),
+		config.WithAdministratorRootCertificate([]byte{0x01}),
+		config.WithAdministratorNOC([]byte{0x02}),
+		config.WithAdministratorPrivateKey([]byte{0x03}),
+	)
 }

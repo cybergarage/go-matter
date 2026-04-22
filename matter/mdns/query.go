@@ -30,6 +30,19 @@ const (
 	OperationalNodeService = "_matter._tcp"
 )
 
+// NewOperationalNodeQuery returns a query for operational-node discovery.
+// When serviceInstance is empty, the query browses all operational nodes on the local domain.
+// When serviceInstance is non-empty, it queries that exact service instance under `_matter._tcp`.
+func NewOperationalNodeQuery(serviceInstance string) Query {
+	service := OperationalNodeService
+	if len(serviceInstance) != 0 {
+		service = serviceInstance + "." + OperationalNodeService
+	}
+	return NewQuery(
+		WithQueryService(service),
+	)
+}
+
 // 4.3.1.3. Commissioning Subtypes.
 const (
 	// QuerySubtypeLongDiscriminator represents the long discriminator query subtype.

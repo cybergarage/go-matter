@@ -31,16 +31,18 @@ import (
 type mDNSDevice struct {
 	*baseDevice
 	mdns.CommissionableNode
-	conn    *net.UDPConn
-	readBuf []byte
+	conn       *net.UDPConn
+	readBuf    []byte
+	discoverer mdns.Discoverer
 }
 
-func newMDNSDevice(node mdns.CommissionableNode) CommissionableDevice {
+func newMDNSDevice(node mdns.CommissionableNode, discoverer mdns.Discoverer) CommissionableDevice {
 	return &mDNSDevice{
 		baseDevice:         newBaseDevice(),
 		CommissionableNode: node,
 		conn:               nil,
 		readBuf:            make([]byte, 1500),
+		discoverer:         discoverer,
 	}
 }
 
@@ -261,7 +263,8 @@ func (dev *mDNSDevice) Commission(ctx context.Context, payload OnboardingPayload
 	sess := session.NewSecureSession(dev, sessionKeys)
 	operationalCfg, _ := dev.OperationalCredentialsConfig()
 	wifiCfg, _ := dev.WiFiNetworkConfig()
-	if err := commissionWithSession(sess, operationalCfg, wifiCfg, false); err != nil {
+	adminCfg, _ := dev.AdministratorConfig()
+	if err := commissionWithSession(ctx, sess, dev.discoverer, operationalCfg, wifiCfg, adminCfg, false); err != nil {
 		log.Errorf("Commissioning failed for mDNS device (%s): %v", dev.String(), err)
 		return err
 	}

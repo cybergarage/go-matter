@@ -76,7 +76,7 @@ func (cmr *commissioner) Discover(ctx context.Context, query Query) ([]Commissio
 			if err != nil {
 				continue
 			}
-			devs = append(devs, newBLEDevice(bleDev, bleService))
+			devs = append(devs, newBLEDevice(bleDev, bleService, cmr.discoverer))
 		}
 		return devs, nil
 	}
@@ -101,7 +101,7 @@ func (cmr *commissioner) Discover(ctx context.Context, query Query) ([]Commissio
 			return nil, err
 		}
 		for _, entry := range nodes {
-			devs = append(devs, newMDNSDevice(entry))
+			devs = append(devs, newMDNSDevice(entry, cmr.discoverer))
 		}
 		return devs, nil
 	}

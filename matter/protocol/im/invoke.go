@@ -30,6 +30,10 @@ type EndpointID uint16
 // 7.10. Cluster Identifiers.
 type ClusterID uint32
 
+// AttributeID identifies an attribute within a cluster.
+// 7.11. Attribute Identifiers.
+type AttributeID uint32
+
 // CommandID identifies a command within a cluster.
 // 7.13. Command Identifiers.
 type CommandID uint32

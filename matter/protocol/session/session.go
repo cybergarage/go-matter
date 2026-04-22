@@ -16,15 +16,21 @@ package session
 
 import (
 	"github.com/cybergarage/go-matter/matter/io"
-	"github.com/cybergarage/go-matter/matter/protocol/pase"
 	"github.com/cybergarage/go-matter/matter/types"
 )
 
 // Transport is the underlying byte-oriented transport interface.
 type Transport = io.Transport
 
-// SessionKeys holds the keys and identifiers for an established PASE session.
-type SessionKeys = pase.SessionKeys
+// SessionKeys holds the keys and identifiers for an established secure session.
+// Both PASE- and CASE-derived session keys implement this contract.
+type SessionKeys interface {
+	I2RKey() []byte
+	R2IKey() []byte
+	InitiatorSessionID() SessionID
+	ResponderSessionID() SessionID
+	LocalNodeID() NodeID
+}
 
 // NodeID is a Matter node identifier.
 type NodeID = types.NodeID
@@ -33,7 +39,7 @@ type NodeID = types.NodeID
 type SessionID = types.SessionID
 
 // SecureSession wraps a Transport and applies AES-128-CCM encryption and decryption
-// using the keys established during a PASE handshake.
+// using keys established during secure-session setup (for example PASE or CASE).
 // 4.7. Encryption.
 type SecureSession interface {
 	// Transmit encrypts payload (protocol header + application payload) and sends it
