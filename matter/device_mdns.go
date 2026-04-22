@@ -259,7 +259,9 @@ func (dev *mDNSDevice) Commission(ctx context.Context, payload OnboardingPayload
 	}
 
 	sess := session.NewSecureSession(dev, sessionKeys)
-	if err := commissionWithSession(sess, dev.baseDevice); err != nil {
+	operationalCfg, _ := dev.OperationalCredentialsConfig()
+	wifiCfg, _ := dev.WiFiNetworkConfig()
+	if err := commissionWithSession(sess, operationalCfg, wifiCfg, false); err != nil {
 		log.Errorf("Commissioning failed for mDNS device (%s): %v", dev.String(), err)
 		return err
 	}

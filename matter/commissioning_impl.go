@@ -23,6 +23,7 @@ import (
 	"github.com/cybergarage/go-matter/matter/cluster/generalcommissioning"
 	"github.com/cybergarage/go-matter/matter/cluster/networkcommissioning"
 	"github.com/cybergarage/go-matter/matter/cluster/operationalcredentials"
+	"github.com/cybergarage/go-matter/matter/config"
 	"github.com/cybergarage/go-matter/matter/protocol/session"
 )
 
@@ -64,12 +65,17 @@ type networkCommissioningInputs struct {
 //
 //  1. ArmFailSafe – arms the commissioning fail-safe timer (General Commissioning cluster 0x0030)
 //  2. Device Attestation – AttestationRequest, CertificateChainRequest, CSRRequest
-//  3. Operational Credentials – AddTrustedRootCertificate, AddNOC (when provisioning inputs are available)
-//  4. Network Commissioning – AddOrUpdateWiFiNetwork / ConnectNetwork (when network credentials are available)
+//  3. Operational Credentials – AddTrustedRootCertificate, AddNOC
+//  4. Network Commissioning – AddOrUpdateWiFiNetwork / ConnectNetwork (when the device requires operational-network provisioning)
 //  5. CommissioningComplete – releases the fail-safe and completes commissioning
 //
 // 5.5. Commissioning Flows.
-func commissionWithSession(sess session.SecureSession, dev *baseDevice) error {
+func commissionWithSession(
+	sess session.SecureSession,
+	operationalCfg config.OperationalCredentialsConfig,
+	wifiCfg config.WiFiNetworkConfig,
+	requireNetwork bool,
+) error {
 	const (
 		armFailSafeExpiry uint16 = 60 // seconds
 		breadcrumb        uint64 = 1
@@ -90,16 +96,19 @@ func commissionWithSession(sess session.SecureSession, dev *baseDevice) error {
 	}
 
 	// Step 3: Operational Credentials
-	// 11.18.7.6. AddNOC Command.
+	// Matter 1.2 Core Spec 5.5 "Commissioning Flows", step 9:
+	// Commissioner SHALL install operational credentials using AddTrustedRootCertificate and AddNOC.
 	log.Infof("Commissioning: Operational Credentials")
-	if err := commissionOperationalCredentials(sess, loadOperationalCredentialInputs(dev)); err != nil {
+	if err := commissionOperationalCredentials(sess, operationalCfg); err != nil {
 		return err
 	}
 
 	// Step 4: Network Commissioning
-	// 11.9.7.3. AddOrUpdateWiFiNetwork Command.
+	// Matter 1.2 Core Spec 5.5 "Commissioning Flows", steps 12-13:
+	// configure the operational network only if the Commissionee supports it and requires it,
+	// then invoke ConnectNetwork unless the Commissionee is already on the desired operational network.
 	log.Infof("Commissioning: Network Commissioning")
-	if err := commissionNetwork(sess, loadNetworkCommissioningInputs(dev)); err != nil {
+	if err := commissionNetwork(sess, wifiCfg, requireNetwork); err != nil {
 		return err
 	}
 
@@ -158,10 +167,14 @@ func commissionDeviceAttestation(sess session.SecureSession) error {
 	return nil
 }
 
-func commissionOperationalCredentials(sess session.SecureSession, inputs operationalCredentialInputs) error {
-	if len(inputs.rootCertificate) == 0 || len(inputs.noc) == 0 || len(inputs.ipk) == 0 {
-		log.Infof("Commissioning: Operational Credentials skipped: missing RCAC/NOC/IPK provisioning inputs")
-		return nil
+func commissionOperationalCredentials(sess session.SecureSession, cfg config.OperationalCredentialsConfig) error {
+	if cfg == nil {
+		return fmt.Errorf("commissioning: operational credentials config is required")
+	}
+
+	inputs, err := loadOperationalCredentialInputs(cfg)
+	if err != nil {
+		return err
 	}
 
 	if err := operationalcredentials.AddTrustedRootCertificate(sess, defaultEndpointID, inputs.rootCertificate); err != nil {
@@ -191,10 +204,18 @@ func commissionOperationalCredentials(sess session.SecureSession, inputs operati
 	return nil
 }
 
-func commissionNetwork(sess session.SecureSession, inputs networkCommissioningInputs) error {
-	if len(inputs.ssid) == 0 || len(inputs.credentials) == 0 {
-		log.Infof("Commissioning: Network Commissioning skipped: missing Wi-Fi SSID/credentials")
+func commissionNetwork(sess session.SecureSession, cfg config.WiFiNetworkConfig, requireNetwork bool) error {
+	if cfg == nil {
+		if requireNetwork {
+			return fmt.Errorf("commissioning: Wi-Fi network config is required for this commissioning flow")
+		}
+		log.Infof("Commissioning: Network Commissioning skipped: device is assumed to already be on the desired operational network")
 		return nil
+	}
+
+	inputs, err := loadNetworkCommissioningInputs(cfg)
+	if err != nil {
+		return err
 	}
 
 	if err := networkcommissioning.AddOrUpdateWiFiNetwork(
@@ -222,17 +243,28 @@ func commissionNetwork(sess session.SecureSession, inputs networkCommissioningIn
 	return nil
 }
 
-func loadOperationalCredentialInputs(dev *baseDevice) operationalCredentialInputs {
-	cfg, ok := dev.OperationalCredentialsConfig()
-	if !ok {
-		return operationalCredentialInputs{}
-	}
+func loadOperationalCredentialInputs(cfg config.OperationalCredentialsConfig) (operationalCredentialInputs, error) {
 	rootCert, _ := cfg.RootCertificate()
 	noc, _ := cfg.NOC()
 	icac, _ := cfg.ICAC()
 	ipk, _ := cfg.IPK()
 	caseAdminNodeID, _ := cfg.CASEAdminNodeID()
 	adminVendorID, _ := cfg.AdminVendorID()
+	if len(rootCert) == 0 {
+		return operationalCredentialInputs{}, fmt.Errorf("commissioning: operational credentials config missing root certificate")
+	}
+	if len(noc) == 0 {
+		return operationalCredentialInputs{}, fmt.Errorf("commissioning: operational credentials config missing NOC")
+	}
+	if len(ipk) == 0 {
+		return operationalCredentialInputs{}, fmt.Errorf("commissioning: operational credentials config missing IPK")
+	}
+	if caseAdminNodeID == 0 {
+		return operationalCredentialInputs{}, fmt.Errorf("commissioning: operational credentials config missing CASE admin node ID")
+	}
+	if adminVendorID == 0 {
+		return operationalCredentialInputs{}, fmt.Errorf("commissioning: operational credentials config missing admin vendor ID")
+	}
 	return operationalCredentialInputs{
 		rootCertificate: rootCert,
 		noc:             noc,
@@ -240,18 +272,20 @@ func loadOperationalCredentialInputs(dev *baseDevice) operationalCredentialInput
 		ipk:             ipk,
 		caseAdminNodeID: caseAdminNodeID,
 		adminVendorID:   adminVendorID,
-	}
+	}, nil
 }
 
-func loadNetworkCommissioningInputs(dev *baseDevice) networkCommissioningInputs {
-	cfg, ok := dev.WiFiNetworkConfig()
-	if !ok {
-		return networkCommissioningInputs{}
-	}
+func loadNetworkCommissioningInputs(cfg config.WiFiNetworkConfig) (networkCommissioningInputs, error) {
 	ssid, _ := cfg.SSID()
 	credentials, _ := cfg.Credentials()
+	if len(ssid) == 0 {
+		return networkCommissioningInputs{}, fmt.Errorf("commissioning: Wi-Fi network config missing SSID")
+	}
+	if len(credentials) == 0 {
+		return networkCommissioningInputs{}, fmt.Errorf("commissioning: Wi-Fi network config missing credentials")
+	}
 	return networkCommissioningInputs{
 		ssid:        ssid,
 		credentials: credentials,
-	}
+	}, nil
 }
