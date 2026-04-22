@@ -140,7 +140,7 @@ func (cmr *commissioner) Discover(ctx context.Context, query Query) ([]Commissio
 }
 
 // 5.5. Commissioning Flows.
-func (cmr *commissioner) Commission(ctx context.Context, payload OnboardingPayload) (Commissionee, error) {
+func (cmr *commissioner) Commission(ctx context.Context, payload OnboardingPayload, opts ...CommissionOption) (Commissionee, error) {
 	query := NewQuery(
 		WithQueryOnboardingPayload(payload),
 	)
@@ -154,6 +154,10 @@ func (cmr *commissioner) Commission(ctx context.Context, payload OnboardingPaylo
 		log.Infof("[%d] %s", n, dev.String())
 	}
 
+	return cmr.commissionMatchingDevice(ctx, payload, devs, opts...)
+}
+
+func (cmr *commissioner) commissionMatchingDevice(ctx context.Context, payload OnboardingPayload, devs []CommissionableDevice, opts ...CommissionOption) (Commissionee, error) {
 	for _, dev := range devs {
 		isMatched := dev.MatchesOnboardingPayload(payload)
 		if !isMatched {
@@ -165,7 +169,7 @@ func (cmr *commissioner) Commission(ctx context.Context, payload OnboardingPaylo
 		ctxCommission, cancel := context.WithTimeout(context.Background(), DefaultCommissioningTimeout)
 		defer cancel()
 
-		err = dev.Commission(ctxCommission, payload)
+		err := dev.Commission(ctxCommission, payload, opts...)
 		if err != nil {
 			return nil, fmt.Errorf("%w to commission device (%s): %w", ErrFailed, dev.String(), err)
 		}

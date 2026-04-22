@@ -16,6 +16,9 @@ package mdns
 
 import (
 	"context"
+	"errors"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -30,6 +33,9 @@ func TestDiscoverer(t *testing.T) {
 
 	err := disc.Start()
 	if err != nil {
+		if isPermissionLimitedMDNSError(err) {
+			t.Skipf("Skipping discoverer test in permission-limited environment: %v", err)
+		}
 		t.Error(err)
 		return
 	}
@@ -46,6 +52,9 @@ func TestDiscoverer(t *testing.T) {
 
 	nodes, err := disc.Search(ctx, query)
 	if err != nil {
+		if isPermissionLimitedMDNSError(err) {
+			t.Skipf("Skipping discoverer test in permission-limited environment: %v", err)
+		}
 		t.Error(err)
 		return
 	}
@@ -64,4 +73,17 @@ func TestDiscoverer(t *testing.T) {
 	for _, node := range nodes {
 		log.Infof("Discovered Node: %+v", node)
 	}
+}
+
+func isPermissionLimitedMDNSError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, os.ErrPermission) {
+		return true
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "operation not permitted") ||
+		strings.Contains(msg, "permission denied") ||
+		strings.Contains(msg, "no available interface")
 }

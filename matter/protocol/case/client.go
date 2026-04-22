@@ -22,6 +22,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
+	"encoding/hex"
 	"errors"
 	"fmt"
 
@@ -121,6 +122,12 @@ func (i *Initiator) EstablishSession(ctx context.Context) (session.SessionKeys, 
 	}
 	initiatorEphPubKey := elliptic.Marshal(elliptic.P256(), ephPriv.PublicKey.X, ephPriv.PublicKey.Y)
 	destinationID := computeDestinationID(i.ipk, initiatorRandom, inputs.rootPublicKey, inputs.fabricID, i.peerNodeID)
+	log.Infof(
+		"CASE target: peer_node_id=0x%016X destination_id=%s initiator_eph=%s",
+		i.peerNodeID,
+		redactedBytes(destinationID),
+		redactedBytes(initiatorEphPubKey),
+	)
 
 	exchangeID := message.NewFirstExchangeID()
 	sigma1Payload, err := encodeSigma1(sigma1{
@@ -140,8 +147,8 @@ func (i *Initiator) EstablishSession(ctx context.Context) (session.SessionKeys, 
 	if err != nil {
 		return nil, err
 	}
-	log.Infof("CASE Sigma1")
-	log.HexInfo(sigma1Bytes)
+	log.Infof("CASE Sigma1: session_id=0x%04X exchange_id=0x%04X payload=%s", initiatorSessionID, exchangeID, redactedBytes(sigma1Payload))
+	log.HexDebug(sigma1Bytes)
 	if err := i.t.Transmit(ctx, sigma1Bytes); err != nil {
 		return nil, fmt.Errorf("case: transmit Sigma1: %w", err)
 	}
@@ -159,8 +166,16 @@ func (i *Initiator) EstablishSession(ctx context.Context) (session.SessionKeys, 
 	}
 	sigma2, err := decodeSigma2(sigma2Msg.Payload())
 	if err != nil {
+		log.Infof("CASE Sigma2: malformed payload")
 		return nil, err
 	}
+	log.Infof(
+		"CASE Sigma2: responder_session_id=0x%04X responder_random=%s responder_eph=%s encrypted2=%s",
+		sigma2.ResponderSessionID,
+		redactedBytes(sigma2.ResponderRandom),
+		redactedBytes(sigma2.ResponderEphPubKey),
+		redactedBytes(sigma2.Encrypted2),
+	)
 
 	sharedSecret, err := ecdhSharedSecret(ephPriv, sigma2.ResponderEphPubKey)
 	if err != nil {
@@ -172,15 +187,25 @@ func (i *Initiator) EstablishSession(ctx context.Context) (session.SessionKeys, 
 	}
 	tbeData2Bytes, err := mcrypto.CryptoCCMDecrypt(s2k, sigma2Nonce, sigma2.Encrypted2, nil)
 	if err != nil {
+		log.Infof("CASE Sigma2: decrypt failed")
 		return nil, fmt.Errorf("case: decrypt Sigma2 payload: %w", err)
 	}
 	tbeData2, err := decodeSigma2TBEData(tbeData2Bytes)
 	if err != nil {
+		log.Infof("CASE Sigma2: decrypted payload malformed")
 		return nil, err
 	}
+	log.Infof(
+		"CASE Sigma2: decrypted responder_noc=%s responder_icac=%s signature=%s",
+		redactedBytes(tbeData2.ResponderNOC),
+		redactedBytes(tbeData2.ResponderICAC),
+		redactedBytes(tbeData2.Signature),
+	)
 	if err := verifyCertificateChain(tbeData2.ResponderNOC, tbeData2.ResponderICAC, inputs.rootCertificate); err != nil {
+		log.Infof("CASE Sigma2: certificate validation failed")
 		return nil, fmt.Errorf("case: verify responder certificate chain: %w", err)
 	}
+	log.Infof("CASE Sigma2: certificate validation ok")
 	responderLeaf, err := parseCertificateBytes(tbeData2.ResponderNOC)
 	if err != nil {
 		return nil, err
@@ -190,8 +215,10 @@ func (i *Initiator) EstablishSession(ctx context.Context) (session.SessionKeys, 
 		return nil, err
 	}
 	if !verifySignatureFromCert(responderLeaf, sigma2TBS, tbeData2.Signature) {
+		log.Infof("CASE Sigma2: signature verification failed")
 		return nil, fmt.Errorf("case: responder Sigma2 signature verification failed")
 	}
+	log.Infof("CASE Sigma2: signature verification ok")
 
 	sigma3TBS, err := encodeSigmaTBSData(inputs.nocDER, inputs.icacDER, initiatorEphPubKey, sigma2.ResponderEphPubKey)
 	if err != nil {
@@ -229,8 +256,8 @@ func (i *Initiator) EstablishSession(ctx context.Context) (session.SessionKeys, 
 	if err != nil {
 		return nil, err
 	}
-	log.Infof("CASE Sigma3")
-	log.HexInfo(sigma3Bytes)
+	log.Infof("CASE Sigma3: encrypted3=%s", redactedBytes(encrypted3))
+	log.HexDebug(sigma3Bytes)
 	if err := i.t.Transmit(ctx, sigma3Bytes); err != nil {
 		return nil, fmt.Errorf("case: transmit Sigma3: %w", err)
 	}
@@ -240,14 +267,25 @@ func (i *Initiator) EstablishSession(ctx context.Context) (session.SessionKeys, 
 		return nil, fmt.Errorf("case: receive SigmaFinished: %w", err)
 	}
 	if err := parseStatusReport(statusRaw); err != nil {
+		log.Infof("CASE SigmaFinished: status failure")
 		return nil, err
 	}
+	log.Infof("CASE SigmaFinished: success")
 
 	sessionKeys, err := deriveSessionKeys(sharedSecret, i.ipk, sigma1RawPayload(sigma1Msg), sigma2RawPayload(sigma2Msg), sigma3RawPayload(sigma3Msg), initiatorSessionID, session.SessionID(sigma2.ResponderSessionID), session.NodeID(inputs.nodeID))
 	if err != nil {
 		return nil, err
 	}
 	return sessionKeys, nil
+}
+
+func redactedBytes(b []byte) string {
+	if len(b) == 0 {
+		return "len=0"
+	}
+	digest := mcrypto.CryptoHash(b)
+	prefixLen := min(len(digest), 4)
+	return fmt.Sprintf("len=%d sha256=%s", len(b), hex.EncodeToString(digest[:prefixLen]))
 }
 
 func sigma1RawPayload(msg message.Message) []byte { return cloneBytes(msg.Payload()) }

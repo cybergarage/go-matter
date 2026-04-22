@@ -181,6 +181,12 @@ func finalizeCommissioningOverCASE(
 	if err != nil {
 		return err
 	}
+	log.Infof(
+		"Commissioning: Operational Discovery target service=%s peer_node_id=0x%016X ipk=%dB",
+		peer.serviceInstance,
+		peer.nodeID,
+		len(peer.ipk),
+	)
 
 	log.Infof("Commissioning: Operational Discovery")
 	node, err := operationalNodeDiscoverer(ctx, discoverer, peer)

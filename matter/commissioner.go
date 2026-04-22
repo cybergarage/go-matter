@@ -39,7 +39,7 @@ type Commissioner interface {
 	// 5.4.3. Discovery by Commissioner
 	Discover(ctx context.Context, query Query) ([]CommissionableDevice, error)
 	// Commission commissions a device with the given onboarding payload.
-	Commission(ctx context.Context, payload OnboardingPayload) (Commissionee, error)
+	Commission(ctx context.Context, payload OnboardingPayload, opts ...CommissionOption) (Commissionee, error)
 	// Start starts the commissioner.
 	Start() error
 	// Stop stops the commissioner.
