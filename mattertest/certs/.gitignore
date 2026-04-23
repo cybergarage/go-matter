@@ -1,0 +1,5 @@
+*.pem
+*.srl
+*.csr
+*.cnf
+*.ext
