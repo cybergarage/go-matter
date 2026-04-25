@@ -20,21 +20,38 @@ import (
 
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/ble"
+	"github.com/cybergarage/go-matter/matter/config"
 	"github.com/cybergarage/go-matter/matter/errors"
 	"github.com/cybergarage/go-matter/matter/mdns"
 )
 
+// CommissionerOption defines a functional option for configuring a Commissioner.
+type CommissionerOption func(*commissioner)
+
+// WithCommissionerAdministratorConfig sets the default AdministratorConfig used
+// when commissioning devices.
+func WithCommissionerAdministratorConfig(adminCfg config.AdministratorConfig) CommissionerOption {
+	return func(cmr *commissioner) {
+		cmr.adminConfig = adminCfg
+	}
+}
+
 // commissioner represents a commissioner.
 type commissioner struct {
 	ble.Central
-	discoverer mdns.Discoverer
+	discoverer  mdns.Discoverer
+	adminConfig config.AdministratorConfig
 }
 
 // NewCommissioner returns a new commissioner.
-func NewCommissioner() Commissioner {
+func NewCommissioner(opts ...CommissionerOption) Commissioner {
 	com := &commissioner{
-		Central:    ble.NewCentral(),
-		discoverer: mdns.NewDiscoverer(),
+		Central:     ble.NewCentral(),
+		discoverer:  mdns.NewDiscoverer(),
+		adminConfig: nil,
+	}
+	for _, opt := range opts {
+		opt(com)
 	}
 	return com
 }
@@ -158,6 +175,7 @@ func (cmr *commissioner) Commission(ctx context.Context, payload OnboardingPaylo
 }
 
 func (cmr *commissioner) commissionMatchingDevice(ctx context.Context, payload OnboardingPayload, devs []CommissionableDevice, opts ...CommissionOption) (Commissionee, error) {
+	opts = cmr.commissionOptions(opts...)
 	for _, dev := range devs {
 		isMatched := dev.MatchesOnboardingPayload(payload)
 		if !isMatched {
@@ -177,6 +195,16 @@ func (cmr *commissioner) commissionMatchingDevice(ctx context.Context, payload O
 	}
 
 	return nil, fmt.Errorf("%w: no matching commissionable device found (payload=%s)", ErrNotFound, payload.String())
+}
+
+func (cmr *commissioner) commissionOptions(opts ...CommissionOption) []CommissionOption {
+	if cmr.adminConfig == nil {
+		return opts
+	}
+	commissionOpts := make([]CommissionOption, 0, len(opts)+1)
+	commissionOpts = append(commissionOpts, cmr.adminConfig)
+	commissionOpts = append(commissionOpts, opts...)
+	return commissionOpts
 }
 
 // Start starts the commissioner.

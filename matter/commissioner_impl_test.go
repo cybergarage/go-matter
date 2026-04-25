@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/cybergarage/go-matter/matter/config"
 	"github.com/cybergarage/go-matter/matter/encoding"
 )
 
@@ -66,6 +67,41 @@ func TestCommissionMatchingDeviceForwardsOptions(t *testing.T) {
 	}
 	if got := dev.gotOpts[1]; got != opt2 {
 		t.Fatalf("gotOpts[1] = %#v, want %#v", got, opt2)
+	}
+}
+
+func TestCommissionMatchingDeviceIncludesCommissionerAdministratorConfig(t *testing.T) {
+	adminCfg := config.NewAdministratorConfig(config.WithAdministratorNodeID(1))
+	cmr := &commissioner{adminConfig: adminCfg}
+	dev := &capturingCommissionableDevice{
+		stubCommissionableDevice: stubCommissionableDevice{match: true},
+	}
+	payload := testPairingCode(t)
+	opt := "hello"
+
+	_, err := cmr.commissionMatchingDevice(context.Background(), payload, []CommissionableDevice{dev}, opt)
+	if err != nil {
+		t.Fatalf("commissionMatchingDevice(...) error = %v", err)
+	}
+	if len(dev.gotOpts) != 2 {
+		t.Fatalf("len(gotOpts) = %d, want 2", len(dev.gotOpts))
+	}
+	if got := dev.gotOpts[0]; got != adminCfg {
+		t.Fatalf("gotOpts[0] = %#v, want administrator config", got)
+	}
+	if got := dev.gotOpts[1]; got != opt {
+		t.Fatalf("gotOpts[1] = %#v, want %#v", got, opt)
+	}
+}
+
+func TestNewCommissionerWithAdministratorConfig(t *testing.T) {
+	adminCfg := config.NewAdministratorConfig(config.WithAdministratorNodeID(1))
+	cmr, ok := NewCommissioner(WithCommissionerAdministratorConfig(adminCfg)).(*commissioner)
+	if !ok {
+		t.Fatalf("NewCommissioner(...) returned %T, want *commissioner", cmr)
+	}
+	if cmr.adminConfig != adminCfg {
+		t.Fatal("commissioner admin config was not set")
 	}
 }
 
