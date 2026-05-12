@@ -49,6 +49,7 @@ linters:
     - contextcheck
     - fatcontext
     - embeddedstructfieldcheck
+    - predeclared
   settings:
     gocritic:
       disabled-checks:
