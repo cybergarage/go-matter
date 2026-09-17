@@ -29,6 +29,17 @@ import (
 
 var errLiveCommissioningDisabled = errors.New("live commissioner interop disabled")
 
+// defaultAdminVendorID is the CSA-reserved "Test Vendor 1" ID, used as the
+// commissioner's AdminVendorId unless MATTER_TEST_ADMIN_VENDOR_ID overrides it.
+const defaultAdminVendorID uint16 = 0xFFF1
+
+// defaultOperationalIPK is a fixed 16-byte test Identity Protection Key, used
+// unless MATTER_TEST_OPERATIONAL_IPK_HEX overrides it. Any value works here:
+// the IPK is established by the commissioner itself (it is not a property of
+// the device), it just has to be internally consistent between AddNOC and
+// the CASE session that follows it.
+var defaultOperationalIPK = []byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F}
+
 type liveCommissioningScenario struct {
 	Name        string
 	PairingCode matter.OnboardingPayload
@@ -45,6 +56,28 @@ func (s liveCommissioningScenario) Options() []matter.CommissionOption {
 	return opts
 }
 
+// loadLiveCommissioningScenarioFromEnv builds a commissioning scenario for
+// TestCommissioner. Only what actually depends on the physical device or
+// its network is required from the environment:
+//
+//   - MATTER_TEST_PAIRING_CODE — the device's manual pairing code (MPC), the
+//     same 11/21-digit code chip-tool takes as the last argument of
+//     `pairing code-wifi <node-id> <ssid> <password> <MPC>`.
+//   - MATTER_TEST_WIFI_SSID / MATTER_TEST_WIFI_PASSWORD — the Wi-Fi network to
+//     hand the device during commissioning (both or neither).
+//
+// Everything else (administrator identity, fabric ID, root/NOC certificates
+// and keys, IPK, vendor ID) is commissioner-side configuration, not a
+// property of the device, so each falls back to a fixed embedded test
+// default (see mattertest/config.go's NewAdministratorConfig and the
+// defaultAdminVendorID/defaultOperationalIPK constants above) unless
+// explicitly overridden by its environment variable. This mirrors chip-tool's
+// own minimal invocation:
+//
+//	MATTER_TEST_COMMISSIONER_LIVE=1 \
+//	MATTER_TEST_PAIRING_CODE=$MPC \
+//	MATTER_TEST_WIFI_SSID=$SSID MATTER_TEST_WIFI_PASSWORD=$PASS \
+//	go test ./mattertest/... -run TestCommissioner -v
 func loadLiveCommissioningScenarioFromEnv() (liveCommissioningScenario, error) {
 	if os.Getenv("MATTER_TEST_COMMISSIONER_LIVE") != "1" {
 		return liveCommissioningScenario{}, errLiveCommissioningDisabled
@@ -54,77 +87,55 @@ func loadLiveCommissioningScenarioFromEnv() (liveCommissioningScenario, error) {
 	if err != nil {
 		return liveCommissioningScenario{}, err
 	}
-	adminNodeIDStr, err := requireEnv("MATTER_TEST_ADMIN_NODE_ID")
-	if err != nil {
-		return liveCommissioningScenario{}, err
-	}
-	fabricIDStr, err := requireEnv("MATTER_TEST_FABRIC_ID")
-	if err != nil {
-		return liveCommissioningScenario{}, err
-	}
-	adminRootCert, err := envBlob("MATTER_TEST_ADMIN_ROOT_CERT")
-	if err != nil {
-		return liveCommissioningScenario{}, err
-	}
-	adminRootPrivateKey, err := envBlob("MATTER_TEST_ADMIN_ROOT_PRIVATE_KEY")
-	if err != nil {
-		return liveCommissioningScenario{}, err
-	}
-	adminNOC, err := envBlob("MATTER_TEST_ADMIN_NOC")
-	if err != nil {
-		return liveCommissioningScenario{}, err
-	}
-	adminICAC, err := optionalEnvBlob("MATTER_TEST_ADMIN_ICAC")
-	if err != nil {
-		return liveCommissioningScenario{}, err
-	}
-	adminPrivateKey, err := envBlob("MATTER_TEST_ADMIN_PRIVATE_KEY")
-	if err != nil {
-		return liveCommissioningScenario{}, err
-	}
-
-	// The device's own operational root certificate and NOC are no longer
-	// supplied statically: the commissioner acts as the fabric's certificate
-	// authority (matter/credentials.CertificateAuthority, built from the
-	// MATTER_TEST_ADMIN_ROOT_CERT/MATTER_TEST_ADMIN_ROOT_PRIVATE_KEY pair
-	// above) and issues the device's NOC at commissioning time from the CSR
-	// it returns. Only the fabric's IPK and CASE routing metadata remain
-	// static inputs.
-	ipk, err := envHex("MATTER_TEST_OPERATIONAL_IPK_HEX")
-	if err != nil {
-		return liveCommissioningScenario{}, err
-	}
-	caseAdminNodeIDStr, err := requireEnv("MATTER_TEST_CASE_ADMIN_NODE_ID")
-	if err != nil {
-		return liveCommissioningScenario{}, err
-	}
-	adminVendorIDStr, err := requireEnv("MATTER_TEST_ADMIN_VENDOR_ID")
-	if err != nil {
-		return liveCommissioningScenario{}, err
-	}
-
 	pairingCode, err := encoding.NewPairingCodeFromString(pairingCodeStr)
 	if err != nil {
 		return liveCommissioningScenario{}, fmt.Errorf("MATTER_TEST_PAIRING_CODE: %w", err)
 	}
-	adminNodeID, err := parseUint64Env("MATTER_TEST_ADMIN_NODE_ID", adminNodeIDStr)
+
+	adminNodeID, err := envUint64OrDefault("MATTER_TEST_ADMIN_NODE_ID", testAdministratorNodeID)
 	if err != nil {
 		return liveCommissioningScenario{}, err
 	}
-	fabricID, err := parseUint64Env("MATTER_TEST_FABRIC_ID", fabricIDStr)
+	fabricID, err := envUint64OrDefault("MATTER_TEST_FABRIC_ID", testAdministratorFabricID)
 	if err != nil {
 		return liveCommissioningScenario{}, err
 	}
-	caseAdminNodeID, err := parseUint64Env("MATTER_TEST_CASE_ADMIN_NODE_ID", caseAdminNodeIDStr)
-	if err != nil {
-		return liveCommissioningScenario{}, err
-	}
-	adminVendorID, err := parseUint16Env("MATTER_TEST_ADMIN_VENDOR_ID", adminVendorIDStr)
+	caseAdminNodeID, err := envUint64OrDefault("MATTER_TEST_CASE_ADMIN_NODE_ID", adminNodeID)
 	if err != nil {
 		return liveCommissioningScenario{}, err
 	}
 	if adminNodeID != caseAdminNodeID {
 		return liveCommissioningScenario{}, fmt.Errorf("administrator node ID (0x%016X) must match CASE admin node ID (0x%016X)", adminNodeID, caseAdminNodeID)
+	}
+	adminVendorID, err := envUint16OrDefault("MATTER_TEST_ADMIN_VENDOR_ID", defaultAdminVendorID)
+	if err != nil {
+		return liveCommissioningScenario{}, err
+	}
+	ipk, err := envHexOrDefault("MATTER_TEST_OPERATIONAL_IPK_HEX", defaultOperationalIPK)
+	if err != nil {
+		return liveCommissioningScenario{}, err
+	}
+
+	adminRootCert, err := envBlobOrDefault("MATTER_TEST_ADMIN_ROOT_CERT", testAdminRootCertPEM)
+	if err != nil {
+		return liveCommissioningScenario{}, err
+	}
+	adminRootPrivateKey, err := envBlobOrDefault("MATTER_TEST_ADMIN_ROOT_PRIVATE_KEY", testAdminRootKeyPEM)
+	if err != nil {
+		return liveCommissioningScenario{}, err
+	}
+	adminNOC, err := envBlobOrDefault("MATTER_TEST_ADMIN_NOC", testAdminNOCPEM)
+	if err != nil {
+		return liveCommissioningScenario{}, err
+	}
+	adminPrivateKey, err := envBlobOrDefault("MATTER_TEST_ADMIN_PRIVATE_KEY", testAdminPrivateKeyPEM)
+	if err != nil {
+		return liveCommissioningScenario{}, err
+	}
+	// No embedded default: the test certificate chain has no intermediate.
+	adminICAC, err := optionalEnvBlob("MATTER_TEST_ADMIN_ICAC")
+	if err != nil {
+		return liveCommissioningScenario{}, err
 	}
 
 	adminCfgOpts := []config.AdministratorConfigOption{
@@ -194,15 +205,8 @@ func lookupTrimmedEnv(key string) (string, bool) {
 	return v, true
 }
 
-func envBlob(prefix string) ([]byte, error) {
-	if b, err := optionalEnvBlob(prefix); err != nil {
-		return nil, err
-	} else if len(b) != 0 {
-		return b, nil
-	}
-	return nil, fmt.Errorf("%s_FILE or %s_PEM is required", prefix, prefix)
-}
-
+// optionalEnvBlob reads a PEM/DER blob from <prefix>_FILE or <prefix>_PEM,
+// returning (nil, nil) if neither is set.
 func optionalEnvBlob(prefix string) ([]byte, error) {
 	if path, ok := lookupTrimmedEnv(prefix + "_FILE"); ok {
 		b, err := os.ReadFile(path)
@@ -217,10 +221,25 @@ func optionalEnvBlob(prefix string) ([]byte, error) {
 	return nil, nil
 }
 
-func envHex(key string) ([]byte, error) {
+// envBlobOrDefault is optionalEnvBlob, falling back to def when neither
+// <prefix>_FILE nor <prefix>_PEM is set.
+func envBlobOrDefault(prefix string, def []byte) ([]byte, error) {
+	b, err := optionalEnvBlob(prefix)
+	if err != nil {
+		return nil, err
+	}
+	if len(b) != 0 {
+		return b, nil
+	}
+	return def, nil
+}
+
+// envHexOrDefault parses key as hex (ignoring spaces/colons), falling back
+// to def when key is unset.
+func envHexOrDefault(key string, def []byte) ([]byte, error) {
 	raw, ok := lookupTrimmedEnv(key)
 	if !ok {
-		return nil, fmt.Errorf("%s is required", key)
+		return def, nil
 	}
 	raw = strings.ReplaceAll(raw, " ", "")
 	raw = strings.ReplaceAll(raw, ":", "")
@@ -231,9 +250,12 @@ func envHex(key string) ([]byte, error) {
 	return out, nil
 }
 
-func parseUint64Env(key, raw string) (uint64, error) {
-	if strings.TrimSpace(raw) == "" {
-		return 0, fmt.Errorf("%s is required", key)
+// envUint64OrDefault parses key as a uint64 (accepting 0x-prefixed hex),
+// falling back to def when key is unset.
+func envUint64OrDefault(key string, def uint64) (uint64, error) {
+	raw, ok := lookupTrimmedEnv(key)
+	if !ok {
+		return def, nil
 	}
 	v, err := strconv.ParseUint(raw, 0, 64)
 	if err != nil {
@@ -242,9 +264,12 @@ func parseUint64Env(key, raw string) (uint64, error) {
 	return v, nil
 }
 
-func parseUint16Env(key, raw string) (uint16, error) {
-	if strings.TrimSpace(raw) == "" {
-		return 0, fmt.Errorf("%s is required", key)
+// envUint16OrDefault parses key as a uint16 (accepting 0x-prefixed hex),
+// falling back to def when key is unset.
+func envUint16OrDefault(key string, def uint16) (uint16, error) {
+	raw, ok := lookupTrimmedEnv(key)
+	if !ok {
+		return def, nil
 	}
 	v, err := strconv.ParseUint(raw, 0, 16)
 	if err != nil {

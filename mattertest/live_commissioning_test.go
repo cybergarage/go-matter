@@ -16,7 +16,6 @@ package mattertest
 
 import (
 	"errors"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -41,9 +40,43 @@ func TestLoadLiveCommissioningScenarioFromEnvMissingRequired(t *testing.T) {
 	}
 }
 
+// TestLoadLiveCommissioningScenarioFromEnvMinimal verifies that only the
+// pairing code (and MATTER_TEST_COMMISSIONER_LIVE=1) is actually required —
+// everything else (administrator identity, certificates, IPK, vendor ID)
+// falls back to the embedded test defaults, mirroring chip-tool's minimal
+// `pairing code-wifi <node-id> <ssid> <password> <MPC>` invocation.
+func TestLoadLiveCommissioningScenarioFromEnvMinimal(t *testing.T) {
+	clearLiveEnv(t)
+	t.Setenv("MATTER_TEST_COMMISSIONER_LIVE", "1")
+	t.Setenv("MATTER_TEST_PAIRING_CODE", "2167-692-8175")
+
+	scenario, err := loadLiveCommissioningScenarioFromEnv()
+	if err != nil {
+		t.Fatalf("loadLiveCommissioningScenarioFromEnv() error = %v, want nil", err)
+	}
+	if scenario.Admin == nil || scenario.Operational == nil {
+		t.Fatal("scenario is missing default Admin/Operational config")
+	}
+	if scenario.WiFi != nil {
+		t.Fatalf("scenario.WiFi = %#v, want nil (no Wi-Fi env set)", scenario.WiFi)
+	}
+	nodeID, ok := scenario.Admin.NodeID()
+	if !ok || nodeID != testAdministratorNodeID {
+		t.Errorf("scenario.Admin.NodeID() = 0x%016X, %v; want default 0x%016X, true", nodeID, ok, testAdministratorNodeID)
+	}
+	if _, ok := scenario.Admin.RootPrivateKey(); !ok {
+		t.Error("scenario.Admin.RootPrivateKey() not set from embedded default")
+	}
+	ipk, ok := scenario.Operational.IPK()
+	if !ok || len(ipk) != 16 {
+		t.Errorf("scenario.Operational.IPK() = %v, %v; want 16-byte default, true", ipk, ok)
+	}
+}
+
 func TestLoadLiveCommissioningScenarioFromEnvInvalidPath(t *testing.T) {
 	clearLiveEnv(t)
-	setRequiredLiveEnv(t)
+	t.Setenv("MATTER_TEST_COMMISSIONER_LIVE", "1")
+	t.Setenv("MATTER_TEST_PAIRING_CODE", "2167-692-8175")
 	t.Setenv("MATTER_TEST_ADMIN_ROOT_CERT_FILE", filepath.Join(t.TempDir(), "missing.pem"))
 
 	_, err := loadLiveCommissioningScenarioFromEnv()
@@ -54,7 +87,9 @@ func TestLoadLiveCommissioningScenarioFromEnvInvalidPath(t *testing.T) {
 
 func TestLoadLiveCommissioningScenarioFromEnvNodeIDMismatch(t *testing.T) {
 	clearLiveEnv(t)
-	setRequiredLiveEnv(t)
+	t.Setenv("MATTER_TEST_COMMISSIONER_LIVE", "1")
+	t.Setenv("MATTER_TEST_PAIRING_CODE", "2167-692-8175")
+	t.Setenv("MATTER_TEST_ADMIN_NODE_ID", "0x1")
 	t.Setenv("MATTER_TEST_CASE_ADMIN_NODE_ID", "0x2")
 
 	_, err := loadLiveCommissioningScenarioFromEnv()
@@ -65,7 +100,8 @@ func TestLoadLiveCommissioningScenarioFromEnvNodeIDMismatch(t *testing.T) {
 
 func TestLoadLiveCommissioningScenarioFromEnvWiFiOptional(t *testing.T) {
 	clearLiveEnv(t)
-	setRequiredLiveEnv(t)
+	t.Setenv("MATTER_TEST_COMMISSIONER_LIVE", "1")
+	t.Setenv("MATTER_TEST_PAIRING_CODE", "2167-692-8175")
 
 	scenario, err := loadLiveCommissioningScenarioFromEnv()
 	if err != nil {
@@ -112,34 +148,4 @@ func clearLiveEnv(t *testing.T) {
 	} {
 		t.Setenv(key, "")
 	}
-}
-
-func setRequiredLiveEnv(t *testing.T) {
-	t.Helper()
-	dir := t.TempDir()
-	adminRoot := writeTempFile(t, dir, "admin-root.pem", "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n")
-	adminRootKey := writeTempFile(t, dir, "admin-root-key.pem", "-----BEGIN EC PRIVATE KEY-----\nMIIF\n-----END EC PRIVATE KEY-----\n")
-	adminNOC := writeTempFile(t, dir, "admin-noc.pem", "-----BEGIN CERTIFICATE-----\nMIIC\n-----END CERTIFICATE-----\n")
-	adminKey := writeTempFile(t, dir, "admin-key.pem", "-----BEGIN PRIVATE KEY-----\nMIIE\n-----END PRIVATE KEY-----\n")
-
-	t.Setenv("MATTER_TEST_COMMISSIONER_LIVE", "1")
-	t.Setenv("MATTER_TEST_PAIRING_CODE", "2167-692-8175")
-	t.Setenv("MATTER_TEST_ADMIN_NODE_ID", "0x1")
-	t.Setenv("MATTER_TEST_FABRIC_ID", "0x2")
-	t.Setenv("MATTER_TEST_ADMIN_ROOT_CERT_FILE", adminRoot)
-	t.Setenv("MATTER_TEST_ADMIN_ROOT_PRIVATE_KEY_FILE", adminRootKey)
-	t.Setenv("MATTER_TEST_ADMIN_NOC_FILE", adminNOC)
-	t.Setenv("MATTER_TEST_ADMIN_PRIVATE_KEY_FILE", adminKey)
-	t.Setenv("MATTER_TEST_OPERATIONAL_IPK_HEX", "00112233445566778899AABBCCDDEEFF")
-	t.Setenv("MATTER_TEST_CASE_ADMIN_NODE_ID", "0x1")
-	t.Setenv("MATTER_TEST_ADMIN_VENDOR_ID", "0xFFF1")
-}
-
-func writeTempFile(t *testing.T, dir, name, contents string) string {
-	t.Helper()
-	path := filepath.Join(dir, name)
-	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
-		t.Fatalf("os.WriteFile(%s) error = %v", path, err)
-	}
-	return path
 }
