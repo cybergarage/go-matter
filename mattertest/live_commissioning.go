@@ -60,9 +60,9 @@ func (s liveCommissioningScenario) Options() []matter.CommissionOption {
 // TestCommissioner. Only what actually depends on the physical device or
 // its network is required from the environment:
 //
-//   - MATTER_TEST_PAIRING_CODE — the device's manual pairing code (MPC), the
-//     same 11/21-digit code chip-tool takes as the last argument of
-//     `pairing code-wifi <node-id> <ssid> <password> <MPC>`.
+//   - MATTER_TEST_MANUAL_PAIRING_CODE — the device's Manual Pairing Code
+//     (MPC), the same 11/21-digit code chip-tool takes as the last argument
+//     of `pairing code-wifi <node-id> <ssid> <password> <MPC>`.
 //   - MATTER_TEST_WIFI_SSID / MATTER_TEST_WIFI_PASSWORD — the Wi-Fi network to
 //     hand the device during commissioning (both or neither).
 //
@@ -75,7 +75,7 @@ func (s liveCommissioningScenario) Options() []matter.CommissionOption {
 // own minimal invocation:
 //
 //	MATTER_TEST_COMMISSIONER_LIVE=1 \
-//	MATTER_TEST_PAIRING_CODE=$MPC \
+//	MATTER_TEST_MANUAL_PAIRING_CODE=$MPC \
 //	MATTER_TEST_WIFI_SSID=$SSID MATTER_TEST_WIFI_PASSWORD=$PASS \
 //	go test ./mattertest/... -run TestCommissioner -v
 func loadLiveCommissioningScenarioFromEnv() (liveCommissioningScenario, error) {
@@ -83,13 +83,13 @@ func loadLiveCommissioningScenarioFromEnv() (liveCommissioningScenario, error) {
 		return liveCommissioningScenario{}, errLiveCommissioningDisabled
 	}
 
-	pairingCodeStr, err := requireEnv("MATTER_TEST_PAIRING_CODE")
+	pairingCodeStr, err := requireEnv("MATTER_TEST_MANUAL_PAIRING_CODE")
 	if err != nil {
 		return liveCommissioningScenario{}, err
 	}
 	pairingCode, err := encoding.NewPairingCodeFromString(pairingCodeStr)
 	if err != nil {
-		return liveCommissioningScenario{}, fmt.Errorf("MATTER_TEST_PAIRING_CODE: %w", err)
+		return liveCommissioningScenario{}, fmt.Errorf("MATTER_TEST_MANUAL_PAIRING_CODE: %w", err)
 	}
 
 	adminNodeID, err := envUint64OrDefault("MATTER_TEST_ADMIN_NODE_ID", testAdministratorNodeID)

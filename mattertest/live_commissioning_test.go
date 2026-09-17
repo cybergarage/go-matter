@@ -35,7 +35,7 @@ func TestLoadLiveCommissioningScenarioFromEnvMissingRequired(t *testing.T) {
 	t.Setenv("MATTER_TEST_COMMISSIONER_LIVE", "1")
 
 	_, err := loadLiveCommissioningScenarioFromEnv()
-	if err == nil || !strings.Contains(err.Error(), "MATTER_TEST_PAIRING_CODE") {
+	if err == nil || !strings.Contains(err.Error(), "MATTER_TEST_MANUAL_PAIRING_CODE") {
 		t.Fatalf("loadLiveCommissioningScenarioFromEnv() error = %v, want missing pairing-code error", err)
 	}
 }
@@ -48,7 +48,7 @@ func TestLoadLiveCommissioningScenarioFromEnvMissingRequired(t *testing.T) {
 func TestLoadLiveCommissioningScenarioFromEnvMinimal(t *testing.T) {
 	clearLiveEnv(t)
 	t.Setenv("MATTER_TEST_COMMISSIONER_LIVE", "1")
-	t.Setenv("MATTER_TEST_PAIRING_CODE", "2167-692-8175")
+	t.Setenv("MATTER_TEST_MANUAL_PAIRING_CODE", "2167-692-8175")
 
 	scenario, err := loadLiveCommissioningScenarioFromEnv()
 	if err != nil {
@@ -76,7 +76,7 @@ func TestLoadLiveCommissioningScenarioFromEnvMinimal(t *testing.T) {
 func TestLoadLiveCommissioningScenarioFromEnvInvalidPath(t *testing.T) {
 	clearLiveEnv(t)
 	t.Setenv("MATTER_TEST_COMMISSIONER_LIVE", "1")
-	t.Setenv("MATTER_TEST_PAIRING_CODE", "2167-692-8175")
+	t.Setenv("MATTER_TEST_MANUAL_PAIRING_CODE", "2167-692-8175")
 	t.Setenv("MATTER_TEST_ADMIN_ROOT_CERT_FILE", filepath.Join(t.TempDir(), "missing.pem"))
 
 	_, err := loadLiveCommissioningScenarioFromEnv()
@@ -88,7 +88,7 @@ func TestLoadLiveCommissioningScenarioFromEnvInvalidPath(t *testing.T) {
 func TestLoadLiveCommissioningScenarioFromEnvNodeIDMismatch(t *testing.T) {
 	clearLiveEnv(t)
 	t.Setenv("MATTER_TEST_COMMISSIONER_LIVE", "1")
-	t.Setenv("MATTER_TEST_PAIRING_CODE", "2167-692-8175")
+	t.Setenv("MATTER_TEST_MANUAL_PAIRING_CODE", "2167-692-8175")
 	t.Setenv("MATTER_TEST_ADMIN_NODE_ID", "0x1")
 	t.Setenv("MATTER_TEST_CASE_ADMIN_NODE_ID", "0x2")
 
@@ -101,7 +101,7 @@ func TestLoadLiveCommissioningScenarioFromEnvNodeIDMismatch(t *testing.T) {
 func TestLoadLiveCommissioningScenarioFromEnvWiFiOptional(t *testing.T) {
 	clearLiveEnv(t)
 	t.Setenv("MATTER_TEST_COMMISSIONER_LIVE", "1")
-	t.Setenv("MATTER_TEST_PAIRING_CODE", "2167-692-8175")
+	t.Setenv("MATTER_TEST_MANUAL_PAIRING_CODE", "2167-692-8175")
 
 	scenario, err := loadLiveCommissioningScenarioFromEnv()
 	if err != nil {
@@ -127,7 +127,7 @@ func clearLiveEnv(t *testing.T) {
 	for _, key := range []string{
 		"MATTER_TEST_COMMISSIONER_LIVE",
 		"MATTER_TEST_SCENARIO_NAME",
-		"MATTER_TEST_PAIRING_CODE",
+		"MATTER_TEST_MANUAL_PAIRING_CODE",
 		"MATTER_TEST_ADMIN_NODE_ID",
 		"MATTER_TEST_FABRIC_ID",
 		"MATTER_TEST_ADMIN_ROOT_CERT_FILE",
