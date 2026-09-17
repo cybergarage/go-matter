@@ -16,7 +16,9 @@ package matter
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"crypto/rand"
+	"crypto/x509"
 	"errors"
 	"fmt"
 
@@ -25,10 +27,12 @@ import (
 	"github.com/cybergarage/go-matter/matter/cluster/networkcommissioning"
 	"github.com/cybergarage/go-matter/matter/cluster/operationalcredentials"
 	"github.com/cybergarage/go-matter/matter/config"
+	"github.com/cybergarage/go-matter/matter/credentials"
 	mdnspkg "github.com/cybergarage/go-matter/matter/mdns"
 	caseprotocol "github.com/cybergarage/go-matter/matter/protocol/case"
 	"github.com/cybergarage/go-matter/matter/protocol/im"
 	"github.com/cybergarage/go-matter/matter/protocol/session"
+	"github.com/cybergarage/go-matter/matter/types"
 )
 
 // defaultEndpointID is the Root Endpoint used for commissioning cluster commands.
@@ -52,6 +56,9 @@ const (
 var (
 	armFailSafeCommand                    = generalcommissioning.ArmFailSafe
 	commissioningCompleteCommand          = generalcommissioning.CommissioningComplete
+	attestationRequestCommand             = operationalcredentials.AttestationRequest
+	certificateChainRequestCommand        = operationalcredentials.CertificateChainRequest
+	csrRequestCommand                     = operationalcredentials.CSRRequest
 	addTrustedRootCertificateCommand      = operationalcredentials.AddTrustedRootCertificate
 	addNOCCommand                         = operationalcredentials.AddNOC
 	addOrUpdateWiFiNetworkCommand         = networkcommissioning.AddOrUpdateWiFiNetwork
@@ -59,16 +66,10 @@ var (
 	supportsConcurrentConnectionAttribute = readSupportsConcurrentConnection
 	operationalNodeDiscoverer             = discoverOperationalNode
 	establishOperationalCASESession       = establishCASESession
+	// commissionDeviceAttestationFn allows the whole device-attestation phase
+	// to be stubbed in tests that only care about sequencing around it.
+	commissionDeviceAttestationFn = commissionDeviceAttestation
 )
-
-type operationalCredentialInputs struct {
-	rootCertificate []byte // RCAC: Root Certificate Authority Certificate.
-	noc             []byte // NOC: Node Operational Certificate.
-	icac            []byte // ICAC: Intermediate CA Certificate.
-	ipk             []byte // IPK: Identity Protection Key.
-	caseAdminNodeID uint64 // CASE Admin Node ID.
-	adminVendorID   uint16 // Admin Vendor ID.
-}
 
 type networkCommissioningInputs struct {
 	ssid []byte // SSID: Service Set Identifier for Wi-Fi network.
@@ -76,12 +77,30 @@ type networkCommissioningInputs struct {
 	credentials []byte
 }
 
+// deviceAttestationResult holds what commissionDeviceAttestation learns about
+// the commissionee: the DAC public key (used to verify AttestationResponse
+// and CSRResponse signatures) and the parsed CSR (used to issue its NOC).
+type deviceAttestationResult struct {
+	dacPubKey *ecdsa.PublicKey
+	csr       *x509.CertificateRequest
+}
+
+// deviceOperationalIdentity is what commissionOperationalCredentials learns
+// once it has issued and installed the device's NOC: the node ID it
+// assigned, and the NOC/ICAC now installed on the device, used to locate and
+// authenticate the device over CASE in finalizeCommissioningOverCASE.
+type deviceOperationalIdentity struct {
+	nodeID uint64
+	noc    []byte // DER
+	icac   []byte // DER, nil for this minimal CA (no intermediate).
+}
+
 // commissionWithSession executes the post-PASE commissioning flow over the given SecureSession.
 // The flow follows the Matter Core Spec commissioning procedure (section 5.5):
 //
 //  1. ArmFailSafe – arms the commissioning fail-safe timer (General Commissioning cluster 0x0030)
 //  2. Device Attestation – AttestationRequest, CertificateChainRequest, CSRRequest
-//  3. Operational Credentials – AddTrustedRootCertificate, AddNOC
+//  3. Operational Credentials – issue a NOC from the device's CSR, AddTrustedRootCertificate, AddNOC
 //  4. Network Commissioning – AddOrUpdateWiFiNetwork / ConnectNetwork (when the device requires operational-network provisioning)
 //  5. CommissioningComplete – releases the fail-safe and completes commissioning
 //
@@ -103,11 +122,12 @@ func commissionWithSession(
 		return fmt.Errorf("commissioning: non-concurrent commissioning not yet supported")
 	}
 
-	if err := commissionOverPASE(sess, operationalCfg, wifiCfg, requireNetwork); err != nil {
+	identity, err := commissionOverPASE(sess, operationalCfg, adminCfg, wifiCfg, requireNetwork)
+	if err != nil {
 		return err
 	}
 
-	if err := finalizeCommissioningOverCASE(ctx, discoverer, operationalCfg, adminCfg); err != nil {
+	if err := finalizeCommissioningOverCASE(ctx, discoverer, operationalCfg, adminCfg, identity); err != nil {
 		return err
 	}
 
@@ -118,9 +138,10 @@ func commissionWithSession(
 func commissionOverPASE(
 	sess session.SecureSession,
 	operationalCfg config.OperationalCredentialsConfig,
+	adminCfg config.AdministratorConfig,
 	wifiCfg config.WiFiNetworkConfig,
 	requireNetwork bool,
-) error {
+) (deviceOperationalIdentity, error) {
 	const (
 		armFailSafeExpiry uint16 = 60 // seconds
 		breadcrumb        uint64 = 1
@@ -130,22 +151,24 @@ func commissionOverPASE(
 	// 11.10.7.2. ArmFailSafe Command.
 	log.Infof("Commissioning: ArmFailSafe (expiry=%ds, breadcrumb=%d)", armFailSafeExpiry, breadcrumb)
 	if err := armFailSafeCommand(sess, defaultEndpointID, armFailSafeExpiry, breadcrumb); err != nil {
-		return err
+		return deviceOperationalIdentity{}, err
 	}
 
 	// Step 2: Device Attestation
 	// 11.18.7.1. AttestationRequest Command.
 	log.Infof("Commissioning: Device Attestation")
-	if err := commissionDeviceAttestation(sess); err != nil {
-		return err
+	attResult, err := commissionDeviceAttestationFn(sess)
+	if err != nil {
+		return deviceOperationalIdentity{}, err
 	}
 
 	// Step 3: Operational Credentials
 	// Matter 1.2 Core Spec 5.5 "Commissioning Flows", step 9:
 	// Commissioner SHALL install operational credentials using AddTrustedRootCertificate and AddNOC.
 	log.Infof("Commissioning: Operational Credentials")
-	if err := commissionOperationalCredentials(sess, operationalCfg); err != nil {
-		return err
+	identity, err := commissionOperationalCredentials(sess, operationalCfg, adminCfg, attResult)
+	if err != nil {
+		return deviceOperationalIdentity{}, err
 	}
 
 	// Step 4: Network Commissioning
@@ -154,10 +177,10 @@ func commissionOverPASE(
 	// then invoke ConnectNetwork unless the Commissionee is already on the desired operational network.
 	log.Infof("Commissioning: Network Commissioning")
 	if err := commissionNetwork(sess, wifiCfg, requireNetwork); err != nil {
-		return err
+		return deviceOperationalIdentity{}, err
 	}
 
-	return nil
+	return identity, nil
 }
 
 func finalizeCommissioningOverCASE(
@@ -165,6 +188,7 @@ func finalizeCommissioningOverCASE(
 	discoverer mdnspkg.Discoverer,
 	operationalCfg config.OperationalCredentialsConfig,
 	adminCfg config.AdministratorConfig,
+	identity deviceOperationalIdentity,
 ) error {
 	if adminCfg == nil {
 		return fmt.Errorf("commissioning: administrator config is required for CASE finalization")
@@ -172,12 +196,11 @@ func finalizeCommissioningOverCASE(
 	if discoverer == nil {
 		return fmt.Errorf("commissioning: discoverer is required for operational discovery")
 	}
-
 	if operationalCfg == nil {
 		return fmt.Errorf("commissioning: operational credentials config is required for CASE finalization")
 	}
 
-	peer, err := loadOperationalCASEPeer(operationalCfg, adminCfg)
+	peer, err := loadOperationalCASEPeer(operationalCfg, adminCfg, identity)
 	if err != nil {
 		return err
 	}
@@ -215,85 +238,128 @@ func finalizeCommissioningOverCASE(
 	return nil
 }
 
-func commissionDeviceAttestation(sess session.SecureSession) error {
+// commissionDeviceAttestation runs the AttestationRequest / CertificateChainRequest
+// (DAC, PAI) / CSRRequest exchange and returns the device's DAC public key and
+// parsed CSR. It verifies the DAC's signature over the AttestationResponse and
+// CSRResponse payloads (see matter/credentials), but — per this codebase's
+// documented, intentionally pragmatic scope — does not validate a DAC -> PAI
+// -> PAA chain of trust, and does not verify the Certification Declaration.
+func commissionDeviceAttestation(sess session.SecureSession) (deviceAttestationResult, error) {
+	challenge := sess.SessionKeys().AttestationChallenge()
+	if len(challenge) == 0 {
+		return deviceAttestationResult{}, fmt.Errorf("commissioning: session has no attestation challenge")
+	}
+
 	attestationNonce := make([]byte, attestationNonceLength)
 	if _, err := rand.Read(attestationNonce); err != nil {
-		return fmt.Errorf("commissioning: generate attestation nonce: %w", err)
+		return deviceAttestationResult{}, fmt.Errorf("commissioning: generate attestation nonce: %w", err)
 	}
-	if _, err := operationalcredentials.AttestationRequest(sess, defaultEndpointID, attestationNonce); err != nil {
-		if errors.Is(err, operationalcredentials.ErrNotImplemented) {
-			log.Infof("Commissioning: Device Attestation skipped: %v", err)
-			return nil
-		}
-		return fmt.Errorf("commissioning: AttestationRequest: %w", err)
+	attestationElementsTLV, attestationSig, err := attestationRequestCommand(sess, defaultEndpointID, attestationNonce)
+	if err != nil {
+		return deviceAttestationResult{}, fmt.Errorf("commissioning: AttestationRequest: %w", err)
 	}
 
-	if _, err := operationalcredentials.CertificateChainRequest(sess, defaultEndpointID, certificateTypeDAC); err != nil {
-		if errors.Is(err, operationalcredentials.ErrNotImplemented) {
-			log.Infof("Commissioning: DAC request skipped: %v", err)
-			return nil
-		}
-		return fmt.Errorf("commissioning: CertificateChainRequest(DAC): %w", err)
+	dacDER, err := certificateChainRequestCommand(sess, defaultEndpointID, certificateTypeDAC)
+	if err != nil {
+		return deviceAttestationResult{}, fmt.Errorf("commissioning: CertificateChainRequest(DAC): %w", err)
+	}
+	dacCert, err := x509.ParseCertificate(dacDER)
+	if err != nil {
+		return deviceAttestationResult{}, fmt.Errorf("commissioning: parse DAC: %w", err)
+	}
+	dacPubKey, ok := dacCert.PublicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return deviceAttestationResult{}, fmt.Errorf("commissioning: DAC public key is not ECDSA")
 	}
 
-	if _, err := operationalcredentials.CertificateChainRequest(sess, defaultEndpointID, certificateTypePAI); err != nil {
-		if errors.Is(err, operationalcredentials.ErrNotImplemented) {
-			log.Infof("Commissioning: PAI request skipped: %v", err)
-			return nil
-		}
-		return fmt.Errorf("commissioning: CertificateChainRequest(PAI): %w", err)
+	if err := credentials.VerifyAttestationSignature(attestationElementsTLV, challenge, attestationSig, dacPubKey); err != nil {
+		return deviceAttestationResult{}, fmt.Errorf("commissioning: %w", err)
 	}
+	if _, err := credentials.ParseAttestationElements(attestationElementsTLV); err != nil {
+		return deviceAttestationResult{}, fmt.Errorf("commissioning: %w", err)
+	}
+
+	// PAI is fetched for completeness but its chain of trust to a Product
+	// Attestation Authority is intentionally not validated — see the package
+	// doc comment on matter/credentials and matter/cluster/operationalcredentials.
+	if _, err := certificateChainRequestCommand(sess, defaultEndpointID, certificateTypePAI); err != nil {
+		return deviceAttestationResult{}, fmt.Errorf("commissioning: CertificateChainRequest(PAI): %w", err)
+	}
+	log.Infof("Commissioning: PAI fetched; chain-of-trust validation intentionally skipped (see matter/credentials doc)")
 
 	csrNonce := make([]byte, csrNonceLength)
 	if _, err := rand.Read(csrNonce); err != nil {
-		return fmt.Errorf("commissioning: generate CSR nonce: %w", err)
+		return deviceAttestationResult{}, fmt.Errorf("commissioning: generate CSR nonce: %w", err)
 	}
-	if _, err := operationalcredentials.CSRRequest(sess, defaultEndpointID, csrNonce); err != nil {
-		if errors.Is(err, operationalcredentials.ErrNotImplemented) {
-			log.Infof("Commissioning: CSR request skipped: %v", err)
-			return nil
-		}
-		return fmt.Errorf("commissioning: CSRRequest: %w", err)
+	nocsrElementsTLV, csrSig, err := csrRequestCommand(sess, defaultEndpointID, csrNonce)
+	if err != nil {
+		return deviceAttestationResult{}, fmt.Errorf("commissioning: CSRRequest: %w", err)
+	}
+	if err := credentials.VerifyNOCSRElementsSignature(nocsrElementsTLV, challenge, csrSig, dacPubKey); err != nil {
+		return deviceAttestationResult{}, fmt.Errorf("commissioning: %w", err)
+	}
+	elements, err := credentials.ParseNOCSRElements(nocsrElementsTLV)
+	if err != nil {
+		return deviceAttestationResult{}, fmt.Errorf("commissioning: %w", err)
+	}
+	csr, err := credentials.ParseCSR(elements.CSR)
+	if err != nil {
+		return deviceAttestationResult{}, fmt.Errorf("commissioning: %w", err)
 	}
 
-	return nil
+	return deviceAttestationResult{dacPubKey: dacPubKey, csr: csr}, nil
 }
 
-func commissionOperationalCredentials(sess session.SecureSession, cfg config.OperationalCredentialsConfig) error {
-	if cfg == nil {
-		return fmt.Errorf("commissioning: operational credentials config is required")
+// loadCertificateAuthority builds the commissioner's certificate authority
+// from the administrator's own root certificate and private key.
+func loadCertificateAuthority(adminCfg config.AdministratorConfig) (*credentials.CertificateAuthority, error) {
+	if adminCfg == nil {
+		return nil, fmt.Errorf("commissioning: administrator config is required")
 	}
-
-	inputs, err := loadOperationalCredentialInputs(cfg)
+	rootCert, _ := adminCfg.RootCertificate()
+	rootKey, _ := adminCfg.RootPrivateKey()
+	fabricID, _ := adminCfg.FabricID()
+	ca, err := credentials.NewCertificateAuthority(rootCert, rootKey, fabricID)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("commissioning: certificate authority: %w", err)
+	}
+	return ca, nil
+}
+
+func commissionOperationalCredentials(
+	sess session.SecureSession,
+	cfg config.OperationalCredentialsConfig,
+	adminCfg config.AdministratorConfig,
+	attResult deviceAttestationResult,
+) (deviceOperationalIdentity, error) {
+	if cfg == nil {
+		return deviceOperationalIdentity{}, fmt.Errorf("commissioning: operational credentials config is required")
+	}
+	ipk, caseAdminSubject, adminVendorID, err := loadOperationalCredentialInputs(cfg)
+	if err != nil {
+		return deviceOperationalIdentity{}, err
 	}
 
-	if err := addTrustedRootCertificateCommand(sess, defaultEndpointID, inputs.rootCertificate); err != nil {
-		if errors.Is(err, operationalcredentials.ErrNotImplemented) {
-			log.Infof("Commissioning: AddTrustedRootCertificate skipped: %v", err)
-			return nil
-		}
-		return fmt.Errorf("commissioning: AddTrustedRootCertificate: %w", err)
+	ca, err := loadCertificateAuthority(adminCfg)
+	if err != nil {
+		return deviceOperationalIdentity{}, err
 	}
 
-	if err := addNOCCommand(
-		sess,
-		defaultEndpointID,
-		inputs.noc,
-		inputs.icac,
-		inputs.ipk,
-		inputs.caseAdminNodeID,
-		inputs.adminVendorID,
-	); err != nil {
-		if errors.Is(err, operationalcredentials.ErrNotImplemented) {
-			log.Infof("Commissioning: AddNOC skipped: %v", err)
-			return nil
-		}
-		return fmt.Errorf("commissioning: AddNOC: %w", err)
+	nodeID := uint64(types.NewOperationalNodeID())
+	nocDER, err := ca.IssueNOC(attResult.csr, nodeID)
+	if err != nil {
+		return deviceOperationalIdentity{}, fmt.Errorf("commissioning: issue NOC: %w", err)
 	}
 
-	return nil
+	if err := addTrustedRootCertificateCommand(sess, defaultEndpointID, ca.RootCertificateDER()); err != nil {
+		return deviceOperationalIdentity{}, fmt.Errorf("commissioning: AddTrustedRootCertificate: %w", err)
+	}
+
+	if err := addNOCCommand(sess, defaultEndpointID, nocDER, nil, ipk, caseAdminSubject, adminVendorID); err != nil {
+		return deviceOperationalIdentity{}, fmt.Errorf("commissioning: AddNOC: %w", err)
+	}
+
+	return deviceOperationalIdentity{nodeID: nodeID, noc: nocDER, icac: nil}, nil
 }
 
 func commissionNetwork(sess session.SecureSession, cfg config.WiFiNetworkConfig, requireNetwork bool) error {
@@ -391,8 +457,8 @@ type operationalCASEPeer struct {
 	ipk             []byte
 }
 
-func loadOperationalCASEPeer(cfg config.OperationalCredentialsConfig, adminCfg config.AdministratorConfig) (operationalCASEPeer, error) {
-	inputs, err := loadOperationalCredentialInputs(cfg)
+func loadOperationalCASEPeer(cfg config.OperationalCredentialsConfig, adminCfg config.AdministratorConfig, identity deviceOperationalIdentity) (operationalCASEPeer, error) {
+	ipk, _, _, err := loadOperationalCredentialInputs(cfg)
 	if err != nil {
 		return operationalCASEPeer{}, err
 	}
@@ -400,54 +466,40 @@ func loadOperationalCASEPeer(cfg config.OperationalCredentialsConfig, adminCfg c
 	if err != nil {
 		return operationalCASEPeer{}, fmt.Errorf("commissioning: CASE administrator config: %w", err)
 	}
-	if adminInputs.NodeID != inputs.caseAdminNodeID {
-		return operationalCASEPeer{}, fmt.Errorf("commissioning: administrator node ID must match CASE admin node ID")
-	}
-	peerNodeID, err := caseprotocol.ParseCertificateNodeID(inputs.noc)
-	if err != nil {
-		return operationalCASEPeer{}, fmt.Errorf("commissioning: CASE peer identity: %w", err)
-	}
 	compressedFabricID, err := caseprotocol.ComputeCompressedFabricID(adminInputs.RootPublicKey, adminInputs.FabricID)
 	if err != nil {
 		return operationalCASEPeer{}, fmt.Errorf("commissioning: CASE peer identity: %w", err)
 	}
 	return operationalCASEPeer{
-		nodeID:          peerNodeID,
-		serviceInstance: fmt.Sprintf("%016X-%016X", compressedFabricID, peerNodeID),
-		ipk:             append([]byte(nil), inputs.ipk...),
+		nodeID:          identity.nodeID,
+		serviceInstance: fmt.Sprintf("%016X-%016X", compressedFabricID, identity.nodeID),
+		ipk:             append([]byte(nil), ipk...),
 	}, nil
 }
 
-func loadOperationalCredentialInputs(cfg config.OperationalCredentialsConfig) (operationalCredentialInputs, error) {
-	rootCert, _ := cfg.RootCertificate()
-	noc, _ := cfg.NOC()
-	icac, _ := cfg.ICAC()
+// loadOperationalCredentialInputs returns the operational-network-independent
+// inputs AddNOC and CASE peer discovery need from cfg: the fabric's Identity
+// Protection Key, the CASE admin subject (the administrator's node ID sent as
+// AddNOC's CaseAdminSubject), and the commissioner's vendor ID. The RCAC/NOC
+// sent to the device now come from the commissioner's CertificateAuthority
+// (see loadCertificateAuthority/commissionOperationalCredentials) rather than
+// from static config, since the device's NOC is only known once its CSR is
+// received during commissioning.
+// Returns (ipk, caseAdminSubject, adminVendorID, error).
+func loadOperationalCredentialInputs(cfg config.OperationalCredentialsConfig) ([]byte, uint64, uint16, error) {
 	ipk, _ := cfg.IPK()
-	caseAdminNodeID, _ := cfg.CASEAdminNodeID()
+	caseAdminSubject, _ := cfg.CASEAdminNodeID()
 	adminVendorID, _ := cfg.AdminVendorID()
-	if len(rootCert) == 0 {
-		return operationalCredentialInputs{}, fmt.Errorf("commissioning: operational credentials config missing root certificate")
-	}
-	if len(noc) == 0 {
-		return operationalCredentialInputs{}, fmt.Errorf("commissioning: operational credentials config missing NOC")
-	}
 	if len(ipk) == 0 {
-		return operationalCredentialInputs{}, fmt.Errorf("commissioning: operational credentials config missing IPK")
+		return nil, 0, 0, fmt.Errorf("commissioning: operational credentials config missing IPK")
 	}
-	if caseAdminNodeID == 0 {
-		return operationalCredentialInputs{}, fmt.Errorf("commissioning: operational credentials config missing CASE admin node ID")
+	if caseAdminSubject == 0 {
+		return nil, 0, 0, fmt.Errorf("commissioning: operational credentials config missing CASE admin node ID")
 	}
 	if adminVendorID == 0 {
-		return operationalCredentialInputs{}, fmt.Errorf("commissioning: operational credentials config missing admin vendor ID")
+		return nil, 0, 0, fmt.Errorf("commissioning: operational credentials config missing admin vendor ID")
 	}
-	return operationalCredentialInputs{
-		rootCertificate: rootCert,
-		noc:             noc,
-		icac:            icac,
-		ipk:             ipk,
-		caseAdminNodeID: caseAdminNodeID,
-		adminVendorID:   adminVendorID,
-	}, nil
+	return ipk, caseAdminSubject, adminVendorID, nil
 }
 
 func loadNetworkCommissioningInputs(cfg config.WiFiNetworkConfig) (networkCommissioningInputs, error) {

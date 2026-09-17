@@ -66,6 +66,10 @@ func loadLiveCommissioningScenarioFromEnv() (liveCommissioningScenario, error) {
 	if err != nil {
 		return liveCommissioningScenario{}, err
 	}
+	adminRootPrivateKey, err := envBlob("MATTER_TEST_ADMIN_ROOT_PRIVATE_KEY")
+	if err != nil {
+		return liveCommissioningScenario{}, err
+	}
 	adminNOC, err := envBlob("MATTER_TEST_ADMIN_NOC")
 	if err != nil {
 		return liveCommissioningScenario{}, err
@@ -79,18 +83,13 @@ func loadLiveCommissioningScenarioFromEnv() (liveCommissioningScenario, error) {
 		return liveCommissioningScenario{}, err
 	}
 
-	operationalRootCert, err := envBlob("MATTER_TEST_OPERATIONAL_ROOT_CERT")
-	if err != nil {
-		return liveCommissioningScenario{}, err
-	}
-	operationalNOC, err := envBlob("MATTER_TEST_OPERATIONAL_NOC")
-	if err != nil {
-		return liveCommissioningScenario{}, err
-	}
-	operationalICAC, err := optionalEnvBlob("MATTER_TEST_OPERATIONAL_ICAC")
-	if err != nil {
-		return liveCommissioningScenario{}, err
-	}
+	// The device's own operational root certificate and NOC are no longer
+	// supplied statically: the commissioner acts as the fabric's certificate
+	// authority (matter/credentials.CertificateAuthority, built from the
+	// MATTER_TEST_ADMIN_ROOT_CERT/MATTER_TEST_ADMIN_ROOT_PRIVATE_KEY pair
+	// above) and issues the device's NOC at commissioning time from the CSR
+	// it returns. Only the fabric's IPK and CASE routing metadata remain
+	// static inputs.
 	ipk, err := envHex("MATTER_TEST_OPERATIONAL_IPK_HEX")
 	if err != nil {
 		return liveCommissioningScenario{}, err
@@ -132,6 +131,7 @@ func loadLiveCommissioningScenarioFromEnv() (liveCommissioningScenario, error) {
 		config.WithAdministratorNodeID(adminNodeID),
 		config.WithAdministratorFabricID(fabricID),
 		config.WithAdministratorRootCertificate(adminRootCert),
+		config.WithAdministratorRootPrivateKey(adminRootPrivateKey),
 		config.WithAdministratorNOC(adminNOC),
 		config.WithAdministratorPrivateKey(adminPrivateKey),
 	}
@@ -139,14 +139,9 @@ func loadLiveCommissioningScenarioFromEnv() (liveCommissioningScenario, error) {
 		adminCfgOpts = append(adminCfgOpts, config.WithAdministratorICAC(adminICAC))
 	}
 	operationalCfgOpts := []config.OperationalCredentialsConfigOption{
-		config.WithRootCertificate(operationalRootCert),
-		config.WithNOC(operationalNOC),
 		config.WithIPK(ipk),
 		config.WithCASEAdminNodeID(caseAdminNodeID),
 		config.WithAdminVendorID(adminVendorID),
-	}
-	if len(operationalICAC) != 0 {
-		operationalCfgOpts = append(operationalCfgOpts, config.WithICAC(operationalICAC))
 	}
 
 	var wifiCfg config.WiFiNetworkConfig

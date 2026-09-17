@@ -40,6 +40,10 @@ func NewAdministratorConfig() (config.AdministratorConfig, error) {
 	if err != nil {
 		return nil, err
 	}
+	rootKey, err := readTestCert(certDir, "admin-root-key.pem")
+	if err != nil {
+		return nil, err
+	}
 	noc, err := readTestCert(certDir, "admin-noc.pem")
 	if err != nil {
 		return nil, err
@@ -53,6 +57,7 @@ func NewAdministratorConfig() (config.AdministratorConfig, error) {
 		config.WithAdministratorNodeID(testAdministratorNodeID),
 		config.WithAdministratorFabricID(testAdministratorFabricID),
 		config.WithAdministratorRootCertificate(rootCert),
+		config.WithAdministratorRootPrivateKey(rootKey),
 		config.WithAdministratorNOC(noc),
 		config.WithAdministratorPrivateKey(privateKey),
 	), nil
