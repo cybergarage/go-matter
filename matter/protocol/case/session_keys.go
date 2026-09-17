@@ -29,3 +29,7 @@ func (k *sessionKeys) ResponderSessionID() session.SessionID {
 	return k.responderSessionID
 }
 func (k *sessionKeys) LocalNodeID() session.NodeID { return k.localNodeID }
+
+// AttestationChallenge always returns nil for a CASE session; see the
+// session.SessionKeys.AttestationChallenge doc comment.
+func (k *sessionKeys) AttestationChallenge() []byte { return nil }

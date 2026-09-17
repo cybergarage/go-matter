@@ -30,6 +30,13 @@ type SessionKeys interface {
 	InitiatorSessionID() SessionID
 	ResponderSessionID() SessionID
 	LocalNodeID() NodeID
+	// AttestationChallenge returns the session's attestation challenge, used
+	// by the Operational Credentials cluster to verify AttestationResponse
+	// and CSRResponse signatures (11.18.7.2, 11.18.7.6). PASE sessions
+	// compute a real value (3.5.3.3); CASE sessions return nil, since
+	// AttestationChallenge is only meaningful for the PASE session over
+	// which Operational Credentials commands are issued during commissioning.
+	AttestationChallenge() []byte
 }
 
 // NodeID is a Matter node identifier.

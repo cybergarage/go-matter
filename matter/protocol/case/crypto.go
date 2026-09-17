@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/cybergarage/go-matter/matter/config"
+	"github.com/cybergarage/go-matter/matter/credentials/chipcert"
 	mcrypto "github.com/cybergarage/go-matter/matter/crypto"
 	"github.com/cybergarage/go-matter/matter/protocol/session"
 )
@@ -138,7 +139,17 @@ func certificateDERBytes(b []byte) ([]byte, error) {
 	if block, _ := pem.Decode(b); block != nil {
 		return block.Bytes, nil
 	}
-	return cloneBytes(b), nil
+	// DER SEQUENCE (an X.509 certificate) always starts with 0x30; a Matter-TLV
+	// anonymous-tagged Structure (a CHIPCert, as returned by a real device
+	// within CASE Sigma2/Sigma3) starts with control byte 0x15, never 0x30.
+	if b[0] == 0x30 {
+		return cloneBytes(b), nil
+	}
+	der, err := chipcert.TLVToDER(b)
+	if err != nil {
+		return nil, fmt.Errorf("decode Matter-TLV certificate: %w", err)
+	}
+	return der, nil
 }
 
 func parsePrivateKey(b []byte) (*ecdsa.PrivateKey, error) {
@@ -293,7 +304,7 @@ func deriveSessionKeys(sharedSecret, ipk, sigma1Payload, sigma2Payload, sigma3Pa
 }
 
 func signWithKey(priv *ecdsa.PrivateKey, msg []byte) ([]byte, error) {
-	sig, err := mcrypto.CryptoSign(privateKeyAdapter{priv}, msg)
+	sig, err := mcrypto.CryptoSign(mcrypto.NewPrivateKey(priv), msg)
 	if err != nil {
 		return nil, err
 	}
@@ -309,15 +320,7 @@ func verifySignatureFromCert(cert *x509.Certificate, msg, sigBytes []byte) bool 
 	if err != nil {
 		return false
 	}
-	return mcrypto.CryptoVerify(publicKeyAdapter{pub}, msg, sig)
-}
-
-type privateKeyAdapter struct{ *ecdsa.PrivateKey }
-type publicKeyAdapter struct{ *ecdsa.PublicKey }
-
-func (k privateKeyAdapter) Bytes() ([]byte, error) { return x509.MarshalECPrivateKey(k.PrivateKey) }
-func (k publicKeyAdapter) Bytes() ([]byte, error) {
-	return elliptic.Marshal(k.Curve, k.X, k.Y), nil
+	return mcrypto.CryptoVerify(mcrypto.NewPublicKey(pub), msg, sig)
 }
 
 func marshalSignature(sig mcrypto.Signature) []byte {

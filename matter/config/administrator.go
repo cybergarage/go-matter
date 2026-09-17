@@ -43,4 +43,9 @@ type AdministratorConfig interface {
 	// PrivateKey returns signer material for CASE Sigma3.
 	// Accepted encodings are PKCS#8 PEM/DER and SEC1 PEM/DER.
 	PrivateKey() ([]byte, bool)
+	// RootPrivateKey returns the private key corresponding to RootCertificate,
+	// used to sign freshly-issued device NOCs during commissioning (see
+	// matter/credentials.CertificateAuthority). Accepted encodings match
+	// PrivateKey().
+	RootPrivateKey() ([]byte, bool)
 }

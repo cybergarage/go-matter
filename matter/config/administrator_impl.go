@@ -61,6 +61,15 @@ func WithAdministratorPrivateKey(key []byte) AdministratorConfigOption {
 	}
 }
 
+// WithAdministratorRootPrivateKey sets the private key corresponding to the
+// administrator's root certificate, used to sign freshly-issued device NOCs
+// during commissioning (see matter/credentials.CertificateAuthority).
+func WithAdministratorRootPrivateKey(key []byte) AdministratorConfigOption {
+	return func(c *administratorConfig) {
+		c.rootPrivateKey = key
+	}
+}
+
 type administratorConfig struct {
 	nodeID          *uint64
 	fabricID        *uint64
@@ -68,6 +77,7 @@ type administratorConfig struct {
 	noc             []byte
 	icac            []byte
 	privateKey      []byte
+	rootPrivateKey  []byte
 }
 
 func newAdministratorConfig(opts ...AdministratorConfigOption) *administratorConfig {
@@ -78,6 +88,7 @@ func newAdministratorConfig(opts ...AdministratorConfigOption) *administratorCon
 		noc:             nil,
 		icac:            nil,
 		privateKey:      nil,
+		rootPrivateKey:  nil,
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -132,6 +143,13 @@ func (c *administratorConfig) PrivateKey() ([]byte, bool) {
 	return c.privateKey, true
 }
 
+func (c *administratorConfig) RootPrivateKey() ([]byte, bool) {
+	if c.rootPrivateKey == nil {
+		return nil, false
+	}
+	return c.rootPrivateKey, true
+}
+
 func (c *administratorConfig) Map() map[string]any {
 	m := make(map[string]any)
 	if c.nodeID != nil {
@@ -151,6 +169,9 @@ func (c *administratorConfig) Map() map[string]any {
 	}
 	if c.privateKey != nil {
 		m["privateKey"] = c.privateKey
+	}
+	if c.rootPrivateKey != nil {
+		m["rootPrivateKey"] = c.rootPrivateKey
 	}
 	return m
 }

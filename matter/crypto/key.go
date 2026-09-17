@@ -14,6 +14,8 @@
 
 package crypto
 
+import "crypto/ecdsa"
+
 // PrivateKey represents a private key used in cryptographic operations.
 type PrivateKey interface {
 	// Bytes returns the byte representation of the private key.
@@ -39,4 +41,20 @@ func CryptoGenerateKeyPair() (KeyPair, error) {
 	// Crypto_GenerateKeypair() :=
 	// KeyPair ECCGenerateKeypair()
 	return ECCGenerateKeypair()
+}
+
+// NewPublicKey wraps a standard library ECDSA public key (for example one
+// extracted from an *x509.Certificate) so it can be passed to this package's
+// Crypto_* primitives (CryptoVerify, ECDSAVerify). Those functions only
+// accept PublicKey values created by this package's own constructors.
+func NewPublicKey(pub *ecdsa.PublicKey) PublicKey {
+	return &publicKey{PublicKey: pub}
+}
+
+// NewPrivateKey wraps a standard library ECDSA private key so it can be
+// passed to this package's Crypto_* primitives (CryptoSign, ECDSASign).
+// Those functions only accept PrivateKey values created by this package's
+// own constructors.
+func NewPrivateKey(priv *ecdsa.PrivateKey) PrivateKey {
+	return &privateKey{PrivateKey: priv}
 }
