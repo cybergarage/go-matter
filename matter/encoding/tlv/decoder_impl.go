@@ -74,8 +74,10 @@ func (d *decoderImpl) Next() bool {
 				return false
 			}
 			d.containerS = d.containerS[:len(d.containerS)-1]
-			// Skip yielding end marker; continue to next
-			return d.Next()
+			// Fall through: the EndOfContainer marker is still yielded to the
+			// caller so nested containers (e.g. a List of Structures) can be
+			// walked correctly. Callers that only handle flat/single-level
+			// structures can keep ignoring it via ElementType.IsEndOfContainer().
 		}
 	}
 	d.next = el

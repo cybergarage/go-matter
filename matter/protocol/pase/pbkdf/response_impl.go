@@ -179,7 +179,7 @@ func (r *paramResponse) Decode(dec tlv.Decoder) error {
 		return tlv.NewErrExpectedType(tlv.Structure, elem)
 	}
 
-	for range 5 {
+	for range 4 {
 		if !dec.Next() {
 			return dec.Error()
 		}
@@ -221,15 +221,13 @@ func (r *paramResponse) Decode(dec tlv.Decoder) error {
 		return err
 	}
 
-	if !dec.More() {
-		return nil
-	}
-
-	sessionParams, err := NewSessionFromDecoder(dec)
+	sessionParams, err := decodeOptionalSessionParams(dec)
 	if err != nil {
 		return err
 	}
-	r.responderSessionParams = sessionParams
+	if sessionParams != nil {
+		r.responderSessionParams = sessionParams
+	}
 
 	return nil
 }

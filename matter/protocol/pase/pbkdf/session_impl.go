@@ -169,8 +169,18 @@ func (s *sessionParams) Decode(dec tlv.Decoder) error {
 		return tlv.NewErrExpectedType(tlv.Structure, elem)
 	}
 
+	return s.decodeFields(dec)
+}
+
+// decodeFields decodes the field elements of a session-parameter-struct, assuming
+// the caller has already consumed the Structure-begin marker. It stops at (and
+// consumes) the matching EndOfContainer marker.
+func (s *sessionParams) decodeFields(dec tlv.Decoder) error {
 	for dec.Next() {
-		elem = dec.Element()
+		elem := dec.Element()
+		if elem.Type().IsEndOfContainer() {
+			break
+		}
 		switch t := elem.Tag().(type) {
 		case tlv.ContextTag:
 			switch t.ContextNumber() {
@@ -243,6 +253,29 @@ func (s *sessionParams) Decode(dec tlv.Decoder) error {
 	}
 
 	return nil
+}
+
+// decodeOptionalSessionParams reads the next TLV element of an enclosing structure and,
+// if it is the optional session-parameter-struct field (context tag 5), decodes and
+// returns it. If the next element is instead the enclosing structure's own
+// EndOfContainer marker, the optional field was omitted and (nil, nil) is returned.
+func decodeOptionalSessionParams(dec tlv.Decoder) (SessionParams, error) {
+	if !dec.Next() {
+		return nil, dec.Error()
+	}
+	elem := dec.Element()
+	if elem.Type().IsEndOfContainer() {
+		return nil, nil
+	}
+	ct, ok := elem.Tag().(tlv.ContextTag)
+	if !ok || ct.ContextNumber() != 5 || !elem.Type().IsStructure() {
+		return nil, tlv.NewErrExpectedTag(tlv.TagContext, elem.Tag())
+	}
+	s := newSessionParams()
+	if err := s.decodeFields(dec); err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
 func (s *sessionParams) SessionIdleInterval() (time.Duration, bool) {

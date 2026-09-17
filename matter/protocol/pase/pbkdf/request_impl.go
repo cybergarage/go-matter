@@ -182,15 +182,13 @@ func (r *paramRequest) Decode(dec tlv.Decoder) error {
 		return err
 	}
 
-	if !dec.More() {
-		return nil
-	}
-
-	sessionParams, err := NewSessionFromDecoder(dec)
+	sessionParams, err := decodeOptionalSessionParams(dec)
 	if err != nil {
 		return err
 	}
-	r.initiatorSessionParams = sessionParams
+	if sessionParams != nil {
+		r.initiatorSessionParams = sessionParams
+	}
 
 	return nil
 }

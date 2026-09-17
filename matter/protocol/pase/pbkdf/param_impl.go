@@ -156,11 +156,11 @@ func (p *params) Decode(dec tlv.Decoder) error {
 	//   salt [2] : OCTET STRING [ length 16..32 ],
 	// }
 
-	for range 2 {
-		if !dec.Next() {
-			return dec.Error()
-		}
+	for dec.Next() {
 		elem := dec.Element()
+		if elem.Type().IsEndOfContainer() {
+			break
+		}
 		switch t := elem.Tag().(type) {
 		case tlv.ContextTag:
 			switch t.ContextNumber() {
@@ -183,7 +183,7 @@ func (p *params) Decode(dec tlv.Decoder) error {
 		}
 	}
 
-	return nil
+	return dec.Error()
 }
 
 func (p *params) Map() map[string]any {
