@@ -17,7 +17,10 @@
 // section 10.7 (Interaction Model Messages).
 package im
 
-import "github.com/cybergarage/go-matter/matter/protocol/session"
+import (
+	"github.com/cybergarage/go-matter/matter/encoding/tlv"
+	"github.com/cybergarage/go-matter/matter/protocol/session"
+)
 
 // SecureSession is the encrypted channel on which IM messages are sent.
 type SecureSession = session.SecureSession
@@ -52,11 +55,19 @@ type InvokeStatus struct {
 type InvokeResponse struct {
 	// Status contains the status codes for the invocation.
 	Status InvokeStatus
-	// Payload contains any TLV-encoded command response fields, or nil.
-	Payload []byte
+	// Payload holds the decoded top-level fields of the command's response
+	// data (CommandDataIB's CommandFields structure), keyed by context tag
+	// number. It is nil for responses that only carry a status (no data).
+	Payload map[uint8]tlv.Element
 }
 
 // IsSuccess returns true when the invocation completed without error.
 func (r *InvokeResponse) IsSuccess() bool {
 	return r.Status.IMStatus == 0 && r.Status.ClusterStatus == 0
+}
+
+// Field returns the response field with the given context tag number, if present.
+func (r *InvokeResponse) Field(tag uint8) (tlv.Element, bool) {
+	elem, ok := r.Payload[tag]
+	return elem, ok
 }

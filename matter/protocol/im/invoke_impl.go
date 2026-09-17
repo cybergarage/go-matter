@@ -104,11 +104,13 @@ func buildInvokeRequestPayload(endpointID EndpointID, clusterID ClusterID, comma
 		return nil, err
 	}
 
-	// Tag 1: command-fields (optional raw TLV structure bytes).
+	// Tag 1: command-fields (optional structure, per 10.7.9). commandFields
+	// holds a fully self-delimiting TLV element (built by the caller's
+	// field-builder, tagged with ContextTag(1) so it lands correctly here)
+	// spliced in verbatim — it must NOT be wrapped as an octet string, since
+	// the spec requires command-fields to literally be a STRUCTURE.
 	if len(commandFields) > 0 {
-		if err := enc.PutOctet(tlv.NewContextTag(1), commandFields); err != nil {
-			return nil, err
-		}
+		enc.Raw(commandFields)
 	}
 
 	if err := enc.EndContainer(); err != nil { // end command-data-IB
@@ -135,9 +137,11 @@ func buildIMProtocolHeader(opcode message.Opcode) ([]byte, error) {
 	return hdr.Bytes()
 }
 
-// parseInvokeResponse parses the decrypted payload of an InvokeResponse message.
-// It scans for IM status codes embedded in the response TLV.
-// 10.7.17. InvokeResponseMessage.
+// parseInvokeResponse parses the decrypted payload of an InvokeResponse message,
+// walking its nested structure to extract the status and/or response fields of
+// the first InvokeResponseIB (this client only ever sends one command per
+// InvokeRequestMessage, see buildInvokeRequestPayload).
+// 10.7.17. InvokeResponseMessage / 10.7.17.1. InvokeResponseIB.
 func parseInvokeResponse(data []byte) (*InvokeResponse, error) {
 	// Skip protocol header bytes to get to the TLV payload.
 	if len(data) < 6 {
@@ -158,30 +162,243 @@ func parseInvokeResponse(data []byte) (*InvokeResponse, error) {
 	}
 	tlvData := data[len(protoHdrBytes):]
 
-	// Linearly scan all TLV elements looking for IM/cluster status codes.
-	// In InvokeResponseMessage, status codes are context tags 0 and 1 inside a status-IB structure.
-	// Rather than full structural parsing, we scan all uint8 elements for the two status fields.
-	resp := &InvokeResponse{}
 	dec := tlv.NewDecoderWithBytes(tlvData)
+	if !dec.Next() {
+		if err := dec.Error(); err != nil {
+			return nil, fmt.Errorf("im: InvokeResponse: %w", err)
+		}
+		return nil, fmt.Errorf("im: InvokeResponse: empty payload")
+	}
+	if !dec.Element().Type().IsStructure() {
+		return nil, fmt.Errorf("im: InvokeResponse: expected top-level Structure")
+	}
+
+	resp := &InvokeResponse{}
+	found := false
 	for dec.Next() {
 		elem := dec.Element()
-		ctxTag, ok := elem.Tag().(tlv.ContextTag)
+		if elem.Type().IsEndOfContainer() {
+			break
+		}
+		ct, ok := elem.Tag().(tlv.ContextTag)
 		if !ok {
 			continue
 		}
-		switch ctxTag.ContextNumber() {
+		switch ct.ContextNumber() {
+		case 1: // invoke-responses list
+			if !elem.Type().IsList() && !elem.Type().IsArray() {
+				return nil, fmt.Errorf("im: InvokeResponse: invoke-responses is not a list")
+			}
+			if err := parseInvokeResponses(dec, resp, &found); err != nil {
+				return nil, fmt.Errorf("im: InvokeResponse: %w", err)
+			}
+		default:
+			if elem.Type().IsStructure() || elem.Type().IsList() || elem.Type().IsArray() {
+				if err := skipContainer(dec); err != nil {
+					return nil, fmt.Errorf("im: InvokeResponse: %w", err)
+				}
+			}
+		}
+	}
+	if err := dec.Error(); err != nil {
+		return nil, fmt.Errorf("im: InvokeResponse: %w", err)
+	}
+	return resp, nil
+}
+
+// parseInvokeResponses decodes the elements of the invoke-responses list,
+// assuming the caller has already consumed the List-begin marker. Only the
+// first InvokeResponseIB is parsed into resp; any further ones are skipped.
+func parseInvokeResponses(dec tlv.Decoder, resp *InvokeResponse, found *bool) error {
+	for dec.Next() {
+		elem := dec.Element()
+		if elem.Type().IsEndOfContainer() {
+			return dec.Error()
+		}
+		if !elem.Type().IsStructure() {
+			return fmt.Errorf("invoke-response-IB is not a structure")
+		}
+		if *found {
+			if err := skipContainer(dec); err != nil {
+				return err
+			}
+			continue
+		}
+		if err := parseInvokeResponseIB(dec, resp); err != nil {
+			return err
+		}
+		*found = true
+	}
+	return dec.Error()
+}
+
+// parseInvokeResponseIB decodes an InvokeResponseIB's fields, assuming the
+// caller has already consumed the Structure-begin marker.
+// 10.7.17.1. InvokeResponseIB.
+func parseInvokeResponseIB(dec tlv.Decoder, resp *InvokeResponse) error {
+	for dec.Next() {
+		elem := dec.Element()
+		if elem.Type().IsEndOfContainer() {
+			return dec.Error()
+		}
+		ct, ok := elem.Tag().(tlv.ContextTag)
+		if !ok {
+			continue
+		}
+		switch ct.ContextNumber() {
+		case 0: // CommandStatusIB
+			if !elem.Type().IsStructure() {
+				return fmt.Errorf("CommandStatusIB is not a structure")
+			}
+			if err := parseCommandStatusIB(dec, resp); err != nil {
+				return err
+			}
+		case 1: // CommandDataIB
+			if !elem.Type().IsStructure() {
+				return fmt.Errorf("CommandDataIB is not a structure")
+			}
+			if err := parseCommandDataIB(dec, resp); err != nil {
+				return err
+			}
+		default:
+			if elem.Type().IsStructure() || elem.Type().IsList() || elem.Type().IsArray() {
+				if err := skipContainer(dec); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return dec.Error()
+}
+
+// parseCommandStatusIB decodes a CommandStatusIB's fields, assuming the
+// caller has already consumed the Structure-begin marker.
+func parseCommandStatusIB(dec tlv.Decoder, resp *InvokeResponse) error {
+	for dec.Next() {
+		elem := dec.Element()
+		if elem.Type().IsEndOfContainer() {
+			return dec.Error()
+		}
+		ct, ok := elem.Tag().(tlv.ContextTag)
+		if !ok {
+			continue
+		}
+		switch ct.ContextNumber() {
+		case 1: // StatusIB
+			if !elem.Type().IsStructure() {
+				return fmt.Errorf("StatusIB is not a structure")
+			}
+			if err := parseStatusIB(dec, resp); err != nil {
+				return err
+			}
+		default: // CommandPathIB (0) and any future fields.
+			if elem.Type().IsStructure() || elem.Type().IsList() || elem.Type().IsArray() {
+				if err := skipContainer(dec); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return dec.Error()
+}
+
+// parseStatusIB decodes a StatusIB's fields, assuming the caller has already
+// consumed the Structure-begin marker.
+// 10.7.17.2. Status IB.
+func parseStatusIB(dec tlv.Decoder, resp *InvokeResponse) error {
+	for dec.Next() {
+		elem := dec.Element()
+		if elem.Type().IsEndOfContainer() {
+			return dec.Error()
+		}
+		ct, ok := elem.Tag().(tlv.ContextTag)
+		if !ok {
+			continue
+		}
+		switch ct.ContextNumber() {
 		case 0:
-			// IM status (context 0 inside status-IB) or suppress-response (top-level context 0, bool).
-			if v, ok2 := elem.Unsigned1(); ok2 {
+			if v, ok := elem.Unsigned1(); ok {
 				resp.Status.IMStatus = v
 			}
 		case 1:
-			// Cluster status (context 1 inside status-IB).
-			if v, ok2 := elem.Unsigned1(); ok2 {
+			if v, ok := elem.Unsigned1(); ok {
 				resp.Status.ClusterStatus = v
 			}
 		}
 	}
+	return dec.Error()
+}
 
-	return resp, nil
+// parseCommandDataIB decodes a CommandDataIB's fields, assuming the caller
+// has already consumed the Structure-begin marker.
+func parseCommandDataIB(dec tlv.Decoder, resp *InvokeResponse) error {
+	for dec.Next() {
+		elem := dec.Element()
+		if elem.Type().IsEndOfContainer() {
+			return dec.Error()
+		}
+		ct, ok := elem.Tag().(tlv.ContextTag)
+		if !ok {
+			continue
+		}
+		switch ct.ContextNumber() {
+		case 1: // CommandFields
+			if !elem.Type().IsStructure() {
+				return fmt.Errorf("CommandFields is not a structure")
+			}
+			payload, err := parseFlatFields(dec)
+			if err != nil {
+				return err
+			}
+			resp.Payload = payload
+		default: // CommandPathIB (0) and any future fields.
+			if elem.Type().IsStructure() || elem.Type().IsList() || elem.Type().IsArray() {
+				if err := skipContainer(dec); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return dec.Error()
+}
+
+// parseFlatFields decodes a flat (non-nested) structure's context-tagged
+// elements into a map, assuming the caller has already consumed the
+// Structure-begin marker. This is sufficient for every command response this
+// client decodes (AttestationResponse, CertificateChainResponse, CSRResponse,
+// NOCResponse, NetworkConfigResponse, ConnectNetworkResponse), none of which
+// nest containers inside their command fields.
+func parseFlatFields(dec tlv.Decoder) (map[uint8]tlv.Element, error) {
+	out := make(map[uint8]tlv.Element)
+	for dec.Next() {
+		elem := dec.Element()
+		if elem.Type().IsEndOfContainer() {
+			return out, dec.Error()
+		}
+		ct, ok := elem.Tag().(tlv.ContextTag)
+		if !ok {
+			continue
+		}
+		out[uint8(ct.ContextNumber())] = elem
+	}
+	return nil, dec.Error()
+}
+
+// skipContainer consumes and discards a container's contents, assuming the
+// caller has already consumed its Structure/List/Array-begin marker. It
+// correctly handles arbitrarily nested containers within.
+func skipContainer(dec tlv.Decoder) error {
+	depth := 1
+	for dec.Next() {
+		switch {
+		case dec.Element().Type().IsEndOfContainer():
+			depth--
+			if depth == 0 {
+				return dec.Error()
+			}
+		case dec.Element().Type().IsContainer():
+			depth++
+		}
+	}
+	return dec.Error()
 }

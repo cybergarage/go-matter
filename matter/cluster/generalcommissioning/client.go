@@ -137,7 +137,7 @@ func CommissioningComplete(sess session.SecureSession, endpointID im.EndpointID)
 // buildArmFailSafeFields encodes the ArmFailSafe command fields as TLV.
 func buildArmFailSafeFields(expiryLengthSeconds uint16, breadcrumb uint64) ([]byte, error) {
 	enc := tlv.NewEncoder()
-	enc.BeginStructure(tlv.NewAnonymousTag())
+	enc.BeginStructure(tlv.NewContextTag(1))
 	enc.PutUnsigned2(tlv.NewContextTag(0), expiryLengthSeconds)
 	if err := enc.PutUnsigned(tlv.NewContextTag(1), breadcrumb); err != nil {
 		return nil, err
@@ -151,7 +151,7 @@ func buildArmFailSafeFields(expiryLengthSeconds uint16, breadcrumb uint64) ([]by
 // buildSetRegulatoryConfigFields encodes the SetRegulatoryConfig command fields as TLV.
 func buildSetRegulatoryConfigFields(locationType RegulatoryLocationType, countryCode string, breadcrumb uint64) ([]byte, error) {
 	enc := tlv.NewEncoder()
-	enc.BeginStructure(tlv.NewAnonymousTag())
+	enc.BeginStructure(tlv.NewContextTag(1))
 	enc.PutUnsigned1(tlv.NewContextTag(0), uint8(locationType))
 	if err := enc.PutUTF81(tlv.NewContextTag(1), countryCode); err != nil {
 		return nil, err

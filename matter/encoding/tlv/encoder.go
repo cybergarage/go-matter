@@ -82,6 +82,16 @@ type Encoder interface {
 	// MustEndAll closes all open containers (ignoring errors).
 	MustEndAll()
 
+	// Raw appends pre-encoded TLV bytes verbatim, without interpretation.
+	// It is used to splice a fully self-delimiting element (or sequence of
+	// elements) produced by a separate Encoder — for example a cluster
+	// command's field structure — directly into this stream, at the
+	// caller's chosen tag. The spliced bytes' own tag governs how they are
+	// addressed once embedded, so callers that need a specific tag (e.g. a
+	// context tag matching a spec-defined field position) must encode with
+	// that tag in the source Encoder before calling Raw.
+	Raw(b []byte)
+
 	// Bytes returns the accumulated encoded bytes. The returned slice must not be mutated.
 	Bytes() []byte
 }

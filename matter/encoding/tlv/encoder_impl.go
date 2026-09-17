@@ -39,6 +39,9 @@ func NewEncoder() Encoder {
 // Bytes returns the currently encoded TLV bytes (no copy).
 func (e *encoderImpl) Bytes() []byte { return e.buf.Bytes() }
 
+// Raw appends pre-encoded TLV bytes verbatim.
+func (e *encoderImpl) Raw(b []byte) { e.buf.Write(b) }
+
 // writeHeader writes the control octet and tag bytes for the given element type.
 func (e *encoderImpl) writeHeader(tag Tag, et ElementType) {
 	ctrl := encodeControl(tag.Control(), et)
