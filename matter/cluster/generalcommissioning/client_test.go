@@ -52,7 +52,7 @@ func buildSuccessInvokeResponse(t *testing.T) []byte {
 	enc.PutBool(tlv.NewContextTag(0), false)
 	enc.BeginList(tlv.NewContextTag(1))
 	enc.BeginStructure(tlv.NewAnonymousTag()) // InvokeResponseIB
-	enc.BeginStructure(tlv.NewContextTag(0))  // CommandStatusIB
+	enc.BeginStructure(tlv.NewContextTag(1))  // CommandStatusIB
 	enc.BeginStructure(tlv.NewContextTag(0))  // CommandPathIB
 	enc.PutUnsigned2(tlv.NewContextTag(0), 0)
 	if err := enc.PutUnsigned(tlv.NewContextTag(1), uint64(ClusterID)); err != nil {

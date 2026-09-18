@@ -67,7 +67,7 @@ func putCommandPathIB(t *testing.T, enc tlv.Encoder, tag uint8) {
 func TestParseInvokeResponseStatusSuccess(t *testing.T) {
 	data := buildInvokeResponseMessage(t, func(enc tlv.Encoder) {
 		enc.BeginStructure(tlv.NewAnonymousTag()) // InvokeResponseIB
-		enc.BeginStructure(tlv.NewContextTag(0))  // CommandStatusIB
+		enc.BeginStructure(tlv.NewContextTag(1))  // CommandStatusIB
 		putCommandPathIB(t, enc, 0)
 		enc.BeginStructure(tlv.NewContextTag(1)) // StatusIB
 		enc.PutUnsigned1(tlv.NewContextTag(0), 0)
@@ -95,7 +95,7 @@ func TestParseInvokeResponseStatusSuccess(t *testing.T) {
 func TestParseInvokeResponseStatusFailure(t *testing.T) {
 	data := buildInvokeResponseMessage(t, func(enc tlv.Encoder) {
 		enc.BeginStructure(tlv.NewAnonymousTag())
-		enc.BeginStructure(tlv.NewContextTag(0))
+		enc.BeginStructure(tlv.NewContextTag(1)) // CommandStatusIB
 		putCommandPathIB(t, enc, 0)
 		enc.BeginStructure(tlv.NewContextTag(1))
 		enc.PutUnsigned1(tlv.NewContextTag(0), 0x01) // IM status: Failure
@@ -125,7 +125,7 @@ func TestParseInvokeResponseStatusFailure(t *testing.T) {
 func TestParseInvokeResponseWithCommandDataPayload(t *testing.T) {
 	data := buildInvokeResponseMessage(t, func(enc tlv.Encoder) {
 		enc.BeginStructure(tlv.NewAnonymousTag()) // InvokeResponseIB
-		enc.BeginStructure(tlv.NewContextTag(1))  // CommandDataIB
+		enc.BeginStructure(tlv.NewContextTag(0))  // CommandDataIB
 		putCommandPathIB(t, enc, 0)
 		enc.BeginStructure(tlv.NewContextTag(1)) // CommandFields
 		if err := enc.PutOctet(tlv.NewContextTag(0), []byte{0xAA, 0xBB}); err != nil {

@@ -282,18 +282,18 @@ func parseInvokeResponseIB(dec tlv.Decoder, resp *InvokeResponse) error {
 			continue
 		}
 		switch ct.ContextNumber() {
-		case 0: // CommandStatusIB
-			if !elem.Type().IsStructure() {
-				return fmt.Errorf("CommandStatusIB is not a structure")
-			}
-			if err := parseCommandStatusIB(dec, resp); err != nil {
-				return err
-			}
-		case 1: // CommandDataIB
+		case 0: // CommandDataIB
 			if !elem.Type().IsStructure() {
 				return fmt.Errorf("CommandDataIB is not a structure")
 			}
 			if err := parseCommandDataIB(dec, resp); err != nil {
+				return err
+			}
+		case 1: // CommandStatusIB
+			if !elem.Type().IsStructure() {
+				return fmt.Errorf("CommandStatusIB is not a structure")
+			}
+			if err := parseCommandStatusIB(dec, resp); err != nil {
 				return err
 			}
 		default:
