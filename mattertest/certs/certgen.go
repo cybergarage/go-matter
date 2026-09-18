@@ -106,7 +106,19 @@ func run() error {
 		return err
 	}
 
-	now := time.Now()
+	// matterEpoch (2000-01-01T00:00:00Z, spec 5.6.1 "Epoch Time") is used as
+	// NotBefore instead of time.Now(): a freshly commissioned or
+	// factory-reset device commonly has no synced clock yet (no
+	// battery-backed RTC, no NTP, nothing set by the commissioner until
+	// later) and would see a NotBefore stamped with today's real date as a
+	// certificate "from the future," rejecting it. connectedhomeip's own
+	// reference commissioner-side CA (src/controller/
+	// ExampleOperationalCredentialsIssuer.h) defaults its "current time"
+	// field to exactly this for the same reason (mNow = 0, i.e. Matter
+	// epoch second 0) rather than the host's wall clock. A real device's
+	// AddNOC rejected the administrator NOC generated here with the generic
+	// NodeOperationalCertStatusEnum::kInvalidNOC for this reason.
+	now := time.Date(2000, time.January, 1, 0, 0, 0, 0, time.UTC)
 
 	// RFC 5280 ยง4.2.1.2 method (1): SKID = SHA-1(subjectPublicKey BIT STRING
 	// content). Computed explicitly, rather than left for x509.CreateCertificate
@@ -132,7 +144,7 @@ func run() error {
 				utf8Attr(matterRCACIDOID, "0000000000000001"),
 			},
 		},
-		NotBefore:             now.Add(-time.Hour),
+		NotBefore:             now,
 		NotAfter:              now.Add(time.Duration(days) * 24 * time.Hour),
 		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
 		BasicConstraintsValid: true,
@@ -154,7 +166,7 @@ func run() error {
 				utf8Attr(matterFabricIDOID, fabricIDHex),
 			},
 		},
-		NotBefore:      now.Add(-time.Hour),
+		NotBefore:      now,
 		NotAfter:       now.Add(time.Duration(days) * 24 * time.Hour),
 		KeyUsage:       x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:    []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},

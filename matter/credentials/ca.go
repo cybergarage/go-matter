@@ -38,6 +38,20 @@ var (
 	oidMatterFabricID = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 37244, 1, 5}
 )
 
+// matterEpoch is the Matter epoch (2000-01-01T00:00:00Z, spec 5.6.1 "Epoch
+// Time"), used as NotBefore for issued NOCs instead of time.Now(). A newly
+// commissioned or freshly factory-reset device commonly has no synced clock
+// yet — no battery-backed RTC, no NTP, nothing set by the commissioner until
+// later — and would see a NotBefore stamped with today's real date as a
+// certificate "from the future," rejecting it. connectedhomeip's own
+// reference commissioner-side CA (src/controller/
+// ExampleOperationalCredentialsIssuer.h) defaults its "current time" field
+// to exactly this for the same reason (mNow = 0, i.e. Matter epoch second
+// 0) rather than the host's wall clock. A real device's AddNOC rejected our
+// NOC with the generic NodeOperationalCertStatusEnum::kInvalidNOC (3) for
+// this reason.
+var matterEpoch = time.Date(2000, time.January, 1, 0, 0, 0, 0, time.UTC)
+
 // utf8Attr builds a DN attribute whose value is explicitly tagged as an
 // ASN.1 UTF8String, rather than left to encoding/asn1's default heuristic
 // (which picks PrintableString for an all-hex-digit string like these
@@ -119,7 +133,6 @@ func (ca *CertificateAuthority) IssueNOC(csr *x509.CertificateRequest, nodeID ui
 	if err != nil {
 		return nil, err
 	}
-	now := time.Now()
 	tmpl := &x509.Certificate{
 		SerialNumber: serial,
 		Subject: pkix.Name{
@@ -128,8 +141,16 @@ func (ca *CertificateAuthority) IssueNOC(csr *x509.CertificateRequest, nodeID ui
 				utf8Attr(oidMatterFabricID, uint64ToHexRDNValue(ca.fabricID)),
 			},
 		},
-		NotBefore:      now.Add(-time.Hour),
-		NotAfter:       now.Add(10 * 365 * 24 * time.Hour),
+		NotBefore: matterEpoch,
+		// 100 years, matching mattertest/certs/certgen.go's own root/admin
+		// certificate validity period (DAYS=36500 there): the 10-year span
+		// connectedhomeip's reference issuer defaults to (mValidity) is
+		// measured from *its* mNow (also usually the epoch by default), so
+		// it likewise ends in 2009 — comfortably enough for a real
+		// commissioning session's checks, but not for this long-lived
+		// development/test CA anchoring NotBefore at the epoch and expected
+		// to keep working years after being generated.
+		NotAfter:       matterEpoch.Add(100 * 365 * 24 * time.Hour),
 		KeyUsage:       x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:    []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
 		AuthorityKeyId: ca.rootCert.SubjectKeyId,
