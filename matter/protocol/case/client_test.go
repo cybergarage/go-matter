@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
+	"encoding/binary"
 	"encoding/pem"
 	"math/big"
 	"strings"
@@ -248,13 +249,17 @@ func bytesOf(v byte, n int) []byte {
 	return out
 }
 
-func TestParseStatusReportFailure(t *testing.T) {
-	payload := tlv.NewEncoder()
-	payload.BeginStructure(tlv.NewAnonymousTag())
-	payload.PutUnsigned2(tlv.NewContextTag(0), 1)
-	payload.PutUnsigned2(tlv.NewContextTag(1), uint16(message.SecureChannel))
-	payload.PutUnsigned2(tlv.NewContextTag(2), 2)
-	payload.EndContainer()
+// buildStatusReportWire builds a StatusReport message with the fixed-width,
+// little-endian binary payload the wire protocol actually uses (see
+// parseStatusReport's doc comment) — NOT TLV, matching connectedhomeip's
+// StatusReport::Parse.
+func buildStatusReportWire(t *testing.T, generalCode uint16, protocolCode uint16) []byte {
+	t.Helper()
+	payload := make([]byte, 8)
+	binary.LittleEndian.PutUint16(payload[0:2], generalCode)
+	binary.LittleEndian.PutUint32(payload[2:6], uint32(message.SecureChannel))
+	binary.LittleEndian.PutUint16(payload[6:8], protocolCode)
+
 	msg := message.NewMessage(
 		message.WithMessageFrameHeader(message.NewHeader(
 			message.WithHeaderSessionID(0),
@@ -267,13 +272,32 @@ func TestParseStatusReportFailure(t *testing.T) {
 			message.WithHeaderExchangeID(1),
 			message.WithHeaderProtocolID(message.SecureChannel),
 		)),
-		message.WithMessagePayload(payload.Bytes()),
+		message.WithMessagePayload(payload),
 	)
 	wire, err := msg.Bytes()
 	if err != nil {
 		t.Fatalf("msg.Bytes() error = %v", err)
 	}
+	return wire
+}
+
+// TestParseStatusReportFailure guards against a regression where
+// parseStatusReport tried to TLV-decode the StatusReport payload; the real
+// wire format is a fixed-width, little-endian binary structure (spec
+// 4.11.3 / connectedhomeip StatusReport::Parse), not TLV — a real device's
+// StatusReport was unparsable ("expected structure, got SignedInt1") until
+// this was fixed, even though a self-consistent TLV-encoded test fixture
+// happened to pass here before.
+func TestParseStatusReportFailure(t *testing.T) {
+	wire := buildStatusReportWire(t, 1 /* GeneralCode = FAILURE */, 2)
 	if err := parseStatusReport(wire); err == nil {
 		t.Fatal("parseStatusReport(...) error = nil, want non-nil")
+	}
+}
+
+func TestParseStatusReportSuccess(t *testing.T) {
+	wire := buildStatusReportWire(t, 0 /* GeneralCode = SUCCESS */, 0)
+	if err := parseStatusReport(wire); err != nil {
+		t.Fatalf("parseStatusReport(...) error = %v, want nil", err)
 	}
 }

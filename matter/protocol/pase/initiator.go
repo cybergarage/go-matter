@@ -17,13 +17,13 @@ package pase
 import (
 	"context"
 	"crypto/subtle"
+	"encoding/binary"
 	"errors"
 	"fmt"
 
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/crypto"
 	"github.com/cybergarage/go-matter/matter/encoding/message"
-	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 	"github.com/cybergarage/go-matter/matter/io"
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pake"
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pbkdf"
@@ -266,8 +266,22 @@ func (i *Initiator) EstablishSession(ctx context.Context) (SessionKeys, error) {
 	), nil
 }
 
+// statusReportHeaderLen is the fixed-width portion of a StatusReport payload:
+// GeneralCode (2 bytes) || ProtocolId (4 bytes) || ProtocolCode (2 bytes).
+const statusReportHeaderLen = 8
+
 // parseStatusReport parses a received StatusReport message and returns an error if PASE failed.
-// 2.11.2. Status Report TLV format.
+//
+// StatusReport is NOT TLV-encoded: its payload is a fixed-width,
+// little-endian binary structure (see connectedhomeip's
+// src/protocols/secure_channel/StatusReport.cpp, StatusReport::Parse):
+//
+//	uint16 GeneralCode
+//	uint32 ProtocolId
+//	uint16 ProtocolCode
+//	octet  ProtocolData[] (optional, protocol-specific)
+//
+// 4.11.3. Common Status Report Codes / 2.11.2. Status Report.
 func (i *Initiator) parseStatusReport(data []byte) error {
 	msg, err := message.NewMessageFromBytes(data)
 	if err != nil {
@@ -277,42 +291,17 @@ func (i *Initiator) parseStatusReport(data []byte) error {
 		return fmt.Errorf("expected StatusReport (0x40), got opcode 0x%02x", uint8(msg.Opcode()))
 	}
 
-	// Parse TLV payload: { GeneralCode [0], ProtocolId [1], ProtocolCode [2] }
-	dec := tlv.NewDecoderWithBytes(msg.Payload())
-	if !dec.Next() {
-		return fmt.Errorf("StatusReport: empty payload")
+	payload := msg.Payload()
+	if len(payload) < statusReportHeaderLen {
+		return fmt.Errorf("StatusReport: payload too short (%d bytes, want at least %d)", len(payload), statusReportHeaderLen)
 	}
-	elem := dec.Element()
-	if !elem.Type().IsStructure() {
-		return fmt.Errorf("StatusReport: expected structure, got %v", elem.Type())
-	}
-	var generalCode uint16
-	var protocolCode uint16
-	for dec.Next() {
-		elem = dec.Element()
-		if elem.Type().IsEndOfContainer() {
-			break
-		}
-		ct, ok := elem.Tag().(tlv.ContextTag)
-		if !ok {
-			continue
-		}
-		switch ct.ContextNumber() {
-		case 0:
-			v, ok := elem.Unsigned2()
-			if ok {
-				generalCode = v
-			}
-		case 2:
-			v, ok := elem.Unsigned2()
-			if ok {
-				protocolCode = v
-			}
-		}
-	}
+	generalCode := binary.LittleEndian.Uint16(payload[0:2])
+	protocolID := binary.LittleEndian.Uint32(payload[2:6])
+	protocolCode := binary.LittleEndian.Uint16(payload[6:8])
+
 	if generalCode != 0 {
-		return fmt.Errorf("%w: GeneralCode=%d ProtocolCode=%d", ErrStatusReport, generalCode, protocolCode)
+		return fmt.Errorf("%w: GeneralCode=%d ProtocolId=0x%08x ProtocolCode=%d", ErrStatusReport, generalCode, protocolID, protocolCode)
 	}
-	log.Infof("PASE StatusReport: success (GeneralCode=0, ProtocolCode=%d)", protocolCode)
+	log.Infof("PASE StatusReport: success (GeneralCode=0, ProtocolId=0x%08x, ProtocolCode=%d)", protocolID, protocolCode)
 	return nil
 }

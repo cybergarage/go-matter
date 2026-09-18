@@ -1,12 +1,27 @@
 package caseprotocol
 
 import (
+	"encoding/binary"
 	"fmt"
 
 	"github.com/cybergarage/go-matter/matter/encoding/message"
-	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 )
 
+// statusReportHeaderLen is the fixed-width portion of a StatusReport payload:
+// GeneralCode (2 bytes) || ProtocolId (4 bytes) || ProtocolCode (2 bytes).
+const statusReportHeaderLen = 8
+
+// parseStatusReport parses a received StatusReport message and returns an
+// error if the general code indicates failure.
+//
+// StatusReport is NOT TLV-encoded: its payload is a fixed-width,
+// little-endian binary structure (see connectedhomeip's
+// src/protocols/secure_channel/StatusReport.cpp, StatusReport::Parse):
+//
+//	uint16 GeneralCode
+//	uint32 ProtocolId
+//	uint16 ProtocolCode
+//	octet  ProtocolData[] (optional, protocol-specific)
 func parseStatusReport(data []byte) error {
 	msg, err := message.NewMessageFromBytes(data)
 	if err != nil {
@@ -15,31 +30,12 @@ func parseStatusReport(data []byte) error {
 	if !msg.Opcode().IsStatusReport() {
 		return fmt.Errorf("case: expected StatusReport, got opcode 0x%02x", uint8(msg.Opcode()))
 	}
-	dec := tlv.NewDecoderWithBytes(msg.Payload())
-	if !dec.Next() {
-		return fmt.Errorf("case: StatusReport: empty payload")
+	payload := msg.Payload()
+	if len(payload) < statusReportHeaderLen {
+		return fmt.Errorf("case: StatusReport: payload too short (%d bytes, want at least %d)", len(payload), statusReportHeaderLen)
 	}
-	if !dec.Element().Type().IsStructure() {
-		return fmt.Errorf("case: StatusReport: expected structure")
-	}
-	var generalCode uint16
-	var protocolCode uint16
-	for dec.Next() {
-		elem := dec.Element()
-		if elem.Type().IsEndOfContainer() {
-			break
-		}
-		ct, ok := elem.Tag().(tlv.ContextTag)
-		if !ok {
-			continue
-		}
-		switch ct.ContextNumber() {
-		case 0:
-			generalCode, _ = elem.Unsigned2()
-		case 2:
-			protocolCode, _ = elem.Unsigned2()
-		}
-	}
+	generalCode := binary.LittleEndian.Uint16(payload[0:2])
+	protocolCode := binary.LittleEndian.Uint16(payload[6:8])
 	if generalCode != 0 {
 		return fmt.Errorf("%w: protocol code %d", errStatusReport, protocolCode)
 	}
