@@ -156,5 +156,6 @@ func (s *secureSession) Receive() ([]byte, error) {
 		return nil, fmt.Errorf("session: AES-CCM decryption failed: %w", err)
 	}
 
+	log.HexDebug(plaintext)
 	return plaintext, nil
 }
