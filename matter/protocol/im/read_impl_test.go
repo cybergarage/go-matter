@@ -15,6 +15,7 @@
 package im
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/cybergarage/go-matter/matter/encoding/message"
@@ -104,33 +105,77 @@ func TestBuildReadRequestPayloadEncodesInteractionModelRevision(t *testing.T) {
 		t.Fatalf("buildReadRequestPayload() error = %v", err)
 	}
 
+	fields, err := topLevelFields(payload)
+	if err != nil {
+		t.Fatalf("topLevelFields() error = %v", err)
+	}
+	elem, ok := fields[0xFF]
+	if !ok {
+		t.Fatal("ReadRequestMessage missing mandatory InteractionModelRevision field (tag 0xFF)")
+	}
+	v, ok := elem.Unsigned1()
+	if !ok || v != 12 {
+		t.Errorf("InteractionModelRevision = %v, %v; want 12, true", v, ok)
+	}
+}
+
+// topLevelFields decodes a ReadRequestMessage-shaped TLV payload (top-level
+// anonymous Structure) into a map of its direct child elements, keyed by
+// context tag number. Nested containers (e.g. the attribute-requests
+// Array/List) are skipped whole rather than descended into, so a tag number
+// reused at a deeper nesting level (e.g. AttributePathIB's Cluster is also
+// tag 3, the same number as the top-level IsFabricFiltered) cannot be
+// mistaken for the top-level field of the same number.
+func topLevelFields(payload []byte) (map[uint8]tlv.Element, error) {
 	dec := tlv.NewDecoderWithBytes(payload)
 	if !dec.Next() || !dec.Element().Type().IsStructure() {
-		t.Fatal("expected top-level Structure")
+		return nil, fmt.Errorf("expected top-level Structure")
 	}
 
-	// Walk every remaining element (not just the top-level structure's
-	// direct children) since the InteractionModelRevision field sits after
-	// the nested attribute-requests Array/List, whose own EndOfContainer
-	// markers must be passed through, not treated as the end of the walk.
-	var found bool
+	fields := make(map[uint8]tlv.Element)
 	for dec.Next() {
 		elem := dec.Element()
+		if elem.Type().IsEndOfContainer() {
+			break
+		}
 		ct, ok := elem.Tag().(tlv.ContextTag)
-		if !ok || ct.ContextNumber() != 0xFF {
+		if !ok {
 			continue
 		}
-		found = true
-		v, ok := elem.Unsigned1()
-		if !ok || v != 12 {
-			t.Errorf("InteractionModelRevision = %v, %v; want 12, true", v, ok)
+		fields[uint8(ct.ContextNumber())] = elem
+		if elem.Type().IsStructure() || elem.Type().IsList() || elem.Type().IsArray() {
+			if err := skipContainer(dec); err != nil {
+				return nil, err
+			}
 		}
 	}
-	if err := dec.Error(); err != nil {
-		t.Fatalf("decode error = %v", err)
+	return fields, dec.Error()
+}
+
+// TestBuildReadRequestPayloadEncodesIsFabricFiltered guards against a
+// regression where IsFabricFiltered (ContextTag 3) was omitted entirely.
+// Its Parser accessor is documented as returning END_OF_TLV when absent, but
+// connectedhomeip's actual server handler (ReadHandler::ProcessReadRequest)
+// calls GetIsFabricFiltered unconditionally via ReturnErrorOnFailure with no
+// END_OF_TLV fallback: an omitted field fails request processing and a real
+// device rejected the entire ReadRequestMessage with
+// StatusResponseMessage(InvalidAction) instead of returning attribute data.
+func TestBuildReadRequestPayloadEncodesIsFabricFiltered(t *testing.T) {
+	payload, err := buildReadRequestPayload(0, 0x0030, 0x0004)
+	if err != nil {
+		t.Fatalf("buildReadRequestPayload() error = %v", err)
 	}
-	if !found {
-		t.Error("ReadRequestMessage missing mandatory InteractionModelRevision field (tag 0xFF)")
+
+	fields, err := topLevelFields(payload)
+	if err != nil {
+		t.Fatalf("topLevelFields() error = %v", err)
+	}
+	elem, ok := fields[3]
+	if !ok {
+		t.Fatal("ReadRequestMessage missing mandatory IsFabricFiltered field (tag 3)")
+	}
+	if _, ok := elem.Bool(); !ok {
+		t.Errorf("IsFabricFiltered element is not a Bool: %+v", elem)
 	}
 }
 

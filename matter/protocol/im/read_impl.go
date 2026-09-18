@@ -105,6 +105,17 @@ func buildReadRequestPayload(endpointID EndpointID, clusterID ClusterID, attribu
 		return nil, err
 	}
 
+	// Tag 3: IsFabricFiltered. Although ReadRequestMessage::Parser::GetIsFabricFiltered
+	// is documented as returning END_OF_TLV when absent, connectedhomeip's actual
+	// server handler (ReadHandler::ProcessReadRequest) calls it unconditionally,
+	// via ReturnErrorOnFailure, with no END_OF_TLV fallback — an omitted field
+	// fails request processing entirely, and a real device replied with a
+	// StatusResponseMessage(InvalidAction) for the whole ReadRequestMessage
+	// instead of an attribute-specific error. It is therefore mandatory in
+	// practice, not merely optional as its schema position suggests.
+	// 10.7.2. ReadRequestMessage.
+	enc.PutBool(tlv.NewContextTag(3), false)
+
 	// Tag 0xFF: InteractionModelRevision. Mandatory trailing field on every
 	// IM request/response message (spec 8.2.1, "Interaction Model Revision
 	// Handling") — connectedhomeip's MessageBuilder::EncodeInteractionModelRevision
