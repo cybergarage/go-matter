@@ -142,6 +142,20 @@ func TestCertificateAuthorityIssueNOC(t *testing.T) {
 	if !bytes.Equal(nocCert.SubjectKeyId, wantSKID[:]) {
 		t.Errorf("NOC SubjectKeyId = %x, want SHA-1(pubkey) = %x", nocCert.SubjectKeyId, wantSKID)
 	}
+
+	// connectedhomeip's own reference X.509 generator
+	// (src/credentials/GenerateChipX509Cert.cpp EncodeNOCSpecificExtensions)
+	// always emits a BasicConstraints extension for a NOC, even though its
+	// content is empty for a non-CA cert. Go's x509.CreateCertificate omits
+	// the extension entirely unless BasicConstraintsValid is set on the
+	// template, which produced a NOC structurally unlike the reference's and
+	// was rejected by a real device with NOCResponse status=3 (InvalidNOC).
+	if !nocCert.BasicConstraintsValid {
+		t.Error("issued NOC is missing a BasicConstraints extension")
+	}
+	if nocCert.IsCA {
+		t.Error("issued NOC must not be a CA certificate")
+	}
 }
 
 func TestNewCertificateAuthorityRejectsMismatchedKey(t *testing.T) {

@@ -125,7 +125,13 @@ func run() error {
 	// SubjectKeyId extension, regardless of whether anything else references
 	// it (CHIP_ERROR_UNSUPPORTED_CERT_FORMAT); the admin NOC needs its own
 	// SubjectKeyId set for the same reason, even though nothing signs beneath
-	// it.
+	// it. The admin NOC's BasicConstraintsValid is set true (IsCA left
+	// false) for the same reason as matter/credentials/ca.go's IssueNOC:
+	// connectedhomeip's own reference X.509 generator
+	// (src/credentials/GenerateChipX509Cert.cpp EncodeNOCSpecificExtensions)
+	// always emits a (content-empty) BasicConstraints extension for a NOC,
+	// which Go's x509.CreateCertificate omits entirely unless
+	// BasicConstraintsValid is set.
 	rootPubKeyBytes := elliptic.Marshal(rootKey.PublicKey.Curve, rootKey.PublicKey.X, rootKey.PublicKey.Y)
 	rootSKID := sha1.Sum(rootPubKeyBytes)
 	adminPubKeyBytes := elliptic.Marshal(adminKey.PublicKey.Curve, adminKey.PublicKey.X, adminKey.PublicKey.Y)
@@ -161,12 +167,14 @@ func run() error {
 				utf8Attr(matterFabricIDOID, fabricIDHex),
 			},
 		},
-		NotBefore:      now.Add(-time.Hour),
-		NotAfter:       now.Add(time.Duration(days) * 24 * time.Hour),
-		KeyUsage:       x509.KeyUsageDigitalSignature,
-		ExtKeyUsage:    []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
-		SubjectKeyId:   adminSKID[:],
-		AuthorityKeyId: rootSKID[:],
+		NotBefore:             now.Add(-time.Hour),
+		NotAfter:              now.Add(time.Duration(days) * 24 * time.Hour),
+		KeyUsage:              x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+		BasicConstraintsValid: true,
+		IsCA:                  false,
+		SubjectKeyId:          adminSKID[:],
+		AuthorityKeyId:        rootSKID[:],
 	}
 	adminNOCDER, err := x509.CreateCertificate(rand.Reader, adminTemplate, rootTemplate, &adminKey.PublicKey, rootKey)
 	if err != nil {

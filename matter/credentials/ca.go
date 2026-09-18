@@ -114,8 +114,15 @@ func NewCertificateAuthority(rootCertBytes, rootPrivateKeyBytes []byte, fabricID
 // (including the leaf NOC, not just CAs) with CHIP_ERROR_UNSUPPORTED_CERT_FORMAT
 // unless BOTH the SubjectKeyId and AuthorityKeyId extensions are present — a
 // real device rejected AddNOC with NOCResponse status=3 (InvalidNOC) for
-// exactly this reason. The returned certificate is DER-encoded X.509;
-// convert it to the Matter-TLV wire format with
+// exactly this reason. BasicConstraintsValid is likewise set explicitly
+// (with IsCA left false): connectedhomeip's own reference X.509 generator
+// (src/credentials/GenerateChipX509Cert.cpp EncodeNOCSpecificExtensions)
+// always emits a BasicConstraints extension for a NOC, even though it's
+// empty content for a non-CA cert — Go's x509.CreateCertificate omits the
+// extension entirely unless BasicConstraintsValid is set, producing a NOC
+// whose Extensions list structurally differs from every other successfully
+// commissioning implementation's. The returned certificate is DER-encoded
+// X.509; convert it to the Matter-TLV wire format with
 // matter/credentials/chipcert.DERToTLV before sending it via AddNOC.
 func (ca *CertificateAuthority) IssueNOC(csr *x509.CertificateRequest, nodeID uint64) ([]byte, error) {
 	pub, ok := csr.PublicKey.(*ecdsa.PublicKey)
@@ -138,12 +145,14 @@ func (ca *CertificateAuthority) IssueNOC(csr *x509.CertificateRequest, nodeID ui
 				utf8Attr(oidMatterFabricID, uint64ToHexRDNValue(ca.fabricID)),
 			},
 		},
-		NotBefore:      now.Add(-time.Hour),
-		NotAfter:       now.Add(10 * 365 * 24 * time.Hour),
-		KeyUsage:       x509.KeyUsageDigitalSignature,
-		ExtKeyUsage:    []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
-		SubjectKeyId:   subjectKeyID[:],
-		AuthorityKeyId: ca.rootCert.SubjectKeyId,
+		NotBefore:             now.Add(-time.Hour),
+		NotAfter:              now.Add(10 * 365 * 24 * time.Hour),
+		KeyUsage:              x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+		IsCA:                  false,
+		SubjectKeyId:          subjectKeyID[:],
+		AuthorityKeyId:        ca.rootCert.SubjectKeyId,
 	}
 	der, err := x509.CreateCertificate(rand.Reader, tmpl, ca.rootCert, pub, ca.rootKey)
 	if err != nil {
