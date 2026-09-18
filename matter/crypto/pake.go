@@ -313,10 +313,17 @@ func appendSized(dst, data []byte) []byte {
 //   byte cB[CRYPTO_HASH_LEN_BYTES],
 //   byte Ke[CRYPTO_HASH_LEN_BYTES/2]}
 
+// cryptoPAKEModP reduces a scalar (w0s/w1s) modulo the group order.
+// w0/w1 are used as EC scalars (for point multiplication), which must be
+// reduced modulo the order of the group N — NOT the underlying field prime
+// P (they differ for P-256; see connectedhomeip's Spake2p FELoad, which
+// reduces with EC_GROUP_get_order, not the field modulus). Point
+// coordinates (x, y) do live in GF(P) and are correctly reduced mod P
+// elsewhere (e.g. the y-coordinate negation in CryptoPAKESharedPoints).
 func cryptoPAKEModP(in []byte) []byte {
-	p := ellipticCurve.Params().P
+	order := ellipticCurve.Params().N
 	n := new(big.Int).SetBytes(in)
-	n.Mod(n, p)
+	n.Mod(n, order)
 	out := n.Bytes()
 	if len(out) >= CryptoGroupSizeBytes {
 		return out[len(out)-CryptoGroupSizeBytes:]

@@ -98,9 +98,11 @@ func TestCryptoPAKEValuesInitiatorMatchesSpecIndependentRecomputation(t *testing
 	w0s := ws[:CryptoWSizeBytes]
 	w1s := ws[CryptoWSizeBytes:]
 
-	p := ellipticCurve.Params().P
-	wantW0 := new(big.Int).Mod(new(big.Int).SetBytes(w0s), p).FillBytes(make([]byte, CryptoGroupSizeBytes))
-	wantW1 := new(big.Int).Mod(new(big.Int).SetBytes(w1s), p).FillBytes(make([]byte, CryptoGroupSizeBytes))
+	// w0/w1 are EC scalars, reduced modulo the group order N (not the field
+	// prime P used to reduce point coordinates) — see cryptoPAKEModP's doc.
+	order := ellipticCurve.Params().N
+	wantW0 := new(big.Int).Mod(new(big.Int).SetBytes(w0s), order).FillBytes(make([]byte, CryptoGroupSizeBytes))
+	wantW1 := new(big.Int).Mod(new(big.Int).SetBytes(w1s), order).FillBytes(make([]byte, CryptoGroupSizeBytes))
 
 	if !bytes.Equal(w0, wantW0) {
 		t.Errorf("w0 = %x, want %x (independently recomputed per 3.10)", w0, wantW0)
