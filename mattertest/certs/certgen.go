@@ -40,10 +40,33 @@ const (
 )
 
 var (
+	oidCommonName     = asn1.ObjectIdentifier{2, 5, 4, 3}
 	matterNodeIDOID   = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 37244, 1, 1}
 	matterRCACIDOID   = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 37244, 1, 4}
 	matterFabricIDOID = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 37244, 1, 5}
 )
+
+// utf8Attr builds a DN attribute whose value is explicitly tagged as an
+// ASN.1 UTF8String, rather than left to encoding/asn1's default heuristic
+// (which picks PrintableString for content — like our all-digit Matter ID
+// hex strings, or a plain CommonName — that happens to fit PrintableString's
+// narrower character set). connectedhomeip's own certificate reconstruction
+// (src/credentials/CHIPCert.cpp ChipDN::EncodeToASN1) always emits
+// UTF8String for the Matter custom 64-bit DN attributes (NodeID, FabricID,
+// RCACId, ...), and our own chipcert TLV encoder always emits CommonName as
+// UTF8String too (chipcert.go's encodeRDN); a certificate signed with
+// PrintableString for either produces different DER bytes than what a
+// device reconstructs from the TLV, silently invalidating the signature — a
+// real device rejected AddTrustedRootCertificate with InvalidCommand for
+// exactly this reason (RCACId), even after every structural requirement
+// (Subject attribute presence, SubjectKeyId/AuthorityKeyId equality,
+// extension order) was already satisfied.
+func utf8Attr(oid asn1.ObjectIdentifier, s string) pkix.AttributeTypeAndValue {
+	return pkix.AttributeTypeAndValue{
+		Type:  oid,
+		Value: asn1.RawValue{Class: asn1.ClassUniversal, Tag: asn1.TagUTF8String, Bytes: []byte(s)},
+	}
+}
 
 func main() {
 	if err := run(); err != nil {
@@ -104,9 +127,9 @@ func run() error {
 	rootTemplate := &x509.Certificate{
 		SerialNumber: rootSerial,
 		Subject: pkix.Name{
-			CommonName: "go-matter Test Administrator Root CA",
 			ExtraNames: []pkix.AttributeTypeAndValue{
-				{Type: matterRCACIDOID, Value: "0000000000000001"},
+				utf8Attr(oidCommonName, "go-matter Test Administrator Root CA"),
+				utf8Attr(matterRCACIDOID, "0000000000000001"),
 			},
 		},
 		NotBefore:             now.Add(-time.Hour),
@@ -125,10 +148,10 @@ func run() error {
 	adminTemplate := &x509.Certificate{
 		SerialNumber: adminSerial,
 		Subject: pkix.Name{
-			CommonName: "go-matter Test Administrator",
 			ExtraNames: []pkix.AttributeTypeAndValue{
-				{Type: matterNodeIDOID, Value: adminNodeIDHex},
-				{Type: matterFabricIDOID, Value: fabricIDHex},
+				utf8Attr(oidCommonName, "go-matter Test Administrator"),
+				utf8Attr(matterNodeIDOID, adminNodeIDHex),
+				utf8Attr(matterFabricIDOID, fabricIDHex),
 			},
 		},
 		NotBefore:      now.Add(-time.Hour),

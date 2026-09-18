@@ -38,6 +38,24 @@ var (
 	oidMatterFabricID = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 37244, 1, 5}
 )
 
+// utf8Attr builds a DN attribute whose value is explicitly tagged as an
+// ASN.1 UTF8String, rather than left to encoding/asn1's default heuristic
+// (which picks PrintableString for an all-hex-digit string like these
+// Matter ID values). connectedhomeip's own certificate reconstruction
+// (src/credentials/CHIPCert.cpp ChipDN::EncodeToASN1) always emits
+// UTF8String for the Matter custom 64-bit DN attributes; a NOC signed with
+// PrintableString here would produce different DER bytes than what a device
+// reconstructs from the equivalent TLV, invalidating the chain signature —
+// see mattertest/certs/certgen.go's identical helper for how this was found
+// (a real device rejected AddTrustedRootCertificate over exactly this for
+// the root cert's own RCACId attribute).
+func utf8Attr(oid asn1.ObjectIdentifier, s string) pkix.AttributeTypeAndValue {
+	return pkix.AttributeTypeAndValue{
+		Type:  oid,
+		Value: asn1.RawValue{Class: asn1.ClassUniversal, Tag: asn1.TagUTF8String, Bytes: []byte(s)},
+	}
+}
+
 // CertificateAuthority is a minimal commissioner-side CA: it holds the
 // administrator's own root key pair and signs Node Operational Certificates
 // for devices being commissioned, from the CSR they return in CSRResponse.
@@ -106,8 +124,8 @@ func (ca *CertificateAuthority) IssueNOC(csr *x509.CertificateRequest, nodeID ui
 		SerialNumber: serial,
 		Subject: pkix.Name{
 			ExtraNames: []pkix.AttributeTypeAndValue{
-				{Type: oidMatterNodeID, Value: uint64ToHexRDNValue(nodeID)},
-				{Type: oidMatterFabricID, Value: uint64ToHexRDNValue(ca.fabricID)},
+				utf8Attr(oidMatterNodeID, uint64ToHexRDNValue(nodeID)),
+				utf8Attr(oidMatterFabricID, uint64ToHexRDNValue(ca.fabricID)),
 			},
 		},
 		NotBefore:      now.Add(-time.Hour),

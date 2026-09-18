@@ -21,10 +21,28 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/asn1"
 	"math/big"
 	"testing"
 	"time"
 )
+
+// testUTF8Attr mirrors the package's own utf8Attr (and
+// matter/credentials/ca.go / mattertest/certs/certgen.go's matching
+// helpers): it forces the DN attribute value to be signed as an ASN.1
+// UTF8String rather than whatever encoding/asn1's default heuristic would
+// pick (PrintableString, for content — like these all-digit/plain-ASCII
+// test values — that happens to fit its narrower character set). Real
+// certificates in this codebase must always be signed this way, since
+// TLVToDER always reconstructs these fields as UTF8String; if these test
+// fixtures didn't match, the round-trip signature checks below would fail
+// for a reason that has nothing to do with the package under test.
+func testUTF8Attr(oid asn1.ObjectIdentifier, s string) pkix.AttributeTypeAndValue {
+	return pkix.AttributeTypeAndValue{
+		Type:  oid,
+		Value: asn1.RawValue{Class: asn1.ClassUniversal, Tag: asn1.TagUTF8String, Bytes: []byte(s)},
+	}
+}
 
 func generateTestRoot(t *testing.T) ([]byte, *ecdsa.PrivateKey, *x509.Certificate) {
 	t.Helper()
@@ -34,8 +52,12 @@ func generateTestRoot(t *testing.T) ([]byte, *ecdsa.PrivateKey, *x509.Certificat
 	}
 	now := time.Now().Truncate(time.Second)
 	tmpl := &x509.Certificate{
-		SerialNumber:          big.NewInt(1),
-		Subject:               pkix.Name{CommonName: "go-matter Test Root CA"},
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			ExtraNames: []pkix.AttributeTypeAndValue{
+				testUTF8Attr(oidCommonName, "go-matter Test Root CA"),
+			},
+		},
 		NotBefore:             now.Add(-time.Hour),
 		NotAfter:              now.Add(100 * 365 * 24 * time.Hour),
 		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
@@ -65,8 +87,8 @@ func generateTestNOC(t *testing.T, root *x509.Certificate, rootKey *ecdsa.Privat
 		SerialNumber: big.NewInt(2),
 		Subject: pkix.Name{
 			ExtraNames: []pkix.AttributeTypeAndValue{
-				{Type: oidMatterNodeID, Value: nodeIDHex},
-				{Type: oidMatterFabricID, Value: fabricIDHex},
+				testUTF8Attr(oidMatterNodeID, nodeIDHex),
+				testUTF8Attr(oidMatterFabricID, fabricIDHex),
 			},
 		},
 		NotBefore:   now.Add(-time.Hour),

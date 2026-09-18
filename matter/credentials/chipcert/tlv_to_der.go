@@ -255,14 +255,14 @@ func decodeDNFields(dec tlv.Decoder) ([]pkix.AttributeTypeAndValue, error) {
 			if !ok {
 				return nil, fmt.Errorf("CommonName DN element is not a string")
 			}
-			atvs = append(atvs, pkix.AttributeTypeAndValue{Type: oidCommonName, Value: s})
+			atvs = append(atvs, utf8Attr(oidCommonName, s))
 		default:
 			if oid, ok := matterOIDForEnum(attrEnum); ok {
 				v, ok := elem.Unsigned()
 				if !ok {
 					return nil, fmt.Errorf("matter DN element is not an integer")
 				}
-				atvs = append(atvs, pkix.AttributeTypeAndValue{Type: oid, Value: uint64ToHexRDN(v)})
+				atvs = append(atvs, utf8Attr(oid, uint64ToHexRDN(v)))
 			}
 			// Unknown DN attribute type: already consumed by dec.Next(); dropped
 			// from the reconstructed DN (see encodeRDN's matching comment).
@@ -394,6 +394,24 @@ func decodeExtKeyUsageArray(dec tlv.Decoder) ([]asn1.ObjectIdentifier, error) {
 		}
 	}
 	return nil, dec.Error()
+}
+
+// utf8Attr builds a DN attribute whose value is explicitly tagged as an
+// ASN.1 UTF8String, rather than left to encoding/asn1's default heuristic
+// (which picks PrintableString for content — like our all-digit Matter ID
+// hex strings, or a plain CommonName — that fits PrintableString's narrower
+// character set). connectedhomeip's own certificate reconstruction
+// (src/credentials/CHIPCert.cpp ChipDN::EncodeToASN1) always emits
+// UTF8String for these fields, and matter/credentials/ca.go and
+// mattertest/certs/certgen.go now sign certificates with UTF8String too
+// (see their matching utf8Attr helpers) — this reconstruction must match,
+// or the DER this package rebuilds from a TLV certificate differs from what
+// was actually signed, byte-for-byte, breaking signature verification.
+func utf8Attr(oid asn1.ObjectIdentifier, s string) pkix.AttributeTypeAndValue {
+	return pkix.AttributeTypeAndValue{
+		Type:  oid,
+		Value: asn1.RawValue{Class: asn1.ClassUniversal, Tag: asn1.TagUTF8String, Bytes: []byte(s)},
+	}
 }
 
 func marshalRDNSequence(atvs []pkix.AttributeTypeAndValue) ([]byte, error) {

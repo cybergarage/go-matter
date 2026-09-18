@@ -21,6 +21,7 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/asn1"
 	"math/big"
 	"testing"
 	"time"
@@ -312,6 +313,15 @@ func TestAddNOCFailsOnNonSuccessStatus(t *testing.T) {
 	}
 }
 
+// oidCommonName and utf8CommonName mirror chipcert's own utf8Attr helper:
+// chipcert.TLVToDER always reconstructs CommonName as an ASN.1 UTF8String
+// (matching connectedhomeip's ChipDN::EncodeToASN1), so a cert signed here
+// with encoding/asn1's default PrintableString for "Test" would decode back
+// to different DER bytes than what was actually signed, even though this
+// test only compares the certificate's own bytes (not a signature) — the
+// round-trip must still be byte-identical to mean anything.
+var oidCommonName = asn1.ObjectIdentifier{2, 5, 4, 3}
+
 func generateSelfSignedCert(t *testing.T) []byte {
 	t.Helper()
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -321,10 +331,14 @@ func generateSelfSignedCert(t *testing.T) []byte {
 	now := time.Now()
 	tmpl := &x509.Certificate{
 		SerialNumber: big.NewInt(1),
-		Subject:      pkix.Name{CommonName: "Test"},
-		NotBefore:    now.Add(-time.Hour),
-		NotAfter:     now.Add(time.Hour),
-		KeyUsage:     x509.KeyUsageDigitalSignature,
+		Subject: pkix.Name{
+			ExtraNames: []pkix.AttributeTypeAndValue{
+				{Type: oidCommonName, Value: asn1.RawValue{Class: asn1.ClassUniversal, Tag: asn1.TagUTF8String, Bytes: []byte("Test")}},
+			},
+		},
+		NotBefore: now.Add(-time.Hour),
+		NotAfter:  now.Add(time.Hour),
+		KeyUsage:  x509.KeyUsageDigitalSignature,
 	}
 	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
 	if err != nil {
