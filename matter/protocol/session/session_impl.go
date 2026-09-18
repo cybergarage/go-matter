@@ -76,6 +76,13 @@ func (s *secureSession) SessionKeys() SessionKeys {
 // in the header is the initiator's node ID established during the PASE handshake.
 // 4.7. Encryption.
 func (s *secureSession) Transmit(payload []byte) error {
+	return s.transmitPayload(payload)
+}
+
+// transmitPayload does the actual encryption and send for Transmit and for
+// sendAck, which needs to transmit a standalone MRP acknowledgement outside
+// of the normal request/response flow.
+func (s *secureSession) transmitPayload(payload []byte) error {
 	// Atomically increment the outbound message counter.
 	counter := atomic.AddUint32(&s.msgCounter, 1)
 
@@ -119,6 +126,31 @@ func (s *secureSession) Transmit(payload []byte) error {
 	return s.t.Transmit(context.Background(), wire)
 }
 
+// sendAck transmits a standalone MRP acknowledgement (opcode 0x10,
+// SecureChannel protocol, no application payload) referencing a received
+// reliable message's exchange and message counter. Without this, a real
+// device retransmits every reliable message it never sees acknowledged,
+// according to its own retry schedule — and since each IM call
+// (im.Invoke / im.ReadBoolAttribute) opens a brand-new exchange with no
+// relation to the previous one, nothing else in this client's request/
+// response flow ever acknowledges a prior response. A late retransmission
+// then arrives interleaved with a later, unrelated exchange and gets
+// mistaken for its response.
+// 4.12.7.1. MRP Standalone Acknowledgement.
+func (s *secureSession) sendAck(exchangeID message.ExchangeID, protocolID message.ProtocolID, ackedCounter message.MessageCounter) error {
+	ackHdr := message.NewProtocolHeader(
+		message.WithHeaderExchangeID(exchangeID),
+		message.WithHeaderProtocolID(protocolID),
+		message.WithHeaderOpcode(message.MRPStandaloneAck),
+		message.WithHeaderAckCounter(ackedCounter),
+	)
+	payload, err := ackHdr.Bytes()
+	if err != nil {
+		return fmt.Errorf("session: failed to build MRP ack: %w", err)
+	}
+	return s.transmitPayload(payload)
+}
+
 // Receive reads one message from the transport, decrypts it using the R2IKey, and
 // returns the decrypted payload (protocol header + application payload bytes).
 // Standalone MRP acknowledgement messages (opcode 0x10, SecureChannel protocol,
@@ -132,7 +164,7 @@ func (s *secureSession) Transmit(payload []byte) error {
 // 4.7. Encryption / 4.10.5.3. Retransmissions.
 func (s *secureSession) Receive() ([]byte, error) {
 	for {
-		plaintext, err := s.receiveOne()
+		plaintext, hdr, err := s.receiveOne()
 		if errors.Is(err, errForeignSession) {
 			log.Debugf("session: %v, waiting for next message", err)
 			continue
@@ -140,31 +172,38 @@ func (s *secureSession) Receive() ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		protHdr, err := message.NewProtocolHeaderFromBytes(plaintext)
-		if err == nil && protHdr.Opcode().IsMRPStandaloneAck() {
+		protHdr, protHdrErr := message.NewProtocolHeaderFromBytes(plaintext)
+		if protHdrErr == nil && protHdr.Opcode().IsMRPStandaloneAck() {
 			log.Debugf("session: received standalone MRP ACK, waiting for next message")
 			continue
+		}
+		if protHdrErr == nil && protHdr.IsReliability() {
+			if ackErr := s.sendAck(protHdr.ExchangeID(), protHdr.ProtocolID(), hdr.MessageCounter()); ackErr != nil {
+				log.Errorf("session: failed to send MRP ack: %v", ackErr)
+			}
 		}
 		return plaintext, nil
 	}
 }
 
-// receiveOne reads and decrypts exactly one message from the transport.
-func (s *secureSession) receiveOne() ([]byte, error) {
+// receiveOne reads and decrypts exactly one message from the transport,
+// returning the decrypted payload along with the parsed (unencrypted)
+// message header, which the caller needs to acknowledge the message.
+func (s *secureSession) receiveOne() ([]byte, message.Header, error) {
 	ctx := context.Background()
 	raw, err := s.t.Receive(ctx)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	log.HexDebug(raw)
 	if len(raw) < 8 {
-		return nil, fmt.Errorf("session: received packet too short (%d bytes)", len(raw))
+		return nil, nil, fmt.Errorf("session: received packet too short (%d bytes)", len(raw))
 	}
 
 	// Parse the message header to determine its byte length.
 	hdr, err := message.NewHeaderFromBytes(raw)
 	if err != nil {
-		return nil, fmt.Errorf("session: failed to parse message header: %w", err)
+		return nil, nil, fmt.Errorf("session: failed to parse message header: %w", err)
 	}
 
 	// A message addressed to this session carries the SessionID we assigned
@@ -173,16 +212,16 @@ func (s *secureSession) receiveOne() ([]byte, error) {
 	// session's traffic; decrypting it with this session's keys would only
 	// ever fail AES-CCM authentication, so it's rejected here instead.
 	if hdr.SessionID() != s.keys.InitiatorSessionID() {
-		return nil, fmt.Errorf("%w (got %d, want %d)", errForeignSession, hdr.SessionID(), s.keys.InitiatorSessionID())
+		return nil, nil, fmt.Errorf("%w (got %d, want %d)", errForeignSession, hdr.SessionID(), s.keys.InitiatorSessionID())
 	}
 
 	// Compute the byte length of the header to split header from ciphertext.
 	hdrBytes, err := hdr.Bytes()
 	if err != nil {
-		return nil, fmt.Errorf("session: failed to serialize parsed header: %w", err)
+		return nil, nil, fmt.Errorf("session: failed to serialize parsed header: %w", err)
 	}
 	if len(raw) < len(hdrBytes) {
-		return nil, fmt.Errorf("session: packet shorter than header (%d < %d)", len(raw), len(hdrBytes))
+		return nil, nil, fmt.Errorf("session: packet shorter than header (%d < %d)", len(raw), len(hdrBytes))
 	}
 	ciphertextWithTag := raw[len(hdrBytes):]
 
@@ -202,10 +241,10 @@ func (s *secureSession) receiveOne() ([]byte, error) {
 	// Decrypt using R2IKey (responder-to-initiator).
 	plaintext, err := crypto.CryptoCCMDecrypt(s.keys.R2IKey(), nonce, ciphertextWithTag, hdrBytes)
 	if err != nil {
-		return nil, fmt.Errorf("session: AES-CCM decryption failed (securityFlags=%#02x, sessionID=%d, msgCounter=%d, hdrLen=%d, rawLen=%d): %w",
+		return nil, nil, fmt.Errorf("session: AES-CCM decryption failed (securityFlags=%#02x, sessionID=%d, msgCounter=%d, hdrLen=%d, rawLen=%d): %w",
 			byte(hdr.SecurityFlags()), hdr.SessionID(), msgCounter, len(hdrBytes), len(raw), err)
 	}
 
 	log.HexDebug(plaintext)
-	return plaintext, nil
+	return plaintext, hdr, nil
 }

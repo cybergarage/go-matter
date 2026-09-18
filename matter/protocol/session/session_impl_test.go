@@ -35,13 +35,17 @@ func (k *stubSessionKeys) LocalNodeID() NodeID           { return 0 }
 func (k *stubSessionKeys) PeerNodeID() NodeID            { return 0 }
 func (k *stubSessionKeys) AttestationChallenge() []byte  { return nil }
 
-// queueTransport replays a fixed queue of packets on Receive and discards
-// anything sent via Transmit.
+// queueTransport replays a fixed queue of packets on Receive and records
+// everything sent via Transmit.
 type queueTransport struct {
-	packets [][]byte
+	packets   [][]byte
+	transmits [][]byte
 }
 
-func (t *queueTransport) Transmit(ctx context.Context, b []byte) error { return nil }
+func (t *queueTransport) Transmit(ctx context.Context, b []byte) error {
+	t.transmits = append(t.transmits, append([]byte{}, b...))
+	return nil
+}
 
 func (t *queueTransport) Receive(ctx context.Context) ([]byte, error) {
 	p := t.packets[0]
@@ -159,5 +163,92 @@ func TestSecureSessionReceiveSkipsForeignSessionPacket(t *testing.T) {
 	}
 	if !bytes.Equal(got, realPayload) {
 		t.Errorf("Receive() = %q, want %q (the foreign-session packet should have been skipped)", got, realPayload)
+	}
+}
+
+// decryptWireMessage decrypts a wire packet transmitted by a secureSession
+// (I2RKey, LocalNodeID 0, per stubSessionKeys) and returns the decrypted
+// protocol-header-only plaintext.
+func decryptWireMessage(t *testing.T, key []byte, wire []byte) message.ProtocolHeader {
+	t.Helper()
+	hdr, err := message.NewHeaderFromBytes(wire)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hdrBytes, err := hdr.Bytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	nonce := crypto.CryptoCCMNonce(byte(hdr.SecurityFlags()), uint32(hdr.MessageCounter()), 0)
+	plaintext, err := crypto.CryptoCCMDecrypt(key, nonce, wire[len(hdrBytes):], hdrBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	protHdr, err := message.NewProtocolHeaderFromBytes(plaintext)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return protHdr
+}
+
+// TestSecureSessionReceiveSendsMRPAckForReliableMessage guards against a
+// regression where Receive never acknowledged any reliable message it got
+// (im.Invoke / im.ReadBoolAttribute each open a brand-new, unrelated
+// exchange per call, so nothing else in the request/response flow ever
+// referenced a prior response's message counter). Against a real device,
+// this meant every response went permanently unacknowledged; the device
+// retransmitted an early response (per its own MRP retry schedule) much
+// later in the session, and that stray retransmission — sharing this
+// session's SessionID, so the earlier foreign-session filter didn't catch it
+// — arrived interleaved with an unrelated later exchange and was
+// misinterpreted as its response. Receive must send a standalone MRP ack
+// (opcode 0x10) referencing the received message's ExchangeID, ProtocolID
+// and MessageCounter immediately after receiving any reliable message, so
+// the device has no reason to retransmit it.
+func TestSecureSessionReceiveSendsMRPAckForReliableMessage(t *testing.T) {
+	key := bytes.Repeat([]byte{0x33}, 16)
+	keys := &stubSessionKeys{i2rKey: key, r2iKey: key}
+
+	respHdr := message.NewProtocolHeader(
+		message.WithHeaderExchangeFlags(message.AckFlag|message.ReliabilityFlag),
+		message.WithHeaderOpcode(message.InvokeResponseMessage),
+		message.WithHeaderExchangeID(0xBEEF),
+		message.WithHeaderProtocolID(message.InteractionModel),
+	)
+	respBytes, err := respHdr.Bytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const receivedCounter = 42
+	transport := &queueTransport{packets: [][]byte{
+		encryptDeviceMessage(t, key, receivedCounter, respBytes),
+	}}
+
+	sess := NewSecureSession(transport, keys)
+	if _, err := sess.Receive(); err != nil {
+		t.Fatalf("Receive() error = %v", err)
+	}
+
+	if len(transport.transmits) != 1 {
+		t.Fatalf("transport.transmits has %d entries, want 1 (the MRP ack)", len(transport.transmits))
+	}
+	ackProtHdr := decryptWireMessage(t, key, transport.transmits[0])
+
+	if !ackProtHdr.Opcode().IsMRPStandaloneAck() {
+		t.Errorf("ack Opcode() = %v, want MRPStandaloneAck", ackProtHdr.Opcode())
+	}
+	if got := ackProtHdr.ExchangeID(); got != 0xBEEF {
+		t.Errorf("ack ExchangeID() = %#x, want 0xBEEF", got)
+	}
+	if got := ackProtHdr.ProtocolID(); got != message.InteractionModel {
+		t.Errorf("ack ProtocolID() = %v, want InteractionModel", got)
+	}
+	ackedCounter, ok := ackProtHdr.AckMessageCounter()
+	if !ok {
+		t.Fatal("ack AckMessageCounter() not present")
+	}
+	if ackedCounter != receivedCounter {
+		t.Errorf("ack AckMessageCounter() = %d, want %d", ackedCounter, receivedCounter)
 	}
 }
