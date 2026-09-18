@@ -18,6 +18,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/sha1"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
@@ -40,6 +41,7 @@ const (
 
 var (
 	matterNodeIDOID   = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 37244, 1, 1}
+	matterRCACIDOID   = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 37244, 1, 4}
 	matterFabricIDOID = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 37244, 1, 5}
 )
 
@@ -82,14 +84,38 @@ func run() error {
 	}
 
 	now := time.Now()
+
+	// RFC 5280 ยง4.2.1.2 method (1): SKID = SHA-1(subjectPublicKey BIT STRING
+	// content). Computed explicitly, rather than left for x509.CreateCertificate
+	// to auto-generate, because a self-signed certificate (parent == template)
+	// needs its AuthorityKeyId set to this same value up front — Go only
+	// auto-copies a parent's SubjectKeyId into the issued cert's
+	// AuthorityKeyId when the parent is a distinct, already-populated
+	// certificate, not when signing a certificate with itself. Matter
+	// requires an RCAC's AuthorityKeyId to equal its own SubjectKeyId
+	// (connectedhomeip's ValidateChipRCAC), and requires the Subject DN to
+	// carry the MatterRCACId attribute for the certificate to be recognized
+	// as a root ("GetCertType" in src/credentials/CHIPCert.cpp) — a real
+	// device rejected AddTrustedRootCertificate with InvalidCommand for
+	// missing both.
+	rootPubKeyBytes := elliptic.Marshal(rootKey.PublicKey.Curve, rootKey.PublicKey.X, rootKey.PublicKey.Y)
+	rootSKID := sha1.Sum(rootPubKeyBytes)
+
 	rootTemplate := &x509.Certificate{
-		SerialNumber:          rootSerial,
-		Subject:               pkix.Name{CommonName: "go-matter Test Administrator Root CA"},
+		SerialNumber: rootSerial,
+		Subject: pkix.Name{
+			CommonName: "go-matter Test Administrator Root CA",
+			ExtraNames: []pkix.AttributeTypeAndValue{
+				{Type: matterRCACIDOID, Value: "0000000000000001"},
+			},
+		},
 		NotBefore:             now.Add(-time.Hour),
 		NotAfter:              now.Add(time.Duration(days) * 24 * time.Hour),
 		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
 		BasicConstraintsValid: true,
 		IsCA:                  true,
+		SubjectKeyId:          rootSKID[:],
+		AuthorityKeyId:        rootSKID[:],
 	}
 	rootDER, err := x509.CreateCertificate(rand.Reader, rootTemplate, rootTemplate, &rootKey.PublicKey, rootKey)
 	if err != nil {
@@ -105,10 +131,11 @@ func run() error {
 				{Type: matterFabricIDOID, Value: fabricIDHex},
 			},
 		},
-		NotBefore:   now.Add(-time.Hour),
-		NotAfter:    now.Add(time.Duration(days) * 24 * time.Hour),
-		KeyUsage:    x509.KeyUsageDigitalSignature,
-		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+		NotBefore:      now.Add(-time.Hour),
+		NotAfter:       now.Add(time.Duration(days) * 24 * time.Hour),
+		KeyUsage:       x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:    []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+		AuthorityKeyId: rootSKID[:],
 	}
 	adminNOCDER, err := x509.CreateCertificate(rand.Reader, adminTemplate, rootTemplate, &adminKey.PublicKey, rootKey)
 	if err != nil {

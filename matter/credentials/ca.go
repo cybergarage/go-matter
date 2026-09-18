@@ -82,9 +82,15 @@ func NewCertificateAuthority(rootCertBytes, rootPrivateKeyBytes []byte, fabricID
 // IssueNOC signs a Node Operational Certificate binding the given CSR's
 // public key to nodeID on this CA's fabric, matching the Matter custom-OID
 // Subject RDN convention this repo already uses for administrator NOCs
-// (see mattertest/certs/certgen.go). The returned certificate is DER-encoded
-// X.509; convert it to the Matter-TLV wire format with
-// matter/credentials/chipcert.DERToTLV before sending it via AddNOC.
+// (see mattertest/certs/certgen.go). AuthorityKeyId is set explicitly to
+// ca.rootCert.SubjectKeyId rather than left for x509.CreateCertificate to
+// derive: certificate chain validation looks up the issuing CA by matching
+// (IssuerDN, AuthorityKeyId) against a candidate's (SubjectDN,
+// SubjectKeyId) (connectedhomeip's ChipCertificateSet::FindValidCert), so an
+// unset AuthorityKeyId on the issued NOC would fail chain validation during
+// CASE. The returned certificate is DER-encoded X.509; convert it to the
+// Matter-TLV wire format with matter/credentials/chipcert.DERToTLV before
+// sending it via AddNOC.
 func (ca *CertificateAuthority) IssueNOC(csr *x509.CertificateRequest, nodeID uint64) ([]byte, error) {
 	pub, ok := csr.PublicKey.(*ecdsa.PublicKey)
 	if !ok {
@@ -104,10 +110,11 @@ func (ca *CertificateAuthority) IssueNOC(csr *x509.CertificateRequest, nodeID ui
 				{Type: oidMatterFabricID, Value: uint64ToHexRDNValue(ca.fabricID)},
 			},
 		},
-		NotBefore:   now.Add(-time.Hour),
-		NotAfter:    now.Add(10 * 365 * 24 * time.Hour),
-		KeyUsage:    x509.KeyUsageDigitalSignature,
-		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		NotBefore:      now.Add(-time.Hour),
+		NotAfter:       now.Add(10 * 365 * 24 * time.Hour),
+		KeyUsage:       x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:    []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		AuthorityKeyId: ca.rootCert.SubjectKeyId,
 	}
 	der, err := x509.CreateCertificate(rand.Reader, tmpl, ca.rootCert, pub, ca.rootKey)
 	if err != nil {
