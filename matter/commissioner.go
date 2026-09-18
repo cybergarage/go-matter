@@ -25,8 +25,19 @@ import (
 const (
 	// DefaultDiscoveryTimeout is the default discovery timeout.
 	DefaultDiscoveryTimeout = time.Duration(5 * time.Second)
-	// DefaultCommissioningTimeout is the default commissioning timeout.
-	DefaultCommissioningTimeout = time.Duration(5 * time.Second)
+	// DefaultCommissioningTimeout is the default commissioning timeout,
+	// bounding the entire PASE-through-CASE commissioning exchange (dozens
+	// of round trips: PASE handshake, ArmFailSafe, device attestation,
+	// CSR/NOC issuance, AddTrustedRootCertificate, AddNOC, CASE). 5 seconds
+	// proved far too short against a real device — the connection's read
+	// deadline is derived from this single ctx.Deadline() set once at the
+	// start of Commission(), not reset per round trip, and a real device can
+	// legitimately take several seconds around AddNOC alone (committing the
+	// new fabric to persistent storage). 60 seconds matches
+	// armFailSafeExpiry in commissioning_impl.go: the device's own fail-safe
+	// timer, which the commissioner is racing against regardless, is already
+	// set to that duration.
+	DefaultCommissioningTimeout = time.Duration(60 * time.Second)
 )
 
 // Commissioner represents a commissioner interface.
