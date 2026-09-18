@@ -110,8 +110,32 @@ func (s *secureSession) Transmit(payload []byte) error {
 
 // Receive reads one message from the transport, decrypts it using the R2IKey, and
 // returns the decrypted payload (protocol header + application payload bytes).
-// 4.7. Encryption.
+// Standalone MRP acknowledgement messages (opcode 0x10, SecureChannel protocol,
+// no application payload) are silently discarded and the next message is
+// awaited instead: a responder that needs time to process a request (e.g.
+// AttestationRequest, which involves a DAC signing operation) may send one to
+// satisfy the sender's retransmission timer before the real response is
+// ready, exactly as PASE's Initiator.receiveSkipAck and CASE's client.go
+// already do for the unencrypted handshake phase — this is the same pattern
+// applied to the encrypted post-handshake session.
+// 4.7. Encryption / 4.10.5.3. Retransmissions.
 func (s *secureSession) Receive() ([]byte, error) {
+	for {
+		plaintext, err := s.receiveOne()
+		if err != nil {
+			return nil, err
+		}
+		protHdr, err := message.NewProtocolHeaderFromBytes(plaintext)
+		if err == nil && protHdr.Opcode().IsMRPStandaloneAck() {
+			log.Debugf("session: received standalone MRP ACK, waiting for next message")
+			continue
+		}
+		return plaintext, nil
+	}
+}
+
+// receiveOne reads and decrypts exactly one message from the transport.
+func (s *secureSession) receiveOne() ([]byte, error) {
 	ctx := context.Background()
 	raw, err := s.t.Receive(ctx)
 	if err != nil {
