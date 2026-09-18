@@ -143,7 +143,17 @@ func commissionOverPASE(
 	requireNetwork bool,
 ) (deviceOperationalIdentity, error) {
 	const (
-		armFailSafeExpiry uint16 = 60 // seconds
+		// armFailSafeExpiry must comfortably cover the entire commissioning
+		// exchange, not just the PASE-side steps: on a real device, AddNOC
+		// makes the device join the fabric and start re-advertising itself
+		// operationally over mDNS, and CASE then has to rediscover it via
+		// that new operational mDNS record before Sigma1 can even be sent —
+		// on a busy network with many other mDNS-chatty devices, that
+		// discovery step alone was observed taking ~55s, blowing well past
+		// a 60s failsafe (armed once at the start, matching
+		// DefaultCommissioningTimeout in commissioner.go) before Sigma1 was
+		// ever transmitted.
+		armFailSafeExpiry uint16 = 120 // seconds
 		breadcrumb        uint64 = 1
 	)
 

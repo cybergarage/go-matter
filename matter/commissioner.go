@@ -28,16 +28,22 @@ const (
 	// DefaultCommissioningTimeout is the default commissioning timeout,
 	// bounding the entire PASE-through-CASE commissioning exchange (dozens
 	// of round trips: PASE handshake, ArmFailSafe, device attestation,
-	// CSR/NOC issuance, AddTrustedRootCertificate, AddNOC, CASE). 5 seconds
-	// proved far too short against a real device — the connection's read
-	// deadline is derived from this single ctx.Deadline() set once at the
-	// start of Commission(), not reset per round trip, and a real device can
-	// legitimately take several seconds around AddNOC alone (committing the
-	// new fabric to persistent storage). 60 seconds matches
-	// armFailSafeExpiry in commissioning_impl.go: the device's own fail-safe
-	// timer, which the commissioner is racing against regardless, is already
-	// set to that duration.
-	DefaultCommissioningTimeout = time.Duration(60 * time.Second)
+	// CSR/NOC issuance, AddTrustedRootCertificate, AddNOC, operational mDNS
+	// discovery, CASE). The connection's read/write deadlines are derived
+	// from this single ctx.Deadline() set once at the start of Commission(),
+	// not reset per round trip. 5 seconds proved far too short against a
+	// real device (AddNOC alone can take several seconds while the device
+	// commits the new fabric to persistent storage); 60 seconds later also
+	// proved too short once AddNOC actually succeeded end to end — after
+	// joining the fabric, the device re-advertises itself operationally over
+	// mDNS, and CASE has to rediscover it via that new record before Sigma1
+	// can be sent, which on a busy network with many other mDNS-chatty
+	// devices was observed taking ~55s by itself, expiring the deadline
+	// mid-CASE ("write udp ...: i/o timeout" on Sigma1, at exactly the 60s
+	// mark). 120 seconds matches armFailSafeExpiry in commissioning_impl.go:
+	// the device's own fail-safe timer, which the commissioner is racing
+	// against regardless, is already set to that duration.
+	DefaultCommissioningTimeout = time.Duration(120 * time.Second)
 )
 
 // Commissioner represents a commissioner interface.
