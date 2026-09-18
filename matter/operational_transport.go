@@ -60,7 +60,9 @@ func lookupOperationalAddrPort(node mdnspkg.CommissionableNode) (net.IP, int, st
 			ifaces, err := net.Interfaces()
 			if err == nil {
 				for _, iface := range ifaces {
-					if iface.Flags&net.FlagUp == 0 {
+					// Skip down or loopback interfaces; see the matching
+					// comment in device_mdns.go's lookupAddrPort.
+					if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
 						continue
 					}
 					ifaceAddrs, err := iface.Addrs()

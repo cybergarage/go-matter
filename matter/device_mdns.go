@@ -118,12 +118,18 @@ func (dev *mDNSDevice) openConn(ctx context.Context) (*net.UDPConn, error) {
 				ifaces, err := net.Interfaces()
 				if err == nil {
 					for _, iface := range ifaces {
-						// Skip down interfaces
-						if iface.Flags&net.FlagUp == 0 {
+						// Skip down or loopback interfaces. Loopback always
+						// has its own fe80::1 link-local address, so without
+						// this exclusion it would be picked as the zone for
+						// ANY discovered link-local address on systems where
+						// it's enumerated first — routing the packet nowhere
+						// near the actual device.
+						if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
 							continue
 						}
-						// For link-local, use the first up interface with an IPv6 address
-						// The OS routing will handle finding the correct path
+						// For link-local, use the first up, non-loopback
+						// interface with an IPv6 address. The OS routing
+						// will handle finding the correct path
 						ifaceAddrs, err := iface.Addrs()
 						if err != nil {
 							continue
