@@ -127,7 +127,10 @@ func commissionWithSession(
 		return err
 	}
 
-	if err := finalizeCommissioningOverCASE(ctx, discoverer, operationalCfg, adminCfg, identity); err != nil {
+	// sess.Transport() is passed through so finalizeCommissioningOverCASE can
+	// try to reuse this same already-open connection for CASE instead of
+	// opening a new one — see establishCASESession's doc comment for why.
+	if err := finalizeCommissioningOverCASE(ctx, discoverer, operationalCfg, adminCfg, identity, sess.Transport()); err != nil {
 		return err
 	}
 
@@ -199,6 +202,7 @@ func finalizeCommissioningOverCASE(
 	operationalCfg config.OperationalCredentialsConfig,
 	adminCfg config.AdministratorConfig,
 	identity deviceOperationalIdentity,
+	paseTransport caseprotocol.Transport,
 ) error {
 	if adminCfg == nil {
 		return fmt.Errorf("commissioning: administrator config is required for CASE finalization")
@@ -228,7 +232,7 @@ func finalizeCommissioningOverCASE(
 	}
 
 	log.Infof("Commissioning: CASE")
-	caseSess, err := establishOperationalCASESession(ctx, node, peer, adminCfg)
+	caseSess, err := establishOperationalCASESession(ctx, node, peer, adminCfg, paseTransport)
 	if err != nil {
 		return err
 	}
@@ -452,8 +456,9 @@ func establishCASESession(
 	node mdnspkg.CommissionableNode,
 	peer operationalCASEPeer,
 	adminCfg config.AdministratorConfig,
+	paseTransport caseprotocol.Transport,
 ) (session.SecureSession, error) {
-	t, err := newOperationalUDPTransport(ctx, node)
+	t, err := resolveOperationalTransport(ctx, node, paseTransport)
 	if err != nil {
 		return nil, fmt.Errorf("commissioning: CASE finalization: %w", err)
 	}
@@ -465,8 +470,14 @@ func establishCASESession(
 	)
 	keys, err := initiator.EstablishSession(ctx)
 	if err != nil {
-		if closeErr := t.Close(); closeErr != nil {
-			log.Error(closeErr)
+		// Only close t if we opened it ourselves: a reused paseTransport
+		// (e.g. *mDNSDevice) is owned and closed by its own caller, and
+		// doesn't implement Close() at all, so this type assertion already
+		// naturally skips it.
+		if closer, ok := t.(interface{ Close() error }); ok {
+			if closeErr := closer.Close(); closeErr != nil {
+				log.Error(closeErr)
+			}
 		}
 		return nil, fmt.Errorf("commissioning: CASE finalization: %w", err)
 	}

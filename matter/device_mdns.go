@@ -210,6 +210,18 @@ func (dev *mDNSDevice) openConn(ctx context.Context) (*net.UDPConn, error) {
 	return conn, nil
 }
 
+// RemoteAddr returns the address of the peer this device's connection is
+// dialed to, so CASE finalization can tell whether it's safe to reuse this
+// same connection instead of opening a new one for the operational node —
+// see the matching comment on establishCASESession's reuse logic for why
+// that matters.
+func (dev *mDNSDevice) RemoteAddr() net.Addr {
+	if dev.conn == nil {
+		return nil
+	}
+	return dev.conn.RemoteAddr()
+}
+
 // Transmit writes data to the transport.
 func (dev *mDNSDevice) Transmit(ctx context.Context, b []byte) error {
 	if dev.conn == nil {

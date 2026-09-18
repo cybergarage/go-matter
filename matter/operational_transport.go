@@ -6,6 +6,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/cybergarage/go-matter/matter/io"
 	mdnspkg "github.com/cybergarage/go-matter/matter/mdns"
 )
 
@@ -133,4 +134,51 @@ func (t *operationalUDPTransport) Receive(ctx context.Context) ([]byte, error) {
 
 func (t *operationalUDPTransport) Close() error {
 	return t.conn.Close()
+}
+
+// remoteAddrProvider is implemented by transports (e.g. *mDNSDevice) that can
+// report the peer address their underlying connection is already dialed to.
+type remoteAddrProvider interface {
+	RemoteAddr() net.Addr
+}
+
+// resolveOperationalTransport decides how to reach node for CASE: if
+// paseTransport (the connection PASE/commissioning already used) is dialed
+// to an address that's also one of node's operational addresses, it's reused
+// directly instead of opening a second connection.
+//
+// This matters because a real device was observed responding instantly and
+// reliably to every single PASE-phase message, then never responding at all
+// — confirmed at the packet-capture level, not just a client-side read
+// timeout — to CASE Sigma1 sent from a freshly dialed UDP socket (a new
+// local/ephemeral port) to that exact same peer address. connectedhomeip's
+// own Transport::UDP binds a single local endpoint once and reuses it for
+// every peer and session for the life of the controller
+// (src/transport/raw/UDP.h); this codebase instead opened an independent
+// socket per logical connection (one for the commissionable-node PASE phase
+// in device_mdns.go, a separate one here for the operational/CASE phase),
+// which — for whatever reason on the real device's network stack — the
+// device did not treat as a continuation of the same peer. Reusing the
+// existing connection when it already points at the right address matches
+// the one-shared-endpoint model and avoids the new-source-port problem
+// entirely; a genuinely different operational address (e.g. BLE-to-WiFi
+// commissioning, where PASE never had a UDP connection at all) still falls
+// through to dialing a new one exactly as before.
+func resolveOperationalTransport(ctx context.Context, node mdnspkg.CommissionableNode, paseTransport io.Transport) (io.Transport, error) {
+	if reusable, ok := paseTransport.(remoteAddrProvider); ok {
+		if paseAddr, ok := reusable.RemoteAddr().(*net.UDPAddr); ok && paseAddr != nil {
+			if addrs, ok := node.Addresses(); ok {
+				port, hasPort := node.Port()
+				for _, addr := range addrs {
+					if hasPort && port != paseAddr.Port {
+						continue
+					}
+					if addr.Equal(paseAddr.IP) {
+						return paseTransport, nil
+					}
+				}
+			}
+		}
+	}
+	return newOperationalUDPTransport(ctx, node)
 }

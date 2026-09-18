@@ -34,6 +34,7 @@ import (
 	mcrypto "github.com/cybergarage/go-matter/matter/crypto"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 	mdnspkg "github.com/cybergarage/go-matter/matter/mdns"
+	caseprotocol "github.com/cybergarage/go-matter/matter/protocol/case"
 	"github.com/cybergarage/go-matter/matter/protocol/im"
 	"github.com/cybergarage/go-matter/matter/protocol/session"
 )
@@ -263,7 +264,7 @@ func TestCommissionWithSessionReturnsExplicitNonConcurrentError(t *testing.T) {
 }
 
 func TestFinalizeCommissioningOverCASERequiresAdministratorConfig(t *testing.T) {
-	err := finalizeCommissioningOverCASE(context.Background(), &stubDiscoverer{}, validOperationalCredentialsConfig(), nil, deviceOperationalIdentity{nodeID: 1})
+	err := finalizeCommissioningOverCASE(context.Background(), &stubDiscoverer{}, validOperationalCredentialsConfig(), nil, deviceOperationalIdentity{nodeID: 1}, nil)
 	if err == nil {
 		t.Fatal("finalizeCommissioningOverCASE(...) error = nil, want non-nil")
 	}
@@ -321,12 +322,12 @@ func TestFinalizeCommissioningOverCASEPropagatesOperationalDiscoveryFailure(t *t
 	operationalNodeDiscoverer = func(context.Context, mdnspkg.Discoverer, operationalCASEPeer) (mdnspkg.CommissionableNode, error) {
 		return nil, fmt.Errorf("operational discovery timeout")
 	}
-	establishOperationalCASESession = func(context.Context, mdnspkg.CommissionableNode, operationalCASEPeer, config.AdministratorConfig) (session.SecureSession, error) {
+	establishOperationalCASESession = func(context.Context, mdnspkg.CommissionableNode, operationalCASEPeer, config.AdministratorConfig, caseprotocol.Transport) (session.SecureSession, error) {
 		t.Fatal("establishOperationalCASESession should not be called when discovery fails")
 		return nil, nil
 	}
 
-	err := finalizeCommissioningOverCASE(context.Background(), &stubDiscoverer{}, validOperationalCredentialsConfig(), validAdministratorConfig(), deviceOperationalIdentity{nodeID: 1})
+	err := finalizeCommissioningOverCASE(context.Background(), &stubDiscoverer{}, validOperationalCredentialsConfig(), validAdministratorConfig(), deviceOperationalIdentity{nodeID: 1}, nil)
 	if err == nil {
 		t.Fatal("finalizeCommissioningOverCASE(...) error = nil, want non-nil")
 	}
