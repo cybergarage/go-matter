@@ -306,10 +306,24 @@ func parseCommandStatusIB(dec tlv.Decoder, resp *InvokeResponse) error {
 // consumed the Structure-begin marker.
 // 10.7.17.2. Status IB.
 func parseStatusIB(dec tlv.Decoder, resp *InvokeResponse) error {
+	status, err := decodeStatusIB(dec)
+	if err != nil {
+		return err
+	}
+	resp.Status = status
+	return nil
+}
+
+// decodeStatusIB decodes a StatusIB's fields, assuming the caller has
+// already consumed the Structure-begin marker. Shared by InvokeResponseIB
+// (10.7.17.2) and AttributeStatusIB (10.6.5) parsing, which both nest a
+// StatusIB identically.
+func decodeStatusIB(dec tlv.Decoder) (InvokeStatus, error) {
+	var status InvokeStatus
 	for dec.Next() {
 		elem := dec.Element()
 		if elem.Type().IsEndOfContainer() {
-			return dec.Error()
+			return status, dec.Error()
 		}
 		ct, ok := elem.Tag().(tlv.ContextTag)
 		if !ok {
@@ -318,15 +332,15 @@ func parseStatusIB(dec tlv.Decoder, resp *InvokeResponse) error {
 		switch ct.ContextNumber() {
 		case 0:
 			if v, ok := elem.Unsigned1(); ok {
-				resp.Status.IMStatus = v
+				status.IMStatus = v
 			}
 		case 1:
 			if v, ok := elem.Unsigned1(); ok {
-				resp.Status.ClusterStatus = v
+				status.ClusterStatus = v
 			}
 		}
 	}
-	return dec.Error()
+	return status, dec.Error()
 }
 
 // parseCommandDataIB decodes a CommandDataIB's fields, assuming the caller

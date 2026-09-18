@@ -14,7 +14,16 @@
 
 package im
 
-// ReadResponse is the parsed result of a ReadResponse IM message.
+import "github.com/cybergarage/go-matter/matter/encoding/tlv"
+
+// ReadResponse is the parsed result of a ReadResponse (ReportDataMessage) IM
+// message for a single requested attribute path.
+// 10.7.9. ReportDataMessage.
 type ReadResponse struct {
-	Payload []byte
+	// Status is set when the device returned an AttributeStatusIB for the
+	// requested path (i.e. an error) instead of attribute data.
+	Status *InvokeStatus
+	// Value holds the decoded AttributeDataIB's Data element when the
+	// device returned attribute data successfully. Nil when Status is set.
+	Value tlv.Element
 }
