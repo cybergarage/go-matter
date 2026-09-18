@@ -272,6 +272,44 @@ func TestFinalizeCommissioningOverCASERequiresAdministratorConfig(t *testing.T) 
 	}
 }
 
+// TestDiscoverOperationalNodeBoundsSearchContext guards against a real
+// regression: discoverOperationalNode passed the single ctx spanning the
+// entire PASE-through-CASE commissioning exchange straight through to
+// mdns.Discoverer.Search. Since that ctx already has a (long) deadline,
+// Search's own short-default-timeout fallback never kicks in (it only
+// applies when the given ctx has no deadline at all), so the underlying
+// mDNS query blocked collecting responses for however much of the overall
+// commissioning budget was left — observed on a real device taking well
+// over 100s to return even though the matching operational record had
+// already been seen within about a second.
+func TestDiscoverOperationalNodeBoundsSearchContext(t *testing.T) {
+	var gotDeadline time.Time
+	var gotOK bool
+	disc := &capturingDiscoverer{
+		searchFunc: func(ctx context.Context, _ mdnspkg.Query) ([]mdnspkg.CommissionableNode, error) {
+			gotDeadline, gotOK = ctx.Deadline()
+			return nil, nil
+		},
+	}
+
+	// A long-lived outer deadline, standing in for
+	// DefaultCommissioningTimeout's 120s span.
+	outerCtx, cancel := context.WithTimeout(context.Background(), time.Hour)
+	defer cancel()
+
+	before := time.Now()
+	_, _ = discoverOperationalNode(outerCtx, disc, operationalCASEPeer{serviceInstance: "test"})
+
+	if !gotOK {
+		t.Fatal("discoverOperationalNode passed Search a context with no deadline, want one bounded to DefaultDiscoveryTimeout")
+	}
+	maxExpected := before.Add(DefaultDiscoveryTimeout + time.Second)
+	if gotDeadline.After(maxExpected) {
+		t.Errorf("Search context deadline = %s, want within DefaultDiscoveryTimeout (%s) of now, not the outer ctx's ~1h deadline",
+			gotDeadline, DefaultDiscoveryTimeout)
+	}
+}
+
 func TestFinalizeCommissioningOverCASEPropagatesOperationalDiscoveryFailure(t *testing.T) {
 	prevDiscoverOperational := operationalNodeDiscoverer
 	prevEstablishCASE := establishOperationalCASESession
@@ -358,6 +396,19 @@ type stubDiscoverer struct{}
 func (*stubDiscoverer) Search(context.Context, mdnspkg.Query) ([]mdnspkg.CommissionableNode, error) {
 	return nil, nil
 }
+
+// capturingDiscoverer lets a test inspect exactly what ctx/query
+// discoverOperationalNode passes to mdns.Discoverer.Search.
+type capturingDiscoverer struct {
+	searchFunc func(context.Context, mdnspkg.Query) ([]mdnspkg.CommissionableNode, error)
+}
+
+func (d *capturingDiscoverer) Search(ctx context.Context, q mdnspkg.Query) ([]mdnspkg.CommissionableNode, error) {
+	return d.searchFunc(ctx, q)
+}
+
+func (*capturingDiscoverer) Start() error { return nil }
+func (*capturingDiscoverer) Stop() error  { return nil }
 
 func (*stubDiscoverer) Start() error { return nil }
 func (*stubDiscoverer) Stop() error  { return nil }

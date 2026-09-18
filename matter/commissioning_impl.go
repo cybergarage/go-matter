@@ -425,7 +425,19 @@ func discoverOperationalNode(
 	discoverer mdnspkg.Discoverer,
 	peer operationalCASEPeer,
 ) (mdnspkg.CommissionableNode, error) {
-	nodes, err := discoverer.Search(ctx, mdnspkg.NewOperationalNodeQuery(peer.serviceInstance))
+	// Bounded to DefaultDiscoveryTimeout regardless of how much of the
+	// overall commissioning ctx's deadline remains: mdns.Discoverer.Search
+	// only applies its own short default timeout when the ctx it's given
+	// has NO deadline at all (see matter/mdns/discoverer_impl.go); since ctx
+	// here is the single deadline spanning the whole PASE-through-CASE
+	// exchange (matter/commissioner.go's DefaultCommissioningTimeout), it
+	// already has one, so without this the underlying mDNS query blocks
+	// collecting responses for whatever's left of that budget — observed on
+	// a real device taking well over 100s to return even though the
+	// matching operational record was already seen within about a second.
+	searchCtx, cancel := context.WithTimeout(ctx, DefaultDiscoveryTimeout)
+	defer cancel()
+	nodes, err := discoverer.Search(searchCtx, mdnspkg.NewOperationalNodeQuery(peer.serviceInstance))
 	if err != nil {
 		return nil, fmt.Errorf("commissioning: operational discovery failed: %w", err)
 	}
