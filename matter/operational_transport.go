@@ -10,8 +10,13 @@ import (
 )
 
 type operationalUDPTransport struct {
-	conn    *net.UDPConn
-	readBuf []byte
+	conn *net.UDPConn
+	// maxDeadline is the outer bound (from the ctx given to
+	// newOperationalUDPTransport, or DefaultCommissioningTimeout if it had
+	// none) that no per-call deadline may exceed, no matter what a caller's
+	// ctx says — see effectiveDeadline.
+	maxDeadline time.Time
+	readBuf     []byte
 }
 
 func newOperationalUDPTransport(ctx context.Context, node mdnspkg.CommissionableNode) (*operationalUDPTransport, error) {
@@ -32,18 +37,23 @@ func newOperationalUDPTransport(ctx context.Context, node mdnspkg.Commissionable
 	if !ok {
 		deadline = time.Now().Add(DefaultCommissioningTimeout)
 	}
-	if err := conn.SetWriteDeadline(deadline); err != nil {
-		conn.Close()
-		return nil, err
-	}
-	if err := conn.SetReadDeadline(deadline); err != nil {
-		conn.Close()
-		return nil, err
-	}
 	return &operationalUDPTransport{
-		conn:    conn,
-		readBuf: make([]byte, 1500),
+		conn:        conn,
+		maxDeadline: deadline,
+		readBuf:     make([]byte, 1500),
 	}, nil
+}
+
+// effectiveDeadline returns the earlier of ctx's own deadline (if any) and
+// t.maxDeadline, so a caller can bound a single Transmit/Receive call to a
+// short per-attempt window (e.g. for retrying a lost packet) without ever
+// extending the connection past the deadline it was opened with.
+func (t *operationalUDPTransport) effectiveDeadline(ctx context.Context) time.Time {
+	deadline := t.maxDeadline
+	if ctxDeadline, ok := ctx.Deadline(); ok && ctxDeadline.Before(deadline) {
+		deadline = ctxDeadline
+	}
+	return deadline
 }
 
 func lookupOperationalAddrPort(node mdnspkg.CommissionableNode) (net.IP, int, string, error) {
@@ -96,7 +106,10 @@ func lookupOperationalAddrPort(node mdnspkg.CommissionableNode) (net.IP, int, st
 	return nil, 0, "", fmt.Errorf("no suitable operational address found")
 }
 
-func (t *operationalUDPTransport) Transmit(_ context.Context, b []byte) error {
+func (t *operationalUDPTransport) Transmit(ctx context.Context, b []byte) error {
+	if err := t.conn.SetWriteDeadline(t.effectiveDeadline(ctx)); err != nil {
+		return err
+	}
 	n, err := t.conn.Write(b)
 	if err != nil {
 		return err
@@ -107,7 +120,10 @@ func (t *operationalUDPTransport) Transmit(_ context.Context, b []byte) error {
 	return nil
 }
 
-func (t *operationalUDPTransport) Receive(_ context.Context) ([]byte, error) {
+func (t *operationalUDPTransport) Receive(ctx context.Context) ([]byte, error) {
+	if err := t.conn.SetReadDeadline(t.effectiveDeadline(ctx)); err != nil {
+		return nil, err
+	}
 	n, err := t.conn.Read(t.readBuf)
 	if err != nil {
 		return nil, err

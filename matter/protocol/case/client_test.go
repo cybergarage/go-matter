@@ -10,6 +10,7 @@ import (
 	"encoding/asn1"
 	"encoding/binary"
 	"encoding/pem"
+	"errors"
 	"math/big"
 	"strings"
 	"testing"
@@ -153,6 +154,97 @@ type stubTransport struct{}
 
 func (stubTransport) Transmit(context.Context, []byte) error  { return nil }
 func (stubTransport) Receive(context.Context) ([]byte, error) { return nil, nil }
+
+// retryCountingTransport lets tests observe how many times Transmit/Receive
+// were called by transmitAndReceiveWithRetry, and Receive blocks until its
+// own ctx expires (simulating a lost packet: nothing ever arrives) for the
+// first failReceives calls, then returns a canned response.
+type retryCountingTransport struct {
+	transmits    int
+	receives     int
+	failReceives int
+	response     []byte
+	receiveErr   error
+}
+
+func (rt *retryCountingTransport) Transmit(context.Context, []byte) error {
+	rt.transmits++
+	return nil
+}
+
+func (rt *retryCountingTransport) Receive(ctx context.Context) ([]byte, error) {
+	rt.receives++
+	if rt.receiveErr != nil {
+		return nil, rt.receiveErr
+	}
+	if rt.receives <= rt.failReceives {
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+	return rt.response, nil
+}
+
+func withShortCaseRetryTiming(t *testing.T) {
+	t.Helper()
+	prevAttempts, prevInterval := caseRetryAttempts, caseRetryInterval
+	caseRetryAttempts = 3
+	caseRetryInterval = 10 * time.Millisecond
+	t.Cleanup(func() {
+		caseRetryAttempts, caseRetryInterval = prevAttempts, prevInterval
+	})
+}
+
+func TestTransmitAndReceiveWithRetryRetriesOnTimeout(t *testing.T) {
+	withShortCaseRetryTiming(t)
+	// receiveSkipAck parses whatever Receive returns as a message.Message,
+	// so the canned "response" must itself be a well-formed (non-ack) one.
+	respMsg, err := buildCASEMessage(message.CASESigma2, 0, message.NewFirstExchangeID(), []byte("payload"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	respBytes, err := respMsg.Bytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt := &retryCountingTransport{failReceives: 2, response: respBytes}
+
+	got, err := transmitAndReceiveWithRetry(context.Background(), rt, []byte("sigma1"))
+	if err != nil {
+		t.Fatalf("transmitAndReceiveWithRetry(...) error = %v", err)
+	}
+	if string(got) != string(respBytes) {
+		t.Errorf("transmitAndReceiveWithRetry(...) = %v, want %v", got, respBytes)
+	}
+	if rt.transmits != 3 {
+		t.Errorf("transmits = %d, want 3 (initial send + 2 retries)", rt.transmits)
+	}
+}
+
+func TestTransmitAndReceiveWithRetryGivesUpAfterMaxAttempts(t *testing.T) {
+	withShortCaseRetryTiming(t)
+	rt := &retryCountingTransport{failReceives: caseRetryAttempts}
+
+	_, err := transmitAndReceiveWithRetry(context.Background(), rt, []byte("sigma1"))
+	if err == nil {
+		t.Fatal("transmitAndReceiveWithRetry(...) error = nil, want timeout after exhausting retries")
+	}
+	if rt.transmits != caseRetryAttempts {
+		t.Errorf("transmits = %d, want %d", rt.transmits, caseRetryAttempts)
+	}
+}
+
+func TestTransmitAndReceiveWithRetryDoesNotRetryNonTimeoutErrors(t *testing.T) {
+	withShortCaseRetryTiming(t)
+	rt := &retryCountingTransport{receiveErr: errStatusReport}
+
+	_, err := transmitAndReceiveWithRetry(context.Background(), rt, []byte("sigma1"))
+	if !errors.Is(err, errStatusReport) {
+		t.Fatalf("transmitAndReceiveWithRetry(...) error = %v, want errStatusReport", err)
+	}
+	if rt.transmits != 1 {
+		t.Errorf("transmits = %d, want 1 (non-timeout errors must not be retried)", rt.transmits)
+	}
+}
 
 type testAdminMaterials struct {
 	nodeID           uint64

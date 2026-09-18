@@ -25,6 +25,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net"
+	"time"
 
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/config"
@@ -42,6 +44,23 @@ const (
 	randomLen             = 32
 	resumptionIDLen       = 16
 	signatureLen          = 64
+)
+
+// caseRetryAttempts / caseRetryInterval implement a minimal retransmission
+// scheme for Sigma1 and Sigma3: both are sent with message.ReliabilityFlag
+// set, meaning MRP requires the sender to retransmit if no timely response
+// arrives, but Transport (a bare UDP socket) has no automatic retransmit
+// timer of its own. Without this, a single UDP datagram lost to ordinary
+// network conditions — observed against a real device, where nothing at all
+// came back after Sigma1 — stalls receiveSkipAck until the entire remaining
+// commissioning deadline (matter.DefaultCommissioningTimeout, ~120s)
+// elapses, instead of retrying within a few seconds. Package-level vars
+// (not consts) so tests can shrink caseRetryInterval instead of taking
+// caseRetryAttempts*caseRetryInterval wall-clock seconds to exercise retry
+// behavior.
+var (
+	caseRetryAttempts = 5
+	caseRetryInterval = 3 * time.Second
 )
 
 var (
@@ -149,13 +168,9 @@ func (i *Initiator) EstablishSession(ctx context.Context) (session.SessionKeys, 
 	}
 	log.Infof("CASE Sigma1: session_id=0x%04X exchange_id=0x%04X payload=%s", initiatorSessionID, exchangeID, redactedBytes(sigma1Payload))
 	log.HexDebug(sigma1Bytes)
-	if err := i.t.Transmit(ctx, sigma1Bytes); err != nil {
-		return nil, fmt.Errorf("case: transmit Sigma1: %w", err)
-	}
-
-	sigma2Raw, err := receiveSkipAck(ctx, i.t)
+	sigma2Raw, err := transmitAndReceiveWithRetry(ctx, i.t, sigma1Bytes)
 	if err != nil {
-		return nil, fmt.Errorf("case: receive Sigma2: %w", err)
+		return nil, fmt.Errorf("case: transmit Sigma1 / receive Sigma2: %w", err)
 	}
 	sigma2Msg, err := message.NewMessageFromBytes(sigma2Raw)
 	if err != nil {
@@ -258,13 +273,9 @@ func (i *Initiator) EstablishSession(ctx context.Context) (session.SessionKeys, 
 	}
 	log.Infof("CASE Sigma3: encrypted3=%s", redactedBytes(encrypted3))
 	log.HexDebug(sigma3Bytes)
-	if err := i.t.Transmit(ctx, sigma3Bytes); err != nil {
-		return nil, fmt.Errorf("case: transmit Sigma3: %w", err)
-	}
-
-	statusRaw, err := receiveSkipAck(ctx, i.t)
+	statusRaw, err := transmitAndReceiveWithRetry(ctx, i.t, sigma3Bytes)
 	if err != nil {
-		return nil, fmt.Errorf("case: receive SigmaFinished: %w", err)
+		return nil, fmt.Errorf("case: transmit Sigma3 / receive SigmaFinished: %w", err)
 	}
 	if err := parseStatusReport(statusRaw); err != nil {
 		log.Infof("CASE SigmaFinished: status failure")
@@ -308,6 +319,48 @@ func buildCASEMessage(opcode message.Opcode, flags message.ExchangeFlag, exchang
 		message.WithMessagePayload(payload),
 	)
 	return msg, nil
+}
+
+// transmitAndReceiveWithRetry sends payload and waits for a reply, retrying
+// the send if a full attempt window (caseRetryInterval, bounded by ctx's own
+// deadline if sooner) elapses with no response — see caseRetryAttempts'
+// doc comment for why this is needed at all. Only timeouts are retried; any
+// other error (a malformed reply, the transport itself failing) is returned
+// immediately.
+func transmitAndReceiveWithRetry(ctx context.Context, t Transport, payload []byte) ([]byte, error) {
+	var lastErr error
+	for range caseRetryAttempts {
+		if err := ctx.Err(); err != nil {
+			if lastErr != nil {
+				return nil, lastErr
+			}
+			return nil, err
+		}
+		attemptCtx, cancel := context.WithTimeout(ctx, caseRetryInterval)
+		err := t.Transmit(attemptCtx, payload)
+		if err != nil {
+			cancel()
+			return nil, err
+		}
+		raw, err := receiveSkipAck(attemptCtx, t)
+		cancel()
+		if err == nil {
+			return raw, nil
+		}
+		if !isTimeoutError(err) {
+			return nil, err
+		}
+		lastErr = err
+	}
+	return nil, lastErr
+}
+
+func isTimeoutError(err error) bool {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	var netErr net.Error
+	return errors.As(err, &netErr) && netErr.Timeout()
 }
 
 func receiveSkipAck(ctx context.Context, t Transport) ([]byte, error) {
