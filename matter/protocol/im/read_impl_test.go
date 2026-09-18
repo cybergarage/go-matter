@@ -92,6 +92,48 @@ func TestBuildReadRequestPayloadOmitsWildcardFields(t *testing.T) {
 	}
 }
 
+// TestBuildReadRequestPayloadEncodesInteractionModelRevision guards against a
+// regression where the mandatory trailing InteractionModelRevision field
+// (ContextTag 0xFF, spec 8.2.1) was omitted from ReadRequestMessage. A real
+// device accepted the malformed request but returned zero AttributeReportIBs
+// instead of the requested attribute, surfacing as "no attribute report for
+// requested path" rather than an outright rejection.
+func TestBuildReadRequestPayloadEncodesInteractionModelRevision(t *testing.T) {
+	payload, err := buildReadRequestPayload(0, 0x0030, 0x0004)
+	if err != nil {
+		t.Fatalf("buildReadRequestPayload() error = %v", err)
+	}
+
+	dec := tlv.NewDecoderWithBytes(payload)
+	if !dec.Next() || !dec.Element().Type().IsStructure() {
+		t.Fatal("expected top-level Structure")
+	}
+
+	// Walk every remaining element (not just the top-level structure's
+	// direct children) since the InteractionModelRevision field sits after
+	// the nested attribute-requests Array/List, whose own EndOfContainer
+	// markers must be passed through, not treated as the end of the walk.
+	var found bool
+	for dec.Next() {
+		elem := dec.Element()
+		ct, ok := elem.Tag().(tlv.ContextTag)
+		if !ok || ct.ContextNumber() != 0xFF {
+			continue
+		}
+		found = true
+		v, ok := elem.Unsigned1()
+		if !ok || v != 12 {
+			t.Errorf("InteractionModelRevision = %v, %v; want 12, true", v, ok)
+		}
+	}
+	if err := dec.Error(); err != nil {
+		t.Fatalf("decode error = %v", err)
+	}
+	if !found {
+		t.Error("ReadRequestMessage missing mandatory InteractionModelRevision field (tag 0xFF)")
+	}
+}
+
 func buildReportDataMessage(t *testing.T, buildReports func(enc tlv.Encoder)) []byte {
 	t.Helper()
 	hdr := message.NewProtocolHeader(

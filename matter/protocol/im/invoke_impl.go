@@ -21,6 +21,17 @@ import (
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 )
 
+// interactionModelRevisionTag and interactionModelRevision encode the
+// mandatory trailing field present on every IM request/response message
+// (spec 8.2.1, "Interaction Model Revision Handling"). connectedhomeip's
+// MessageBuilder::EncodeInteractionModelRevision appends
+// ContextTag(0xFF) = kInteractionModelRevision (currently 12) unconditionally
+// before closing each message's top-level structure.
+const (
+	interactionModelRevisionTag uint8 = 0xFF
+	interactionModelRevision    uint8 = 12
+)
+
 // Invoke sends an InvokeRequest IM message over the given secure session and waits
 // for an InvokeResponse. commandFields may be nil for commands with no fields.
 //
@@ -119,6 +130,9 @@ func buildInvokeRequestPayload(endpointID EndpointID, clusterID ClusterID, comma
 	if err := enc.EndContainer(); err != nil { // end invoke-requests list
 		return nil, err
 	}
+
+	enc.PutUnsigned1(tlv.NewContextTag(interactionModelRevisionTag), interactionModelRevision)
+
 	if err := enc.EndContainer(); err != nil { // end top-level structure
 		return nil, err
 	}

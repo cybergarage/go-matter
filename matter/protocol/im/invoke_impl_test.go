@@ -168,6 +168,46 @@ func TestParseInvokeResponseWithCommandDataPayload(t *testing.T) {
 	}
 }
 
+// TestBuildInvokeRequestPayloadEncodesInteractionModelRevision guards against
+// a regression where the mandatory trailing InteractionModelRevision field
+// (ContextTag 0xFF, spec 8.2.1) was omitted from InvokeRequestMessage, the
+// same bug independently confirmed in ReadRequestMessage's encoder.
+func TestBuildInvokeRequestPayloadEncodesInteractionModelRevision(t *testing.T) {
+	payload, err := buildInvokeRequestPayload(0, 0x0030, 0x0002, nil)
+	if err != nil {
+		t.Fatalf("buildInvokeRequestPayload() error = %v", err)
+	}
+
+	dec := tlv.NewDecoderWithBytes(payload)
+	if !dec.Next() || !dec.Element().Type().IsStructure() {
+		t.Fatal("expected top-level Structure")
+	}
+
+	// Walk every remaining element (not just the top-level structure's
+	// direct children) since the InteractionModelRevision field sits after
+	// the nested invoke-requests List, whose own EndOfContainer marker must
+	// be passed through, not treated as the end of the walk.
+	var found bool
+	for dec.Next() {
+		elem := dec.Element()
+		ct, ok := elem.Tag().(tlv.ContextTag)
+		if !ok || ct.ContextNumber() != 0xFF {
+			continue
+		}
+		found = true
+		v, ok := elem.Unsigned1()
+		if !ok || v != 12 {
+			t.Errorf("InteractionModelRevision = %v, %v; want 12, true", v, ok)
+		}
+	}
+	if err := dec.Error(); err != nil {
+		t.Fatalf("decode error = %v", err)
+	}
+	if !found {
+		t.Error("InvokeRequestMessage missing mandatory InteractionModelRevision field (tag 0xFF)")
+	}
+}
+
 func TestParseInvokeResponseEmptyPayload(t *testing.T) {
 	hdr := message.NewProtocolHeader(
 		message.WithHeaderExchangeFlags(message.ReliabilityFlag),

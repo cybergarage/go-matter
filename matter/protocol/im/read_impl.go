@@ -104,6 +104,15 @@ func buildReadRequestPayload(endpointID EndpointID, clusterID ClusterID, attribu
 	if err := enc.EndContainer(); err != nil { // end attribute-requests
 		return nil, err
 	}
+
+	// Tag 0xFF: InteractionModelRevision. Mandatory trailing field on every
+	// IM request/response message (spec 8.2.1, "Interaction Model Revision
+	// Handling") — connectedhomeip's MessageBuilder::EncodeInteractionModelRevision
+	// appends it unconditionally before closing the top-level structure. A
+	// real device silently returned zero AttributeReportIBs for a
+	// ReadRequestMessage missing this field instead of rejecting it outright.
+	enc.PutUnsigned1(tlv.NewContextTag(interactionModelRevisionTag), interactionModelRevision)
+
 	if err := enc.EndContainer(); err != nil { // end top-level structure
 		return nil, err
 	}
