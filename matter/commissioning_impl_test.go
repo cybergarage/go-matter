@@ -384,6 +384,7 @@ func (stubSessionKeys) R2IKey() []byte                        { return nil }
 func (stubSessionKeys) InitiatorSessionID() session.SessionID { return 0 }
 func (stubSessionKeys) ResponderSessionID() session.SessionID { return 0 }
 func (stubSessionKeys) LocalNodeID() session.NodeID           { return 0 }
+func (stubSessionKeys) PeerNodeID() session.NodeID            { return 0 }
 func (stubSessionKeys) AttestationChallenge() []byte          { return bytes.Repeat([]byte{0x5A}, 16) }
 
 // deviceAttestationFixture provides fake but cryptographically valid

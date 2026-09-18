@@ -29,7 +29,17 @@ type SessionKeys interface {
 	R2IKey() []byte
 	InitiatorSessionID() SessionID
 	ResponderSessionID() SessionID
+	// LocalNodeID returns this side's node ID, used as the CCM nonce's node
+	// ID component when encrypting outbound messages (4.7.2). PASE sessions
+	// have no operational identity yet and always return 0 (kUndefinedNodeId
+	// in the reference implementation); CASE sessions return the
+	// administrator's real operational node ID.
 	LocalNodeID() NodeID
+	// PeerNodeID returns the remote side's node ID, used as the CCM nonce's
+	// node ID component when decrypting inbound messages (4.7.2). Like
+	// LocalNodeID, PASE sessions always return 0; CASE sessions return the
+	// commissionee's real operational node ID (derived from its NOC).
+	PeerNodeID() NodeID
 	// AttestationChallenge returns the session's attestation challenge, used
 	// by the Operational Credentials cluster to verify AttestationResponse
 	// and CSRResponse signatures (11.18.7.2, 11.18.7.6). PASE sessions

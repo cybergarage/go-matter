@@ -285,7 +285,7 @@ func deriveSigma3Key(sharedSecret, ipk, sigma1Payload, sigma2Payload []byte) ([]
 	return mcrypto.CryptoKDF(sharedSecret, salt, sigma3Info, cryptoSymmetricKeyLen)
 }
 
-func deriveSessionKeys(sharedSecret, ipk, sigma1Payload, sigma2Payload, sigma3Payload []byte, initiatorSID, responderSID session.SessionID, localNodeID session.NodeID) (session.SessionKeys, error) {
+func deriveSessionKeys(sharedSecret, ipk, sigma1Payload, sigma2Payload, sigma3Payload []byte, initiatorSID, responderSID session.SessionID, localNodeID, peerNodeID session.NodeID) (session.SessionKeys, error) {
 	transcript := append(cloneBytes(sigma1Payload), sigma2Payload...)
 	transcript = append(transcript, sigma3Payload...)
 	transcriptHash := mcrypto.CryptoHash(transcript)
@@ -300,6 +300,7 @@ func deriveSessionKeys(sharedSecret, ipk, sigma1Payload, sigma2Payload, sigma3Pa
 		initiatorSID,
 		responderSID,
 		localNodeID,
+		peerNodeID,
 	), nil
 }
 

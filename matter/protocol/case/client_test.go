@@ -127,6 +127,7 @@ func TestDeriveSessionKeysProducesDistinctDirections(t *testing.T) {
 		1,
 		2,
 		3,
+		4,
 	)
 	if err != nil {
 		t.Fatalf("deriveSessionKeys(...) error = %v", err)
@@ -139,6 +140,12 @@ func TestDeriveSessionKeysProducesDistinctDirections(t *testing.T) {
 	}
 	if string(keys.I2RKey()) == string(keys.R2IKey()) {
 		t.Fatal("I2RKey and R2IKey should differ")
+	}
+	if keys.LocalNodeID() != 3 {
+		t.Errorf("LocalNodeID() = %v, want 3", keys.LocalNodeID())
+	}
+	if keys.PeerNodeID() != 4 {
+		t.Errorf("PeerNodeID() = %v, want 4", keys.PeerNodeID())
 	}
 }
 

@@ -21,7 +21,7 @@ func TestSessionKeysReturnsCopies(t *testing.T) {
 	r2iKey := []byte{0x04, 0x05, 0x06}
 	attestationChallenge := []byte{0x07, 0x08, 0x09}
 
-	keys := newSessionKeys(i2rKey, r2iKey, attestationChallenge, 0, 0, 0)
+	keys := newSessionKeys(i2rKey, r2iKey, attestationChallenge, 0, 0)
 
 	i2rKey[0] = 0xff
 	r2iKey[0] = 0xff
@@ -52,5 +52,25 @@ func TestSessionKeysReturnsCopies(t *testing.T) {
 	gotAttestationChallenge[0] = 0xff
 	if got := keys.AttestationChallenge()[0]; got != 0x07 {
 		t.Fatalf("AttestationChallenge() returned aliased internal state: got 0x%02x", got)
+	}
+}
+
+// TestSessionKeysNodeIDsAreAlwaysUndefined guards against a regression where
+// LocalNodeID returned the ephemeral, random source node ID used only for
+// addressing during the unencrypted PBKDFParamRequest/Response exchange.
+// PASE sessions have no operational node identity on either side, so both
+// LocalNodeID and PeerNodeID must always be 0 (matching connectedhomeip's
+// SessionManager::InjectPaseSessionWithTestKey, which hardcodes
+// localNodeId = kUndefinedNodeId for PASE) — this is the node ID
+// secureSession.Transmit/Receive feed into the CCM nonce (4.7.2), and using
+// the ephemeral PBKDF-phase ID there made every post-PASE encrypted message
+// fail AES-CCM authentication against a real device.
+func TestSessionKeysNodeIDsAreAlwaysUndefined(t *testing.T) {
+	keys := newSessionKeys([]byte{0x01}, []byte{0x02}, []byte{0x03}, 0x1234, 0x5678)
+	if got := keys.LocalNodeID(); got != 0 {
+		t.Errorf("LocalNodeID() = %v, want 0", got)
+	}
+	if got := keys.PeerNodeID(); got != 0 {
+		t.Errorf("PeerNodeID() = %v, want 0", got)
 	}
 }

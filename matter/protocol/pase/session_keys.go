@@ -31,8 +31,16 @@ type SessionKeys interface {
 	// ResponderSessionID returns the session ID chosen by the responder.
 	// 4.13.2.4. Choosing Secure Unicast Session Identifiers.
 	ResponderSessionID() SessionID
-	// LocalNodeID returns the source node ID the initiator used in the PASE handshake.
+	// LocalNodeID always returns 0: a PASE session has no operational node
+	// identity on either side yet, so both directions' CCM nonces use the
+	// undefined node ID (see connectedhomeip's
+	// SessionManager::InjectPaseSessionWithTestKey, which hardcodes
+	// localNodeId = kUndefinedNodeId for PASE). This is unrelated to the
+	// ephemeral, random source node ID used purely for addressing during the
+	// unencrypted PBKDFParamRequest/Response exchange.
 	LocalNodeID() NodeID
+	// PeerNodeID always returns 0, for the same reason as LocalNodeID.
+	PeerNodeID() NodeID
 }
 
 // SessionID represents a session identifier.
@@ -47,17 +55,15 @@ type sessionKeys struct {
 	attestationChallenge []byte
 	initiatorSessionID   SessionID
 	responderSessionID   SessionID
-	localNodeID          NodeID
 }
 
-func newSessionKeys(i2rKey, r2iKey, attestationChallenge []byte, initiatorSID, responderSID SessionID, localNodeID NodeID) SessionKeys {
+func newSessionKeys(i2rKey, r2iKey, attestationChallenge []byte, initiatorSID, responderSID SessionID) SessionKeys {
 	return &sessionKeys{
 		i2rKey:               cloneBytes(i2rKey),
 		r2iKey:               cloneBytes(r2iKey),
 		attestationChallenge: cloneBytes(attestationChallenge),
 		initiatorSessionID:   initiatorSID,
 		responderSessionID:   responderSID,
-		localNodeID:          localNodeID,
 	}
 }
 
@@ -82,7 +88,11 @@ func (keys *sessionKeys) ResponderSessionID() SessionID {
 }
 
 func (keys *sessionKeys) LocalNodeID() NodeID {
-	return keys.localNodeID
+	return 0
+}
+
+func (keys *sessionKeys) PeerNodeID() NodeID {
+	return 0
 }
 
 func cloneBytes(b []byte) []byte {

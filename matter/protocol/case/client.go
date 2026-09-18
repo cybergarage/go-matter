@@ -272,7 +272,7 @@ func (i *Initiator) EstablishSession(ctx context.Context) (session.SessionKeys, 
 	}
 	log.Infof("CASE SigmaFinished: success")
 
-	sessionKeys, err := deriveSessionKeys(sharedSecret, i.ipk, sigma1RawPayload(sigma1Msg), sigma2RawPayload(sigma2Msg), sigma3RawPayload(sigma3Msg), initiatorSessionID, session.SessionID(sigma2.ResponderSessionID), session.NodeID(inputs.nodeID))
+	sessionKeys, err := deriveSessionKeys(sharedSecret, i.ipk, sigma1RawPayload(sigma1Msg), sigma2RawPayload(sigma2Msg), sigma3RawPayload(sigma3Msg), initiatorSessionID, session.SessionID(sigma2.ResponderSessionID), session.NodeID(inputs.nodeID), session.NodeID(i.peerNodeID))
 	if err != nil {
 		return nil, err
 	}

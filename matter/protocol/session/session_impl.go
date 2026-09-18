@@ -68,14 +68,18 @@ func (s *secureSession) Transmit(payload []byte) error {
 	// Atomically increment the outbound message counter.
 	counter := atomic.AddUint32(&s.msgCounter, 1)
 
-	// Build the unencrypted message header.
-	// SecurityFlags = 0x00: unicast session, no privacy, no extensions.
+	// Build the unencrypted message header. SecurityFlags = 0x00: unicast
+	// session, no privacy, no extensions. The Source/Destination Node ID
+	// fields are omitted: within an established secure unicast session, the
+	// SessionID alone identifies the peer, and connectedhomeip's own
+	// PrepareMessage does not set them for this message type (only for
+	// group messages) — see session.SessionKeys.LocalNodeID's doc comment
+	// for how the (unrelated) CCM nonce's node ID is still determined.
 	secFlags := message.SecurityFlag(0x00)
 	hdr := message.NewHeader(
 		message.WithHeaderSessionID(s.keys.ResponderSessionID()),
 		message.WithHeaderSecurityFlags(secFlags),
 		message.WithHeaderMessageCounter(message.MessageCounter(counter)),
-		message.WithHeaderSourceNodeID(s.keys.LocalNodeID()),
 	)
 
 	hdrBytes, err := hdr.Bytes()
@@ -133,16 +137,18 @@ func (s *secureSession) Receive() ([]byte, error) {
 	}
 	ciphertextWithTag := raw[len(hdrBytes):]
 
-	// Build nonce from the received header fields (spec section 4.7.2).
+	// Build nonce (spec section 4.7.2). The node ID component is the peer's
+	// node ID as known from session establishment (s.keys.PeerNodeID()) —
+	// NOT read from this packet's header, which typically omits the Source
+	// Node ID field entirely for secure unicast session messages (see the
+	// matching comment in Transmit). connectedhomeip's SessionManager
+	// resolves this the same way: PeerNodeId() for CASE, the fixed
+	// "undefined" node ID (0) for PASE.
 	msgCounter := uint32(hdr.MessageCounter())
-	var srcNodeID uint64
-	if nodeID, ok := hdr.SourceNodeID(); ok {
-		srcNodeID = uint64(nodeID)
-	}
 	nonce := make([]byte, 13)
 	nonce[0] = byte(hdr.SecurityFlags())
 	binary.LittleEndian.PutUint32(nonce[1:5], msgCounter)
-	binary.LittleEndian.PutUint64(nonce[5:13], srcNodeID)
+	binary.LittleEndian.PutUint64(nonce[5:13], uint64(s.keys.PeerNodeID()))
 
 	// Decrypt using R2IKey (responder-to-initiator).
 	plaintext, err := crypto.CryptoCCMDecrypt(s.keys.R2IKey(), nonce, ciphertextWithTag, hdrBytes)
