@@ -44,6 +44,12 @@ var (
 	matterNodeIDOID   = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 37244, 1, 1}
 	matterRCACIDOID   = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 37244, 1, 4}
 	matterFabricIDOID = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 37244, 1, 5}
+
+	// oidExtKeyUsage, oidKeyPurposeClientAuth and oidKeyPurposeServerAuth are
+	// used to build the ExtKeyUsage extension by hand via ExtraExtensions —
+	// see extKeyUsageClientAuthExtension's doc comment for why.
+	oidExtKeyUsage          = asn1.ObjectIdentifier{2, 5, 29, 37}
+	oidKeyPurposeClientAuth = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 3, 2}
 )
 
 // utf8Attr builds a DN attribute whose value is explicitly tagged as an
@@ -66,6 +72,28 @@ func utf8Attr(oid asn1.ObjectIdentifier, s string) pkix.AttributeTypeAndValue {
 		Type:  oid,
 		Value: asn1.RawValue{Class: asn1.ClassUniversal, Tag: asn1.TagUTF8String, Bytes: []byte(s)},
 	}
+}
+
+// extKeyUsageClientAuthExtension builds a ready-to-use ExtraExtensions entry
+// for ExtKeyUsage{clientAuth}, marked critical, for use instead of
+// x509.Certificate's ExtKeyUsage convenience field. Go's
+// x509.CreateCertificate always marks that field's extension non-critical,
+// but connectedhomeip's device-side TLV-to-X509 reconstruction
+// (src/credentials/CHIPCertToX509.cpp DecodeConvertExtension) unconditionally
+// treats ExtKeyUsage (along with KeyUsage and BasicConstraints) as critical
+// when rebuilding the TBS bytes it hashes for signature verification —
+// confirmed by connectedhomeip's own DER-to-TLV converter
+// (src/credentials/CHIPCertFromX509.cpp ConvertExtension) explicitly
+// requiring critical=true for the same extension when going the other way.
+// A cert signed over Go's non-critical encoding therefore has different TBS
+// bytes than what a device reconstructs from the equivalent TLV, breaking
+// the chain signature.
+func extKeyUsageClientAuthExtension() (pkix.Extension, error) {
+	val, err := asn1.Marshal([]asn1.ObjectIdentifier{oidKeyPurposeClientAuth})
+	if err != nil {
+		return pkix.Extension{}, fmt.Errorf("marshal ExtKeyUsage: %w", err)
+	}
+	return pkix.Extension{Id: oidExtKeyUsage, Critical: true, Value: val}, nil
 }
 
 func main() {
@@ -158,6 +186,10 @@ func run() error {
 		return fmt.Errorf("root certificate: %w", err)
 	}
 
+	adminEKU, err := extKeyUsageClientAuthExtension()
+	if err != nil {
+		return err
+	}
 	adminTemplate := &x509.Certificate{
 		SerialNumber: adminSerial,
 		Subject: pkix.Name{
@@ -170,7 +202,7 @@ func run() error {
 		NotBefore:             now.Add(-time.Hour),
 		NotAfter:              now.Add(time.Duration(days) * 24 * time.Hour),
 		KeyUsage:              x509.KeyUsageDigitalSignature,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+		ExtraExtensions:       []pkix.Extension{adminEKU},
 		BasicConstraintsValid: true,
 		IsCA:                  false,
 		SubjectKeyId:          adminSKID[:],

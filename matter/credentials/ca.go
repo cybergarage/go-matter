@@ -38,6 +38,14 @@ import (
 var (
 	oidMatterNodeID   = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 37244, 1, 1}
 	oidMatterFabricID = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 37244, 1, 5}
+
+	// oidExtKeyUsage, oidKeyPurposeClientAuth and oidKeyPurposeServerAuth
+	// are used to build the ExtKeyUsage extension by hand via
+	// ExtraExtensions instead of x509.Certificate's ExtKeyUsage convenience
+	// field — see extKeyUsageClientServerAuthExtension's doc comment for why.
+	oidExtKeyUsage          = asn1.ObjectIdentifier{2, 5, 29, 37}
+	oidKeyPurposeServerAuth = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 3, 1}
+	oidKeyPurposeClientAuth = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 3, 2}
 )
 
 // utf8Attr builds a DN attribute whose value is explicitly tagged as an
@@ -56,6 +64,31 @@ func utf8Attr(oid asn1.ObjectIdentifier, s string) pkix.AttributeTypeAndValue {
 		Type:  oid,
 		Value: asn1.RawValue{Class: asn1.ClassUniversal, Tag: asn1.TagUTF8String, Bytes: []byte(s)},
 	}
+}
+
+// extKeyUsageClientServerAuthExtension builds a ready-to-use ExtraExtensions
+// entry for ExtKeyUsage{clientAuth, serverAuth}, marked critical, for use
+// instead of x509.Certificate's ExtKeyUsage convenience field. Go's
+// x509.CreateCertificate always marks that field's extension non-critical,
+// but connectedhomeip's device-side TLV-to-X509 reconstruction
+// (src/credentials/CHIPCertToX509.cpp DecodeConvertExtension) unconditionally
+// treats ExtKeyUsage (along with KeyUsage and BasicConstraints) as critical
+// when rebuilding the TBS bytes it hashes for signature verification —
+// confirmed by connectedhomeip's own DER-to-TLV converter
+// (src/credentials/CHIPCertFromX509.cpp ConvertExtension) explicitly
+// requiring critical=true for the same extension when going the other way.
+// A NOC signed over Go's non-critical encoding therefore has different TBS
+// bytes than what a device reconstructs from the equivalent TLV, breaking
+// the chain signature — invisible to this package's own round-trip
+// self-checks because chipcert.TLVToDER made the identical omission, so
+// re-deriving DER from our own TLV output stayed self-consistent even
+// though it diverged from what a real device independently reconstructs.
+func extKeyUsageClientServerAuthExtension() (pkix.Extension, error) {
+	val, err := asn1.Marshal([]asn1.ObjectIdentifier{oidKeyPurposeClientAuth, oidKeyPurposeServerAuth})
+	if err != nil {
+		return pkix.Extension{}, fmt.Errorf("credentials: marshal ExtKeyUsage: %w", err)
+	}
+	return pkix.Extension{Id: oidExtKeyUsage, Critical: true, Value: val}, nil
 }
 
 // CertificateAuthority is a minimal commissioner-side CA: it holds the
@@ -136,6 +169,10 @@ func (ca *CertificateAuthority) IssueNOC(csr *x509.CertificateRequest, nodeID ui
 	}
 	pubKeyBytes := elliptic.Marshal(pub.Curve, pub.X, pub.Y)
 	subjectKeyID := sha1.Sum(pubKeyBytes)
+	ekuExt, err := extKeyUsageClientServerAuthExtension()
+	if err != nil {
+		return nil, err
+	}
 	now := time.Now()
 	tmpl := &x509.Certificate{
 		SerialNumber: serial,
@@ -148,7 +185,7 @@ func (ca *CertificateAuthority) IssueNOC(csr *x509.CertificateRequest, nodeID ui
 		NotBefore:             now.Add(-time.Hour),
 		NotAfter:              now.Add(10 * 365 * 24 * time.Hour),
 		KeyUsage:              x509.KeyUsageDigitalSignature,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		ExtraExtensions:       []pkix.Extension{ekuExt},
 		BasicConstraintsValid: true,
 		IsCA:                  false,
 		SubjectKeyId:          subjectKeyID[:],

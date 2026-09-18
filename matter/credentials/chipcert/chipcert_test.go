@@ -76,6 +76,26 @@ func generateTestRoot(t *testing.T) ([]byte, *ecdsa.PrivateKey, *x509.Certificat
 	return der, key, cert
 }
 
+// testExtKeyUsageExtension mirrors matter/credentials/ca.go's
+// extKeyUsageClientServerAuthExtension: Go's x509.Certificate.ExtKeyUsage
+// convenience field always produces a non-critical extension, but
+// connectedhomeip's device-side TLV-to-X509 reconstruction
+// (src/credentials/CHIPCertToX509.cpp DecodeConvertExtension) unconditionally
+// treats ExtKeyUsage as critical when rebuilding the TBS bytes it hashes for
+// signature verification, so a real NOC must be signed with it critical from
+// the start — otherwise TLVToDER's (correct) reconstruction produces
+// different TBS bytes than what was actually signed, and this package's own
+// round-trip signature check below would fail for a reason that has nothing
+// to do with the package under test.
+func testExtKeyUsageExtension(t *testing.T) pkix.Extension {
+	t.Helper()
+	val, err := asn1.Marshal([]asn1.ObjectIdentifier{oidExtKeyUsageClientAuth, oidExtKeyUsageServerAuth})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return pkix.Extension{Id: oidExtExtendedKeyUsage, Critical: true, Value: val}
+}
+
 func generateTestNOC(t *testing.T, root *x509.Certificate, rootKey *ecdsa.PrivateKey, nodeIDHex, fabricIDHex string) []byte {
 	t.Helper()
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -91,10 +111,13 @@ func generateTestNOC(t *testing.T, root *x509.Certificate, rootKey *ecdsa.Privat
 				testUTF8Attr(oidMatterFabricID, fabricIDHex),
 			},
 		},
-		NotBefore:   now.Add(-time.Hour),
-		NotAfter:    now.Add(100 * 365 * 24 * time.Hour),
-		KeyUsage:    x509.KeyUsageDigitalSignature,
-		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		NotBefore:             now.Add(-time.Hour),
+		NotAfter:              now.Add(100 * 365 * 24 * time.Hour),
+		KeyUsage:              x509.KeyUsageDigitalSignature,
+		ExtraExtensions:       []pkix.Extension{testExtKeyUsageExtension(t)},
+		BasicConstraintsValid: true,
+		IsCA:                  false,
+		SubjectKeyId:          []byte{5, 6, 7, 8},
 	}
 	der, err := x509.CreateCertificate(rand.Reader, tmpl, root, &key.PublicKey, rootKey)
 	if err != nil {

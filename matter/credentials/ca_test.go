@@ -156,6 +156,28 @@ func TestCertificateAuthorityIssueNOC(t *testing.T) {
 	if nocCert.IsCA {
 		t.Error("issued NOC must not be a CA certificate")
 	}
+
+	// connectedhomeip's device-side TLV-to-X509 reconstruction
+	// (src/credentials/CHIPCertToX509.cpp DecodeConvertExtension)
+	// unconditionally treats ExtKeyUsage as critical when rebuilding the TBS
+	// bytes it hashes for signature verification, but Go's
+	// x509.CreateCertificate always marks the ExtKeyUsage convenience
+	// field's extension non-critical — a mismatch invisible to a
+	// self-consistent round trip through this package's own decoder, only
+	// surfacing as a broken signature on a real device.
+	var eku *pkix.Extension
+	for i := range nocCert.Extensions {
+		if nocCert.Extensions[i].Id.Equal(oidExtKeyUsage) {
+			eku = &nocCert.Extensions[i]
+			break
+		}
+	}
+	if eku == nil {
+		t.Fatal("issued NOC is missing an ExtKeyUsage extension")
+	}
+	if !eku.Critical {
+		t.Error("issued NOC's ExtKeyUsage extension must be marked critical")
+	}
 }
 
 func TestNewCertificateAuthorityRejectsMismatchedKey(t *testing.T) {

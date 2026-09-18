@@ -272,7 +272,13 @@ func decodeDNFields(dec tlv.Decoder) ([]pkix.AttributeTypeAndValue, error) {
 }
 
 // decodeExtensionFields decodes the Extensions List, assuming the caller has
-// already consumed the List-begin marker.
+// already consumed the List-begin marker. BasicConstraints, KeyUsage and
+// ExtendedKeyUsage are all reconstructed with Critical: true, matching
+// connectedhomeip's device-side TLV-to-X509 reconstruction
+// (src/credentials/CHIPCertToX509.cpp DecodeConvertExtension), which treats
+// all three as critical unconditionally when rebuilding the TBS bytes it
+// hashes for signature verification, regardless of what the original signed
+// DER (if any) actually had.
 func decodeExtensionFields(dec tlv.Decoder) ([]pkix.Extension, error) {
 	var out []pkix.Extension
 	for dec.Next() {
@@ -320,7 +326,7 @@ func decodeExtensionFields(dec tlv.Decoder) ([]pkix.Extension, error) {
 			if err != nil {
 				return nil, err
 			}
-			out = append(out, pkix.Extension{Id: oidExtExtendedKeyUsage, Value: val})
+			out = append(out, pkix.Extension{Id: oidExtExtendedKeyUsage, Critical: true, Value: val})
 		case tagExtSubjectKeyIdentifier:
 			b, ok := elem.Bytes()
 			if !ok {
