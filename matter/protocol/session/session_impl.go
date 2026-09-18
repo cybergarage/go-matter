@@ -141,6 +141,7 @@ func (s *secureSession) receiveOne() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	log.HexDebug(raw)
 	if len(raw) < 8 {
 		return nil, fmt.Errorf("session: received packet too short (%d bytes)", len(raw))
 	}
@@ -177,7 +178,8 @@ func (s *secureSession) receiveOne() ([]byte, error) {
 	// Decrypt using R2IKey (responder-to-initiator).
 	plaintext, err := crypto.CryptoCCMDecrypt(s.keys.R2IKey(), nonce, ciphertextWithTag, hdrBytes)
 	if err != nil {
-		return nil, fmt.Errorf("session: AES-CCM decryption failed: %w", err)
+		return nil, fmt.Errorf("session: AES-CCM decryption failed (securityFlags=%#02x, sessionID=%d, msgCounter=%d, hdrLen=%d, rawLen=%d): %w",
+			byte(hdr.SecurityFlags()), hdr.SessionID(), msgCounter, len(hdrBytes), len(raw), err)
 	}
 
 	log.HexDebug(plaintext)
