@@ -136,9 +136,22 @@ func (s *secureSession) transmitPayload(payload []byte) error {
 // response flow ever acknowledges a prior response. A late retransmission
 // then arrives interleaved with a later, unrelated exchange and gets
 // mistaken for its response.
+//
+// InitiatorFlag is set because this client is always the one who opened the
+// exchange being acknowledged (every IM request originates here): the flag
+// reflects which peer initiated the *exchange*, not who happens to be
+// sending this particular message, so every message this side sends within
+// that exchange — including a standalone ack of the device's response —
+// carries it. connectedhomeip's own ReliableMessageContext::
+// SendStandaloneAckMessage sends acks through the same generic
+// ExchangeContext::SendMessage path used for every other message on the
+// exchange, which sets this flag from the exchange's stored role
+// automatically; omitting it here left the device unable to match our ack
+// to the exchange it was acknowledging, so it kept retransmitting anyway.
 // 4.12.7.1. MRP Standalone Acknowledgement.
 func (s *secureSession) sendAck(exchangeID message.ExchangeID, protocolID message.ProtocolID, ackedCounter message.MessageCounter) error {
 	ackHdr := message.NewProtocolHeader(
+		message.WithHeaderExchangeFlags(message.InitiatorFlag),
 		message.WithHeaderExchangeID(exchangeID),
 		message.WithHeaderProtocolID(protocolID),
 		message.WithHeaderOpcode(message.MRPStandaloneAck),

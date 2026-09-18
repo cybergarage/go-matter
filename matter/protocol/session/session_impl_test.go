@@ -238,6 +238,9 @@ func TestSecureSessionReceiveSendsMRPAckForReliableMessage(t *testing.T) {
 	if !ackProtHdr.Opcode().IsMRPStandaloneAck() {
 		t.Errorf("ack Opcode() = %v, want MRPStandaloneAck", ackProtHdr.Opcode())
 	}
+	if !ackProtHdr.IsInitiator() {
+		t.Error("ack InitiatorFlag not set — this client always initiates the exchange being acknowledged, and a real device silently dropped an ack missing this flag (unable to match it to the exchange), continuing to retransmit despite the ack having been sent")
+	}
 	if got := ackProtHdr.ExchangeID(); got != 0xBEEF {
 		t.Errorf("ack ExchangeID() = %#x, want 0xBEEF", got)
 	}
