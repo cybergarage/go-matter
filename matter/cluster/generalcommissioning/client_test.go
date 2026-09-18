@@ -31,7 +31,21 @@ func (s *fakeSession) Transmit(payload []byte) error {
 	s.lastTransmit = append([]byte(nil), payload...)
 	return nil
 }
-func (s *fakeSession) Receive() ([]byte, error)         { return s.nextReceive, nil }
+
+// Receive echoes s.nextReceive back with its ExchangeID (protocol header
+// bytes 2:4, a fixed offset regardless of other header flags) patched to
+// match whatever ExchangeID the code under test actually transmitted —
+// im.Invoke now rejects any response whose ExchangeID doesn't match its
+// request's freshly-generated random one (see im.receiveExchangeResponse),
+// so a canned response built with an unrelated ExchangeID would otherwise
+// never match and Receive would be called forever.
+func (s *fakeSession) Receive() ([]byte, error) {
+	resp := append([]byte(nil), s.nextReceive...)
+	if len(resp) >= 4 && len(s.lastTransmit) >= 4 {
+		copy(resp[2:4], s.lastTransmit[2:4])
+	}
+	return resp, nil
+}
 func (s *fakeSession) Transport() session.Transport     { return nil }
 func (s *fakeSession) SessionKeys() session.SessionKeys { return nil }
 

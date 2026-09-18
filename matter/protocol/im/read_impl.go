@@ -28,7 +28,7 @@ func ReadBoolAttribute(sess SecureSession, endpointID EndpointID, clusterID Clus
 		return false, fmt.Errorf("im: build ReadRequest payload: %w", err)
 	}
 
-	protocolHeaderBytes, err := buildIMProtocolHeader(message.ReadRequestMessage)
+	protocolHeaderBytes, exchangeID, err := buildIMProtocolHeader(message.ReadRequestMessage)
 	if err != nil {
 		return false, fmt.Errorf("im: build protocol header: %w", err)
 	}
@@ -41,7 +41,7 @@ func ReadBoolAttribute(sess SecureSession, endpointID EndpointID, clusterID Clus
 		return false, fmt.Errorf("im: transmit ReadRequest: %w", err)
 	}
 
-	responseRaw, err := sess.Receive()
+	responseRaw, err := receiveExchangeResponse(sess, exchangeID)
 	if err != nil {
 		return false, fmt.Errorf("im: receive ReadResponse: %w", err)
 	}

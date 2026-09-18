@@ -17,6 +17,7 @@ package im
 import (
 	"fmt"
 
+	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/encoding/message"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 )
@@ -61,7 +62,7 @@ func Invoke(sess SecureSession, endpointID EndpointID, clusterID ClusterID, comm
 	}
 
 	// Wrap payload in the IM protocol header and send over the secure session.
-	protocolHeaderBytes, err := buildIMProtocolHeader(message.InvokeRequestMessage)
+	protocolHeaderBytes, exchangeID, err := buildIMProtocolHeader(message.InvokeRequestMessage)
 	if err != nil {
 		return nil, fmt.Errorf("im: build protocol header: %w", err)
 	}
@@ -76,7 +77,7 @@ func Invoke(sess SecureSession, endpointID EndpointID, clusterID ClusterID, comm
 	}
 
 	// Receive the InvokeResponse.
-	responseRaw, err := sess.Receive()
+	responseRaw, err := receiveExchangeResponse(sess, exchangeID)
 	if err != nil {
 		return nil, fmt.Errorf("im: receive InvokeResponse: %w", err)
 	}
@@ -146,15 +147,52 @@ func buildInvokeRequestPayload(endpointID EndpointID, clusterID ClusterID, comma
 	return enc.Bytes(), nil
 }
 
-// buildIMProtocolHeader builds the Matter protocol header bytes for an IM message.
-func buildIMProtocolHeader(opcode message.Opcode) ([]byte, error) {
+// buildIMProtocolHeader builds the Matter protocol header bytes for an IM
+// message, returning the ExchangeID it generated so the caller can match it
+// against the ExchangeID of whatever message it eventually receives back —
+// see receiveExchangeResponse.
+func buildIMProtocolHeader(opcode message.Opcode) ([]byte, message.ExchangeID, error) {
+	exchangeID := message.NewFirstExchangeID()
 	hdr := message.NewProtocolHeader(
 		message.WithHeaderExchangeFlags(message.InitiatorFlag|message.ReliabilityFlag),
 		message.WithHeaderOpcode(opcode),
-		message.WithHeaderExchangeID(message.NewFirstExchangeID()),
+		message.WithHeaderExchangeID(exchangeID),
 		message.WithHeaderProtocolID(message.InteractionModel),
 	)
-	return hdr.Bytes()
+	b, err := hdr.Bytes()
+	return b, exchangeID, err
+}
+
+// receiveExchangeResponse reads messages from sess until one arrives whose
+// ExchangeID matches exchangeID, discarding any others. Each im.Invoke /
+// im.ReadBoolAttribute call opens a brand-new exchange per request, and
+// nothing below the IM layer knows which exchange the caller is currently
+// waiting for — SecureSession.Receive only filters what it can generically
+// recognize as not belonging to this session at all (a different SessionID)
+// or as needing no application-level response (a standalone MRP ack). A
+// message that legitimately belongs to this session but to a different,
+// unrelated exchange — observed against a real device as a late duplicate
+// retransmission of an earlier response, arriving after this client had
+// already moved on to a later request — passes both of those checks and
+// must be filtered here instead, by the one thing that actually identifies
+// which request a response answers.
+// 4.10.2. Exchange ID.
+func receiveExchangeResponse(sess SecureSession, exchangeID message.ExchangeID) ([]byte, error) {
+	for {
+		raw, err := sess.Receive()
+		if err != nil {
+			return nil, err
+		}
+		protHdr, err := message.NewProtocolHeaderFromBytes(raw)
+		if err != nil {
+			return nil, fmt.Errorf("im: parse protocol header: %w", err)
+		}
+		if protHdr.ExchangeID() != exchangeID {
+			log.Debugf("im: received message for a different exchange (got %v, want %v), waiting for next message", protHdr.ExchangeID(), exchangeID)
+			continue
+		}
+		return raw, nil
+	}
 }
 
 // parseInvokeResponse parses the decrypted payload of an InvokeResponse message,
