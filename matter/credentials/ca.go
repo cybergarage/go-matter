@@ -16,7 +16,9 @@ package credentials
 
 import (
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/sha1"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
@@ -106,9 +108,15 @@ func NewCertificateAuthority(rootCertBytes, rootPrivateKeyBytes []byte, fabricID
 // (IssuerDN, AuthorityKeyId) against a candidate's (SubjectDN,
 // SubjectKeyId) (connectedhomeip's ChipCertificateSet::FindValidCert), so an
 // unset AuthorityKeyId on the issued NOC would fail chain validation during
-// CASE. The returned certificate is DER-encoded X.509; convert it to the
-// Matter-TLV wire format with matter/credentials/chipcert.DERToTLV before
-// sending it via AddNOC.
+// CASE. SubjectKeyId is likewise set explicitly (RFC 5280 §4.2.1.2 method 1:
+// SHA-1 of the subjectPublicKey BIT STRING content), rather than left unset:
+// connectedhomeip's ChipCertificateSet::LoadCert rejects ANY certificate
+// (including the leaf NOC, not just CAs) with CHIP_ERROR_UNSUPPORTED_CERT_FORMAT
+// unless BOTH the SubjectKeyId and AuthorityKeyId extensions are present — a
+// real device rejected AddNOC with NOCResponse status=3 (InvalidNOC) for
+// exactly this reason. The returned certificate is DER-encoded X.509;
+// convert it to the Matter-TLV wire format with
+// matter/credentials/chipcert.DERToTLV before sending it via AddNOC.
 func (ca *CertificateAuthority) IssueNOC(csr *x509.CertificateRequest, nodeID uint64) ([]byte, error) {
 	pub, ok := csr.PublicKey.(*ecdsa.PublicKey)
 	if !ok {
@@ -119,6 +127,8 @@ func (ca *CertificateAuthority) IssueNOC(csr *x509.CertificateRequest, nodeID ui
 	if err != nil {
 		return nil, err
 	}
+	pubKeyBytes := elliptic.Marshal(pub.Curve, pub.X, pub.Y)
+	subjectKeyID := sha1.Sum(pubKeyBytes)
 	now := time.Now()
 	tmpl := &x509.Certificate{
 		SerialNumber: serial,
@@ -132,6 +142,7 @@ func (ca *CertificateAuthority) IssueNOC(csr *x509.CertificateRequest, nodeID ui
 		NotAfter:       now.Add(10 * 365 * 24 * time.Hour),
 		KeyUsage:       x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:    []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		SubjectKeyId:   subjectKeyID[:],
 		AuthorityKeyId: ca.rootCert.SubjectKeyId,
 	}
 	der, err := x509.CreateCertificate(rand.Reader, tmpl, ca.rootCert, pub, ca.rootKey)

@@ -15,9 +15,11 @@
 package credentials
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/sha1"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
@@ -124,6 +126,21 @@ func TestCertificateAuthorityIssueNOC(t *testing.T) {
 
 	if !nocCert.PublicKey.(*ecdsa.PublicKey).Equal(csr.PublicKey.(*ecdsa.PublicKey)) {
 		t.Error("issued NOC public key does not match CSR public key")
+	}
+
+	// connectedhomeip's ChipCertificateSet::LoadCert (src/credentials/CHIPCert.cpp)
+	// rejects ANY certificate loaded for chain validation — including a
+	// non-CA leaf NOC — that lacks a SubjectKeyId extension, with
+	// CHIP_ERROR_UNSUPPORTED_CERT_FORMAT, which the AddNOC handler surfaces
+	// to the commissioner as NOCResponse status=3 (InvalidNOC). A real
+	// device rejected AddNOC for exactly this reason.
+	if len(nocCert.SubjectKeyId) == 0 {
+		t.Error("issued NOC is missing a SubjectKeyId extension")
+	}
+	csrPub := csr.PublicKey.(*ecdsa.PublicKey)
+	wantSKID := sha1.Sum(elliptic.Marshal(csrPub.Curve, csrPub.X, csrPub.Y))
+	if !bytes.Equal(nocCert.SubjectKeyId, wantSKID[:]) {
+		t.Errorf("NOC SubjectKeyId = %x, want SHA-1(pubkey) = %x", nocCert.SubjectKeyId, wantSKID)
 	}
 }
 

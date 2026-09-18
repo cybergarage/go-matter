@@ -109,20 +109,27 @@ func run() error {
 	now := time.Now()
 
 	// RFC 5280 ยง4.2.1.2 method (1): SKID = SHA-1(subjectPublicKey BIT STRING
-	// content). Computed explicitly, rather than left for x509.CreateCertificate
-	// to auto-generate, because a self-signed certificate (parent == template)
-	// needs its AuthorityKeyId set to this same value up front — Go only
-	// auto-copies a parent's SubjectKeyId into the issued cert's
-	// AuthorityKeyId when the parent is a distinct, already-populated
-	// certificate, not when signing a certificate with itself. Matter
-	// requires an RCAC's AuthorityKeyId to equal its own SubjectKeyId
+	// content). Computed explicitly for both certs, rather than left for
+	// x509.CreateCertificate to auto-generate: the root is self-signed
+	// (parent == template), and Go only auto-copies a parent's SubjectKeyId
+	// into the issued cert's AuthorityKeyId when the parent is a distinct,
+	// already-populated certificate, not when signing a certificate with
+	// itself — so its own AuthorityKeyId needs this value set up front too.
+	// Matter requires an RCAC's AuthorityKeyId to equal its own SubjectKeyId
 	// (connectedhomeip's ValidateChipRCAC), and requires the Subject DN to
 	// carry the MatterRCACId attribute for the certificate to be recognized
 	// as a root ("GetCertType" in src/credentials/CHIPCert.cpp) — a real
 	// device rejected AddTrustedRootCertificate with InvalidCommand for
-	// missing both.
+	// missing both. Separately, connectedhomeip's ChipCertificateSet::LoadCert
+	// rejects ANY certificate — including a non-CA leaf NOC — that lacks a
+	// SubjectKeyId extension, regardless of whether anything else references
+	// it (CHIP_ERROR_UNSUPPORTED_CERT_FORMAT); the admin NOC needs its own
+	// SubjectKeyId set for the same reason, even though nothing signs beneath
+	// it.
 	rootPubKeyBytes := elliptic.Marshal(rootKey.PublicKey.Curve, rootKey.PublicKey.X, rootKey.PublicKey.Y)
 	rootSKID := sha1.Sum(rootPubKeyBytes)
+	adminPubKeyBytes := elliptic.Marshal(adminKey.PublicKey.Curve, adminKey.PublicKey.X, adminKey.PublicKey.Y)
+	adminSKID := sha1.Sum(adminPubKeyBytes)
 
 	rootTemplate := &x509.Certificate{
 		SerialNumber: rootSerial,
@@ -158,6 +165,7 @@ func run() error {
 		NotAfter:       now.Add(time.Duration(days) * 24 * time.Hour),
 		KeyUsage:       x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:    []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+		SubjectKeyId:   adminSKID[:],
 		AuthorityKeyId: rootSKID[:],
 	}
 	adminNOCDER, err := x509.CreateCertificate(rand.Reader, adminTemplate, rootTemplate, &adminKey.PublicKey, rootKey)
