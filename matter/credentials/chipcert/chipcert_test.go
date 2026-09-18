@@ -15,6 +15,7 @@
 package chipcert
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -120,13 +121,23 @@ func TestDERToTLVToDERRoot(t *testing.T) {
 		t.Errorf("NotAfter: got %v, want %v", got.NotAfter, orig.NotAfter)
 	}
 
-	// The round-tripped certificate must still verify against its own
-	// (self-signed) signature, proving the reconstructed TBSCertificate DER
-	// is byte-identical to what was originally signed.
-	pool := x509.NewCertPool()
-	pool.AddCert(got)
-	if _, err := got.Verify(x509.VerifyOptions{Roots: pool, KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageAny}}); err != nil {
-		t.Errorf("round-tripped root certificate failed self-verification: %v", err)
+	// The reconstructed DER must be byte-identical to the original: a real
+	// device reconstructs a certificate from this same TLV independently
+	// (connectedhomeip's own CHIPCertToX509.cpp, not this package), and its
+	// signature check can only pass if the TBSCertificate bytes it derives
+	// match what was actually signed. x509.Certificate.Verify() does NOT
+	// reliably catch a broken reconstruction here: with the round-tripped
+	// cert as its own sole trust anchor, Go's chain builder can accept it
+	// without invoking a direct cryptographic check of its self-signature —
+	// this previously stayed green even for a build that reordered two
+	// extensions (KeyUsage/BasicConstraints), which round-trips to the same
+	// semantic content but different DER bytes and so a different, invalid
+	// signature. CheckSignatureFrom(cert) forces the actual check.
+	if !bytes.Equal(rootDER, roundTripDER) {
+		t.Errorf("round-tripped DER is not byte-identical to the original\norig: %x\ngot:  %x", rootDER, roundTripDER)
+	}
+	if err := got.CheckSignatureFrom(got); err != nil {
+		t.Errorf("round-tripped root certificate failed self-signature verification: %v", err)
 	}
 }
 

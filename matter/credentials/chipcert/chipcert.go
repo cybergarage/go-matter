@@ -298,47 +298,75 @@ func uint64ToHexRDN(v uint64) string {
 	return strings.ToUpper(hex.EncodeToString(b))
 }
 
+// encodeExtensions writes each of cert.Extensions in the exact order they
+// appear there (i.e. the order they were encoded in the original signed DER,
+// since cert always comes from x509.ParseCertificate — see DERToTLV). This
+// order must be preserved: connectedhomeip's own CHIPCert-to-X509
+// reconstruction (src/credentials/CHIPCertToX509.cpp) rebuilds the DER
+// Extensions SEQUENCE by walking this TLV List in the order its elements
+// appear, not in some fixed canonical order — so a device reconstructing a
+// cert whose extensions were re-ordered here computes a different
+// TBSCertificate than the one that was actually signed, and its self/chain
+// signature verification fails. This was found the hard way: a real device
+// rejected AddTrustedRootCertificate with InvalidCommand for exactly this
+// reason, after the original DER (KeyUsage, then BasicConstraints) round
+// tripped through the previous fixed-order encoder as (BasicConstraints,
+// then KeyUsage).
 func encodeExtensions(enc tlv.Encoder, cert *x509.Certificate) error {
 	enc.BeginList(tlv.NewContextTag(tagExtensions))
-	if cert.BasicConstraintsValid {
-		enc.BeginStructure(tlv.NewContextTag(tagExtBasicConstraints))
-		enc.PutBool(tlv.NewContextTag(tagBasicConstraintsIsCA), cert.IsCA)
-		if cert.MaxPathLen > 0 || (cert.MaxPathLen == 0 && cert.MaxPathLenZero) {
-			enc.PutUnsigned1(tlv.NewContextTag(tagBasicConstraintsPathLenConstraint), uint8(cert.MaxPathLen))
-		}
-		if err := enc.EndContainer(); err != nil {
-			return err
-		}
-	}
-	if cert.KeyUsage != 0 {
-		enc.PutUnsigned2(tlv.NewContextTag(tagExtKeyUsage), uint16(cert.KeyUsage))
-	}
-	if len(cert.ExtKeyUsage) > 0 {
-		enc.BeginArray(tlv.NewContextTag(tagExtExtendedKeyUsage))
-		for _, ku := range cert.ExtKeyUsage {
-			var v uint8
-			switch ku {
-			case x509.ExtKeyUsageServerAuth:
-				v = keyPurposeServerAuth
-			case x509.ExtKeyUsageClientAuth:
-				v = keyPurposeClientAuth
-			default:
+	for _, ext := range cert.Extensions {
+		switch {
+		case ext.Id.Equal(oidExtBasicConstraints):
+			if !cert.BasicConstraintsValid {
 				continue
 			}
-			enc.PutUnsigned1(tlv.NewAnonymousTag(), v)
-		}
-		if err := enc.EndContainer(); err != nil {
-			return err
-		}
-	}
-	if len(cert.SubjectKeyId) > 0 {
-		if err := enc.PutOctet(tlv.NewContextTag(tagExtSubjectKeyIdentifier), cert.SubjectKeyId); err != nil {
-			return err
-		}
-	}
-	if len(cert.AuthorityKeyId) > 0 {
-		if err := enc.PutOctet(tlv.NewContextTag(tagExtAuthorityKeyIdentifier), cert.AuthorityKeyId); err != nil {
-			return err
+			enc.BeginStructure(tlv.NewContextTag(tagExtBasicConstraints))
+			enc.PutBool(tlv.NewContextTag(tagBasicConstraintsIsCA), cert.IsCA)
+			if cert.MaxPathLen > 0 || (cert.MaxPathLen == 0 && cert.MaxPathLenZero) {
+				enc.PutUnsigned1(tlv.NewContextTag(tagBasicConstraintsPathLenConstraint), uint8(cert.MaxPathLen))
+			}
+			if err := enc.EndContainer(); err != nil {
+				return err
+			}
+		case ext.Id.Equal(oidExtKeyUsage):
+			if cert.KeyUsage == 0 {
+				continue
+			}
+			enc.PutUnsigned2(tlv.NewContextTag(tagExtKeyUsage), uint16(cert.KeyUsage))
+		case ext.Id.Equal(oidExtExtendedKeyUsage):
+			if len(cert.ExtKeyUsage) == 0 {
+				continue
+			}
+			enc.BeginArray(tlv.NewContextTag(tagExtExtendedKeyUsage))
+			for _, ku := range cert.ExtKeyUsage {
+				var v uint8
+				switch ku {
+				case x509.ExtKeyUsageServerAuth:
+					v = keyPurposeServerAuth
+				case x509.ExtKeyUsageClientAuth:
+					v = keyPurposeClientAuth
+				default:
+					continue
+				}
+				enc.PutUnsigned1(tlv.NewAnonymousTag(), v)
+			}
+			if err := enc.EndContainer(); err != nil {
+				return err
+			}
+		case ext.Id.Equal(oidExtSubjectKeyIdentifier):
+			if len(cert.SubjectKeyId) == 0 {
+				continue
+			}
+			if err := enc.PutOctet(tlv.NewContextTag(tagExtSubjectKeyIdentifier), cert.SubjectKeyId); err != nil {
+				return err
+			}
+		case ext.Id.Equal(oidExtAuthorityKeyID):
+			if len(cert.AuthorityKeyId) == 0 {
+				continue
+			}
+			if err := enc.PutOctet(tlv.NewContextTag(tagExtAuthorityKeyIdentifier), cert.AuthorityKeyId); err != nil {
+				return err
+			}
 		}
 	}
 	return enc.EndContainer()
