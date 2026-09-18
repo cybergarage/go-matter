@@ -72,6 +72,7 @@ func Invoke(sess SecureSession, endpointID EndpointID, clusterID ClusterID, comm
 	wire = append(wire, protocolHeaderBytes...)
 	wire = append(wire, payload...)
 
+	log.HexDebug(wire)
 	if err := sess.Transmit(wire); err != nil {
 		return nil, fmt.Errorf("im: transmit InvokeRequest: %w", err)
 	}

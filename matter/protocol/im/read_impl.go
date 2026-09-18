@@ -17,6 +17,7 @@ package im
 import (
 	"fmt"
 
+	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/encoding/message"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 )
@@ -37,6 +38,7 @@ func ReadBoolAttribute(sess SecureSession, endpointID EndpointID, clusterID Clus
 	wire = append(wire, protocolHeaderBytes...)
 	wire = append(wire, payload...)
 
+	log.HexDebug(wire)
 	if err := sess.Transmit(wire); err != nil {
 		return false, fmt.Errorf("im: transmit ReadRequest: %w", err)
 	}
