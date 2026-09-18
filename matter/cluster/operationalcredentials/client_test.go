@@ -205,16 +205,20 @@ func TestAttestationRequestEncodesNonceAndDecodesResponse(t *testing.T) {
 	}
 }
 
+// TestCertificateChainRequestDecodesCertificate guards against a regression
+// where CertificateChainRequest ran chipcert.TLVToDER on the response's
+// Certificate field. A real device's CertificateChainResponse carries the
+// DAC/PAI as plain DER already (unlike the fabric's own NOC/ICAC/RCAC, which
+// do use the compact Matter-TLV CHIPCert encoding for AddNOC/
+// AddTrustedRootCertificate) — running TLVToDER on it failed immediately
+// with "expected top-level Structure" since a DER certificate's first byte
+// (0x30, SEQUENCE) is never a valid Matter-TLV control byte.
 func TestCertificateChainRequestDecodesCertificate(t *testing.T) {
 	certDER := generateSelfSignedCert(t)
-	certTLV, err := chipcert.DERToTLV(certDER)
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	sess := &fakeSession{
 		nextReceive: buildSuccessInvokeResponse(t, func(enc tlv.Encoder) {
-			if err := enc.PutOctet(tlv.NewContextTag(0), certTLV); err != nil {
+			if err := enc.PutOctet(tlv.NewContextTag(0), certDER); err != nil {
 				t.Fatal(err)
 			}
 		}),

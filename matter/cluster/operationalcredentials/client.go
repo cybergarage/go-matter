@@ -101,8 +101,14 @@ func AttestationRequest(sess session.SecureSession, ep im.EndpointID, nonce []by
 }
 
 // CertificateChainRequest requests a certificate (DAC or PAI) from the
-// device and returns it DER-encoded (converted from the device's Matter-TLV
-// CHIPCert wire format via matter/credentials/chipcert).
+// device and returns it DER-encoded. Unlike the fabric's own operational
+// certificates (NOC/ICAC/RCAC), which the device conveys using the compact
+// Matter-TLV CHIPCert encoding, the manufacturer-provisioned DAC/PAI
+// attestation certificates returned here are already plain DER — per
+// connectedhomeip's DeviceAttestationCredentialsProvider interface
+// (GetDeviceAttestationCert/GetProductAttestationIntermediateCert, whose
+// callers use constants literally named e.g. kMaxDERCertLength) — so no
+// chipcert.TLVToDER conversion applies to this response.
 // certificateType: 1 = DAC, 2 = PAI.
 // 11.18.7.3. CertificateChainRequest Command.
 // Returns (certDER, error).
@@ -118,15 +124,11 @@ func CertificateChainRequest(sess session.SecureSession, ep im.EndpointID, certi
 	if !resp.IsSuccess() {
 		return nil, invokeStatusError("CertificateChainRequest", resp)
 	}
-	certTLV, ok := fieldBytes(resp, 0)
+	certDER, ok := fieldBytes(resp, 0)
 	if !ok {
 		return nil, fmt.Errorf("operationalcredentials: CertificateChainResponse missing Certificate")
 	}
-	der, err := chipcert.TLVToDER(certTLV)
-	if err != nil {
-		return nil, fmt.Errorf("operationalcredentials: decode certificate: %w", err)
-	}
-	return der, nil
+	return certDER, nil
 }
 
 // CSRRequest requests a Certificate Signing Request from the device and
