@@ -74,16 +74,16 @@ func CryptoPAKEValuesInitiator(passcode []byte, salt []byte, iterations int) ([]
 	//
 	// byte w0[CRYPTO_GROUP_SIZE_BYTES] = w0s mod p
 	// byte w1[CRYPTO_GROUP_SIZE_BYTES] = w1s mod p.
-	ws, err := CryptoPBKDF(passcode, salt, iterations, CryptoWSizeBytes)
+	ws, err := CryptoPBKDF(passcode, salt, iterations, 2*CryptoWSizeBytes)
 	if err != nil {
 		return nil, nil, err
 	}
-	if len(ws) != CryptoWSizeBytes {
-		return nil, nil, newErrInvalidLen("CryptoPBKDF output", CryptoWSizeBytes, len(ws))
+	if len(ws) != 2*CryptoWSizeBytes {
+		return nil, nil, newErrInvalidLen("CryptoPBKDF output", 2*CryptoWSizeBytes, len(ws))
 	}
 
-	w0s := ws[:CryptoGroupSizeBytes]
-	w1s := ws[CryptoGroupSizeBytes:]
+	w0s := ws[:CryptoWSizeBytes]
+	w1s := ws[CryptoWSizeBytes:]
 
 	w0 := cryptoPAKEModP(w0s)
 	w1 := cryptoPAKEModP(w1s)
@@ -104,16 +104,16 @@ func CryptoPAKEValuesResponder(passcode []byte, salt []byte, iterations int) ([]
 	// byte w0[CRYPTO_GROUP_SIZE_BYTES] = w0s mod p
 	// byte w1[CRYPTO_GROUP_SIZE_BYTES] = w1s mod p
 	// byte L[CRYPTO_PUBLIC_KEY_SIZE_BYTES] = w1 * P.
-	ws, err := CryptoPBKDF(passcode, salt, iterations, CryptoWSizeBytes)
+	ws, err := CryptoPBKDF(passcode, salt, iterations, 2*CryptoWSizeBytes)
 	if err != nil {
 		return nil, nil, err
 	}
-	if len(ws) != CryptoWSizeBytes {
-		return nil, nil, newErrInvalidLen("CryptoPBKDF output", CryptoWSizeBytes, len(ws))
+	if len(ws) != 2*CryptoWSizeBytes {
+		return nil, nil, newErrInvalidLen("CryptoPBKDF output", 2*CryptoWSizeBytes, len(ws))
 	}
 
-	w0s := ws[:CryptoGroupSizeBytes]
-	w1s := ws[CryptoGroupSizeBytes:]
+	w0s := ws[:CryptoWSizeBytes]
+	w1s := ws[CryptoWSizeBytes:]
 	w0 := cryptoPAKEModP(w0s)
 	w1 := cryptoPAKEModP(w1s)
 

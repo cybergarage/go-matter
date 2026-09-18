@@ -17,8 +17,10 @@ package crypto
 import (
 	"bytes"
 	"crypto/hmac"
+	"crypto/pbkdf2"
 	"crypto/sha256"
 	"io"
+	"math/big"
 	"testing"
 
 	"golang.org/x/crypto/hkdf"
@@ -62,6 +64,52 @@ func TestCryptoPAKEValuesResponder_Basic(t *testing.T) {
 		t.Errorf("w0 and l should not be equal")
 	}
 }
+
+// TestCryptoPAKEValuesInitiatorMatchesSpecIndependentRecomputation guards
+// against a regression where CryptoPAKEValuesInitiator/Responder requested
+// only CryptoWSizeBytes (40) bytes of PBKDF2 output instead of the spec-
+// mandated 2*CryptoWSizeBytes (80), and then split w0s/w1s at the 32-byte
+// CryptoGroupSizeBytes boundary instead of the 40-byte CryptoWSizeBytes
+// boundary. The resulting w0/w1 were the right length and internally
+// consistent (so every length/inequality-only test above passed), but did
+// not match spec 3.10's Crypto_PAKEValues_Initiator/_Responder, so they
+// could never agree with a real device's SPAKE2+ computation — this was a
+// root cause of persistent PASE "cB mismatch" failures against a real
+// device even with a verified-correct passcode. This test recomputes w0s/
+// w1s independently via crypto/pbkdf2 directly (not this package's
+// CryptoPBKDF) with the correct length and split, so it can't share the bug.
+func TestCryptoPAKEValuesInitiatorMatchesSpecIndependentRecomputation(t *testing.T) {
+	passcode := []byte("testpasscode")
+	salt := []byte("testsalt")
+	iterations := 1000
+
+	w0, w1, err := CryptoPAKEValuesInitiator(passcode, salt, iterations)
+	if err != nil {
+		t.Fatalf("CryptoPAKEValuesInitiator failed: %v", err)
+	}
+
+	ws, err := pbkdf2.Key(sha256.New, string(passcode), salt, iterations, 2*CryptoWSizeBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ws) != 2*CryptoWSizeBytes {
+		t.Fatalf("independent PBKDF2 output length = %d, want %d", len(ws), 2*CryptoWSizeBytes)
+	}
+	w0s := ws[:CryptoWSizeBytes]
+	w1s := ws[CryptoWSizeBytes:]
+
+	p := ellipticCurve.Params().P
+	wantW0 := new(big.Int).Mod(new(big.Int).SetBytes(w0s), p).FillBytes(make([]byte, CryptoGroupSizeBytes))
+	wantW1 := new(big.Int).Mod(new(big.Int).SetBytes(w1s), p).FillBytes(make([]byte, CryptoGroupSizeBytes))
+
+	if !bytes.Equal(w0, wantW0) {
+		t.Errorf("w0 = %x, want %x (independently recomputed per 3.10)", w0, wantW0)
+	}
+	if !bytes.Equal(w1, wantW1) {
+		t.Errorf("w1 = %x, want %x (independently recomputed per 3.10)", w1, wantW1)
+	}
+}
+
 func TestCryptoPA_Basic(t *testing.T) {
 	passcode := []byte("testpasscode")
 	salt := []byte("testsalt")
