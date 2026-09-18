@@ -115,3 +115,49 @@ func TestSecureSessionReceiveSkipsStandaloneMRPAck(t *testing.T) {
 		t.Errorf("Receive() = %q, want %q (the standalone MRP ACK should have been skipped)", got, realPayload)
 	}
 }
+
+// TestSecureSessionReceiveSkipsForeignSessionPacket guards against a
+// regression where a stray packet not addressed to this session — observed
+// against a real device as a 34-byte packet with SessionID 0 and an unrelated
+// destination-node-ID field, most likely a delayed/duplicate message from an
+// earlier unsecured exchange — was handed straight to AES-CCM decryption,
+// which can only ever fail authentication since it was never encrypted with
+// this session's keys. That surfaced as a fatal "AES-CCM decryption failed"
+// error instead of being ignored so the real, matching response could still
+// arrive. A SessionID that doesn't match InitiatorSessionID (the ID this
+// session told its peer to use) is now rejected before decryption is even
+// attempted, and Receive retries instead of failing.
+func TestSecureSessionReceiveSkipsForeignSessionPacket(t *testing.T) {
+	key := bytes.Repeat([]byte{0x22}, 16)
+	keys := &stubSessionKeys{i2rKey: key, r2iKey: key}
+
+	// A packet whose header claims SessionID 0 (this session expects 1) —
+	// its ciphertext content is irrelevant since it must be rejected before
+	// any decryption is attempted.
+	foreignHdr := message.NewHeader(
+		message.WithHeaderSessionID(0),
+		message.WithHeaderSecurityFlags(0),
+		message.WithHeaderMessageCounter(99),
+	)
+	foreignHdrBytes, err := foreignHdr.Bytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	foreignPacket := append(append([]byte{}, foreignHdrBytes...), 0xDE, 0xAD, 0xBE, 0xEF)
+
+	realPayload := []byte("real-invoke-response-payload")
+
+	transport := &queueTransport{packets: [][]byte{
+		foreignPacket,
+		encryptDeviceMessage(t, key, 2, realPayload),
+	}}
+
+	sess := NewSecureSession(transport, keys)
+	got, err := sess.Receive()
+	if err != nil {
+		t.Fatalf("Receive() error = %v", err)
+	}
+	if !bytes.Equal(got, realPayload) {
+		t.Errorf("Receive() = %q, want %q (the foreign-session packet should have been skipped)", got, realPayload)
+	}
+}

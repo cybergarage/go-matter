@@ -17,6 +17,7 @@ package session
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"sync/atomic"
 
@@ -24,6 +25,16 @@ import (
 	"github.com/cybergarage/go-matter/matter/crypto"
 	"github.com/cybergarage/go-matter/matter/encoding/message"
 )
+
+// errForeignSession is returned by receiveOne when a packet's SessionID
+// doesn't match this session's expected InitiatorSessionID, meaning it
+// wasn't addressed to this session at all (e.g. a stray or delayed packet
+// from an earlier unsecured exchange, such as a late PASE-phase message
+// arriving after the secure session is already established). Receive treats
+// it the same way as a standalone MRP ack: skip it and wait for the next
+// packet, rather than attempting to AES-CCM-decrypt data that was never
+// encrypted for this session's keys in the first place.
+var errForeignSession = errors.New("session: packet does not belong to this session")
 
 // secureSession is the concrete implementation of SecureSession.
 type secureSession struct {
@@ -122,6 +133,10 @@ func (s *secureSession) Transmit(payload []byte) error {
 func (s *secureSession) Receive() ([]byte, error) {
 	for {
 		plaintext, err := s.receiveOne()
+		if errors.Is(err, errForeignSession) {
+			log.Debugf("session: %v, waiting for next message", err)
+			continue
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -150,6 +165,15 @@ func (s *secureSession) receiveOne() ([]byte, error) {
 	hdr, err := message.NewHeaderFromBytes(raw)
 	if err != nil {
 		return nil, fmt.Errorf("session: failed to parse message header: %w", err)
+	}
+
+	// A message addressed to this session carries the SessionID we assigned
+	// the peer during session establishment (InitiatorSessionID — the ID the
+	// peer uses when addressing us). Anything else is not part of this
+	// session's traffic; decrypting it with this session's keys would only
+	// ever fail AES-CCM authentication, so it's rejected here instead.
+	if hdr.SessionID() != s.keys.InitiatorSessionID() {
+		return nil, fmt.Errorf("%w (got %d, want %d)", errForeignSession, hdr.SessionID(), s.keys.InitiatorSessionID())
 	}
 
 	// Compute the byte length of the header to split header from ciphertext.
