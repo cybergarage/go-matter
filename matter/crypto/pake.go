@@ -280,8 +280,17 @@ func CryptoP2(tt, pA, pB []byte) ([]byte, []byte, []byte, error) {
 	half := CryptoHashLenBytes / 2
 	ka := kaKe[:half]
 	ke := kaKe[half:]
-	cA := CryptoHMAC(ka, pB)
-	cB := CryptoHMAC(ka, pA)
+
+	// KcA || KcB = Crypto_KDF(Ka, nil, "ConfirmationKeys", CRYPTO_HASH_LEN_BITS)
+	kcAkcB, err := CryptoKDF(ka, nil, []byte("ConfirmationKeys"), CryptoHashLenBytes)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("derive confirmation keys: %w", err)
+	}
+	kcA := kcAkcB[:half]
+	kcB := kcAkcB[half:]
+
+	cA := CryptoHMAC(kcA, pB)
+	cB := CryptoHMAC(kcB, pA)
 	return cA, cB, ke, nil
 }
 
@@ -296,6 +305,10 @@ func appendSized(dst, data []byte) []byte {
 
 // 3.10.4. Computation of cA, cB and Ke
 // Crypto_P2(TT, pA, pB) :=
+//   Ka || Ke = Crypto_Hash(TT)
+//   KcA || KcB = Crypto_KDF(Ka, nil, "ConfirmationKeys", CRYPTO_HASH_LEN_BITS)
+//   cA = Crypto_HMAC(KcA, pB)
+//   cB = Crypto_HMAC(KcB, pA)
 //   {byte cA[CRYPTO_HASH_LEN_BYTES],
 //   byte cB[CRYPTO_HASH_LEN_BYTES],
 //   byte Ke[CRYPTO_HASH_LEN_BYTES/2]}

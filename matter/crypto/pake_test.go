@@ -16,7 +16,12 @@ package crypto
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"io"
 	"testing"
+
+	"golang.org/x/crypto/hkdf"
 )
 
 func TestCryptoPAKEValuesInitiator_Basic(t *testing.T) {
@@ -250,5 +255,59 @@ func TestCryptoConfirmationValues_Basic(t *testing.T) {
 	}
 	if bytes.Equal(cB, cBChanged) {
 		t.Fatal("cB should change when TT changes")
+	}
+}
+
+// TestCryptoP2MatchesSpecIndependentRecomputation guards against a regression
+// where CryptoP2 skipped the Crypto_KDF(Ka, nil, "ConfirmationKeys", ...) step
+// required by 3.10.4 and used Ka directly as the HMAC key for both cA and cB
+// (instead of the distinct KcA/KcB it derives). That bug produced
+// self-consistent, correctly-sized, deterministic output — so it passed every
+// other test above — but did not interoperate with any spec-compliant
+// responder (a real device would always compute a different cB). This test
+// independently re-derives cA/cB using the standard library's hash/hmac/hkdf
+// directly, rather than calling CryptoHash/CryptoHMAC/CryptoKDF, so it can't
+// pass by sharing the same bug as the code under test.
+func TestCryptoP2MatchesSpecIndependentRecomputation(t *testing.T) {
+	tt := []byte("arbitrary transcript bytes for this test")
+	// pA/pB must be valid P-256 points (CryptoP2 validates them); reuse the
+	// fixed SPAKE2+ M/N generator points as stand-ins.
+	pA := spake2pM
+	pB := spake2pN
+
+	cA, cB, ke, err := CryptoP2(tt, pA, pB)
+	if err != nil {
+		t.Fatalf("CryptoP2 failed: %v", err)
+	}
+
+	kaKe := sha256.Sum256(tt)
+	half := len(kaKe) / 2
+	wantKa := kaKe[:half]
+	wantKe := kaKe[half:]
+
+	kdf := hkdf.New(sha256.New, wantKa, nil, []byte("ConfirmationKeys"))
+	kcAkcB := make([]byte, CryptoHashLenBytes)
+	if _, err := io.ReadFull(kdf, kcAkcB); err != nil {
+		t.Fatal(err)
+	}
+	wantKcA := kcAkcB[:half]
+	wantKcB := kcAkcB[half:]
+
+	wantCAMac := hmac.New(sha256.New, wantKcA)
+	wantCAMac.Write(pB)
+	wantCA := wantCAMac.Sum(nil)
+
+	wantCBMac := hmac.New(sha256.New, wantKcB)
+	wantCBMac.Write(pA)
+	wantCB := wantCBMac.Sum(nil)
+
+	if !bytes.Equal(cA, wantCA) {
+		t.Errorf("cA = %x, want %x (independently recomputed per 3.10.4)", cA, wantCA)
+	}
+	if !bytes.Equal(cB, wantCB) {
+		t.Errorf("cB = %x, want %x (independently recomputed per 3.10.4)", cB, wantCB)
+	}
+	if !bytes.Equal(ke, wantKe[:]) {
+		t.Errorf("Ke = %x, want %x", ke, wantKe)
 	}
 }
