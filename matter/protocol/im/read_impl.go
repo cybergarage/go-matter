@@ -150,6 +150,18 @@ func parseReadResponse(data []byte) (*ReadResponse, error) {
 	}
 	tlvData := data[len(protoHdrBytes):]
 
+	// A device rejecting the whole ReadRequestMessage replies with a
+	// StatusResponseMessage instead of a ReportDataMessage — same failure
+	// mode as InvokeRequestMessage, see the matching comment in
+	// parseInvokeResponse.
+	if protHdr.Opcode().IsStatusResponseMessage() {
+		status, err := parseStatusResponseMessage(tlvData)
+		if err != nil {
+			return nil, fmt.Errorf("im: ReadResponse: %w", err)
+		}
+		return &ReadResponse{Status: &status}, nil
+	}
+
 	dec := tlv.NewDecoderWithBytes(tlvData)
 	if !dec.Next() {
 		if err := dec.Error(); err != nil {

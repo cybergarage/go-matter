@@ -278,3 +278,45 @@ func TestParseReadResponseAttributeStatusError(t *testing.T) {
 		t.Errorf("Value = %+v, want nil for an AttributeStatusIB report", resp.Value)
 	}
 }
+
+// TestParseReadResponseHandlesStatusResponseMessage guards against a
+// regression where a device rejecting the whole ReadRequestMessage (e.g.
+// InvalidAction) replied with a StatusResponseMessage, but parseReadResponse
+// blindly decoded its TLV body as if it were a ReportDataMessage, reporting
+// "no attribute report for requested path" instead of surfacing the device's
+// actual rejection status.
+func TestParseReadResponseHandlesStatusResponseMessage(t *testing.T) {
+	hdr := message.NewProtocolHeader(
+		message.WithHeaderExchangeFlags(message.ReliabilityFlag),
+		message.WithHeaderOpcode(message.StatusResponseMessage),
+		message.WithHeaderExchangeID(message.NewFirstExchangeID()),
+		message.WithHeaderProtocolID(message.InteractionModel),
+	)
+	hdrBytes, err := hdr.Bytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	enc := tlv.NewEncoder()
+	enc.BeginStructure(tlv.NewAnonymousTag())
+	enc.PutUnsigned1(tlv.NewContextTag(0), 0x80) // Status: InvalidAction
+	enc.PutUnsigned1(tlv.NewContextTag(0xFF), 1) // InteractionModelRevision
+	if err := enc.EndContainer(); err != nil {
+		t.Fatal(err)
+	}
+	data := append(append([]byte{}, hdrBytes...), enc.Bytes()...)
+
+	resp, err := parseReadResponse(data)
+	if err != nil {
+		t.Fatalf("parseReadResponse() error = %v", err)
+	}
+	if resp.Status == nil {
+		t.Fatal("Status = nil, want non-nil for a StatusResponseMessage")
+	}
+	if resp.Status.IMStatus != 0x80 {
+		t.Errorf("Status.IMStatus = %#x, want 0x80", resp.Status.IMStatus)
+	}
+	if resp.Value != nil {
+		t.Errorf("Value = %+v, want nil for a StatusResponseMessage", resp.Value)
+	}
+}

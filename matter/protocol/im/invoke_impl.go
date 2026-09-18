@@ -40,9 +40,9 @@ const (
 //	invoke-request-message => STRUCTURE {
 //	  0: suppress-response  [BOOL]
 //	  1: timed-request      [BOOL]
-//	  2: invoke-requests    [LIST] {
+//	  2: invoke-requests    [ARRAY] {
 //	    command-data-IB => STRUCTURE {
-//	      0: command-path-IB => STRUCTURE {
+//	      0: command-path-IB => LIST {
 //	        0: endpoint-id  [UINT16]
 //	        1: cluster-id   [UINT32]
 //	        2: command-id   [UINT32]
@@ -96,14 +96,20 @@ func buildInvokeRequestPayload(endpointID EndpointID, clusterID ClusterID, comma
 	// Tag 1: timed-request = false.
 	enc.PutBool(tlv.NewContextTag(1), false)
 
-	// Tag 2: invoke-requests (list).
-	enc.BeginList(tlv.NewContextTag(2))
+	// Tag 2: invoke-requests. InvokeRequests (src/app/MessageDef/InvokeRequests.h)
+	// is an ArrayParser/ArrayBuilder, i.e. TLV type Array, not List — a real
+	// device's ProcessInvokeRequest calls GetInvokeRequests unconditionally
+	// and returns Status::InvalidAction for the whole message on any error,
+	// including a container-type mismatch.
+	enc.BeginArray(tlv.NewContextTag(2))
 
 	// command-data-IB structure.
 	enc.BeginStructure(tlv.NewAnonymousTag())
 
-	// Tag 0: command-path-IB structure.
-	enc.BeginStructure(tlv.NewContextTag(0))
+	// Tag 0: command-path-IB. CommandPathIB (src/app/MessageDef/CommandPathIB.h)
+	// is a ListParser/ListBuilder, i.e. TLV type List, not Structure — same
+	// failure mode as InvokeRequests above.
+	enc.BeginList(tlv.NewContextTag(0))
 	enc.PutUnsigned2(tlv.NewContextTag(0), uint16(endpointID))
 	if err := enc.PutUnsigned(tlv.NewContextTag(1), uint64(clusterID)); err != nil {
 		return nil, err
@@ -175,6 +181,22 @@ func parseInvokeResponse(data []byte) (*InvokeResponse, error) {
 		return &InvokeResponse{}, nil
 	}
 	tlvData := data[len(protoHdrBytes):]
+
+	// A device rejecting the whole InvokeRequestMessage (e.g. a malformed
+	// or unsupported request) replies with a StatusResponseMessage instead
+	// of an InvokeResponseMessage. Its TLV body shares no tag layout with
+	// InvokeResponseMessage's (Status sits directly at tag 0, not nested
+	// under an InvokeResponseIB/CommandStatusIB/StatusIB chain), so it must
+	// be detected via the protocol opcode and parsed separately — otherwise
+	// every field silently fails to match any case below and IsSuccess()
+	// incorrectly reports success for the default zero-value Status.
+	if protHdr.Opcode().IsStatusResponseMessage() {
+		status, err := parseStatusResponseMessage(tlvData)
+		if err != nil {
+			return nil, fmt.Errorf("im: InvokeResponse: %w", err)
+		}
+		return &InvokeResponse{Status: status}, nil
+	}
 
 	dec := tlv.NewDecoderWithBytes(tlvData)
 	if !dec.Next() {
@@ -326,6 +348,36 @@ func parseStatusIB(dec tlv.Decoder, resp *InvokeResponse) error {
 	}
 	resp.Status = status
 	return nil
+}
+
+// parseStatusResponseMessage decodes a StatusResponseMessage's TLV body
+// (protocol header already stripped). Unlike StatusIB, which is always
+// nested one or more levels deep (InvokeResponseIB.CommandStatusIB.StatusIB,
+// or AttributeStatusIB.StatusIB), a StatusResponseMessage carries its Status
+// code directly as tag 0 of the top-level structure, with no ClusterStatus.
+// 10.7.16. StatusResponseMessage.
+func parseStatusResponseMessage(tlvData []byte) (InvokeStatus, error) {
+	var status InvokeStatus
+	dec := tlv.NewDecoderWithBytes(tlvData)
+	if !dec.Next() || !dec.Element().Type().IsStructure() {
+		return status, fmt.Errorf("expected top-level Structure")
+	}
+	for dec.Next() {
+		elem := dec.Element()
+		if elem.Type().IsEndOfContainer() {
+			break
+		}
+		ct, ok := elem.Tag().(tlv.ContextTag)
+		if !ok {
+			continue
+		}
+		if ct.ContextNumber() == 0 {
+			if v, ok := elem.Unsigned1(); ok {
+				status.IMStatus = v
+			}
+		}
+	}
+	return status, dec.Error()
 }
 
 // decodeStatusIB decodes a StatusIB's fields, assuming the caller has

@@ -185,7 +185,7 @@ func TestBuildInvokeRequestPayloadEncodesInteractionModelRevision(t *testing.T) 
 
 	// Walk every remaining element (not just the top-level structure's
 	// direct children) since the InteractionModelRevision field sits after
-	// the nested invoke-requests List, whose own EndOfContainer marker must
+	// the nested invoke-requests Array, whose own EndOfContainer marker must
 	// be passed through, not treated as the end of the walk.
 	var found bool
 	for dec.Next() {
@@ -208,6 +208,44 @@ func TestBuildInvokeRequestPayloadEncodesInteractionModelRevision(t *testing.T) 
 	}
 }
 
+// TestBuildInvokeRequestPayloadContainerTypes guards against a regression
+// where invoke-requests (ContextTag 2) was encoded as a List and
+// command-path-IB (nested CommandDataIB tag 0) was encoded as a Structure.
+// connectedhomeip's InvokeRequests (src/app/MessageDef/InvokeRequests.h) is
+// an ArrayParser/ArrayBuilder and CommandPathIB
+// (src/app/MessageDef/CommandPathIB.h) is a ListParser/ListBuilder — a real
+// device's CommandHandlerImpl::ProcessInvokeRequest calls GetInvokeRequests
+// unconditionally and returns Status::InvalidAction for the whole
+// InvokeRequestMessage on any container-type mismatch, which is exactly
+// what a real device did for both ArmFailSafe and AttestationRequest before
+// this fix.
+func TestBuildInvokeRequestPayloadContainerTypes(t *testing.T) {
+	payload, err := buildInvokeRequestPayload(0, 0x0030, 0x0000, nil)
+	if err != nil {
+		t.Fatalf("buildInvokeRequestPayload() error = %v", err)
+	}
+
+	dec := tlv.NewDecoderWithBytes(payload)
+	if !dec.Next() || !dec.Element().Type().IsStructure() {
+		t.Fatal("expected top-level Structure")
+	}
+	if !dec.Next() || !dec.Element().Type().IsBool() { // suppress-response
+		t.Fatal("expected suppress-response Bool")
+	}
+	if !dec.Next() || !dec.Element().Type().IsBool() { // timed-request
+		t.Fatal("expected timed-request Bool")
+	}
+	if !dec.Next() || !dec.Element().Type().IsArray() {
+		t.Fatalf("invoke-requests must be an Array, got %v", dec.Element().Type())
+	}
+	if !dec.Next() || !dec.Element().Type().IsStructure() { // command-data-IB
+		t.Fatal("expected command-data-IB Structure")
+	}
+	if !dec.Next() || !dec.Element().Type().IsList() {
+		t.Fatalf("command-path-IB must be a List, got %v", dec.Element().Type())
+	}
+}
+
 func TestParseInvokeResponseEmptyPayload(t *testing.T) {
 	hdr := message.NewProtocolHeader(
 		message.WithHeaderExchangeFlags(message.ReliabilityFlag),
@@ -225,5 +263,46 @@ func TestParseInvokeResponseEmptyPayload(t *testing.T) {
 	}
 	if !resp.IsSuccess() {
 		t.Error("IsSuccess() = false, want true for empty payload")
+	}
+}
+
+// TestParseInvokeResponseHandlesStatusResponseMessage guards against a
+// regression where a device rejecting the whole InvokeRequestMessage (e.g.
+// InvalidAction) replied with a StatusResponseMessage, but parseInvokeResponse
+// blindly decoded its TLV body as if it were an InvokeResponseMessage. Since
+// neither message shares a tag layout at the top level, every field silently
+// matched nothing and IsSuccess() incorrectly reported success for the
+// untouched zero-value Status — masking a real device-side rejection as a
+// missing-response-data error one layer up instead.
+func TestParseInvokeResponseHandlesStatusResponseMessage(t *testing.T) {
+	hdr := message.NewProtocolHeader(
+		message.WithHeaderExchangeFlags(message.ReliabilityFlag),
+		message.WithHeaderOpcode(message.StatusResponseMessage),
+		message.WithHeaderExchangeID(message.NewFirstExchangeID()),
+		message.WithHeaderProtocolID(message.InteractionModel),
+	)
+	hdrBytes, err := hdr.Bytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	enc := tlv.NewEncoder()
+	enc.BeginStructure(tlv.NewAnonymousTag())
+	enc.PutUnsigned1(tlv.NewContextTag(0), 0x80) // Status: InvalidAction
+	enc.PutUnsigned1(tlv.NewContextTag(0xFF), 1) // InteractionModelRevision
+	if err := enc.EndContainer(); err != nil {
+		t.Fatal(err)
+	}
+	data := append(append([]byte{}, hdrBytes...), enc.Bytes()...)
+
+	resp, err := parseInvokeResponse(data)
+	if err != nil {
+		t.Fatalf("parseInvokeResponse() error = %v", err)
+	}
+	if resp.IsSuccess() {
+		t.Error("IsSuccess() = true, want false for a StatusResponseMessage carrying InvalidAction")
+	}
+	if resp.Status.IMStatus != 0x80 {
+		t.Errorf("Status.IMStatus = %#x, want 0x80", resp.Status.IMStatus)
 	}
 }
