@@ -6,6 +6,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/io"
 	mdnspkg "github.com/cybergarage/go-matter/matter/mdns"
 )
@@ -174,11 +175,17 @@ func resolveOperationalTransport(ctx context.Context, node mdnspkg.Commissionabl
 						continue
 					}
 					if addr.Equal(paseAddr.IP) {
+						log.Infof("Commissioning: CASE reusing PASE connection (%s) for operational node", paseAddr)
 						return paseTransport, nil
 					}
 				}
 			}
+			log.Infof("Commissioning: CASE cannot reuse PASE connection (dialed to %s, operational node addresses do not match); opening a new one", paseAddr)
+		} else {
+			log.Infof("Commissioning: CASE PASE transport has no usable RemoteAddr; opening a new connection")
 		}
+	} else {
+		log.Infof("Commissioning: CASE PASE transport does not support reuse (not UDP-based); opening a new connection")
 	}
 	return newOperationalUDPTransport(ctx, node)
 }
