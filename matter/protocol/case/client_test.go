@@ -119,6 +119,50 @@ func TestEstablishSessionValidatesRequiredInputs(t *testing.T) {
 	}
 }
 
+// TestEstablishSessionSigma1IncludesSourceNodeID guards against a real
+// regression: a real device silently dropped every Sigma1 this client sent —
+// no response at all, not even a StatusReport, across multiple retries and
+// independent of which local port or connection was used — until compared
+// against a real, successful chip-tool run's own Sigma1 on the wire, which
+// showed "Msg TX from 9A5B0ADD03226474 to 0:0000000000000000 ...
+// CASE_Sigma1": chip-tool's commissioner included its own operational Node
+// ID as the message's Source Node ID even though the session itself is
+// unsecured (SessionID 0). This client never set it at all.
+func TestEstablishSessionSigma1IncludesSourceNodeID(t *testing.T) {
+	withShortCaseRetryTiming(t)
+	admin := makeTestAdminMaterials(t)
+	rt := &retryCountingTransport{failReceives: caseRetryAttempts}
+	initiator := NewInitiator(
+		rt,
+		config.NewAdministratorConfig(
+			config.WithAdministratorNodeID(admin.nodeID),
+			config.WithAdministratorFabricID(admin.fabricID),
+			config.WithAdministratorRootCertificate(admin.rootDER),
+			config.WithAdministratorNOC(admin.adminNOCDER),
+			config.WithAdministratorPrivateKey(admin.adminKeyPKCS8DER),
+		),
+		WithPeerNodeID(1),
+		WithIPK(bytesOf(0x01, cryptoSymmetricKeyLen)),
+	)
+
+	_, _ = initiator.EstablishSession(context.Background()) // times out; we only care what was sent
+
+	if rt.lastSent == nil {
+		t.Fatal("Sigma1 was never transmitted")
+	}
+	sentMsg, err := message.NewMessageFromBytes(rt.lastSent)
+	if err != nil {
+		t.Fatalf("parse sent Sigma1: %v", err)
+	}
+	gotNodeID, ok := sentMsg.SourceNodeID()
+	if !ok {
+		t.Fatal("Sigma1's Source Node ID Present flag is not set")
+	}
+	if uint64(gotNodeID) != admin.nodeID {
+		t.Errorf("Sigma1 Source Node ID = 0x%016X, want the commissioner's own node ID 0x%016X", uint64(gotNodeID), admin.nodeID)
+	}
+}
+
 // TestEstablishSessionSurfacesStatusReportDetail guards against a real
 // regression: when a device rejects Sigma1 with a StatusReport instead of
 // replying with Sigma2, the error used to just say "expected Sigma2, got
@@ -254,7 +298,7 @@ func TestTransmitAndReceiveWithRetryRetriesOnTimeout(t *testing.T) {
 	// receiveSkipAck parses whatever Receive returns as a message.Message,
 	// so the canned "response" must itself be a well-formed (non-ack) one on
 	// the same exchange we're sending on.
-	respMsg, err := buildCASEMessage(message.CASESigma2, 0, exchangeID, []byte("payload"))
+	respMsg, err := buildCASEMessage(message.CASESigma2, 0, exchangeID, 0, []byte("payload"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -334,7 +378,7 @@ func TestReceiveSkipAckDiscardsMismatchedExchange(t *testing.T) {
 	wantExchangeID := message.NewFirstExchangeID()
 	staleExchangeID := wantExchangeID + 1
 
-	staleMsg, err := buildCASEMessage(message.StatusReport, message.ReliabilityFlag, staleExchangeID, make([]byte, 8))
+	staleMsg, err := buildCASEMessage(message.StatusReport, message.ReliabilityFlag, staleExchangeID, 0, make([]byte, 8))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -342,7 +386,7 @@ func TestReceiveSkipAckDiscardsMismatchedExchange(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantMsg, err := buildCASEMessage(message.CASESigma2, 0, wantExchangeID, []byte("payload"))
+	wantMsg, err := buildCASEMessage(message.CASESigma2, 0, wantExchangeID, 0, []byte("payload"))
 	if err != nil {
 		t.Fatal(err)
 	}

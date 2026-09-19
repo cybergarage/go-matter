@@ -158,7 +158,7 @@ func (i *Initiator) EstablishSession(ctx context.Context) (session.SessionKeys, 
 	if err != nil {
 		return nil, err
 	}
-	sigma1Msg, err := buildCASEMessage(message.CASESigma1, message.InitiatorFlag|message.ReliabilityFlag, exchangeID, sigma1Payload)
+	sigma1Msg, err := buildCASEMessage(message.CASESigma1, message.InitiatorFlag|message.ReliabilityFlag, exchangeID, message.NodeID(inputs.nodeID), sigma1Payload)
 	if err != nil {
 		return nil, err
 	}
@@ -268,7 +268,7 @@ func (i *Initiator) EstablishSession(ctx context.Context) (session.SessionKeys, 
 	if err != nil {
 		return nil, err
 	}
-	sigma3Msg, err := buildCASEMessage(message.CASESigma3, message.InitiatorFlag|message.ReliabilityFlag|message.AckFlag, exchangeID, sigma3Payload)
+	sigma3Msg, err := buildCASEMessage(message.CASESigma3, message.InitiatorFlag|message.ReliabilityFlag|message.AckFlag, exchangeID, message.NodeID(inputs.nodeID), sigma3Payload)
 	if err != nil {
 		return nil, err
 	}
@@ -308,12 +308,28 @@ func sigma1RawPayload(msg message.Message) []byte { return cloneBytes(msg.Payloa
 func sigma2RawPayload(msg message.Message) []byte { return cloneBytes(msg.Payload()) }
 func sigma3RawPayload(msg message.Message) []byte { return cloneBytes(msg.Payload()) }
 
-func buildCASEMessage(opcode message.Opcode, flags message.ExchangeFlag, exchangeID message.ExchangeID, payload []byte) (message.Message, error) {
+// buildCASEMessage builds an unsecured (SessionID 0) SecureChannel message
+// for CASE, with sourceNodeID set as the Message Header's Source Node ID.
+//
+// This is not optional decoration: a real device silently dropped every
+// Sigma1 this client sent — no response at all, not even a StatusReport,
+// across multiple retries and independent of whether the connection reused
+// PASE's own source port — until compared against a real, successful
+// chip-tool run's own Sigma1 on the wire, which showed
+// "Msg TX from 9A5B0ADD03226474 to 0:0000000000000000 ... CASE_Sigma1":
+// chip-tool's commissioner included its own operational Node ID as the
+// message's Source Node ID even though the session itself is unsecured.
+// This client never set it at all, so the Source Node ID Present flag was
+// never set either — a real device apparently requires it to even route
+// the message to its CASE handler, rather than just rejecting it with an
+// error response.
+func buildCASEMessage(opcode message.Opcode, flags message.ExchangeFlag, exchangeID message.ExchangeID, sourceNodeID message.NodeID, payload []byte) (message.Message, error) {
 	msg := message.NewMessage(
 		message.WithMessageFrameHeader(message.NewHeader(
 			message.WithHeaderSessionID(0),
 			message.WithHeaderSecurityFlags(0x00),
 			message.WithHeaderMessageCounter(message.NewMessageCounter()),
+			message.WithHeaderSourceNodeID(sourceNodeID),
 		)),
 		message.WithMessageProtocolHeader(message.NewProtocolHeader(
 			message.WithHeaderExchangeFlags(flags),
