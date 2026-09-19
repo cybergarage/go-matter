@@ -227,13 +227,17 @@ func computeDestinationID(ipk, initiatorRandom, rootPublicKey []byte, fabricID, 
 	return mcrypto.CryptoHMAC(ipk, msg)
 }
 
-func computeCompressedFabricID(rootPublicKey []byte, fabricID uint64) (uint64, error) {
+func computeCompressedFabricIDBytes(rootPublicKey []byte, fabricID uint64) ([]byte, error) {
 	if len(rootPublicKey) < 2 {
-		return 0, fmt.Errorf("case: invalid root public key")
+		return nil, fmt.Errorf("case: invalid root public key")
 	}
 	fabricBytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(fabricBytes, fabricID)
-	derived, err := mcrypto.CryptoKDF(rootPublicKey[1:], fabricBytes, []byte("CompressedFabric"), 8)
+	return mcrypto.CryptoKDF(rootPublicKey[1:], fabricBytes, []byte("CompressedFabric"), 8)
+}
+
+func computeCompressedFabricID(rootPublicKey []byte, fabricID uint64) (uint64, error) {
+	derived, err := computeCompressedFabricIDBytes(rootPublicKey, fabricID)
 	if err != nil {
 		return 0, err
 	}
@@ -243,6 +247,36 @@ func computeCompressedFabricID(rootPublicKey []byte, fabricID uint64) (uint64, e
 // ComputeCompressedFabricID derives the operational compressed fabric identifier.
 func ComputeCompressedFabricID(rootPublicKey []byte, fabricID uint64) (uint64, error) {
 	return computeCompressedFabricID(rootPublicKey, fabricID)
+}
+
+// groupOperationalKeyInfo is the HKDF "info" used to derive a fabric's
+// operational group key (including GroupKeySetID 0, the Identity Protection
+// Key) from its raw epoch key — see deriveGroupOperationalKey's doc comment.
+var groupOperationalKeyInfo = []byte("GroupKey v1.0")
+
+// deriveGroupOperationalKey derives the operational group key a real device
+// actually uses from the raw epoch key sent over the wire (AddNOC's
+// IPKValue field, or equivalently this commissioner's own configured IPK).
+//
+// This is not a redundant transform: connectedhomeip's
+// GroupDataProviderImpl::SetKeySet — the AddNOC command handler's own
+// storage path (src/credentials/GroupDataProviderImpl.cpp) — never persists
+// the raw epoch key it receives. It immediately runs it through
+// Crypto::DeriveGroupOperationalCredentials, i.e.
+// HKDF-SHA256(IKM=epoch_key, salt=CompressedFabricId, info="GroupKey v1.0",
+// L=16), and stores only that derived key. CASESession::FindLocalNodeFromDestinationId
+// and RecoverInitiatorIpk both read the fabric's IPK back via GetIpkKeySet,
+// which returns this same derived key — never the raw epoch key — so it is
+// what a real device actually uses for Sigma1's DestinationID and for the
+// Sigma2/Sigma3/session-key salts (CASESession::mIPK). A commissioner that
+// uses the raw IPKValue directly (as this package originally did) computes
+// a DestinationID a real device can never match: AddNOC still reports
+// success — the raw bytes it sent were accepted and stored (after this same
+// derivation) — but every subsequent CASE attempt fails with
+// NO_SHARED_TRUST_ROOTS, because the commissioner and device end up using
+// two different 16-byte keys despite starting from the same raw IPK value.
+func deriveGroupOperationalKey(rawIPK, compressedFabricIDBytes []byte) ([]byte, error) {
+	return mcrypto.CryptoKDF(rawIPK, compressedFabricIDBytes, groupOperationalKeyInfo, cryptoSymmetricKeyLen)
 }
 
 // ParseCertificateNodeID extracts the Matter operational node ID from an X.509 NOC.

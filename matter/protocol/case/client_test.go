@@ -202,6 +202,126 @@ func TestEstablishSessionSigma1IncludesSourceNodeID(t *testing.T) {
 	}
 }
 
+// TestEstablishSessionSigma1DestinationIDUsesDerivedOperationalIPK guards
+// against a real regression: this client used to compute Sigma1's
+// DestinationID (and the Sigma2/Sigma3/session-key salts) directly from the
+// raw IPK bytes configured on the commissioner (AddNOC's own IPKValue
+// field). A real device never does that: connectedhomeip's
+// GroupDataProviderImpl::SetKeySet — AddNOC's own storage path — runs the
+// raw epoch key through HKDF-SHA256(salt=CompressedFabricId,
+// info="GroupKey v1.0") before persisting it, and CASE reads back only that
+// derived key. Using the raw IPK directly meant AddNOC still reported
+// success (the device happily accepted and derived-then-stored the raw
+// bytes it was sent), but every CASE attempt afterward failed with
+// NO_SHARED_TRUST_ROOTS, because the commissioner and the device ended up
+// using two different 16-byte keys despite agreeing on the same raw IPK.
+func TestEstablishSessionSigma1DestinationIDUsesDerivedOperationalIPK(t *testing.T) {
+	withShortCaseRetryTiming(t)
+	admin := makeTestAdminMaterials(t)
+	rawIPK := bytesOf(0x01, cryptoSymmetricKeyLen)
+	peerNodeID := uint64(0x99AA)
+	rt := &retryCountingTransport{failReceives: caseRetryAttempts}
+	initiator := NewInitiator(
+		rt,
+		config.NewAdministratorConfig(
+			config.WithAdministratorNodeID(admin.nodeID),
+			config.WithAdministratorFabricID(admin.fabricID),
+			config.WithAdministratorRootCertificate(admin.rootDER),
+			config.WithAdministratorNOC(admin.adminNOCDER),
+			config.WithAdministratorPrivateKey(admin.adminKeyPKCS8DER),
+		),
+		WithPeerNodeID(peerNodeID),
+		WithIPK(rawIPK),
+	)
+
+	_, _ = initiator.EstablishSession(context.Background()) // times out; we only care what was sent
+
+	if rt.lastSent == nil {
+		t.Fatal("Sigma1 was never transmitted")
+	}
+	sentMsg, err := message.NewMessageFromBytes(rt.lastSent)
+	if err != nil {
+		t.Fatalf("parse sent Sigma1: %v", err)
+	}
+	gotDestinationID := extractSigma1DestinationIDForTest(t, sentMsg.Payload())
+
+	rootCert, err := x509.ParseCertificate(admin.rootDER)
+	if err != nil {
+		t.Fatalf("parse root cert: %v", err)
+	}
+	rootPub, ok := rootCert.PublicKey.(*ecdsa.PublicKey)
+	if !ok {
+		t.Fatal("root cert public key is not ECDSA")
+	}
+	rootPublicKey := elliptic.Marshal(rootPub.Curve, rootPub.X, rootPub.Y)
+
+	initiatorRandom := extractSigma1InitiatorRandomForTest(t, sentMsg.Payload())
+
+	compressedFabricIDBytes, err := computeCompressedFabricIDBytes(rootPublicKey, admin.fabricID)
+	if err != nil {
+		t.Fatalf("computeCompressedFabricIDBytes(...) error = %v", err)
+	}
+	rawIPKDestinationID := computeDestinationID(rawIPK, initiatorRandom, rootPublicKey, admin.fabricID, peerNodeID)
+	if bytes.Equal(gotDestinationID, rawIPKDestinationID) {
+		t.Error("Sigma1 DestinationID was computed from the raw IPK; want it derived via HKDF(rawIPK, CompressedFabricId, \"GroupKey v1.0\")")
+	}
+
+	derivedIPK, err := deriveGroupOperationalKey(rawIPK, compressedFabricIDBytes)
+	if err != nil {
+		t.Fatalf("deriveGroupOperationalKey(...) error = %v", err)
+	}
+	wantDestinationID := computeDestinationID(derivedIPK, initiatorRandom, rootPublicKey, admin.fabricID, peerNodeID)
+	if !bytes.Equal(gotDestinationID, wantDestinationID) {
+		t.Errorf("Sigma1 DestinationID = %x, want %x (derived-IPK HMAC)", gotDestinationID, wantDestinationID)
+	}
+}
+
+// extractSigma1DestinationIDForTest and extractSigma1InitiatorRandomForTest
+// walk a raw Sigma1 TLV payload for its top-level DestinationID(tag3)/
+// InitiatorRandom(tag1) fields, tracking container depth so the nested
+// InitiatorSessionParams structure's own same-numbered context tags aren't
+// mistaken for Sigma1's own top-level fields.
+func extractSigma1DestinationIDForTest(t *testing.T, payload []byte) []byte {
+	t.Helper()
+	return extractSigma1TopLevelFieldForTest(t, payload, tlv.ContextNumber(3))
+}
+
+func extractSigma1InitiatorRandomForTest(t *testing.T, payload []byte) []byte {
+	t.Helper()
+	return extractSigma1TopLevelFieldForTest(t, payload, tlv.ContextNumber(1))
+}
+
+func extractSigma1TopLevelFieldForTest(t *testing.T, payload []byte, wantTag tlv.ContextNumber) []byte {
+	t.Helper()
+	dec := tlv.NewDecoderWithBytes(payload)
+	depth := 0
+	var out []byte
+	for dec.Next() {
+		el := dec.Element()
+		if el.Type().IsEndOfContainer() {
+			depth--
+			continue
+		}
+		if ct, ok := el.Tag().(tlv.ContextTag); ok && depth == 1 && ct.ContextNumber() == wantTag {
+			b, ok := el.Bytes()
+			if !ok {
+				t.Fatalf("read Sigma1 field tag %d: not an octet string", wantTag)
+			}
+			out = b
+		}
+		if el.Type().IsContainer() {
+			depth++
+		}
+	}
+	if err := dec.Error(); err != nil {
+		t.Fatalf("decode Sigma1 payload: %v", err)
+	}
+	if out == nil {
+		t.Fatalf("Sigma1 field tag %d not found", wantTag)
+	}
+	return out
+}
+
 // TestEstablishSessionSurfacesStatusReportDetail guards against a real
 // regression: when a device rejects Sigma1 with a StatusReport instead of
 // replying with Sigma2, the error used to just say "expected Sigma2, got

@@ -125,6 +125,14 @@ func (i *Initiator) EstablishSession(ctx context.Context) (session.SessionKeys, 
 	if len(i.ipk) == 0 {
 		return nil, fmt.Errorf("case: IPK is required")
 	}
+	compressedFabricIDBytes, err := computeCompressedFabricIDBytes(inputs.rootPublicKey, inputs.fabricID)
+	if err != nil {
+		return nil, fmt.Errorf("case: compressed fabric ID: %w", err)
+	}
+	operationalIPK, err := deriveGroupOperationalKey(i.ipk, compressedFabricIDBytes)
+	if err != nil {
+		return nil, fmt.Errorf("case: derive operational IPK: %w", err)
+	}
 
 	initiatorRandom := make([]byte, randomLen)
 	if _, err := rand.Read(initiatorRandom); err != nil {
@@ -140,7 +148,7 @@ func (i *Initiator) EstablishSession(ctx context.Context) (session.SessionKeys, 
 		return nil, fmt.Errorf("case: initiator ephemeral key: %w", err)
 	}
 	initiatorEphPubKey := elliptic.Marshal(elliptic.P256(), ephPriv.PublicKey.X, ephPriv.PublicKey.Y)
-	destinationID := computeDestinationID(i.ipk, initiatorRandom, inputs.rootPublicKey, inputs.fabricID, i.peerNodeID)
+	destinationID := computeDestinationID(operationalIPK, initiatorRandom, inputs.rootPublicKey, inputs.fabricID, i.peerNodeID)
 	log.Infof(
 		"CASE target: peer_node_id=0x%016X destination_id=%s initiator_eph=%s",
 		i.peerNodeID,
@@ -201,7 +209,7 @@ func (i *Initiator) EstablishSession(ctx context.Context) (session.SessionKeys, 
 	if err != nil {
 		return nil, fmt.Errorf("case: shared secret: %w", err)
 	}
-	s2k, err := deriveSigma2Key(sharedSecret, i.ipk, sigma2.ResponderRandom, sigma2.ResponderEphPubKey, sigma1Msg.Payload())
+	s2k, err := deriveSigma2Key(sharedSecret, operationalIPK, sigma2.ResponderRandom, sigma2.ResponderEphPubKey, sigma1Msg.Payload())
 	if err != nil {
 		return nil, err
 	}
@@ -256,7 +264,7 @@ func (i *Initiator) EstablishSession(ctx context.Context) (session.SessionKeys, 
 	if err != nil {
 		return nil, err
 	}
-	s3k, err := deriveSigma3Key(sharedSecret, i.ipk, sigma1Msg.Payload(), sigma2Msg.Payload())
+	s3k, err := deriveSigma3Key(sharedSecret, operationalIPK, sigma1Msg.Payload(), sigma2Msg.Payload())
 	if err != nil {
 		return nil, err
 	}
@@ -288,7 +296,7 @@ func (i *Initiator) EstablishSession(ctx context.Context) (session.SessionKeys, 
 	}
 	log.Infof("CASE SigmaFinished: success")
 
-	sessionKeys, err := deriveSessionKeys(sharedSecret, i.ipk, sigma1RawPayload(sigma1Msg), sigma2RawPayload(sigma2Msg), sigma3RawPayload(sigma3Msg), initiatorSessionID, session.SessionID(sigma2.ResponderSessionID), session.NodeID(inputs.nodeID), session.NodeID(i.peerNodeID))
+	sessionKeys, err := deriveSessionKeys(sharedSecret, operationalIPK, sigma1RawPayload(sigma1Msg), sigma2RawPayload(sigma2Msg), sigma3RawPayload(sigma3Msg), initiatorSessionID, session.SessionID(sigma2.ResponderSessionID), session.NodeID(inputs.nodeID), session.NodeID(i.peerNodeID))
 	if err != nil {
 		return nil, err
 	}
