@@ -57,8 +57,13 @@ var (
 // into srv, reading/writing fs as each step's state accumulates.
 // attestationChallenge returns the PASE session's AttestationChallenge,
 // which every DAC-signed response is computed over alongside its own TLV
-// bytes (spec 11.18.7.2 / 11.18.7.6).
-func registerOperationalCredentialsHandlers(srv *imServer, fs *fabricState, attestationChallenge func() []byte) {
+// bytes (spec 11.18.7.2 / 11.18.7.6). onAddNOC, if non-nil, is invoked once
+// AddNOC succeeds — AddNOC is always the last PASE-phase Operational
+// Credentials step before a commissioner moves on to Network Commissioning
+// (skipped when the device is already on its operational network) and then
+// CASE, so this is device.go's signal to stop serving IM-over-PASE requests
+// and switch to handleCASE.
+func registerOperationalCredentialsHandlers(srv *imServer, fs *fabricState, attestationChallenge func() []byte, onAddNOC func()) {
 	srv.handleInvoke(defaultEndpointID, operationalCredentialsClusterID, attestationRequestCommandID, func(fields map[uint8]tlv.Element) (im.CommandID, []byte, error) {
 		nonce, ok := fields[0].Bytes()
 		if !ok {
@@ -183,6 +188,9 @@ func registerOperationalCredentialsHandlers(srv *imServer, fs *fabricState, atte
 		fs.fabricID = fabricID
 
 		respFields, err := encodeNOCResponseFields(0 /* OK */, 1 /* fabricIndex */)
+		if err == nil && onAddNOC != nil {
+			onAddNOC()
+		}
 		return nocResponseCommandID, respFields, err
 	})
 }

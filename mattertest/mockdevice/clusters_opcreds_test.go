@@ -107,7 +107,7 @@ func TestOperationalCredentialsHandlers(t *testing.T) {
 	fs := newFabricState(attestation)
 
 	srv := newIMServer(deviceSess)
-	registerOperationalCredentialsHandlers(srv, fs, deviceSess.SessionKeys().AttestationChallenge)
+	registerOperationalCredentialsHandlers(srv, fs, deviceSess.SessionKeys().AttestationChallenge, nil)
 	serveContinuously(t, srv)
 
 	challenge := clientSess.SessionKeys().AttestationChallenge()

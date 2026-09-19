@@ -36,6 +36,19 @@ func WithCommissionerAdministratorConfig(adminCfg config.AdministratorConfig) Co
 	}
 }
 
+// WithCommissionerDiscoverer overrides the mDNS discoverer a Commissioner
+// uses for both commissionable-node discovery (Discover/Commission) and
+// operational-node discovery post-AddNOC (discoverOperationalNode in
+// commissioning_impl.go) — the same discoverer field serves both, so one
+// override covers the whole commissioning flow. Primarily for tests that
+// need to inject a fake discoverer pointing at an in-process mock device
+// instead of scanning the real network.
+func WithCommissionerDiscoverer(d mdns.Discoverer) CommissionerOption {
+	return func(cmr *commissioner) {
+		cmr.discoverer = d
+	}
+}
+
 // commissioner represents a commissioner.
 type commissioner struct {
 	ble.Central
