@@ -16,6 +16,7 @@ package crypto
 
 import (
 	"bytes"
+	"crypto/elliptic"
 	"crypto/hmac"
 	"crypto/pbkdf2"
 	"crypto/sha256"
@@ -154,12 +155,16 @@ func TestCryptoPB_Basic(t *testing.T) {
 	salt := []byte("testsalt")
 	iterations := 1000
 
-	w0, l, err := CryptoPAKEValuesResponder(passcode, salt, iterations)
+	w0, _, err := CryptoPAKEValuesResponder(passcode, salt, iterations)
 	if err != nil {
 		t.Fatalf("CryptoPAKEValuesResponder failed: %v", err)
 	}
+	y, err := CryptoPAKERandomScalar()
+	if err != nil {
+		t.Fatalf("CryptoPAKERandomScalar failed: %v", err)
+	}
 
-	pB, err := CryptoPB(w0, l)
+	pB, err := CryptoPB(y, w0)
 	if err != nil {
 		t.Fatalf("CryptoPB failed: %v", err)
 	}
@@ -172,12 +177,12 @@ func TestCryptoPB_Basic(t *testing.T) {
 }
 
 func TestCryptoPB_InvalidInputLength(t *testing.T) {
-	w0 := make([]byte, CryptoGroupSizeBytes)
-	l := make([]byte, CryptoPublicKeySizeBytes-1)
+	y := make([]byte, CryptoGroupSizeBytes)
+	w0 := make([]byte, CryptoGroupSizeBytes-1)
 
-	_, err := CryptoPB(w0, l)
+	_, err := CryptoPB(y, w0)
 	if err == nil {
-		t.Errorf("CryptoPB should fail with invalid l length")
+		t.Errorf("CryptoPB should fail with invalid w0 length")
 	}
 }
 
@@ -198,11 +203,11 @@ func TestCryptoTranscript_Basic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CryptoPA failed: %v", err)
 	}
-	_, l, err := CryptoPAKEValuesResponder(passcode, salt, iter)
+	y, err := CryptoPAKERandomScalar()
 	if err != nil {
-		t.Fatalf("CryptoPAKEValuesResponder failed: %v", err)
+		t.Fatalf("CryptoPAKERandomScalar failed: %v", err)
 	}
-	pB, err := CryptoPB(w0, l)
+	pB, err := CryptoPB(y, w0)
 	if err != nil {
 		t.Fatalf("CryptoPB failed: %v", err)
 	}
@@ -251,11 +256,11 @@ func TestCryptoConfirmationValues_Basic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CryptoPA failed: %v", err)
 	}
-	_, l, err := CryptoPAKEValuesResponder(passcode, salt, iter)
+	y, err := CryptoPAKERandomScalar()
 	if err != nil {
-		t.Fatalf("CryptoPAKEValuesResponder failed: %v", err)
+		t.Fatalf("CryptoPAKERandomScalar failed: %v", err)
 	}
-	pB, err := CryptoPB(w0, l)
+	pB, err := CryptoPB(y, w0)
 	if err != nil {
 		t.Fatalf("CryptoPB failed: %v", err)
 	}
@@ -357,7 +362,214 @@ func TestCryptoP2MatchesSpecIndependentRecomputation(t *testing.T) {
 	if !bytes.Equal(cB, wantCB) {
 		t.Errorf("cB = %x, want %x (independently recomputed per 3.10.4)", cB, wantCB)
 	}
-	if !bytes.Equal(ke, wantKe[:]) {
+	if !bytes.Equal(ke, wantKe) {
 		t.Errorf("Ke = %x, want %x", ke, wantKe)
+	}
+}
+
+// TestCryptoPBMatchesSpecIndependentRecomputation guards against the exact
+// regression fixed in CryptoPB: it used to return L (w1*P, fixed by the
+// passcode alone) as pB, never generating or using an ephemeral y, or
+// computing y*P + w0*N at all. That produced a correctly shaped,
+// deterministic 65-byte point — passing every shape/length check — but a
+// spec-compliant initiator would derive Z/V (and thus session keys) that
+// never match, since pB itself never varied per session. This test
+// independently recomputes y*P + w0*N via raw crypto/elliptic calls, not by
+// calling CryptoPB a second time.
+func TestCryptoPBMatchesSpecIndependentRecomputation(t *testing.T) {
+	passcode := []byte("testpasscode")
+	salt := []byte("testsalt")
+	iterations := 1000
+
+	w0, _, err := CryptoPAKEValuesResponder(passcode, salt, iterations)
+	if err != nil {
+		t.Fatalf("CryptoPAKEValuesResponder failed: %v", err)
+	}
+	y, err := CryptoPAKERandomScalar()
+	if err != nil {
+		t.Fatalf("CryptoPAKERandomScalar failed: %v", err)
+	}
+
+	pB, err := CryptoPB(y, w0)
+	if err != nil {
+		t.Fatalf("CryptoPB failed: %v", err)
+	}
+
+	curve := elliptic.P256()
+	yPx, yPy := curve.ScalarBaseMult(y)
+	Nx, Ny := elliptic.Unmarshal(curve, spake2pN)
+	if Nx == nil {
+		t.Fatal("failed to unmarshal N")
+	}
+	w0Nx, w0Ny := curve.ScalarMult(Nx, Ny, w0)
+	wantX, wantY := curve.Add(yPx, yPy, w0Nx, w0Ny)
+	wantPB := elliptic.Marshal(curve, wantX, wantY)
+
+	if !bytes.Equal(pB, wantPB) {
+		t.Errorf("pB = %x, want %x (independently recomputed y*P + w0*N per 3.10.2)", pB, wantPB)
+	}
+}
+
+// TestCryptoPAKESharedPointsResponderMatchesSpecIndependentRecomputation
+// independently recomputes Z = y*(pA - w0*M) and V = y*L via raw
+// crypto/elliptic calls, guarding against a regression in
+// CryptoPAKESharedPointsResponder's formula (e.g. using the wrong generator
+// point, or computing V from w1 instead of L).
+func TestCryptoPAKESharedPointsResponderMatchesSpecIndependentRecomputation(t *testing.T) {
+	passcode := []byte("testpasscode")
+	salt := []byte("testsalt")
+	iterations := 1000
+
+	w0, l, err := CryptoPAKEValuesResponder(passcode, salt, iterations)
+	if err != nil {
+		t.Fatalf("CryptoPAKEValuesResponder failed: %v", err)
+	}
+	y, err := CryptoPAKERandomScalar()
+	if err != nil {
+		t.Fatalf("CryptoPAKERandomScalar failed: %v", err)
+	}
+	initW0, _, err := CryptoPAKEValuesInitiator(passcode, salt, iterations)
+	if err != nil {
+		t.Fatalf("CryptoPAKEValuesInitiator failed: %v", err)
+	}
+	x, err := CryptoPAKERandomScalar()
+	if err != nil {
+		t.Fatalf("CryptoPAKERandomScalar failed: %v", err)
+	}
+	pA, err := CryptoPA(x, initW0)
+	if err != nil {
+		t.Fatalf("CryptoPA failed: %v", err)
+	}
+
+	Z, V, err := CryptoPAKESharedPointsResponder(y, w0, l, pA)
+	if err != nil {
+		t.Fatalf("CryptoPAKESharedPointsResponder failed: %v", err)
+	}
+
+	curve := elliptic.P256()
+	pAx, pAy := elliptic.Unmarshal(curve, pA)
+	if pAx == nil {
+		t.Fatal("failed to unmarshal pA")
+	}
+	Lx, Ly := elliptic.Unmarshal(curve, l)
+	if Lx == nil {
+		t.Fatal("failed to unmarshal L")
+	}
+	Mx, My := elliptic.Unmarshal(curve, spake2pM)
+	if Mx == nil {
+		t.Fatal("failed to unmarshal M")
+	}
+	w0Mx, w0My := curve.ScalarMult(Mx, My, w0)
+	p := curve.Params().P
+	negW0My := new(big.Int).Sub(p, w0My)
+	negW0My.Mod(negW0My, p)
+	tmpX, tmpY := curve.Add(pAx, pAy, w0Mx, negW0My)
+	wantZx, wantZy := curve.ScalarMult(tmpX, tmpY, y)
+	wantVx, wantVy := curve.ScalarMult(Lx, Ly, y)
+	wantZ := elliptic.Marshal(curve, wantZx, wantZy)
+	wantV := elliptic.Marshal(curve, wantVx, wantVy)
+
+	if !bytes.Equal(Z, wantZ) {
+		t.Errorf("Z = %x, want %x (independently recomputed y*(pA-w0*M) per 3.10.3)", Z, wantZ)
+	}
+	if !bytes.Equal(V, wantV) {
+		t.Errorf("V = %x, want %x (independently recomputed y*L per 3.10.3)", V, wantV)
+	}
+}
+
+// TestCryptoPAKEInitiatorResponderRoundTripAgreesOnSharedSecrets runs a full
+// two-sided SPAKE2+ exchange — initiator (CryptoPAKEValuesInitiator/CryptoPA/
+// CryptoPAKESharedPoints) against responder (CryptoPAKEValuesResponder/
+// CryptoPB/CryptoPAKESharedPointsResponder) — and asserts both sides
+// independently derive identical Z, V, cA, cB and Ke from the same
+// passcode/salt/iterations. This is the regression this whole file's
+// CryptoPB/CryptoPAKESharedPointsResponder additions exist for: prior to
+// them, nothing in this package could even attempt a real two-party
+// exchange, so a self-consistent-but-wrong formula on either side (as
+// CryptoPB itself was) had no way to be caught by a test that only ever
+// looked at one side in isolation.
+func TestCryptoPAKEInitiatorResponderRoundTripAgreesOnSharedSecrets(t *testing.T) {
+	passcode := []byte("testpasscode")
+	salt := []byte("testsalt")
+	iterations := 1000
+
+	initW0, initW1, err := CryptoPAKEValuesInitiator(passcode, salt, iterations)
+	if err != nil {
+		t.Fatalf("CryptoPAKEValuesInitiator failed: %v", err)
+	}
+	respW0, respL, err := CryptoPAKEValuesResponder(passcode, salt, iterations)
+	if err != nil {
+		t.Fatalf("CryptoPAKEValuesResponder failed: %v", err)
+	}
+	if !bytes.Equal(initW0, respW0) {
+		t.Fatalf("initiator w0 = %x, responder w0 = %x, want equal (both derived from the same passcode)", initW0, respW0)
+	}
+
+	x, err := CryptoPAKERandomScalar()
+	if err != nil {
+		t.Fatalf("CryptoPAKERandomScalar (x) failed: %v", err)
+	}
+	y, err := CryptoPAKERandomScalar()
+	if err != nil {
+		t.Fatalf("CryptoPAKERandomScalar (y) failed: %v", err)
+	}
+
+	pA, err := CryptoPA(x, initW0)
+	if err != nil {
+		t.Fatalf("CryptoPA failed: %v", err)
+	}
+	pB, err := CryptoPB(y, respW0)
+	if err != nil {
+		t.Fatalf("CryptoPB failed: %v", err)
+	}
+
+	initZ, initV, err := CryptoPAKESharedPoints(x, initW0, initW1, pB)
+	if err != nil {
+		t.Fatalf("CryptoPAKESharedPoints (initiator) failed: %v", err)
+	}
+	respZ, respV, err := CryptoPAKESharedPointsResponder(y, respW0, respL, pA)
+	if err != nil {
+		t.Fatalf("CryptoPAKESharedPointsResponder failed: %v", err)
+	}
+
+	if !bytes.Equal(initZ, respZ) {
+		t.Errorf("initiator Z = %x, responder Z = %x, want equal", initZ, respZ)
+	}
+	if !bytes.Equal(initV, respV) {
+		t.Errorf("initiator V = %x, responder V = %x, want equal", initV, respV)
+	}
+
+	pbkdfReq := []byte("pbkdf-param-request")
+	pbkdfResp := []byte("pbkdf-param-response")
+
+	initTT, err := CryptoTranscript(pbkdfReq, pbkdfResp, pA, pB, initZ, initV, initW0)
+	if err != nil {
+		t.Fatalf("CryptoTranscript (initiator) failed: %v", err)
+	}
+	respTT, err := CryptoTranscript(pbkdfReq, pbkdfResp, pA, pB, respZ, respV, respW0)
+	if err != nil {
+		t.Fatalf("CryptoTranscript (responder) failed: %v", err)
+	}
+	if !bytes.Equal(initTT, respTT) {
+		t.Fatalf("initiator and responder transcripts differ despite equal Z/V/w0")
+	}
+
+	initCA, initCB, initKe, err := CryptoP2(initTT, pA, pB)
+	if err != nil {
+		t.Fatalf("CryptoP2 (initiator) failed: %v", err)
+	}
+	respCA, respCB, respKe, err := CryptoP2(respTT, pA, pB)
+	if err != nil {
+		t.Fatalf("CryptoP2 (responder) failed: %v", err)
+	}
+
+	if !bytes.Equal(initCA, respCA) {
+		t.Errorf("initiator cA = %x, responder cA = %x, want equal", initCA, respCA)
+	}
+	if !bytes.Equal(initCB, respCB) {
+		t.Errorf("initiator cB = %x, responder cB = %x, want equal", initCB, respCB)
+	}
+	if !bytes.Equal(initKe, respKe) {
+		t.Errorf("initiator Ke = %x, responder Ke = %x, want equal", initKe, respKe)
 	}
 }

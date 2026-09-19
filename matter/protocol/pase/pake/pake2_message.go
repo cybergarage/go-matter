@@ -165,7 +165,11 @@ func NewPake2Message(opts ...any) (Pake2Message, error) {
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		pB, err := crypto.CryptoPB(w0, l)
+		y, err := crypto.CryptoPAKERandomScalar()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		pB, err := crypto.CryptoPB(y, w0)
 		if err != nil {
 			return nil, nil, nil, err
 		}
