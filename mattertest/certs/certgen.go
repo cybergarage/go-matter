@@ -47,8 +47,9 @@ var (
 
 	// oidExtKeyUsage, oidKeyPurposeClientAuth and oidKeyPurposeServerAuth are
 	// used to build the ExtKeyUsage extension by hand via ExtraExtensions —
-	// see extKeyUsageClientAuthExtension's doc comment for why.
+	// see extKeyUsageClientServerAuthExtension's doc comment for why.
 	oidExtKeyUsage          = asn1.ObjectIdentifier{2, 5, 29, 37}
+	oidKeyPurposeServerAuth = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 3, 1}
 	oidKeyPurposeClientAuth = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 3, 2}
 )
 
@@ -74,9 +75,9 @@ func utf8Attr(oid asn1.ObjectIdentifier, s string) pkix.AttributeTypeAndValue {
 	}
 }
 
-// extKeyUsageClientAuthExtension builds a ready-to-use ExtraExtensions entry
-// for ExtKeyUsage{clientAuth}, marked critical, for use instead of
-// x509.Certificate's ExtKeyUsage convenience field. Go's
+// extKeyUsageClientServerAuthExtension builds a ready-to-use ExtraExtensions
+// entry for ExtKeyUsage{clientAuth, serverAuth}, marked critical, for use
+// instead of x509.Certificate's ExtKeyUsage convenience field. Go's
 // x509.CreateCertificate always marks that field's extension non-critical,
 // but connectedhomeip's device-side TLV-to-X509 reconstruction
 // (src/credentials/CHIPCertToX509.cpp DecodeConvertExtension) unconditionally
@@ -88,8 +89,19 @@ func utf8Attr(oid asn1.ObjectIdentifier, s string) pkix.AttributeTypeAndValue {
 // A cert signed over Go's non-critical encoding therefore has different TBS
 // bytes than what a device reconstructs from the equivalent TLV, breaking
 // the chain signature.
-func extKeyUsageClientAuthExtension() (pkix.Extension, error) {
-	val, err := asn1.Marshal([]asn1.ObjectIdentifier{oidKeyPurposeClientAuth})
+//
+// Both purposes, not just clientAuth: this admin NOC used to carry only
+// clientAuth, since the administrator only ever acts as CASE's initiator in
+// this codebase. But a real device's own CASE handling
+// (CASESession.cpp's mValidContext, used identically for both Sigma2's
+// responder NOC and Sigma3's initiator NOC) unconditionally requires
+// KeyPurposeFlags::kServerAuth on any NOC validated during CASE, regardless
+// of which side sent it — a real device accepted Sigma1/Sigma2 fine but
+// rejected Sigma3 with StatusReport{FAILURE, INVALID_PARAMETER} until this
+// admin NOC also carried serverAuth, matching every operational NOC's
+// requirement (Matter Core Spec 6.5.3) to carry both key purposes.
+func extKeyUsageClientServerAuthExtension() (pkix.Extension, error) {
+	val, err := asn1.Marshal([]asn1.ObjectIdentifier{oidKeyPurposeClientAuth, oidKeyPurposeServerAuth})
 	if err != nil {
 		return pkix.Extension{}, fmt.Errorf("marshal ExtKeyUsage: %w", err)
 	}
@@ -186,7 +198,7 @@ func run() error {
 		return fmt.Errorf("root certificate: %w", err)
 	}
 
-	adminEKU, err := extKeyUsageClientAuthExtension()
+	adminEKU, err := extKeyUsageClientServerAuthExtension()
 	if err != nil {
 		return err
 	}
