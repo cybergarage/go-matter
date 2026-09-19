@@ -44,6 +44,33 @@ func signRaw(priv *ecdsa.PrivateKey, msg []byte) ([]byte, error) {
 	return out, nil
 }
 
+// verifyRaw verifies a fixed-width 64-byte r||s signature over msg using
+// pub — the inverse of signRaw, independently reimplemented rather than
+// reusing matter/credentials's unexported verifyRawSignature.
+func verifyRaw(pub *ecdsa.PublicKey, msg, sig []byte) bool {
+	if len(sig) != rawSignatureLen {
+		return false
+	}
+	parsed := rawSignature{r: trimLeadingZeros(sig[:32]), s: trimLeadingZeros(sig[32:])}
+	return crypto.CryptoVerify(crypto.NewPublicKey(pub), msg, parsed)
+}
+
+type rawSignature struct {
+	r []byte
+	s []byte
+}
+
+func (s rawSignature) R() []byte { return s.r }
+func (s rawSignature) S() []byte { return s.s }
+
+func trimLeadingZeros(b []byte) []byte {
+	i := 0
+	for i < len(b)-1 && b[i] == 0 {
+		i++
+	}
+	return b[i:]
+}
+
 // AttestationElements TLV field tags, matching matter/credentials.ParseAttestationElements.
 // Matter Core Spec 6.4.5.1. Attestation Elements.
 const (
