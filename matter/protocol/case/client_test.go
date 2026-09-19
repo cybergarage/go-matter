@@ -1,6 +1,7 @@
 package caseprotocol
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -9,6 +10,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -97,6 +99,43 @@ func TestEncodeDecodeSigmaMessages(t *testing.T) {
 	}
 	if got := len(s2.Encrypted2); got == 0 {
 		t.Fatal("Encrypted2 is empty")
+	}
+}
+
+// TestEncodeSigma1IncludesSessionParamsMatchingChipTool guards against a
+// real regression: encodeSigma1 used to omit Sigma1Tags::kInitiatorSessionParams
+// (tag 5) entirely. It's documented as optional in connectedhomeip's own
+// ParseSigma1, but a real device never replied to Sigma1 at all without it —
+// not even a StatusReport — across every other fix in this package (retry,
+// connection reuse, exchange-ID matching, per-call deadlines, Source Node
+// ID) landing first. The fix was found and verified by tcpdump-capturing a
+// real, successful chip-tool Sigma1 on the wire (Sigma1 is unencrypted, so
+// its TLV payload is visible in the clear) and comparing byte-for-byte; this
+// test hard-codes that captured tail (the InitiatorSessionParams structure
+// onward) as the expected bytes.
+func TestEncodeSigma1IncludesSessionParamsMatchingChipTool(t *testing.T) {
+	s1, err := encodeSigma1(sigma1{
+		InitiatorRandom:    bytesOf(0x11, randomLen),
+		InitiatorSessionID: 0x3344,
+		DestinationID:      bytesOf(0x22, 32),
+		InitiatorEphPubKey: bytesOf(0x33, 65),
+	})
+	if err != nil {
+		t.Fatalf("encodeSigma1(...) error = %v", err)
+	}
+	// Captured via tcpdump from a real, successful chip-tool Sigma1
+	// (InitiatorSessionParams structure through the end of the message).
+	const wantTailHex = "35052501f40125022c012503a00f24041324050c2606000105012407011818"
+	wantTail, err := hex.DecodeString(wantTailHex)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s1) < len(wantTail) {
+		t.Fatalf("encoded Sigma1 too short (%d bytes) to contain expected tail (%d bytes)", len(s1), len(wantTail))
+	}
+	gotTail := s1[len(s1)-len(wantTail):]
+	if !bytes.Equal(gotTail, wantTail) {
+		t.Errorf("Sigma1 InitiatorSessionParams tail = %x, want %x (captured from a real chip-tool run)", gotTail, wantTail)
 	}
 }
 

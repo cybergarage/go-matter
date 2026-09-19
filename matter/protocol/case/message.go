@@ -16,6 +16,37 @@ type sigma1 struct {
 	InitiatorEphPubKey []byte
 }
 
+// sessionParams mirrors connectedhomeip's SessionParameters
+// (src/messaging/SessionParameters.h), sent as Sigma1Tags::kInitiatorSessionParams
+// (tag 5, optional per spec/ParseSigma1 — but a real device only replied to
+// Sigma1 once this was present; see encodeSigma1's doc comment).
+type sessionParams struct {
+	SessionIdleInterval      uint16
+	SessionActiveInterval    uint16
+	SessionActiveThreshold   uint16
+	DataModelRevision        uint8
+	InteractionModelRevision uint8
+	SpecificationVersion     uint32
+	MaxPathsPerInvoke        uint8
+}
+
+// defaultSessionParams are the values connectedhomeip's own reference
+// controller (chip-tool) sends, captured byte-for-byte via tcpdump from a
+// real, successful Sigma1 on the wire — 500/300/4000ms are the Matter Core
+// Spec's default MRP intervals, 12 matches this package's own
+// interactionModelRevision constant (matter/protocol/im), and 0x01050100
+// (17105152) is the packed Matter specification version chip-tool itself
+// advertised.
+var defaultSessionParams = sessionParams{
+	SessionIdleInterval:      500,
+	SessionActiveInterval:    300,
+	SessionActiveThreshold:   4000,
+	DataModelRevision:        19,
+	InteractionModelRevision: 12,
+	SpecificationVersion:     0x01050100,
+	MaxPathsPerInvoke:        1,
+}
+
 type sigma2 struct {
 	ResponderRandom    []byte
 	ResponderSessionID uint16
@@ -65,8 +96,23 @@ func encodeSigma1(v sigma1) ([]byte, error) {
 	if err := enc.PutOctet(tlv.NewContextTag(4), v.InitiatorEphPubKey); err != nil {
 		return nil, err
 	}
-	enc.EndContainer()
+	encodeSessionParams(enc, tlv.NewContextTag(5), defaultSessionParams)
+	if err := enc.EndContainer(); err != nil {
+		return nil, err
+	}
 	return cloneBytes(enc.Bytes()), nil
+}
+
+func encodeSessionParams(enc tlv.Encoder, tag tlv.Tag, p sessionParams) {
+	enc.BeginStructure(tag)
+	enc.PutUnsigned2(tlv.NewContextTag(1), p.SessionIdleInterval)
+	enc.PutUnsigned2(tlv.NewContextTag(2), p.SessionActiveInterval)
+	enc.PutUnsigned2(tlv.NewContextTag(3), p.SessionActiveThreshold)
+	enc.PutUnsigned1(tlv.NewContextTag(4), p.DataModelRevision)
+	enc.PutUnsigned1(tlv.NewContextTag(5), p.InteractionModelRevision)
+	enc.PutUnsigned4(tlv.NewContextTag(6), p.SpecificationVersion)
+	enc.PutUnsigned1(tlv.NewContextTag(7), p.MaxPathsPerInvoke)
+	_ = enc.EndContainer()
 }
 
 func decodeSigma2(b []byte) (sigma2, error) {
