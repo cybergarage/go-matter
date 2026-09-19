@@ -158,6 +158,42 @@ func TestEstablishSessionValidatesRequiredInputs(t *testing.T) {
 	}
 }
 
+// TestBuildCASEMessageAckCounterMatchesAcknowledgedMessage guards against a
+// real regression: Sigma3 used to be built by OR-ing message.AckFlag
+// directly into buildCASEMessage's flags argument, which set the exchange
+// header's ack bit but never supplied WithHeaderAckCounter — so the wire
+// message claimed to acknowledge message counter 0 instead of Sigma2's
+// actual counter. A real device's MRP layer never recognized its Sigma2 as
+// acknowledged and retransmitted it after its own timeout; that stray
+// retransmitted Sigma2 then arrived on the same exchange while this client
+// was waiting for Sigma3's real response (SigmaFinished) and was misread as
+// that response ("case: expected StatusReport, got opcode 0x31").
+func TestBuildCASEMessageAckCounterMatchesAcknowledgedMessage(t *testing.T) {
+	const wantAckCounter = message.MessageCounter(0x12345678)
+	msg, err := buildCASEMessage(message.CASESigma3, message.InitiatorFlag|message.ReliabilityFlag, 1, 0, []byte("payload"), true, wantAckCounter)
+	if err != nil {
+		t.Fatalf("buildCASEMessage(...) error = %v", err)
+	}
+	if !msg.IsAck() {
+		t.Fatal("buildCASEMessage(hasAck=true, ...) did not set the exchange header's ack flag")
+	}
+	got, ok := msg.AckMessageCounter()
+	if !ok {
+		t.Fatal("buildCASEMessage(hasAck=true, ...) message has no ack counter")
+	}
+	if got != wantAckCounter {
+		t.Errorf("AckMessageCounter() = 0x%08X, want 0x%08X (the counter of the message being acknowledged)", uint32(got), uint32(wantAckCounter))
+	}
+
+	noAckMsg, err := buildCASEMessage(message.CASESigma1, message.InitiatorFlag|message.ReliabilityFlag, 1, 0, []byte("payload"), false, 0)
+	if err != nil {
+		t.Fatalf("buildCASEMessage(...) error = %v", err)
+	}
+	if noAckMsg.IsAck() {
+		t.Error("buildCASEMessage(hasAck=false, ...) set the exchange header's ack flag")
+	}
+}
+
 // TestEstablishSessionSigma1IncludesSourceNodeID guards against a real
 // regression: a real device silently dropped every Sigma1 this client sent —
 // no response at all, not even a StatusReport, across multiple retries and
@@ -457,7 +493,7 @@ func TestTransmitAndReceiveWithRetryRetriesOnTimeout(t *testing.T) {
 	// receiveSkipAck parses whatever Receive returns as a message.Message,
 	// so the canned "response" must itself be a well-formed (non-ack) one on
 	// the same exchange we're sending on.
-	respMsg, err := buildCASEMessage(message.CASESigma2, 0, exchangeID, 0, []byte("payload"))
+	respMsg, err := buildCASEMessage(message.CASESigma2, 0, exchangeID, 0, []byte("payload"), false, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -537,7 +573,7 @@ func TestReceiveSkipAckDiscardsMismatchedExchange(t *testing.T) {
 	wantExchangeID := message.NewFirstExchangeID()
 	staleExchangeID := wantExchangeID + 1
 
-	staleMsg, err := buildCASEMessage(message.StatusReport, message.ReliabilityFlag, staleExchangeID, 0, make([]byte, 8))
+	staleMsg, err := buildCASEMessage(message.StatusReport, message.ReliabilityFlag, staleExchangeID, 0, make([]byte, 8), false, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -545,7 +581,7 @@ func TestReceiveSkipAckDiscardsMismatchedExchange(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantMsg, err := buildCASEMessage(message.CASESigma2, 0, wantExchangeID, 0, []byte("payload"))
+	wantMsg, err := buildCASEMessage(message.CASESigma2, 0, wantExchangeID, 0, []byte("payload"), false, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

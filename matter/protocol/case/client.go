@@ -166,7 +166,7 @@ func (i *Initiator) EstablishSession(ctx context.Context) (session.SessionKeys, 
 	if err != nil {
 		return nil, err
 	}
-	sigma1Msg, err := buildCASEMessage(message.CASESigma1, message.InitiatorFlag|message.ReliabilityFlag, exchangeID, message.NodeID(inputs.nodeID), sigma1Payload)
+	sigma1Msg, err := buildCASEMessage(message.CASESigma1, message.InitiatorFlag|message.ReliabilityFlag, exchangeID, message.NodeID(inputs.nodeID), sigma1Payload, false, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -276,7 +276,7 @@ func (i *Initiator) EstablishSession(ctx context.Context) (session.SessionKeys, 
 	if err != nil {
 		return nil, err
 	}
-	sigma3Msg, err := buildCASEMessage(message.CASESigma3, message.InitiatorFlag|message.ReliabilityFlag|message.AckFlag, exchangeID, message.NodeID(inputs.nodeID), sigma3Payload)
+	sigma3Msg, err := buildCASEMessage(message.CASESigma3, message.InitiatorFlag|message.ReliabilityFlag, exchangeID, message.NodeID(inputs.nodeID), sigma3Payload, true, sigma2Msg.MessageCounter())
 	if err != nil {
 		return nil, err
 	}
@@ -331,7 +331,27 @@ func sigma3RawPayload(msg message.Message) []byte { return cloneBytes(msg.Payloa
 // never set either — a real device apparently requires it to even route
 // the message to its CASE handler, rather than just rejecting it with an
 // error response.
-func buildCASEMessage(opcode message.Opcode, flags message.ExchangeFlag, exchangeID message.ExchangeID, sourceNodeID message.NodeID, payload []byte) (message.Message, error) {
+//
+// ackMessageCounter/hasAck acknowledge a previously received message (e.g.
+// Sigma3 acknowledging Sigma2), via message.WithHeaderAckCounter — not an
+// optional courtesy: the caller previously set message.AckFlag directly in
+// flags without ever supplying the counter it acknowledges, so the wire
+// message claimed to ack message counter 0. A real device's MRP layer never
+// recognized its Sigma2 as acknowledged and retransmitted it after its own
+// timeout; that retransmitted Sigma2 then arrived while this client was
+// waiting for Sigma3's actual response (SigmaFinished), on the same
+// exchange ID, and was misread as if it were that response
+// ("case: expected StatusReport, got opcode 0x31").
+func buildCASEMessage(opcode message.Opcode, flags message.ExchangeFlag, exchangeID message.ExchangeID, sourceNodeID message.NodeID, payload []byte, hasAck bool, ackMessageCounter message.MessageCounter) (message.Message, error) {
+	protocolHeaderOpts := []message.ProtocolHeaderOption{
+		message.WithHeaderExchangeFlags(flags),
+		message.WithHeaderOpcode(opcode),
+		message.WithHeaderExchangeID(exchangeID),
+		message.WithHeaderProtocolID(message.SecureChannel),
+	}
+	if hasAck {
+		protocolHeaderOpts = append(protocolHeaderOpts, message.WithHeaderAckCounter(ackMessageCounter))
+	}
 	msg := message.NewMessage(
 		message.WithMessageFrameHeader(message.NewHeader(
 			message.WithHeaderSessionID(0),
@@ -339,12 +359,7 @@ func buildCASEMessage(opcode message.Opcode, flags message.ExchangeFlag, exchang
 			message.WithHeaderMessageCounter(message.NewMessageCounter()),
 			message.WithHeaderSourceNodeID(sourceNodeID),
 		)),
-		message.WithMessageProtocolHeader(message.NewProtocolHeader(
-			message.WithHeaderExchangeFlags(flags),
-			message.WithHeaderOpcode(opcode),
-			message.WithHeaderExchangeID(exchangeID),
-			message.WithHeaderProtocolID(message.SecureChannel),
-		)),
+		message.WithMessageProtocolHeader(message.NewProtocolHeader(protocolHeaderOpts...)),
 		message.WithMessagePayload(payload),
 	)
 	return msg, nil
