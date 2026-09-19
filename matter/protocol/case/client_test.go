@@ -118,6 +118,39 @@ func TestEstablishSessionValidatesRequiredInputs(t *testing.T) {
 	}
 }
 
+// TestEstablishSessionSurfacesStatusReportDetail guards against a real
+// regression: when a device rejects Sigma1 with a StatusReport instead of
+// replying with Sigma2, the error used to just say "expected Sigma2, got
+// opcode 0x40" — the StatusReport's own GeneralCode/ProtocolCode, which is
+// the actual reason for the rejection, was silently discarded. This is what
+// let a real device's rejection go undiagnosed: the log had the opcode but
+// nothing about why.
+func TestEstablishSessionSurfacesStatusReportDetail(t *testing.T) {
+	admin := makeTestAdminMaterials(t)
+	statusWire := buildStatusReportWire(t, 1 /* FAILURE */, 1 /* NO_SHARED_TRUST_ROOTS */)
+	rt := &retryCountingTransport{response: statusWire}
+	initiator := NewInitiator(
+		rt,
+		config.NewAdministratorConfig(
+			config.WithAdministratorNodeID(admin.nodeID),
+			config.WithAdministratorFabricID(admin.fabricID),
+			config.WithAdministratorRootCertificate(admin.rootDER),
+			config.WithAdministratorNOC(admin.adminNOCDER),
+			config.WithAdministratorPrivateKey(admin.adminKeyPKCS8DER),
+		),
+		WithPeerNodeID(1),
+		WithIPK(bytesOf(0x01, cryptoSymmetricKeyLen)),
+	)
+
+	_, err := initiator.EstablishSession(context.Background())
+	if err == nil {
+		t.Fatal("EstablishSession() error = nil, want StatusReport rejection")
+	}
+	if !strings.Contains(err.Error(), "NO_SHARED_TRUST_ROOTS") {
+		t.Errorf("EstablishSession() error = %q, want it to mention NO_SHARED_TRUST_ROOTS", err.Error())
+	}
+}
+
 func TestDeriveSessionKeysProducesDistinctDirections(t *testing.T) {
 	keys, err := deriveSessionKeys(
 		bytesOf(0x01, 32),

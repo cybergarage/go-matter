@@ -177,6 +177,11 @@ func (i *Initiator) EstablishSession(ctx context.Context) (session.SessionKeys, 
 		return nil, fmt.Errorf("case: parse Sigma2 message: %w", err)
 	}
 	if !sigma2Msg.Opcode().IsCASESigma2() {
+		if sigma2Msg.Opcode().IsStatusReport() {
+			if sr, srErr := decodeStatusReport(sigma2Msg); srErr == nil {
+				return nil, fmt.Errorf("case: expected Sigma2, got StatusReport: %s", sr)
+			}
+		}
 		return nil, fmt.Errorf("case: expected Sigma2, got opcode 0x%02x", uint8(sigma2Msg.Opcode()))
 	}
 	sigma2, err := decodeSigma2(sigma2Msg.Payload())
