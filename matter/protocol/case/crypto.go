@@ -132,6 +132,38 @@ func parseCertificateBytes(b []byte) (*x509.Certificate, error) {
 	return x509.ParseCertificate(der)
 }
 
+// chipCertTLVBytes converts a NOC and an optional ICAC, both DER-encoded, to
+// their compact Matter-TLV (CHIPCert) wire encoding.
+//
+// This is not optional formatting: FabricTable::VerifyCredentials (a real
+// device's Sigma3 handler) loads Sigma3's embedded NOC/ICAC into a
+// ChipCertificateSet, which — like AddNOC's own certificate fields — parses
+// Matter-TLV, never ASN.1 DER (confirmed against
+// src/credentials/FabricTable.cpp's VerifyCredentials, which calls
+// ChipCertificateSet::LoadCert on the noc/icac spans exactly as received).
+// Sending plain DER here (as this client originally did, mirroring only
+// AddNOC/AddTrustedRootCertificate's DER->TLV conversion, not Sigma3's) made
+// a real device's TLV parse of Sigma3's TBEData fail outright, surfacing as
+// a StatusReport{FAILURE, INVALID_PARAMETER} after Sigma3 was sent. The same
+// TLV bytes returned here must be used both for what Sigma3 transmits and
+// for what its signature (encodeSigmaTBSData) is computed over, since the
+// device reconstructs its own TBS data from the identical bytes it parses
+// out of Sigma3's TBEData.
+func chipCertTLVBytes(nocDER, icacDER []byte) ([]byte, []byte, error) {
+	nocTLV, err := chipcert.DERToTLV(nocDER)
+	if err != nil {
+		return nil, nil, fmt.Errorf("encode NOC: %w", err)
+	}
+	var icacTLV []byte
+	if len(icacDER) != 0 {
+		icacTLV, err = chipcert.DERToTLV(icacDER)
+		if err != nil {
+			return nil, nil, fmt.Errorf("encode ICAC: %w", err)
+		}
+	}
+	return nocTLV, icacTLV, nil
+}
+
 func certificateDERBytes(b []byte) ([]byte, error) {
 	if len(b) == 0 {
 		return nil, fmt.Errorf("empty certificate")

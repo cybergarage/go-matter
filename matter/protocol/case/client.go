@@ -248,7 +248,11 @@ func (i *Initiator) EstablishSession(ctx context.Context) (session.SessionKeys, 
 	}
 	log.Infof("CASE Sigma2: signature verification ok")
 
-	sigma3TBS, err := encodeSigmaTBSData(inputs.nocDER, inputs.icacDER, initiatorEphPubKey, sigma2.ResponderEphPubKey)
+	initiatorNOCTLV, initiatorICACTLV, err := chipCertTLVBytes(inputs.nocDER, inputs.icacDER)
+	if err != nil {
+		return nil, fmt.Errorf("case: encode initiator certificates: %w", err)
+	}
+	sigma3TBS, err := encodeSigmaTBSData(initiatorNOCTLV, initiatorICACTLV, initiatorEphPubKey, sigma2.ResponderEphPubKey)
 	if err != nil {
 		return nil, err
 	}
@@ -257,8 +261,8 @@ func (i *Initiator) EstablishSession(ctx context.Context) (session.SessionKeys, 
 		return nil, fmt.Errorf("case: Sigma3 signature: %w", err)
 	}
 	sigma3TBEData, err := encodeSigma3TBEData(sigma3TBEData{
-		InitiatorNOC:  inputs.nocDER,
-		InitiatorICAC: inputs.icacDER,
+		InitiatorNOC:  initiatorNOCTLV,
+		InitiatorICAC: initiatorICACTLV,
 		Signature:     sigma3Sig,
 	})
 	if err != nil {

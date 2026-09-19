@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/cybergarage/go-matter/matter/config"
+	"github.com/cybergarage/go-matter/matter/credentials/chipcert"
 	"github.com/cybergarage/go-matter/matter/encoding/message"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 )
@@ -191,6 +192,61 @@ func TestBuildCASEMessageAckCounterMatchesAcknowledgedMessage(t *testing.T) {
 	}
 	if noAckMsg.IsAck() {
 		t.Error("buildCASEMessage(hasAck=false, ...) set the exchange header's ack flag")
+	}
+}
+
+// TestChipCertTLVBytesEncodesMatterTLVNotDER guards against a real
+// regression: Sigma3's TBEData used to embed the initiator's NOC/ICAC as
+// plain DER — copied straight from admin.nocDER, the form used everywhere
+// else in this codebase's Go-level config — instead of converting them to
+// Matter-TLV (CHIPCert) first. A real device's Sigma3 handler
+// (FabricTable::VerifyCredentials, src/credentials/FabricTable.cpp) loads
+// the NOC/ICAC bytes it receives into a ChipCertificateSet via LoadCert,
+// which parses Matter-TLV, never ASN.1 DER — so a real device rejected
+// Sigma3 with StatusReport{FAILURE, INVALID_PARAMETER} even though the
+// certificate content itself, its signature, the CCM encryption, and the
+// KDF salts were all independently confirmed correct.
+func TestChipCertTLVBytesEncodesMatterTLVNotDER(t *testing.T) {
+	admin := makeTestAdminMaterials(t)
+
+	nocTLV, icacTLV, err := chipCertTLVBytes(admin.adminNOCDER, nil)
+	if err != nil {
+		t.Fatalf("chipCertTLVBytes(...) error = %v", err)
+	}
+	if icacTLV != nil {
+		t.Errorf("chipCertTLVBytes(nocDER, nil) icacTLV = %v, want nil", icacTLV)
+	}
+	if len(nocTLV) == 0 {
+		t.Fatal("chipCertTLVBytes(...) returned an empty NOC")
+	}
+	// A DER certificate (ASN.1 SEQUENCE) always starts with 0x30; a
+	// Matter-TLV anonymous-tagged Structure (a CHIPCert) always starts with
+	// control byte 0x15, never 0x30 — see certificateDERBytes' own doc
+	// comment for the same heuristic used on the decode side.
+	if nocTLV[0] == 0x30 {
+		t.Error("chipCertTLVBytes(...) NOC still looks like plain DER (starts with 0x30), want Matter-TLV (0x15)")
+	}
+	if nocTLV[0] != 0x15 {
+		t.Errorf("chipCertTLVBytes(...) NOC starts with 0x%02X, want 0x15 (Matter-TLV anonymous structure)", nocTLV[0])
+	}
+
+	// Round-tripping back through chipcert.TLVToDER — the same conversion a
+	// real device's ChipCertificateSet::LoadCert performs internally — must
+	// recover a certificate equivalent to the original DER.
+	roundTripDER, err := chipcert.TLVToDER(nocTLV)
+	if err != nil {
+		t.Fatalf("chipcert.TLVToDER(...) error = %v", err)
+	}
+	roundTripCert, err := x509.ParseCertificate(roundTripDER)
+	if err != nil {
+		t.Fatalf("x509.ParseCertificate(roundTripDER) error = %v", err)
+	}
+	originalCert, err := x509.ParseCertificate(admin.adminNOCDER)
+	if err != nil {
+		t.Fatalf("x509.ParseCertificate(admin.adminNOCDER) error = %v", err)
+	}
+	if roundTripCert.Subject.String() != originalCert.Subject.String() {
+		t.Errorf("round-tripped NOC subject = %q, want %q", roundTripCert.Subject.String(), originalCert.Subject.String())
 	}
 }
 
