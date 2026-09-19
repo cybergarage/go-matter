@@ -31,9 +31,14 @@ import (
 type mDNSDevice struct {
 	*baseDevice
 	mdns.CommissionableNode
-	conn       *net.UDPConn
-	readBuf    []byte
-	discoverer mdns.Discoverer
+	conn *net.UDPConn
+	// maxDeadline is the outer bound (from the ctx given to openConn, or
+	// DefaultCommissioningTimeout if it had none) that no per-call deadline
+	// may exceed — see effectiveDeadline. Mirrors
+	// operationalUDPTransport.maxDeadline in operational_transport.go.
+	maxDeadline time.Time
+	readBuf     []byte
+	discoverer  mdns.Discoverer
 }
 
 func newMDNSDevice(node mdns.CommissionableNode, discoverer mdns.Discoverer) CommissionableDevice {
@@ -41,6 +46,7 @@ func newMDNSDevice(node mdns.CommissionableNode, discoverer mdns.Discoverer) Com
 		baseDevice:         newBaseDevice(),
 		CommissionableNode: node,
 		conn:               nil,
+		maxDeadline:        time.Time{},
 		readBuf:            make([]byte, 1500),
 		discoverer:         discoverer,
 	}
@@ -198,16 +204,28 @@ func (dev *mDNSDevice) openConn(ctx context.Context) (*net.UDPConn, error) {
 		return nil, fmt.Errorf("context deadline exceeded: %s", deadline.String())
 	}
 
-	err = conn.SetWriteDeadline(deadline)
-	if err != nil {
-		return nil, err
-	}
-	err = conn.SetReadDeadline(deadline)
-	if err != nil {
-		return nil, err
-	}
+	dev.maxDeadline = deadline
 
 	return conn, nil
+}
+
+// effectiveDeadline returns the earlier of ctx's own deadline (if any) and
+// dev.maxDeadline, so a caller can bound a single Transmit/Receive call to a
+// short per-attempt window (e.g. CASE's Sigma1/Sigma3 retry loop in
+// matter/protocol/case/client.go) without ever extending the connection past
+// the deadline it was opened with. Mirrors
+// operationalUDPTransport.effectiveDeadline in operational_transport.go —
+// this device's connection can now also be reused directly as CASE's
+// transport (see resolveOperationalTransport), so it needs the same
+// per-call deadline handling that transport already has, not just the
+// fixed connection-open-time deadline this originally set once via
+// SetWriteDeadline/SetReadDeadline and never touched again.
+func (dev *mDNSDevice) effectiveDeadline(ctx context.Context) time.Time {
+	deadline := dev.maxDeadline
+	if ctxDeadline, ok := ctx.Deadline(); ok && ctxDeadline.Before(deadline) {
+		deadline = ctxDeadline
+	}
+	return deadline
 }
 
 // RemoteAddr returns the address of the peer this device's connection is
@@ -227,6 +245,9 @@ func (dev *mDNSDevice) Transmit(ctx context.Context, b []byte) error {
 	if dev.conn == nil {
 		return fmt.Errorf("connection is not opened")
 	}
+	if err := dev.conn.SetWriteDeadline(dev.effectiveDeadline(ctx)); err != nil {
+		return err
+	}
 	n, err := dev.conn.Write(b)
 	if err != nil {
 		return err
@@ -241,6 +262,9 @@ func (dev *mDNSDevice) Transmit(ctx context.Context, b []byte) error {
 func (dev *mDNSDevice) Receive(ctx context.Context) ([]byte, error) {
 	if dev.conn == nil {
 		return nil, fmt.Errorf("connection is not opened")
+	}
+	if err := dev.conn.SetReadDeadline(dev.effectiveDeadline(ctx)); err != nil {
+		return nil, err
 	}
 	n, err := dev.conn.Read(dev.readBuf)
 	if err != nil {
