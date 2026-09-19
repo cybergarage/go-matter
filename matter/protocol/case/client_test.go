@@ -11,6 +11,7 @@ import (
 	"encoding/binary"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"math/big"
 	"strings"
 	"testing"
@@ -127,8 +128,19 @@ func TestEstablishSessionValidatesRequiredInputs(t *testing.T) {
 // nothing about why.
 func TestEstablishSessionSurfacesStatusReportDetail(t *testing.T) {
 	admin := makeTestAdminMaterials(t)
-	statusWire := buildStatusReportWire(t, 1 /* FAILURE */, 1 /* NO_SHARED_TRUST_ROOTS */)
-	rt := &retryCountingTransport{response: statusWire}
+	rt := &retryCountingTransport{
+		// receiveSkipAck now discards replies on any exchange other than
+		// the one it sent on (see its doc comment), so the canned
+		// StatusReport must echo back whatever ExchangeID Sigma1 actually
+		// used, not a fixed guess.
+		responseFunc: func(sent []byte) []byte {
+			sentMsg, err := message.NewMessageFromBytes(sent)
+			if err != nil {
+				t.Fatalf("parse sent Sigma1: %v", err)
+			}
+			return buildStatusReportWireForExchange(t, sentMsg.ExchangeID(), 1 /* FAILURE */, 1 /* NO_SHARED_TRUST_ROOTS */)
+		},
+	}
 	initiator := NewInitiator(
 		rt,
 		config.NewAdministratorConfig(
@@ -198,10 +210,16 @@ type retryCountingTransport struct {
 	failReceives int
 	response     []byte
 	receiveErr   error
+	lastSent     []byte
+	// responseFunc, if set, builds the Receive response from the just-sent
+	// bytes (e.g. to echo back the same ExchangeID the caller used) instead
+	// of the fixed response field.
+	responseFunc func(sent []byte) []byte
 }
 
-func (rt *retryCountingTransport) Transmit(context.Context, []byte) error {
+func (rt *retryCountingTransport) Transmit(_ context.Context, b []byte) error {
 	rt.transmits++
+	rt.lastSent = b
 	return nil
 }
 
@@ -213,6 +231,9 @@ func (rt *retryCountingTransport) Receive(ctx context.Context) ([]byte, error) {
 	if rt.receives <= rt.failReceives {
 		<-ctx.Done()
 		return nil, ctx.Err()
+	}
+	if rt.responseFunc != nil {
+		return rt.responseFunc(rt.lastSent), nil
 	}
 	return rt.response, nil
 }
@@ -229,9 +250,11 @@ func withShortCaseRetryTiming(t *testing.T) {
 
 func TestTransmitAndReceiveWithRetryRetriesOnTimeout(t *testing.T) {
 	withShortCaseRetryTiming(t)
+	exchangeID := message.NewFirstExchangeID()
 	// receiveSkipAck parses whatever Receive returns as a message.Message,
-	// so the canned "response" must itself be a well-formed (non-ack) one.
-	respMsg, err := buildCASEMessage(message.CASESigma2, 0, message.NewFirstExchangeID(), []byte("payload"))
+	// so the canned "response" must itself be a well-formed (non-ack) one on
+	// the same exchange we're sending on.
+	respMsg, err := buildCASEMessage(message.CASESigma2, 0, exchangeID, []byte("payload"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -241,7 +264,7 @@ func TestTransmitAndReceiveWithRetryRetriesOnTimeout(t *testing.T) {
 	}
 	rt := &retryCountingTransport{failReceives: 2, response: respBytes}
 
-	got, err := transmitAndReceiveWithRetry(context.Background(), rt, []byte("sigma1"))
+	got, err := transmitAndReceiveWithRetry(context.Background(), rt, exchangeID, []byte("sigma1"))
 	if err != nil {
 		t.Fatalf("transmitAndReceiveWithRetry(...) error = %v", err)
 	}
@@ -257,7 +280,7 @@ func TestTransmitAndReceiveWithRetryGivesUpAfterMaxAttempts(t *testing.T) {
 	withShortCaseRetryTiming(t)
 	rt := &retryCountingTransport{failReceives: caseRetryAttempts}
 
-	_, err := transmitAndReceiveWithRetry(context.Background(), rt, []byte("sigma1"))
+	_, err := transmitAndReceiveWithRetry(context.Background(), rt, message.NewFirstExchangeID(), []byte("sigma1"))
 	if err == nil {
 		t.Fatal("transmitAndReceiveWithRetry(...) error = nil, want timeout after exhausting retries")
 	}
@@ -270,12 +293,72 @@ func TestTransmitAndReceiveWithRetryDoesNotRetryNonTimeoutErrors(t *testing.T) {
 	withShortCaseRetryTiming(t)
 	rt := &retryCountingTransport{receiveErr: errStatusReport}
 
-	_, err := transmitAndReceiveWithRetry(context.Background(), rt, []byte("sigma1"))
+	_, err := transmitAndReceiveWithRetry(context.Background(), rt, message.NewFirstExchangeID(), []byte("sigma1"))
 	if !errors.Is(err, errStatusReport) {
 		t.Fatalf("transmitAndReceiveWithRetry(...) error = %v, want errStatusReport", err)
 	}
 	if rt.transmits != 1 {
 		t.Errorf("transmits = %d, want 1 (non-timeout errors must not be retried)", rt.transmits)
+	}
+}
+
+// queueTransport returns a fixed sequence of Receive results in order,
+// ignoring Transmit entirely.
+type queueTransport struct {
+	queue [][]byte
+	pos   int
+}
+
+func (t *queueTransport) Transmit(context.Context, []byte) error { return nil }
+
+func (t *queueTransport) Receive(context.Context) ([]byte, error) {
+	if t.pos >= len(t.queue) {
+		return nil, fmt.Errorf("queueTransport: no more queued messages")
+	}
+	b := t.queue[t.pos]
+	t.pos++
+	return b, nil
+}
+
+// TestReceiveSkipAckDiscardsMismatchedExchange guards against a real
+// regression exposed by matter/operational_transport.go's connection reuse:
+// once CASE can share the same connection PASE already used instead of
+// always dialing a fresh one, a stray, late, or duplicate packet left over
+// from an earlier exchange on that shared connection can arrive while
+// receiveSkipAck is waiting for Sigma1's actual reply. A real device
+// exchange showed this happening in practice: EstablishSession reported
+// "expected Sigma2, got StatusReport: generalCode=0(SUCCESS)..." — a stale
+// success status left over from an earlier, unrelated exchange — instead of
+// either the real Sigma2 or a genuine rejection.
+func TestReceiveSkipAckDiscardsMismatchedExchange(t *testing.T) {
+	wantExchangeID := message.NewFirstExchangeID()
+	staleExchangeID := wantExchangeID + 1
+
+	staleMsg, err := buildCASEMessage(message.StatusReport, message.ReliabilityFlag, staleExchangeID, make([]byte, 8))
+	if err != nil {
+		t.Fatal(err)
+	}
+	staleBytes, err := staleMsg.Bytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantMsg, err := buildCASEMessage(message.CASESigma2, 0, wantExchangeID, []byte("payload"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantBytes, err := wantMsg.Bytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	qt := &queueTransport{queue: [][]byte{staleBytes, wantBytes}}
+
+	got, err := receiveSkipAck(context.Background(), qt, wantExchangeID)
+	if err != nil {
+		t.Fatalf("receiveSkipAck(...) error = %v", err)
+	}
+	if string(got) != string(wantBytes) {
+		t.Error("receiveSkipAck(...) returned the stale mismatched-exchange message instead of skipping it")
 	}
 }
 
@@ -387,6 +470,11 @@ func bytesOf(v byte, n int) []byte {
 // StatusReport::Parse.
 func buildStatusReportWire(t *testing.T, generalCode uint16, protocolCode uint16) []byte {
 	t.Helper()
+	return buildStatusReportWireForExchange(t, 1, generalCode, protocolCode)
+}
+
+func buildStatusReportWireForExchange(t *testing.T, exchangeID message.ExchangeID, generalCode uint16, protocolCode uint16) []byte {
+	t.Helper()
 	payload := make([]byte, 8)
 	binary.LittleEndian.PutUint16(payload[0:2], generalCode)
 	binary.LittleEndian.PutUint32(payload[2:6], uint32(message.SecureChannel))
@@ -401,7 +489,7 @@ func buildStatusReportWire(t *testing.T, generalCode uint16, protocolCode uint16
 		message.WithMessageProtocolHeader(message.NewProtocolHeader(
 			message.WithHeaderExchangeFlags(message.ReliabilityFlag),
 			message.WithHeaderOpcode(message.StatusReport),
-			message.WithHeaderExchangeID(1),
+			message.WithHeaderExchangeID(exchangeID),
 			message.WithHeaderProtocolID(message.SecureChannel),
 		)),
 		message.WithMessagePayload(payload),

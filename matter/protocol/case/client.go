@@ -168,7 +168,7 @@ func (i *Initiator) EstablishSession(ctx context.Context) (session.SessionKeys, 
 	}
 	log.Infof("CASE Sigma1: session_id=0x%04X exchange_id=0x%04X payload=%s", initiatorSessionID, exchangeID, redactedBytes(sigma1Payload))
 	log.HexDebug(sigma1Bytes)
-	sigma2Raw, err := transmitAndReceiveWithRetry(ctx, i.t, sigma1Bytes)
+	sigma2Raw, err := transmitAndReceiveWithRetry(ctx, i.t, exchangeID, sigma1Bytes)
 	if err != nil {
 		return nil, fmt.Errorf("case: transmit Sigma1 / receive Sigma2: %w", err)
 	}
@@ -278,7 +278,7 @@ func (i *Initiator) EstablishSession(ctx context.Context) (session.SessionKeys, 
 	}
 	log.Infof("CASE Sigma3: encrypted3=%s", redactedBytes(encrypted3))
 	log.HexDebug(sigma3Bytes)
-	statusRaw, err := transmitAndReceiveWithRetry(ctx, i.t, sigma3Bytes)
+	statusRaw, err := transmitAndReceiveWithRetry(ctx, i.t, exchangeID, sigma3Bytes)
 	if err != nil {
 		return nil, fmt.Errorf("case: transmit Sigma3 / receive SigmaFinished: %w", err)
 	}
@@ -326,13 +326,13 @@ func buildCASEMessage(opcode message.Opcode, flags message.ExchangeFlag, exchang
 	return msg, nil
 }
 
-// transmitAndReceiveWithRetry sends payload and waits for a reply, retrying
-// the send if a full attempt window (caseRetryInterval, bounded by ctx's own
-// deadline if sooner) elapses with no response — see caseRetryAttempts'
-// doc comment for why this is needed at all. Only timeouts are retried; any
-// other error (a malformed reply, the transport itself failing) is returned
-// immediately.
-func transmitAndReceiveWithRetry(ctx context.Context, t Transport, payload []byte) ([]byte, error) {
+// transmitAndReceiveWithRetry sends payload and waits for a reply on
+// exchangeID, retrying the send if a full attempt window (caseRetryInterval,
+// bounded by ctx's own deadline if sooner) elapses with no response — see
+// caseRetryAttempts' doc comment for why this is needed at all. Only
+// timeouts are retried; any other error (a malformed reply, the transport
+// itself failing) is returned immediately.
+func transmitAndReceiveWithRetry(ctx context.Context, t Transport, exchangeID message.ExchangeID, payload []byte) ([]byte, error) {
 	var lastErr error
 	for range caseRetryAttempts {
 		if err := ctx.Err(); err != nil {
@@ -347,7 +347,7 @@ func transmitAndReceiveWithRetry(ctx context.Context, t Transport, payload []byt
 			cancel()
 			return nil, err
 		}
-		raw, err := receiveSkipAck(attemptCtx, t)
+		raw, err := receiveSkipAck(attemptCtx, t, exchangeID)
 		cancel()
 		if err == nil {
 			return raw, nil
@@ -368,7 +368,19 @@ func isTimeoutError(err error) bool {
 	return errors.As(err, &netErr) && netErr.Timeout()
 }
 
-func receiveSkipAck(ctx context.Context, t Transport) ([]byte, error) {
+// receiveSkipAck reads messages from t until it finds one on exchangeID that
+// isn't a standalone MRP ack, discarding everything else along the way.
+//
+// The discarding is not optional: this transport may now be the same
+// connection PASE/commissioning already used (see
+// matter/operational_transport.go's resolveOperationalTransport), rather
+// than a dedicated one opened fresh just for this CASE exchange. Without
+// checking exchangeID, a stray, late, or duplicate packet left over from an
+// earlier exchange on that shared connection — this codebase observed a
+// stale SecureChannel StatusReport{SUCCESS} being misread as "the response
+// to Sigma1" — would be handed back to the caller as if it were the actual
+// reply.
+func receiveSkipAck(ctx context.Context, t Transport, exchangeID message.ExchangeID) ([]byte, error) {
 	for {
 		b, err := t.Receive(ctx)
 		if err != nil {
@@ -379,6 +391,10 @@ func receiveSkipAck(ctx context.Context, t Transport) ([]byte, error) {
 			return nil, fmt.Errorf("case: parse received message: %w", err)
 		}
 		if msg.Opcode().IsMRPStandaloneAck() {
+			continue
+		}
+		if msg.ExchangeID() != exchangeID {
+			log.Debugf("case: received message for a different exchange (got %v, want %v), waiting for next message", msg.ExchangeID(), exchangeID)
 			continue
 		}
 		return b, nil
