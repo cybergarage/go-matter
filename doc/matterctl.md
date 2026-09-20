@@ -11,9 +11,205 @@
       --verbose         enable verbose output
 ```
 
+* [matterctl basicinformation]()	 - Basic Information cluster (0x0028) commands.
+* [matterctl completion]()	 - Generate the autocompletion script for the specified shell
+* [matterctl descriptor]()	 - Descriptor cluster (0x001D) commands.
 * [matterctl doc]()	 - Generate markdown documentation to stdout
+* [matterctl onoff]()	 - On/Off cluster (0x0006) commands.
 * [matterctl pairing]()	 - Pairing Matter devices.
 * [matterctl scan]()	 - Scan for Matter devices.
+
+## matterctl any
+
+Read/write/invoke any cluster by numeric ID (for clusters without a named command).
+
+### Options
+
+```
+  -h, --help   help for any
+```
+
+### Options inherited from parent commands
+
+```
+      --debug           enable debug output
+      --format string   output format: table|json|csv (default "table")
+      --verbose         enable verbose output
+```
+
+* [matterctl any invoke]()	 - Invoke a command by numeric cluster/command ID.
+* [matterctl any read]()	 - Read an attribute by numeric cluster/attribute ID.
+* [matterctl any write]()	 - Write an attribute by numeric cluster/attribute ID.
+
+## matterctl any help
+
+Help about any command
+
+### Synopsis
+
+Help provides help for any command in the application.
+Simply type any help [path to command] for full details.
+
+```
+matterctl any help [command] [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for help
+```
+
+### Options inherited from parent commands
+
+```
+      --debug           enable debug output
+      --format string   output format: table|json|csv (default "table")
+      --verbose         enable verbose output
+```
+
+
+## matterctl any invoke
+
+Invoke a command by numeric cluster/command ID.
+
+```
+matterctl any invoke <cluster-id> <command-id> <node ID> <endpoint ID> [flags]
+```
+
+### Options
+
+```
+      --fields string   raw hex-encoded TLV command-fields blob; omitted means no command fields
+  -h, --help            help for invoke
+```
+
+### Options inherited from parent commands
+
+```
+      --debug           enable debug output
+      --format string   output format: table|json|csv (default "table")
+      --verbose         enable verbose output
+```
+
+
+## matterctl any read
+
+Read an attribute by numeric cluster/attribute ID.
+
+```
+matterctl any read <cluster-id> <attribute-id> <node ID> <endpoint ID> [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for read
+```
+
+### Options inherited from parent commands
+
+```
+      --debug           enable debug output
+      --format string   output format: table|json|csv (default "table")
+      --verbose         enable verbose output
+```
+
+
+## matterctl any write
+
+Write an attribute by numeric cluster/attribute ID.
+
+```
+matterctl any write <cluster-id> <attribute-id> <value> <node ID> <endpoint ID> [flags]
+```
+
+### Options
+
+```
+  -h, --help          help for write
+      --type string   value encoding: bool|uint|int|string|hex (default "uint")
+```
+
+### Options inherited from parent commands
+
+```
+      --debug           enable debug output
+      --format string   output format: table|json|csv (default "table")
+      --verbose         enable verbose output
+```
+
+
+## matterctl basicinformation
+
+Basic Information cluster (0x0028) commands.
+
+### Options
+
+```
+  -h, --help   help for basicinformation
+```
+
+### Options inherited from parent commands
+
+```
+      --debug           enable debug output
+      --format string   output format: table|json|csv (default "table")
+      --verbose         enable verbose output
+```
+
+* [matterctl basicinformation read]()	 - Read a Basic Information cluster attribute.
+
+## matterctl basicinformation help
+
+Help about any command
+
+### Synopsis
+
+Help provides help for any command in the application.
+Simply type basicinformation help [path to command] for full details.
+
+```
+matterctl basicinformation help [command] [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for help
+```
+
+### Options inherited from parent commands
+
+```
+      --debug           enable debug output
+      --format string   output format: table|json|csv (default "table")
+      --verbose         enable verbose output
+```
+
+
+## matterctl basicinformation read
+
+Read a Basic Information cluster attribute.
+
+```
+matterctl basicinformation read <attribute-name> <node ID> <endpoint ID> [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for read
+```
+
+### Options inherited from parent commands
+
+```
+      --debug           enable debug output
+      --format string   output format: table|json|csv (default "table")
+      --verbose         enable verbose output
+```
+
 
 ## matterctl completion
 
@@ -245,6 +441,77 @@ matterctl completion zsh [flags]
 ```
 
 
+## matterctl descriptor
+
+Descriptor cluster (0x001D) commands.
+
+### Options
+
+```
+  -h, --help   help for descriptor
+```
+
+### Options inherited from parent commands
+
+```
+      --debug           enable debug output
+      --format string   output format: table|json|csv (default "table")
+      --verbose         enable verbose output
+```
+
+* [matterctl descriptor read]()	 - Read a Descriptor cluster attribute.
+
+## matterctl descriptor help
+
+Help about any command
+
+### Synopsis
+
+Help provides help for any command in the application.
+Simply type descriptor help [path to command] for full details.
+
+```
+matterctl descriptor help [command] [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for help
+```
+
+### Options inherited from parent commands
+
+```
+      --debug           enable debug output
+      --format string   output format: table|json|csv (default "table")
+      --verbose         enable verbose output
+```
+
+
+## matterctl descriptor read
+
+Read a Descriptor cluster attribute.
+
+```
+matterctl descriptor read <attribute-name> <node ID> <endpoint ID> [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for read
+```
+
+### Options inherited from parent commands
+
+```
+      --debug           enable debug output
+      --format string   output format: table|json|csv (default "table")
+      --verbose         enable verbose output
+```
+
+
 ## matterctl doc
 
 Generate markdown documentation to stdout
@@ -285,6 +552,149 @@ matterctl help [command] [flags]
 
 ```
   -h, --help   help for help
+```
+
+### Options inherited from parent commands
+
+```
+      --debug           enable debug output
+      --format string   output format: table|json|csv (default "table")
+      --verbose         enable verbose output
+```
+
+
+## matterctl onoff
+
+On/Off cluster (0x0006) commands.
+
+### Options
+
+```
+  -h, --help   help for onoff
+```
+
+### Options inherited from parent commands
+
+```
+      --debug           enable debug output
+      --format string   output format: table|json|csv (default "table")
+      --verbose         enable verbose output
+```
+
+* [matterctl onoff off]()	 - Invoke the Off command.
+* [matterctl onoff on]()	 - Invoke the On command.
+* [matterctl onoff read]()	 - Read an On/Off cluster attribute.
+* [matterctl onoff toggle]()	 - Invoke the Toggle command.
+
+## matterctl onoff help
+
+Help about any command
+
+### Synopsis
+
+Help provides help for any command in the application.
+Simply type onoff help [path to command] for full details.
+
+```
+matterctl onoff help [command] [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for help
+```
+
+### Options inherited from parent commands
+
+```
+      --debug           enable debug output
+      --format string   output format: table|json|csv (default "table")
+      --verbose         enable verbose output
+```
+
+
+## matterctl onoff off
+
+Invoke the Off command.
+
+```
+matterctl onoff off <node ID> <endpoint ID> [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for off
+```
+
+### Options inherited from parent commands
+
+```
+      --debug           enable debug output
+      --format string   output format: table|json|csv (default "table")
+      --verbose         enable verbose output
+```
+
+
+## matterctl onoff on
+
+Invoke the On command.
+
+```
+matterctl onoff on <node ID> <endpoint ID> [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for on
+```
+
+### Options inherited from parent commands
+
+```
+      --debug           enable debug output
+      --format string   output format: table|json|csv (default "table")
+      --verbose         enable verbose output
+```
+
+
+## matterctl onoff read
+
+Read an On/Off cluster attribute.
+
+```
+matterctl onoff read <attribute-name> <node ID> <endpoint ID> [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for read
+```
+
+### Options inherited from parent commands
+
+```
+      --debug           enable debug output
+      --format string   output format: table|json|csv (default "table")
+      --verbose         enable verbose output
+```
+
+
+## matterctl onoff toggle
+
+Invoke the Toggle command.
+
+```
+matterctl onoff toggle <node ID> <endpoint ID> [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for toggle
 ```
 
 ### Options inherited from parent commands
