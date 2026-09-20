@@ -22,33 +22,23 @@ import (
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 )
 
+// ReadAttribute reads a single attribute over the Interaction Model,
+// returning the decoded value as a tlv.Element so callers can extract
+// whichever scalar type applies (UTF8()/Unsigned2()/Unsigned4()/...). It
+// cannot represent a List/Array-typed attribute's value — a Decoder cannot
+// buffer a whole list behind a single self-contained tlv.Element — use
+// ReadListAttribute for those (see read_list_impl.go).
+func ReadAttribute(sess SecureSession, endpointID EndpointID, clusterID ClusterID, attributeID AttributeID) (*ReadResponse, error) {
+	responseRaw, err := doReadRequest(sess, endpointID, clusterID, attributeID)
+	if err != nil {
+		return nil, err
+	}
+	return parseReadResponse(responseRaw)
+}
+
 // ReadBoolAttribute reads a single boolean attribute over the Interaction Model.
 func ReadBoolAttribute(sess SecureSession, endpointID EndpointID, clusterID ClusterID, attributeID AttributeID) (bool, error) {
-	payload, err := buildReadRequestPayload(endpointID, clusterID, attributeID)
-	if err != nil {
-		return false, fmt.Errorf("im: build ReadRequest payload: %w", err)
-	}
-
-	protocolHeaderBytes, exchangeID, err := buildIMProtocolHeader(message.ReadRequestMessage)
-	if err != nil {
-		return false, fmt.Errorf("im: build protocol header: %w", err)
-	}
-
-	wire := make([]byte, 0, len(protocolHeaderBytes)+len(payload))
-	wire = append(wire, protocolHeaderBytes...)
-	wire = append(wire, payload...)
-
-	log.HexDebug(wire)
-	if err := sess.Transmit(wire); err != nil {
-		return false, fmt.Errorf("im: transmit ReadRequest: %w", err)
-	}
-
-	responseRaw, err := receiveExchangeResponse(sess, exchangeID)
-	if err != nil {
-		return false, fmt.Errorf("im: receive ReadResponse: %w", err)
-	}
-
-	resp, err := parseReadResponse(responseRaw)
+	resp, err := ReadAttribute(sess, endpointID, clusterID, attributeID)
 	if err != nil {
 		return false, err
 	}
@@ -63,6 +53,37 @@ func ReadBoolAttribute(sess SecureSession, endpointID EndpointID, clusterID Clus
 		return false, fmt.Errorf("im: ReadResponse attribute value is not a boolean")
 	}
 	return v, nil
+}
+
+// doReadRequest transmits a ReadRequest IM message for a single attribute
+// path and returns the raw decrypted ReadResponse bytes (protocol header +
+// TLV payload), for the caller to parse. Shared by ReadAttribute and
+// ReadListAttribute.
+func doReadRequest(sess SecureSession, endpointID EndpointID, clusterID ClusterID, attributeID AttributeID) ([]byte, error) {
+	payload, err := buildReadRequestPayload(endpointID, clusterID, attributeID)
+	if err != nil {
+		return nil, fmt.Errorf("im: build ReadRequest payload: %w", err)
+	}
+
+	protocolHeaderBytes, exchangeID, err := buildIMProtocolHeader(message.ReadRequestMessage)
+	if err != nil {
+		return nil, fmt.Errorf("im: build protocol header: %w", err)
+	}
+
+	wire := make([]byte, 0, len(protocolHeaderBytes)+len(payload))
+	wire = append(wire, protocolHeaderBytes...)
+	wire = append(wire, payload...)
+
+	log.HexDebug(wire)
+	if err := sess.Transmit(wire); err != nil {
+		return nil, fmt.Errorf("im: transmit ReadRequest: %w", err)
+	}
+
+	responseRaw, err := receiveExchangeResponse(sess, exchangeID)
+	if err != nil {
+		return nil, fmt.Errorf("im: receive ReadResponse: %w", err)
+	}
+	return responseRaw, nil
 }
 
 // buildReadRequestPayload encodes the ReadRequest TLV payload for a single
@@ -133,12 +154,35 @@ func buildReadRequestPayload(endpointID EndpointID, clusterID ClusterID, attribu
 }
 
 // parseReadResponse parses the decrypted payload of a ReadResponse
+// (ReportDataMessage) message for the common case where the attribute's Data
+// field (10.6.3) is a self-contained scalar — captured directly as a
+// tlv.Element with no further decoding.
+func parseReadResponse(data []byte) (*ReadResponse, error) {
+	resp := &ReadResponse{}
+	status, err := parseReadResponseCore(data, func(dec tlv.Decoder, elem tlv.Element) error {
+		resp.Value = elem
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	resp.Status = status
+	return resp, nil
+}
+
+// parseReadResponseCore parses the decrypted payload of a ReadResponse
 // (ReportDataMessage) message, walking its nested structure to extract the
 // AttributeStatusIB or AttributeDataIB of the first AttributeReportIB (this
 // client only ever reads one attribute path per ReadRequestMessage, see
-// buildReadRequestPayload).
+// buildReadRequestPayload). dataFunc is invoked exactly once, at the
+// AttributeDataIB's Data field (tag 2, 10.6.3), when the device returned
+// attribute data rather than a status; it is not called at all when the
+// device reported an AttributeStatusIB error for the path instead. A
+// List/Array-typed Data field arrives as a nested container that dataFunc
+// must fully consume itself (via dec.Next(), including its own
+// EndOfContainer) before returning — see ReadListAttribute for that case.
 // 10.7.9. ReportDataMessage.
-func parseReadResponse(data []byte) (*ReadResponse, error) {
+func parseReadResponseCore(data []byte, dataFunc func(dec tlv.Decoder, elem tlv.Element) error) (*InvokeStatus, error) {
 	protHdr, err := message.NewProtocolHeaderFromBytes(data)
 	if err != nil {
 		return nil, fmt.Errorf("im: parse protocol header: %w", err)
@@ -161,7 +205,7 @@ func parseReadResponse(data []byte) (*ReadResponse, error) {
 		if err != nil {
 			return nil, fmt.Errorf("im: ReadResponse: %w", err)
 		}
-		return &ReadResponse{Status: &status}, nil
+		return &status, nil
 	}
 
 	dec := tlv.NewDecoderWithBytes(tlvData)
@@ -175,7 +219,7 @@ func parseReadResponse(data []byte) (*ReadResponse, error) {
 		return nil, fmt.Errorf("im: ReadResponse: expected top-level Structure")
 	}
 
-	resp := &ReadResponse{}
+	var status *InvokeStatus
 	found := false
 	for dec.Next() {
 		elem := dec.Element()
@@ -191,9 +235,11 @@ func parseReadResponse(data []byte) (*ReadResponse, error) {
 			if !elem.Type().IsList() && !elem.Type().IsArray() {
 				return nil, fmt.Errorf("im: ReadResponse: attribute-report-IBs is not a list")
 			}
-			if err := parseAttributeReportIBs(dec, resp, &found); err != nil {
+			s, err := parseAttributeReportIBsCore(dec, dataFunc, &found)
+			if err != nil {
 				return nil, fmt.Errorf("im: ReadResponse: %w", err)
 			}
+			status = s
 		default:
 			if elem.Type().IsStructure() || elem.Type().IsList() || elem.Type().IsArray() {
 				if err := skipContainer(dec); err != nil {
@@ -208,44 +254,48 @@ func parseReadResponse(data []byte) (*ReadResponse, error) {
 	if !found {
 		return nil, fmt.Errorf("im: ReadResponse: no attribute report for requested path")
 	}
-	return resp, nil
+	return status, nil
 }
 
-// parseAttributeReportIBs decodes the elements of the attribute-report-IBs
+// parseAttributeReportIBsCore decodes the elements of the attribute-report-IBs
 // list, assuming the caller has already consumed the List/Array-begin
-// marker. Only the first AttributeReportIB is parsed into resp; any further
-// ones are skipped.
-func parseAttributeReportIBs(dec tlv.Decoder, resp *ReadResponse, found *bool) error {
+// marker. Only the first AttributeReportIB is parsed; any further ones are
+// skipped.
+func parseAttributeReportIBsCore(dec tlv.Decoder, dataFunc func(dec tlv.Decoder, elem tlv.Element) error, found *bool) (*InvokeStatus, error) {
+	var status *InvokeStatus
 	for dec.Next() {
 		elem := dec.Element()
 		if elem.Type().IsEndOfContainer() {
-			return dec.Error()
+			return status, dec.Error()
 		}
 		if !elem.Type().IsStructure() {
-			return fmt.Errorf("attribute-report-IB is not a structure")
+			return nil, fmt.Errorf("attribute-report-IB is not a structure")
 		}
 		if *found {
 			if err := skipContainer(dec); err != nil {
-				return err
+				return nil, err
 			}
 			continue
 		}
-		if err := parseAttributeReportIB(dec, resp); err != nil {
-			return err
+		s, err := parseAttributeReportIBCore(dec, dataFunc)
+		if err != nil {
+			return nil, err
 		}
+		status = s
 		*found = true
 	}
-	return dec.Error()
+	return status, dec.Error()
 }
 
-// parseAttributeReportIB decodes an AttributeReportIB's fields, assuming the
-// caller has already consumed the Structure-begin marker.
+// parseAttributeReportIBCore decodes an AttributeReportIB's fields, assuming
+// the caller has already consumed the Structure-begin marker.
 // 10.6.4. AttributeReportIB.
-func parseAttributeReportIB(dec tlv.Decoder, resp *ReadResponse) error {
+func parseAttributeReportIBCore(dec tlv.Decoder, dataFunc func(dec tlv.Decoder, elem tlv.Element) error) (*InvokeStatus, error) {
+	var status *InvokeStatus
 	for dec.Next() {
 		elem := dec.Element()
 		if elem.Type().IsEndOfContainer() {
-			return dec.Error()
+			return status, dec.Error()
 		}
 		ct, ok := elem.Tag().(tlv.ContextTag)
 		if !ok {
@@ -254,37 +304,40 @@ func parseAttributeReportIB(dec tlv.Decoder, resp *ReadResponse) error {
 		switch ct.ContextNumber() {
 		case 0: // AttributeStatusIB
 			if !elem.Type().IsStructure() {
-				return fmt.Errorf("AttributeStatusIB is not a structure")
+				return nil, fmt.Errorf("AttributeStatusIB is not a structure")
 			}
-			if err := parseAttributeStatusIB(dec, resp); err != nil {
-				return err
+			s, err := parseAttributeStatusIBCore(dec)
+			if err != nil {
+				return nil, err
 			}
+			status = s
 		case 1: // AttributeDataIB
 			if !elem.Type().IsStructure() {
-				return fmt.Errorf("AttributeDataIB is not a structure")
+				return nil, fmt.Errorf("AttributeDataIB is not a structure")
 			}
-			if err := parseAttributeDataIB(dec, resp); err != nil {
-				return err
+			if err := parseAttributeDataIBCore(dec, dataFunc); err != nil {
+				return nil, err
 			}
 		default:
 			if elem.Type().IsStructure() || elem.Type().IsList() || elem.Type().IsArray() {
 				if err := skipContainer(dec); err != nil {
-					return err
+					return nil, err
 				}
 			}
 		}
 	}
-	return dec.Error()
+	return status, dec.Error()
 }
 
-// parseAttributeStatusIB decodes an AttributeStatusIB's fields, assuming the
-// caller has already consumed the Structure-begin marker.
+// parseAttributeStatusIBCore decodes an AttributeStatusIB's fields, assuming
+// the caller has already consumed the Structure-begin marker.
 // 10.6.5. AttributeStatusIB.
-func parseAttributeStatusIB(dec tlv.Decoder, resp *ReadResponse) error {
+func parseAttributeStatusIBCore(dec tlv.Decoder) (*InvokeStatus, error) {
+	var status *InvokeStatus
 	for dec.Next() {
 		elem := dec.Element()
 		if elem.Type().IsEndOfContainer() {
-			return dec.Error()
+			return status, dec.Error()
 		}
 		ct, ok := elem.Tag().(tlv.ContextTag)
 		if !ok {
@@ -293,30 +346,31 @@ func parseAttributeStatusIB(dec tlv.Decoder, resp *ReadResponse) error {
 		switch ct.ContextNumber() {
 		case 1: // StatusIB
 			if !elem.Type().IsStructure() {
-				return fmt.Errorf("StatusIB is not a structure")
+				return nil, fmt.Errorf("StatusIB is not a structure")
 			}
-			status, err := decodeStatusIB(dec)
+			s, err := decodeStatusIB(dec)
 			if err != nil {
-				return err
+				return nil, err
 			}
-			resp.Status = &status
+			status = &s
 		default: // AttributePathIB (0)
 			if elem.Type().IsStructure() || elem.Type().IsList() || elem.Type().IsArray() {
 				if err := skipContainer(dec); err != nil {
-					return err
+					return nil, err
 				}
 			}
 		}
 	}
-	return dec.Error()
+	return status, dec.Error()
 }
 
-// parseAttributeDataIB decodes an AttributeDataIB's fields, assuming the
-// caller has already consumed the Structure-begin marker. The Data element
-// (tag 2) is the attribute value itself — for a boolean attribute this is a
-// Bool element directly, not a nested structure containing one.
+// parseAttributeDataIBCore decodes an AttributeDataIB's fields, assuming the
+// caller has already consumed the Structure-begin marker. dataFunc is called
+// with the Data element (tag 2) — the attribute value itself, e.g. a Bool
+// element directly for a boolean attribute, not a nested structure
+// containing one.
 // 10.6.3. AttributeDataIB.
-func parseAttributeDataIB(dec tlv.Decoder, resp *ReadResponse) error {
+func parseAttributeDataIBCore(dec tlv.Decoder, dataFunc func(dec tlv.Decoder, elem tlv.Element) error) error {
 	for dec.Next() {
 		elem := dec.Element()
 		if elem.Type().IsEndOfContainer() {
@@ -328,7 +382,9 @@ func parseAttributeDataIB(dec tlv.Decoder, resp *ReadResponse) error {
 		}
 		switch ct.ContextNumber() {
 		case 2: // Data
-			resp.Value = elem
+			if err := dataFunc(dec, elem); err != nil {
+				return err
+			}
 		default: // DataVersion (0), AttributePathIB (1)
 			if elem.Type().IsStructure() || elem.Type().IsList() || elem.Type().IsArray() {
 				if err := skipContainer(dec); err != nil {

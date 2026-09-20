@@ -264,6 +264,60 @@ func (cmr *commissioner) commissionMatchingDevice(ctx context.Context, payload O
 	return nil, fmt.Errorf("%w: no matching commissionable device found (payload=%s)", ErrNotFound, payload.String())
 }
 
+// Connect reconnects to an already-commissioned node via a fresh CASE
+// handshake, using the fabric identity (cmr.adminConfig/cmr.operationalConfig
+// — already resolved from either explicit config or the persisted fabric
+// record by Start()) and the persisted per-device record (cmr.store) to
+// locate and authenticate the peer. It reuses operationalNodeDiscoverer and
+// establishOperationalCASESession unmodified (the same package vars
+// Commission()'s CASE finalization uses), so this path is provably
+// independent of Commission()'s own CASE-close-via-defer behavior.
+func (cmr *commissioner) Connect(ctx context.Context, nodeID uint64) (Node, error) {
+	if cmr.store == nil {
+		return nil, fmt.Errorf("%w: commissioner: Connect requires Start() to have opened a persistence store", ErrFailed)
+	}
+	if cmr.adminConfig == nil || cmr.operationalConfig == nil {
+		return nil, fmt.Errorf("%w: commissioner: Connect: no fabric identity available (commission a device, or call Start() against a store that already has one)", ErrNotFound)
+	}
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, DefaultConnectTimeout)
+		defer cancel()
+	}
+
+	compressedFabricID, err := computeCompressedFabricID(cmr.adminConfig)
+	if err != nil {
+		return nil, fmt.Errorf("commissioner: Connect: compute compressed fabric ID: %w", err)
+	}
+	rec, ok, err := cmr.store.LoadCommissionee(compressedFabricID, nodeID)
+	if err != nil {
+		return nil, fmt.Errorf("commissioner: Connect: load commissionee record: %w", err)
+	}
+	if !ok {
+		return nil, fmt.Errorf("%w: commissioner: Connect: no commissionee record for node 0x%016X", ErrNotFound, nodeID)
+	}
+
+	ipk, _ := cmr.operationalConfig.IPK()
+	peer := operationalCASEPeerFromRecord(rec, ipk)
+
+	node, err := operationalNodeDiscoverer(ctx, cmr.discoverer, peer)
+	if err != nil {
+		return nil, fmt.Errorf("commissioner: Connect: %w", err)
+	}
+
+	// paseTransport is nil: Connect never has a PASE-phase connection to
+	// reuse (unlike finalizeCommissioningOverCASE, called mid-commissioning)
+	// — resolveOperationalTransport's type assertion on a nil Transport
+	// simply fails to match remoteAddrProvider and falls through to dialing
+	// a fresh connection.
+	caseSess, err := establishOperationalCASESession(ctx, node, peer, cmr.adminConfig, nil)
+	if err != nil {
+		return nil, fmt.Errorf("commissioner: Connect: %w", err)
+	}
+
+	return newNode(NodeID(rec.NodeID), rec.FabricID, caseSess), nil
+}
+
 // effectiveConfigOptions extracts the AdministratorConfig/OperationalCredentialsConfig
 // that will actually be used for a commissioning attempt out of the merged
 // option list commissionOptions() built (Commissioner-wide defaults already

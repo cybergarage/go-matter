@@ -32,6 +32,7 @@ import (
 	caseprotocol "github.com/cybergarage/go-matter/matter/protocol/case"
 	"github.com/cybergarage/go-matter/matter/protocol/im"
 	"github.com/cybergarage/go-matter/matter/protocol/session"
+	"github.com/cybergarage/go-matter/matter/store"
 	"github.com/cybergarage/go-matter/matter/types"
 )
 
@@ -508,6 +509,20 @@ func loadOperationalCASEPeer(cfg config.OperationalCredentialsConfig, adminCfg c
 		serviceInstance: fmt.Sprintf("%016X-%016X", compressedFabricID, identity.nodeID),
 		ipk:             append([]byte(nil), ipk...),
 	}, nil
+}
+
+// operationalCASEPeerFromRecord is Connect()'s counterpart to
+// loadOperationalCASEPeer: it builds an operationalCASEPeer directly from a
+// persisted store.CommissioneeRecord instead of an in-flight
+// deviceOperationalIdentity. rec.CompressedFabricID was already computed
+// once, at persistCommissioning time (see matter/commissioner_impl.go), so
+// it does not need to be recomputed here.
+func operationalCASEPeerFromRecord(rec store.CommissioneeRecord, ipk []byte) operationalCASEPeer {
+	return operationalCASEPeer{
+		nodeID:          rec.NodeID,
+		serviceInstance: fmt.Sprintf("%016X-%016X", rec.CompressedFabricID, rec.NodeID),
+		ipk:             append([]byte(nil), ipk...),
+	}
 }
 
 // loadOperationalCredentialInputs returns the operational-network-independent

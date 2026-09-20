@@ -2,10 +2,17 @@ package matter
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/cybergarage/go-matter/matter/config"
 	"github.com/cybergarage/go-matter/matter/encoding"
+	mdnspkg "github.com/cybergarage/go-matter/matter/mdns"
+	caseprotocol "github.com/cybergarage/go-matter/matter/protocol/case"
+	"github.com/cybergarage/go-matter/matter/protocol/session"
+	"github.com/cybergarage/go-matter/matter/store"
 )
 
 type stubCommissionableDevice struct {
@@ -102,6 +109,163 @@ func TestNewCommissionerWithAdministratorConfig(t *testing.T) {
 	}
 	if cmr.adminConfig != adminCfg {
 		t.Fatal("commissioner admin config was not set")
+	}
+}
+
+func TestConnectRequiresStore(t *testing.T) {
+	cmr := &commissioner{}
+	_, err := cmr.Connect(context.Background(), 1)
+	if !errors.Is(err, ErrFailed) {
+		t.Fatalf("Connect(...) error = %v, want ErrFailed", err)
+	}
+}
+
+func TestConnectRequiresFabricIdentity(t *testing.T) {
+	st, err := store.NewStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmr := &commissioner{store: st}
+
+	_, err = cmr.Connect(context.Background(), 1)
+	if !errors.Is(err, ErrNotFound) {
+		t.Fatalf("Connect(...) error = %v, want ErrNotFound", err)
+	}
+}
+
+func TestConnectReturnsNotFoundForUnknownNode(t *testing.T) {
+	st, err := store.NewStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmr := &commissioner{
+		store:             st,
+		adminConfig:       validAdministratorConfig(),
+		operationalConfig: validOperationalCredentialsConfig(),
+	}
+
+	_, err = cmr.Connect(context.Background(), 0xDEAD)
+	if !errors.Is(err, ErrNotFound) {
+		t.Fatalf("Connect(...) error = %v, want ErrNotFound", err)
+	}
+}
+
+func TestConnectSuccess(t *testing.T) {
+	prevDiscoverOperational := operationalNodeDiscoverer
+	prevEstablishCASE := establishOperationalCASESession
+	t.Cleanup(func() {
+		operationalNodeDiscoverer = prevDiscoverOperational
+		establishOperationalCASESession = prevEstablishCASE
+	})
+
+	st, err := store.NewStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	adminCfg := validAdministratorConfig()
+	cmr := &commissioner{
+		store:             st,
+		discoverer:        &stubDiscoverer{},
+		adminConfig:       adminCfg,
+		operationalConfig: validOperationalCredentialsConfig(),
+	}
+
+	compressedFabricID, err := computeCompressedFabricID(adminCfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const nodeID = uint64(0x1234)
+	const fabricID = uint64(2)
+	if err := st.SaveCommissionee(store.CommissioneeRecord{
+		NodeID:             nodeID,
+		FabricID:           fabricID,
+		CompressedFabricID: compressedFabricID,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	var gotPeer operationalCASEPeer
+	operationalNodeDiscoverer = func(_ context.Context, _ mdnspkg.Discoverer, peer operationalCASEPeer) (mdnspkg.CommissionableNode, error) {
+		gotPeer = peer
+		return nil, nil
+	}
+	establishOperationalCASESession = func(context.Context, mdnspkg.CommissionableNode, operationalCASEPeer, config.AdministratorConfig, caseprotocol.Transport) (session.SecureSession, error) {
+		return stubSecureSession{}, nil
+	}
+
+	node, err := cmr.Connect(context.Background(), nodeID)
+	if err != nil {
+		t.Fatalf("Connect(...) error = %v", err)
+	}
+	if node.NodeID() != NodeID(nodeID) {
+		t.Errorf("node.NodeID() = %v, want %v", node.NodeID(), nodeID)
+	}
+	if node.FabricID() != fabricID {
+		t.Errorf("node.FabricID() = %v, want %v", node.FabricID(), fabricID)
+	}
+
+	wantServiceInstance := fmt.Sprintf("%016X-%016X", compressedFabricID, nodeID)
+	if gotPeer.serviceInstance != wantServiceInstance {
+		t.Errorf("discovered peer.serviceInstance = %q, want %q (built from the record's CompressedFabricID)", gotPeer.serviceInstance, wantServiceInstance)
+	}
+}
+
+// TestConnectAppliesDefaultTimeout guards against a regression where Connect
+// let a caller's undeadlined ctx block for however long operational
+// discovery and CASE establishment take, instead of bounding it to
+// DefaultConnectTimeout the same way Discover bounds itself to
+// DefaultDiscoveryTimeout.
+func TestConnectAppliesDefaultTimeout(t *testing.T) {
+	prevDiscoverOperational := operationalNodeDiscoverer
+	prevEstablishCASE := establishOperationalCASESession
+	t.Cleanup(func() {
+		operationalNodeDiscoverer = prevDiscoverOperational
+		establishOperationalCASESession = prevEstablishCASE
+	})
+
+	st, err := store.NewStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	adminCfg := validAdministratorConfig()
+	cmr := &commissioner{
+		store:             st,
+		discoverer:        &stubDiscoverer{},
+		adminConfig:       adminCfg,
+		operationalConfig: validOperationalCredentialsConfig(),
+	}
+	compressedFabricID, err := computeCompressedFabricID(adminCfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const nodeID = uint64(0x1234)
+	if err := st.SaveCommissionee(store.CommissioneeRecord{
+		NodeID:             nodeID,
+		CompressedFabricID: compressedFabricID,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	var gotDeadline time.Time
+	var gotOK bool
+	operationalNodeDiscoverer = func(ctx context.Context, _ mdnspkg.Discoverer, _ operationalCASEPeer) (mdnspkg.CommissionableNode, error) {
+		gotDeadline, gotOK = ctx.Deadline()
+		return nil, fmt.Errorf("stop before CASE")
+	}
+	establishOperationalCASESession = func(context.Context, mdnspkg.CommissionableNode, operationalCASEPeer, config.AdministratorConfig, caseprotocol.Transport) (session.SecureSession, error) {
+		t.Fatal("establishOperationalCASESession should not be called")
+		return nil, nil
+	}
+
+	before := time.Now()
+	_, _ = cmr.Connect(context.Background(), nodeID)
+
+	if !gotOK {
+		t.Fatal("Connect passed operationalNodeDiscoverer a context with no deadline, want one bounded to DefaultConnectTimeout")
+	}
+	maxExpected := before.Add(DefaultConnectTimeout + time.Second)
+	if gotDeadline.After(maxExpected) {
+		t.Errorf("discovery context deadline = %s, want within DefaultConnectTimeout (%s) of now", gotDeadline, DefaultConnectTimeout)
 	}
 }
 

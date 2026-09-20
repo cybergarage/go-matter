@@ -44,6 +44,13 @@ const (
 	// the device's own fail-safe timer, which the commissioner is racing
 	// against regardless, is already set to that duration.
 	DefaultCommissioningTimeout = time.Duration(120 * time.Second)
+	// DefaultConnectTimeout is the default timeout for Connect, bounding a
+	// plain reconnect to an already-commissioned node (operational mDNS
+	// discovery + a fresh CASE handshake only — no PASE, attestation, or
+	// NOC issuance) when the caller's ctx has no deadline of its own.
+	// Nowhere near DefaultCommissioningTimeout's 120s, which has to cover
+	// the entire PASE-through-CASE commissioning exchange instead.
+	DefaultConnectTimeout = time.Duration(30 * time.Second)
 )
 
 // Commissioner represents a commissioner interface.
@@ -57,6 +64,12 @@ type Commissioner interface {
 	Discover(ctx context.Context, query Query) ([]CommissionableDevice, error)
 	// Commission commissions a device with the given onboarding payload.
 	Commission(ctx context.Context, payload OnboardingPayload, opts ...CommissionOption) (Commissionee, error)
+	// Connect reconnects to an already-commissioned node identified by
+	// nodeID, via a fresh CASE handshake against this Commissioner's
+	// persisted fabric/commissionee store (no session resumption exists in
+	// this codebase — every reconnect is a full Sigma1-3 exchange).
+	// Requires Start() to have been called first.
+	Connect(ctx context.Context, nodeID uint64) (Node, error)
 	// Start starts the commissioner.
 	Start() error
 	// Stop stops the commissioner.
