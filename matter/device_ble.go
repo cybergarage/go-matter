@@ -90,6 +90,18 @@ func (dev *bleDevice) Commission(ctx context.Context, payload OnboardingPayload,
 		}
 	}()
 
+	// The service captured during discovery only reflects the advertisement
+	// data (no characteristics). Now that the device is connected, look it
+	// up again so the underlying ble.Device performs real GATT discovery
+	// and populates the characteristics (C1/C2) needed by Service.Open.
+	srv, ok := dev.Device.LookupService(ble.MatterServiceUUID)
+	if !ok {
+		err := fmt.Errorf("service (%s) not found after connect", ble.MatterServiceUUID.String())
+		log.Errorf("Failed to look up device service (%s): %v", dev.String(), err)
+		return CommissionedIdentity{}, err
+	}
+	dev.Service = srv
+
 	log.Infof("Device service: %s", dev.Service.String())
 
 	var err error
