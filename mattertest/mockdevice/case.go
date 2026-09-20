@@ -64,14 +64,16 @@ func handleCASE(ctx context.Context, t io.Transport, fs *fabricState) (session.S
 		return nil, fmt.Errorf("mockdevice: CASE: derive operational IPK: %w", err)
 	}
 
-	// 1) Sigma1: receive and match DestinationID.
-	sigma1Raw, err := t.Receive(ctx)
+	// 1) Sigma1: receive and match DestinationID. The commissioner's own
+	// standalone MRP ack of this device's last PASE-session IM response
+	// (e.g. AddNOC's NOCResponse) can still be in flight on the same
+	// loopback socket handleCASE now reads raw from — session.SecureSession
+	// would normally discard such acks internally (see swapRoleSessionKeys'
+	// doc comment), but that filtering only applies once a session exists,
+	// so it's done by hand here for this one unsecured, pre-session read.
+	sigma1Msg, err := receiveNonAckMessage(ctx, t)
 	if err != nil {
 		return nil, fmt.Errorf("mockdevice: CASE: receive Sigma1: %w", err)
-	}
-	sigma1Msg, err := message.NewMessageFromBytes(sigma1Raw)
-	if err != nil {
-		return nil, fmt.Errorf("mockdevice: CASE: parse Sigma1 message: %w", err)
 	}
 	sigma1, err := decodeSigma1(sigma1Msg.Payload())
 	if err != nil {
@@ -271,6 +273,36 @@ func handleCASE(ctx context.Context, t io.Transport, fs *fabricState) (session.S
 		peerNodeID:           session.NodeID(fs.nodeID),
 	}
 	return session.NewSecureSession(t, swapRoleSessionKeys(natural)), nil
+}
+
+// receiveNonAckMessage reads raw messages from t, discarding both encrypted
+// datagrams (session ID != 0 — leftover traffic on the still-secure PASE
+// session, such as the commissioner's own standalone ack of this device's
+// last PASE-phase IM response, which NewMessageFromBytes can't parse as a
+// plaintext protocol header/payload) and unsecured standalone MRP acks,
+// until an actual unsecured, substantive message (Sigma1) arrives.
+func receiveNonAckMessage(ctx context.Context, t io.Transport) (message.Message, error) {
+	for {
+		raw, err := t.Receive(ctx)
+		if err != nil {
+			return nil, err
+		}
+		header, err := message.NewHeaderFromBytes(raw)
+		if err != nil {
+			return nil, fmt.Errorf("parse frame header: %w", err)
+		}
+		if header.SessionID() != 0 {
+			continue
+		}
+		msg, err := message.NewMessageFromBytes(raw)
+		if err != nil {
+			return nil, fmt.Errorf("parse message: %w", err)
+		}
+		if msg.Opcode().IsMRPStandaloneAck() {
+			continue
+		}
+		return msg, nil
+	}
 }
 
 // buildCASEMessage builds an unsecured (SessionID 0) SecureChannel message
