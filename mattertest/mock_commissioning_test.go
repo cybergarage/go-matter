@@ -15,6 +15,7 @@
 package mattertest
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"testing"
@@ -24,6 +25,7 @@ import (
 	"github.com/cybergarage/go-matter/matter"
 	"github.com/cybergarage/go-matter/matter/config"
 	"github.com/cybergarage/go-matter/matter/encoding"
+	"github.com/cybergarage/go-matter/matter/store"
 	"github.com/cybergarage/go-matter/mattertest/mockdevice"
 )
 
@@ -87,7 +89,16 @@ func TestMockCommissioning(t *testing.T) {
 		config.WithAdminVendorID(defaultAdminVendorID),
 	)
 
-	cmr := matter.NewCommissioner(matter.WithCommissionerDiscoverer(mockdevice.NewFakeDiscoverer(dev)))
+	// WithCommissionerStoreDir points persistence at a per-test scratch
+	// directory instead of the real ~/.go-matter/ — without this, every run
+	// of this test would read and write the developer's actual home
+	// directory, breaking both hermeticity and reproducibility (a second
+	// run would pick up the previous run's fabric identity from disk).
+	storeDir := t.TempDir()
+	cmr := matter.NewCommissioner(
+		matter.WithCommissionerDiscoverer(mockdevice.NewFakeDiscoverer(dev)),
+		matter.WithCommissionerStoreDir(storeDir),
+	)
 	if err := cmr.Start(); err != nil {
 		t.Fatalf("Commissioner.Start() error = %v", err)
 	}
@@ -118,6 +129,81 @@ func TestMockCommissioning(t *testing.T) {
 	case <-dev.CommissioningCompleted():
 	case <-time.After(1 * time.Second):
 		t.Error("Device.CommissioningCompleted() did not fire after Commission() returned success")
+	}
+
+	verifyPersistedCommissioningState(t, storeDir, cme, adminCfg, opCfg)
+}
+
+// verifyPersistedCommissioningState confirms the Commissioner actually
+// persisted what TestMockCommissioning just did: a fabric-wide record
+// matching the config used, and a per-device record matching the identity
+// Commission() returned. This is the end-to-end proof that
+// matter/store + Commissioner's Start()/commissionMatchingDevice wiring
+// works, not just that the store package round-trips in isolation.
+func verifyPersistedCommissioningState(t *testing.T, storeDir string, cme matter.Commissionee, adminCfg config.AdministratorConfig, opCfg config.OperationalCredentialsConfig) {
+	t.Helper()
+
+	nodeID, ok := cme.NodeID()
+	if !ok {
+		t.Fatal("Commissionee.NodeID() ok = false, want true after successful commissioning")
+	}
+	fabricID, ok := cme.FabricID()
+	if !ok {
+		t.Fatal("Commissionee.FabricID() ok = false, want true after successful commissioning")
+	}
+
+	st, err := store.NewStore(storeDir)
+	if err != nil {
+		t.Fatalf("store.NewStore(%q) error = %v", storeDir, err)
+	}
+
+	fabricRec, ok, err := st.LoadFabric()
+	if err != nil || !ok {
+		t.Fatalf("LoadFabric() = (_, %v, %v), want (_, true, nil)", ok, err)
+	}
+	wantAdminNodeID, _ := adminCfg.NodeID()
+	wantFabricID, _ := adminCfg.FabricID()
+	wantIPK, _ := opCfg.IPK()
+	if fabricRec.AdminNodeID != wantAdminNodeID {
+		t.Errorf("FabricRecord.AdminNodeID = %d, want %d", fabricRec.AdminNodeID, wantAdminNodeID)
+	}
+	if fabricRec.FabricID != wantFabricID {
+		t.Errorf("FabricRecord.FabricID = %d, want %d", fabricRec.FabricID, wantFabricID)
+	}
+	if !bytes.Equal(fabricRec.IPK, wantIPK) {
+		t.Errorf("FabricRecord.IPK = %X, want %X", fabricRec.IPK, wantIPK)
+	}
+
+	recs, err := st.ListCommissionees()
+	if err != nil {
+		t.Fatalf("ListCommissionees() error = %v", err)
+	}
+	if len(recs) != 1 {
+		t.Fatalf("len(ListCommissionees()) = %d, want 1", len(recs))
+	}
+	commissioneeRec := recs[0]
+	if commissioneeRec.NodeID != uint64(nodeID) {
+		t.Errorf("CommissioneeRecord.NodeID = %d, want %d", commissioneeRec.NodeID, uint64(nodeID))
+	}
+	if commissioneeRec.FabricID != fabricID {
+		t.Errorf("CommissioneeRecord.FabricID = %d, want %d", commissioneeRec.FabricID, fabricID)
+	}
+	if commissioneeRec.VendorID != mockCommissioningVendorID {
+		t.Errorf("CommissioneeRecord.VendorID = %d, want %d", commissioneeRec.VendorID, uint16(mockCommissioningVendorID))
+	}
+	if commissioneeRec.ProductID != mockCommissioningProductID {
+		t.Errorf("CommissioneeRecord.ProductID = %d, want %d", commissioneeRec.ProductID, uint16(mockCommissioningProductID))
+	}
+	if len(commissioneeRec.NOC) == 0 {
+		t.Error("CommissioneeRecord.NOC is empty, want the device's issued NOC")
+	}
+
+	loaded, ok, err := st.LoadCommissionee(commissioneeRec.CompressedFabricID, uint64(nodeID))
+	if err != nil || !ok {
+		t.Fatalf("LoadCommissionee(...) = (_, %v, %v), want (_, true, nil)", ok, err)
+	}
+	if loaded.NodeID != commissioneeRec.NodeID {
+		t.Errorf("LoadCommissionee(...).NodeID = %d, want %d", loaded.NodeID, commissioneeRec.NodeID)
 	}
 }
 

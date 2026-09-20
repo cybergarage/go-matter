@@ -113,29 +113,29 @@ func commissionWithSession(
 	wifiCfg config.WiFiNetworkConfig,
 	adminCfg config.AdministratorConfig,
 	requireNetwork bool,
-) error {
+) (deviceOperationalIdentity, error) {
 	concurrent, err := supportsConcurrentConnectionAttribute(sess)
 	if err != nil {
-		return fmt.Errorf("commissioning: determine concurrent-connection capability: %w", err)
+		return deviceOperationalIdentity{}, fmt.Errorf("commissioning: determine concurrent-connection capability: %w", err)
 	}
 	if !concurrent {
-		return fmt.Errorf("commissioning: non-concurrent commissioning not yet supported")
+		return deviceOperationalIdentity{}, fmt.Errorf("commissioning: non-concurrent commissioning not yet supported")
 	}
 
 	identity, err := commissionOverPASE(sess, operationalCfg, adminCfg, wifiCfg, requireNetwork)
 	if err != nil {
-		return err
+		return deviceOperationalIdentity{}, err
 	}
 
 	// sess.Transport() is passed through so finalizeCommissioningOverCASE can
 	// try to reuse this same already-open connection for CASE instead of
 	// opening a new one — see establishCASESession's doc comment for why.
 	if err := finalizeCommissioningOverCASE(ctx, discoverer, operationalCfg, adminCfg, identity, sess.Transport()); err != nil {
-		return err
+		return deviceOperationalIdentity{}, err
 	}
 
 	log.Infof("Commissioning: complete")
-	return nil
+	return identity, nil
 }
 
 func commissionOverPASE(

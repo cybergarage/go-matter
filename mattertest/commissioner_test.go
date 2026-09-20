@@ -38,7 +38,7 @@ func TestCommissioner(t *testing.T) {
 	log.EnableStdoutDebug(true)
 	defer log.EnableStdoutDebug(false)
 
-	cmr := matter.NewCommissioner()
+	cmr := matter.NewCommissioner(matter.WithCommissionerStoreDir(t.TempDir()))
 	if err := cmr.Start(); err != nil {
 		t.Fatalf("Failed to start commissioner: %v", err)
 	}

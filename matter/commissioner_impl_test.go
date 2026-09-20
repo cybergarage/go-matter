@@ -28,19 +28,19 @@ func (d *stubCommissionableDevice) Address() string                         { re
 func (d *stubCommissionableDevice) MatchesOnboardingPayload(OnboardingPayload) bool {
 	return d.match
 }
-func (d *stubCommissionableDevice) Commission(context.Context, OnboardingPayload, ...CommissionOption) error {
+func (d *stubCommissionableDevice) Commission(context.Context, OnboardingPayload, ...CommissionOption) (CommissionedIdentity, error) {
 	d.gotCalls++
-	return nil
+	return CommissionedIdentity{}, nil
 }
 
 type capturingCommissionableDevice struct {
 	stubCommissionableDevice
 }
 
-func (d *capturingCommissionableDevice) Commission(_ context.Context, _ OnboardingPayload, opts ...CommissionOption) error {
+func (d *capturingCommissionableDevice) Commission(_ context.Context, _ OnboardingPayload, opts ...CommissionOption) (CommissionedIdentity, error) {
 	d.gotCalls++
 	d.gotOpts = append([]CommissionOption(nil), opts...)
-	return nil
+	return CommissionedIdentity{}, nil
 }
 
 func TestCommissionMatchingDeviceForwardsOptions(t *testing.T) {

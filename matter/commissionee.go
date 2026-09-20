@@ -22,6 +22,11 @@ type Commissionee interface {
 	// ProductID represents a product ID.
 	// 2.5.3. Product Identifier (Product ID, PID).
 	ProductID() ProductID
+	// NodeID returns the operational node ID this device was assigned
+	// during commissioning.
+	NodeID() (NodeID, bool)
+	// FabricID returns the fabric this device joined during commissioning.
+	FabricID() (uint64, bool)
 	// String returns the string representation of the device.
 	String() string
 }

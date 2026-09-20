@@ -17,13 +17,24 @@ package matter
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+	"time"
 
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/ble"
 	"github.com/cybergarage/go-matter/matter/config"
 	"github.com/cybergarage/go-matter/matter/errors"
 	"github.com/cybergarage/go-matter/matter/mdns"
+	caseprotocol "github.com/cybergarage/go-matter/matter/protocol/case"
+	"github.com/cybergarage/go-matter/matter/store"
 )
+
+// DefaultAppName is the directory name (under the user's home directory,
+// prefixed with ".") a Commissioner persists its fabric identity and
+// commissioned-device records to, unless overridden by
+// WithCommissionerAppName or WithCommissionerStoreDir.
+const DefaultAppName = "go-matter"
 
 // CommissionerOption defines a functional option for configuring a Commissioner.
 type CommissionerOption func(*commissioner)
@@ -49,19 +60,58 @@ func WithCommissionerDiscoverer(d mdns.Discoverer) CommissionerOption {
 	}
 }
 
+// WithCommissionerOperationalCredentialsConfig sets the default
+// OperationalCredentialsConfig used when commissioning devices, mirroring
+// WithCommissionerAdministratorConfig — together these are the fabric-wide
+// identity a Commissioner reuses (and, once persistence resolves in
+// Start(), restores from disk when not explicitly set) across every device
+// it commissions.
+func WithCommissionerOperationalCredentialsConfig(cfg config.OperationalCredentialsConfig) CommissionerOption {
+	return func(cmr *commissioner) {
+		cmr.operationalConfig = cfg
+	}
+}
+
+// WithCommissionerAppName sets the directory name (under the user's home
+// directory, prefixed with ".") a Commissioner persists its fabric identity
+// and commissioned-device records to. Defaults to DefaultAppName.
+func WithCommissionerAppName(name string) CommissionerOption {
+	return func(cmr *commissioner) {
+		cmr.appName = name
+	}
+}
+
+// WithCommissionerStoreDir overrides the resolved persistence directory
+// directly, bypassing ~/.{appName} resolution entirely. Primarily for tests
+// that need a hermetic, per-test-run directory (e.g. t.TempDir()) instead
+// of touching the real user's home directory.
+func WithCommissionerStoreDir(dir string) CommissionerOption {
+	return func(cmr *commissioner) {
+		cmr.storeDir = dir
+	}
+}
+
 // commissioner represents a commissioner.
 type commissioner struct {
 	ble.Central
-	discoverer  mdns.Discoverer
-	adminConfig config.AdministratorConfig
+	discoverer        mdns.Discoverer
+	adminConfig       config.AdministratorConfig
+	operationalConfig config.OperationalCredentialsConfig
+	appName           string
+	storeDir          string
+	store             store.Store
 }
 
 // NewCommissioner returns a new commissioner.
 func NewCommissioner(opts ...CommissionerOption) Commissioner {
 	com := &commissioner{
-		Central:     ble.NewCentral(),
-		discoverer:  mdns.NewDiscoverer(),
-		adminConfig: nil,
+		Central:           ble.NewCentral(),
+		discoverer:        mdns.NewDiscoverer(),
+		adminConfig:       nil,
+		operationalConfig: nil,
+		appName:           DefaultAppName,
+		storeDir:          "",
+		store:             nil,
 	}
 	for _, opt := range opts {
 		opt(com)
@@ -189,6 +239,7 @@ func (cmr *commissioner) Commission(ctx context.Context, payload OnboardingPaylo
 
 func (cmr *commissioner) commissionMatchingDevice(ctx context.Context, payload OnboardingPayload, devs []CommissionableDevice, opts ...CommissionOption) (Commissionee, error) {
 	opts = cmr.commissionOptions(opts...)
+	adminCfg, operationalCfg := effectiveConfigOptions(opts)
 	for _, dev := range devs {
 		isMatched := dev.MatchesOnboardingPayload(payload)
 		if !isMatched {
@@ -200,33 +251,196 @@ func (cmr *commissioner) commissionMatchingDevice(ctx context.Context, payload O
 		ctxCommission, cancel := context.WithTimeout(context.Background(), DefaultCommissioningTimeout)
 		defer cancel()
 
-		err := dev.Commission(ctxCommission, payload, opts...)
+		identity, err := dev.Commission(ctxCommission, payload, opts...)
 		if err != nil {
 			return nil, fmt.Errorf("%w to commission device (%s): %w", ErrFailed, dev.String(), err)
 		}
-		return newCommissioneeWithDevice(dev), nil
+		if cmr.store != nil {
+			cmr.persistCommissioning(adminCfg, operationalCfg, dev, identity)
+		}
+		return newCommissioneeWithIdentity(dev, identity), nil
 	}
 
 	return nil, fmt.Errorf("%w: no matching commissionable device found (payload=%s)", ErrNotFound, payload.String())
 }
 
-func (cmr *commissioner) commissionOptions(opts ...CommissionOption) []CommissionOption {
-	if cmr.adminConfig == nil {
-		return opts
+// effectiveConfigOptions extracts the AdministratorConfig/OperationalCredentialsConfig
+// that will actually be used for a commissioning attempt out of the merged
+// option list commissionOptions() built (Commissioner-wide defaults already
+// prepended, per-call opts already appended after and so already taking
+// precedence per baseDevice.parseCommissionOptions' last-write-wins
+// behavior). Used only to persist the identity actually used, not to alter
+// what's passed to dev.Commission.
+func effectiveConfigOptions(opts []CommissionOption) (config.AdministratorConfig, config.OperationalCredentialsConfig) {
+	var adminCfg config.AdministratorConfig
+	var operationalCfg config.OperationalCredentialsConfig
+	for _, opt := range opts {
+		switch o := opt.(type) {
+		case config.AdministratorConfig:
+			adminCfg = o
+		case config.OperationalCredentialsConfig:
+			operationalCfg = o
+		}
 	}
-	commissionOpts := make([]CommissionOption, 0, len(opts)+1)
-	commissionOpts = append(commissionOpts, cmr.adminConfig)
-	commissionOpts = append(commissionOpts, opts...)
-	return commissionOpts
+	return adminCfg, operationalCfg
 }
 
-// Start starts the commissioner.
-func (cmr *commissioner) Start() error {
-	err := cmr.discoverer.Start()
+// persistCommissioning saves the fabric-wide identity and the newly
+// commissioned device's record to cmr.store. Failures are logged, not
+// returned: the device is genuinely commissioned regardless of whether the
+// local cache write succeeded, so a persistence error must not be reported
+// as a commissioning failure.
+func (cmr *commissioner) persistCommissioning(adminCfg config.AdministratorConfig, operationalCfg config.OperationalCredentialsConfig, dev CommissionableDevice, identity CommissionedIdentity) {
+	if adminCfg == nil || operationalCfg == nil {
+		return
+	}
+
+	fabricRec, err := buildFabricRecord(adminCfg, operationalCfg)
 	if err != nil {
+		log.Errorf("commissioner: build fabric record: %v", err)
+	} else if err := cmr.store.SaveFabric(fabricRec); err != nil {
+		log.Errorf("commissioner: save fabric identity: %v", err)
+	}
+
+	compressedFabricID, err := computeCompressedFabricID(adminCfg)
+	if err != nil {
+		log.Errorf("commissioner: compute compressed fabric ID for persistence: %v", err)
+		return
+	}
+	commissioneeRec := store.CommissioneeRecord{
+		NodeID:             uint64(identity.NodeID),
+		FabricID:           identity.FabricID,
+		CompressedFabricID: compressedFabricID,
+		VendorID:           uint16(dev.VendorID()),
+		ProductID:          uint16(dev.ProductID()),
+		Discriminator:      uint16(dev.Discriminator()),
+		NOC:                identity.NOC,
+		ICAC:               identity.ICAC,
+		CommissionedAt:     time.Now().UTC(),
+	}
+	if err := cmr.store.SaveCommissionee(commissioneeRec); err != nil {
+		log.Errorf("commissioner: save commissionee record: %v", err)
+	}
+}
+
+func buildFabricRecord(adminCfg config.AdministratorConfig, operationalCfg config.OperationalCredentialsConfig) (store.FabricRecord, error) {
+	fabricID, ok := adminCfg.FabricID()
+	if !ok {
+		return store.FabricRecord{}, fmt.Errorf("administrator config missing fabric ID")
+	}
+	adminNodeID, ok := adminCfg.NodeID()
+	if !ok {
+		return store.FabricRecord{}, fmt.Errorf("administrator config missing node ID")
+	}
+	adminVendorID, ok := operationalCfg.AdminVendorID()
+	if !ok {
+		return store.FabricRecord{}, fmt.Errorf("operational credentials config missing admin vendor ID")
+	}
+	rootCert, _ := adminCfg.RootCertificate()
+	rootKey, _ := adminCfg.RootPrivateKey()
+	noc, _ := adminCfg.NOC()
+	icac, _ := adminCfg.ICAC()
+	privateKey, _ := adminCfg.PrivateKey()
+	ipk, _ := operationalCfg.IPK()
+	return store.FabricRecord{
+		FabricID:        fabricID,
+		AdminNodeID:     adminNodeID,
+		AdminVendorID:   uint16(adminVendorID),
+		RootCertificate: rootCert,
+		RootPrivateKey:  rootKey,
+		NOC:             noc,
+		ICAC:            icac,
+		PrivateKey:      privateKey,
+		IPK:             ipk,
+		UpdatedAt:       time.Now().UTC(),
+	}, nil
+}
+
+func computeCompressedFabricID(adminCfg config.AdministratorConfig) (uint64, error) {
+	adminInputs, err := caseprotocol.LoadAdministratorMetadata(adminCfg)
+	if err != nil {
+		return 0, err
+	}
+	return caseprotocol.ComputeCompressedFabricID(adminInputs.RootPublicKey, adminInputs.FabricID)
+}
+
+func (cmr *commissioner) commissionOptions(opts ...CommissionOption) []CommissionOption {
+	var defaults []CommissionOption
+	if cmr.adminConfig != nil {
+		defaults = append(defaults, cmr.adminConfig)
+	}
+	if cmr.operationalConfig != nil {
+		defaults = append(defaults, cmr.operationalConfig)
+	}
+	if len(defaults) == 0 {
+		return opts
+	}
+	return append(defaults, opts...)
+}
+
+// Start resolves this Commissioner's persistence directory (storeDir if
+// explicitly set, else ~/.{appName}), opens its Store, and — only for
+// whichever of adminConfig/operationalConfig wasn't explicitly passed via
+// WithCommissionerAdministratorConfig/WithCommissionerOperationalCredentialsConfig —
+// falls back to a previously persisted fabric identity, if one exists.
+// Explicit config always wins; disk is a best-effort fallback, and a load
+// failure is logged, not fatal.
+func (cmr *commissioner) Start() error {
+	dir := cmr.storeDir
+	if dir == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("commissioner: resolve home directory: %w", err)
+		}
+		dir = filepath.Join(home, "."+cmr.appName)
+	}
+	st, err := store.NewStore(dir)
+	if err != nil {
+		return fmt.Errorf("commissioner: open persistence store: %w", err)
+	}
+	cmr.store = st
+
+	if cmr.adminConfig == nil || cmr.operationalConfig == nil {
+		rec, ok, err := st.LoadFabric()
+		if err != nil {
+			log.Errorf("commissioner: load persisted fabric identity: %v", err)
+		} else if ok {
+			if cmr.adminConfig == nil {
+				cmr.adminConfig = administratorConfigFromRecord(rec)
+			}
+			if cmr.operationalConfig == nil {
+				cmr.operationalConfig = operationalCredentialsConfigFromRecord(rec)
+			}
+		}
+	}
+
+	if err := cmr.discoverer.Start(); err != nil {
 		return err
 	}
 	return nil
+}
+
+func administratorConfigFromRecord(rec store.FabricRecord) config.AdministratorConfig {
+	opts := []config.AdministratorConfigOption{
+		config.WithAdministratorNodeID(rec.AdminNodeID),
+		config.WithAdministratorFabricID(rec.FabricID),
+		config.WithAdministratorRootCertificate(rec.RootCertificate),
+		config.WithAdministratorRootPrivateKey(rec.RootPrivateKey),
+		config.WithAdministratorNOC(rec.NOC),
+		config.WithAdministratorPrivateKey(rec.PrivateKey),
+	}
+	if len(rec.ICAC) != 0 {
+		opts = append(opts, config.WithAdministratorICAC(rec.ICAC))
+	}
+	return config.NewAdministratorConfig(opts...)
+}
+
+func operationalCredentialsConfigFromRecord(rec store.FabricRecord) config.OperationalCredentialsConfig {
+	return config.NewOperationalCredentialConfig(
+		config.WithIPK(rec.IPK),
+		config.WithCASEAdminNodeID(rec.AdminNodeID),
+		config.WithAdminVendorID(rec.AdminVendorID),
+	)
 }
 
 // Stop stops the commissioner.

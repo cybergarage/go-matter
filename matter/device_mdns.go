@@ -274,19 +274,19 @@ func (dev *mDNSDevice) Receive(ctx context.Context) ([]byte, error) {
 }
 
 // Commission commissions the node with the given commissioning options.
-func (dev *mDNSDevice) Commission(ctx context.Context, payload OnboardingPayload, opts ...CommissionOption) error {
+func (dev *mDNSDevice) Commission(ctx context.Context, payload OnboardingPayload, opts ...CommissionOption) (CommissionedIdentity, error) {
 	log.Infof("Opening connection to mDNS device (%s)...", dev.String())
 
 	if err := dev.parseCommissionOptions(opts...); err != nil {
 		log.Errorf("Failed to parse commission options for device (%s): %v", dev.String(), err)
-		return err
+		return CommissionedIdentity{}, err
 	}
 
 	var err error
 	dev.conn, err = dev.openConn(ctx)
 	if err != nil {
 		log.Errorf("Failed to open connection to mDNS device (%s): %v", dev.String(), err)
-		return err
+		return CommissionedIdentity{}, err
 	}
 	defer func() {
 		if err := dev.conn.Close(); err != nil {
@@ -299,19 +299,26 @@ func (dev *mDNSDevice) Commission(ctx context.Context, payload OnboardingPayload
 	sessionKeys, err := paseClient.EstablishSession(ctx)
 	if err != nil {
 		log.Errorf("Failed to establish PASE session with mDNS device (%s): %v", dev.String(), err)
-		return err
+		return CommissionedIdentity{}, err
 	}
 
 	sess := session.NewSecureSession(dev, sessionKeys)
 	operationalCfg, _ := dev.OperationalCredentialsConfig()
 	wifiCfg, _ := dev.WiFiNetworkConfig()
 	adminCfg, _ := dev.AdministratorConfig()
-	if err := commissionWithSession(ctx, sess, dev.discoverer, operationalCfg, wifiCfg, adminCfg, false); err != nil {
+	identity, err := commissionWithSession(ctx, sess, dev.discoverer, operationalCfg, wifiCfg, adminCfg, false)
+	if err != nil {
 		log.Errorf("Commissioning failed for mDNS device (%s): %v", dev.String(), err)
-		return err
+		return CommissionedIdentity{}, err
 	}
 
-	return nil
+	fabricID, _ := adminCfg.FabricID()
+	return CommissionedIdentity{
+		NodeID:   NodeID(identity.nodeID),
+		FabricID: fabricID,
+		NOC:      identity.noc,
+		ICAC:     identity.icac,
+	}, nil
 }
 
 // MatchesOnboardingPayload checks whether the device matches the given onboarding payload.

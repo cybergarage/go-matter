@@ -72,17 +72,17 @@ func (dev *bleDevice) Receive(ctx context.Context) ([]byte, error) {
 }
 
 // Commission commissions the node with the given commissioning options.
-func (dev *bleDevice) Commission(ctx context.Context, payload OnboardingPayload, opts ...CommissionOption) error {
+func (dev *bleDevice) Commission(ctx context.Context, payload OnboardingPayload, opts ...CommissionOption) (CommissionedIdentity, error) {
 	log.Infof("Connected to device: %s", dev.String())
 
 	if err := dev.parseCommissionOptions(opts...); err != nil {
 		log.Errorf("Failed to parse commission options for device (%s): %v", dev.String(), err)
-		return err
+		return CommissionedIdentity{}, err
 	}
 
 	if err := dev.Connect(ctx); err != nil {
 		log.Errorf("Failed to connect to device (%s): %v", dev.String(), err)
-		return err
+		return CommissionedIdentity{}, err
 	}
 	defer func() {
 		if err := dev.Disconnect(); err != nil {
@@ -96,7 +96,7 @@ func (dev *bleDevice) Commission(ctx context.Context, payload OnboardingPayload,
 	dev.transport, err = dev.Service.Open()
 	if err != nil {
 		log.Errorf("Failed to open device transport (%s): %v", dev.String(), err)
-		return err
+		return CommissionedIdentity{}, err
 	}
 	defer func() {
 		if err := dev.transport.Close(); err != nil {
@@ -108,7 +108,7 @@ func (dev *bleDevice) Commission(ctx context.Context, payload OnboardingPayload,
 	res, err := dev.transport.Handshake(ctx)
 	if err != nil {
 		log.Errorf("Failed to perform handshake with device (%s): %v", dev.String(), err)
-		return err
+		return CommissionedIdentity{}, err
 	}
 
 	log.Infof("Handshake response: %s", res.String())
@@ -117,19 +117,26 @@ func (dev *bleDevice) Commission(ctx context.Context, payload OnboardingPayload,
 	sessionKeys, err := paseClient.EstablishSession(ctx)
 	if err != nil {
 		log.Errorf("Failed to establish PASE session with device (%s): %v", dev.String(), err)
-		return err
+		return CommissionedIdentity{}, err
 	}
 
 	sess := session.NewSecureSession(dev, sessionKeys)
 	operationalCfg, _ := dev.OperationalCredentialsConfig()
 	wifiCfg, _ := dev.WiFiNetworkConfig()
 	adminCfg, _ := dev.AdministratorConfig()
-	if err := commissionWithSession(ctx, sess, dev.discoverer, operationalCfg, wifiCfg, adminCfg, true); err != nil {
+	identity, err := commissionWithSession(ctx, sess, dev.discoverer, operationalCfg, wifiCfg, adminCfg, true)
+	if err != nil {
 		log.Errorf("Commissioning failed for device (%s): %v", dev.String(), err)
-		return err
+		return CommissionedIdentity{}, err
 	}
 
-	return nil
+	fabricID, _ := adminCfg.FabricID()
+	return CommissionedIdentity{
+		NodeID:   NodeID(identity.nodeID),
+		FabricID: fabricID,
+		NOC:      identity.noc,
+		ICAC:     identity.icac,
+	}, nil
 }
 
 // MatchesOnboardingPayload checks whether the device matches the given onboarding payload.

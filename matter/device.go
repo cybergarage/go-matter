@@ -54,6 +54,23 @@ type Transport = io.Transport
 // CommissionOption represents a commissioning option.
 type CommissionOption any
 
+// CommissionedIdentity is the operational identity a device was assigned
+// during a successful commissioning: the operational Node ID the
+// commissioner issued during AddNOC, the fabric it joined, and the NOC/ICAC
+// (DER) minted for it. It's what a Commissioner needs to persist or to
+// reconnect to the device later over CASE.
+type CommissionedIdentity struct {
+	// NodeID is the operational node ID assigned to the device.
+	NodeID NodeID
+	// FabricID is the fabric the device joined.
+	FabricID uint64
+	// NOC is the device's issued Node Operational Certificate, DER-encoded.
+	NOC []byte
+	// ICAC is the optional intermediate certificate issued alongside NOC,
+	// DER-encoded. Nil when no intermediate certificate was issued.
+	ICAC []byte
+}
+
 // CommissionableDevice represents a commissionable device interface.
 // 5.4.3. Discovery by Commissioner.
 type CommissionableDevice interface {
@@ -65,8 +82,9 @@ type CommissionableDevice interface {
 	Type() DeviceType
 	// Address returns the device address.
 	Address() string
-	// Commission commissions the node with the given commissioning options.
-	Commission(ctx context.Context, payload OnboardingPayload, opts ...CommissionOption) error
+	// Commission commissions the node with the given commissioning options,
+	// returning the operational identity the device was assigned on success.
+	Commission(ctx context.Context, payload OnboardingPayload, opts ...CommissionOption) (CommissionedIdentity, error)
 	// CommissionableDeviceHelper represents a helper interface for commissionable devices.
 	CommissionableDeviceHelper
 }

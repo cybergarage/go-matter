@@ -246,7 +246,7 @@ func TestCommissionWithSessionReturnsExplicitNonConcurrentError(t *testing.T) {
 		return false, nil
 	}
 
-	err := commissionWithSession(
+	_, err := commissionWithSession(
 		context.Background(),
 		nil,
 		nil,

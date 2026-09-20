@@ -14,11 +14,30 @@
 
 package matter
 
-func newCommissioneeWithDevice(dev Device) Commissionee {
-	type commissionee struct {
-		Device
+// commissioneeImpl wraps a Device with the operational identity it was
+// assigned during commissioning. It's a package-level type (not the
+// function-local anonymous-embedding trick newCommissioneeWithDevice used
+// before it) because NodeID()/FabricID() aren't promoted from Device and so
+// need real method bodies.
+type commissioneeImpl struct {
+	Device
+	identity CommissionedIdentity
+}
+
+func newCommissioneeWithIdentity(dev Device, identity CommissionedIdentity) Commissionee {
+	return &commissioneeImpl{
+		Device:   dev,
+		identity: identity,
 	}
-	return &commissionee{
-		Device: dev,
-	}
+}
+
+// NodeID returns the operational node ID this device was assigned during
+// commissioning.
+func (c *commissioneeImpl) NodeID() (NodeID, bool) {
+	return c.identity.NodeID, !c.identity.NodeID.IsUnspecified()
+}
+
+// FabricID returns the fabric this device joined during commissioning.
+func (c *commissioneeImpl) FabricID() (uint64, bool) {
+	return c.identity.FabricID, c.identity.FabricID != 0
 }
