@@ -41,8 +41,14 @@ func newTransport(bleTransport ble.Transport) Transport {
 // Handshake performs the handshake operation.
 func (t *transport) Handshake(ctx context.Context) (btp.HandshakeResponse, error) {
 	// 4.19.4.3. Session Establishment
-
-	_, err := t.WriteWithoutResponse(ctx, btp.NewHandshakeRequest().Bytes())
+	//
+	// The handshake request must be sent as a GATT Write Request (i.e. with
+	// an ATT-level response), not Write Without Response: some commissionee
+	// BLE stacks only trigger their BTP state machine off an acknowledged
+	// write, matching the reference chip-tool implementation's
+	// BluezConnection::SendWriteRequestImpl, which explicitly sets
+	// type="request" for every C1 write.
+	_, err := t.Write(ctx, btp.NewHandshakeRequest().Bytes())
 	if err != nil {
 		return nil, err
 	}
