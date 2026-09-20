@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/cybergarage/go-logger/log"
+	"github.com/cybergarage/go-matter/matter/config"
 	"github.com/cybergarage/go-matter/matter/encoding"
 	"github.com/spf13/cobra"
 )
@@ -87,7 +88,11 @@ var pairingCodeWifiCmd = &cobra.Command{ // nolint:exhaustruct
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		cme, err := cmr.Commission(ctx, pairingCode)
+		wifiCfg := config.NewWiFiNetworkConfig(
+			config.WithSSID([]byte(wifiSSID)),
+			config.WithCredentials([]byte(wifiPasswd)),
+		)
+		cme, err := cmr.Commission(ctx, pairingCode, wifiCfg)
 		if err != nil {
 			log.Error(err)
 			return err
