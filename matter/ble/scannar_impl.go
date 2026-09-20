@@ -50,19 +50,14 @@ func (scn *scanner) onScanResult(bleDev ble.Device) {
 
 // Scan starts scanning for Bluetooth devices.
 func (scn *scanner) Scan(ctx context.Context, opts ...ble.ScannerOption) error {
+	// The underlying ble.Scanner invokes every ScanHandler option passed to
+	// Scan, so this handler must always be appended to keep populating
+	// deviceMap, even when the caller supplies its own ScanHandler (e.g. for
+	// debug logging) alongside it.
 	scanHandler := ScanHandler(func(bleDev ble.Device) {
 		scn.onScanResult(bleDev)
 	})
-	hasScanHandler := false
-	for _, opt := range opts {
-		if _, ok := opt.(ScanHandler); ok {
-			hasScanHandler = true
-			break
-		}
-	}
-	if !hasScanHandler {
-		opts = append(opts, scanHandler)
-	}
+	opts = append(opts, scanHandler)
 	return scn.Scanner.Scan(ctx, opts...)
 }
 
