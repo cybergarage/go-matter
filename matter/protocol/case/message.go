@@ -124,10 +124,31 @@ func decodeSigma2(b []byte) (sigma2, error) {
 		return sigma2{}, fmt.Errorf("case: Sigma2: expected structure")
 	}
 	var out sigma2
+	depth := 0
 	for dec.Next() {
 		elem := dec.Element()
 		if elem.Type().IsEndOfContainer() {
-			break
+			if depth == 0 {
+				break
+			}
+			depth--
+			continue
+		}
+		// Skip past the contents of nested containers (e.g. the optional
+		// ResponderSessionParams structure at tag 5): their own context tag
+		// numbers are only meaningful relative to their enclosing
+		// container, and reusing this loop's top-level tag switch on them
+		// would silently overwrite already-decoded fields that happen to
+		// share the same tag number one level up.
+		if depth > 0 {
+			if elem.Type().IsContainer() {
+				depth++
+			}
+			continue
+		}
+		if elem.Type().IsContainer() {
+			depth++
+			continue
 		}
 		ct, ok := elem.Tag().(tlv.ContextTag)
 		if !ok {
@@ -178,10 +199,28 @@ func decodeSigma2TBEData(b []byte) (sigma2TBEData, error) {
 		return sigma2TBEData{}, fmt.Errorf("case: Sigma2 encrypted payload expected structure")
 	}
 	var out sigma2TBEData
+	depth := 0
 	for dec.Next() {
 		elem := dec.Element()
 		if elem.Type().IsEndOfContainer() {
-			break
+			if depth == 0 {
+				break
+			}
+			depth--
+			continue
+		}
+		// See the matching comment in decodeSigma2: skip past nested
+		// containers (e.g. the optional ResponderSessionParams structure)
+		// instead of misreading their contents as top-level fields.
+		if depth > 0 {
+			if elem.Type().IsContainer() {
+				depth++
+			}
+			continue
+		}
+		if elem.Type().IsContainer() {
+			depth++
+			continue
 		}
 		ct, ok := elem.Tag().(tlv.ContextTag)
 		if !ok {

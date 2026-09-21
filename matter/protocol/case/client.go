@@ -192,6 +192,7 @@ func (i *Initiator) EstablishSession(ctx context.Context) (session.SessionKeys, 
 		}
 		return nil, fmt.Errorf("case: expected Sigma2, got opcode 0x%02x", uint8(sigma2Msg.Opcode()))
 	}
+	log.HexDebug(sigma2Msg.Payload())
 	sigma2, err := decodeSigma2(sigma2Msg.Payload())
 	if err != nil {
 		log.Infof("CASE Sigma2: malformed payload")
