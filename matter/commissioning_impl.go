@@ -430,26 +430,38 @@ func discoverOperationalNode(
 	discoverer mdnspkg.Discoverer,
 	peer operationalCASEPeer,
 ) (mdnspkg.CommissionableNode, error) {
-	// Bounded to DefaultDiscoveryTimeout regardless of how much of the
-	// overall commissioning ctx's deadline remains: mdns.Discoverer.Search
-	// only applies its own short default timeout when the ctx it's given
-	// has NO deadline at all (see matter/mdns/discoverer_impl.go); since ctx
-	// here is the single deadline spanning the whole PASE-through-CASE
-	// exchange (matter/commissioner.go's DefaultCommissioningTimeout), it
-	// already has one, so without this the underlying mDNS query blocks
-	// collecting responses for whatever's left of that budget — observed on
-	// a real device taking well over 100s to return even though the
-	// matching operational record was already seen within about a second.
-	searchCtx, cancel := context.WithTimeout(ctx, DefaultDiscoveryTimeout)
-	defer cancel()
-	nodes, err := discoverer.Search(searchCtx, mdnspkg.NewOperationalNodeQuery(peer.serviceInstance))
-	if err != nil {
-		return nil, fmt.Errorf("commissioning: operational discovery failed: %w", err)
+	// Each Search call is bounded to DefaultDiscoveryTimeout regardless of
+	// how much of the overall commissioning ctx's deadline remains:
+	// mdns.Discoverer.Search only applies its own short default timeout when
+	// the ctx it's given has NO deadline at all (see
+	// matter/mdns/discoverer_impl.go); since ctx here is the single deadline
+	// spanning the whole PASE-through-CASE exchange
+	// (matter/commissioner.go's DefaultCommissioningTimeout), it already has
+	// one, so without this the underlying mDNS query blocks collecting
+	// responses for whatever's left of that budget — observed on a real
+	// device taking well over 100s to return even though the matching
+	// operational record was already seen within about a second.
+	//
+	// A single such attempt isn't enough on its own, though: after AddNOC a
+	// device commissioned over BLE has to disconnect BLE, associate with the
+	// target Wi-Fi network, obtain an address, and only then start
+	// advertising its operational service — which routinely takes well over
+	// DefaultDiscoveryTimeout. Retry attempts until the overall
+	// commissioning ctx is exhausted instead of giving up after the first.
+	for {
+		searchCtx, cancel := context.WithTimeout(ctx, DefaultDiscoveryTimeout)
+		nodes, err := discoverer.Search(searchCtx, mdnspkg.NewOperationalNodeQuery(peer.serviceInstance))
+		cancel()
+		if err != nil {
+			return nil, fmt.Errorf("commissioning: operational discovery failed: %w", err)
+		}
+		if len(nodes) > 0 {
+			return nodes[0], nil
+		}
+		if ctx.Err() != nil {
+			return nil, fmt.Errorf("commissioning: operational discovery timeout: no operational node found")
+		}
 	}
-	if len(nodes) == 0 {
-		return nil, fmt.Errorf("commissioning: operational discovery timeout: no operational node found")
-	}
-	return nodes[0], nil
 }
 
 func establishCASESession(

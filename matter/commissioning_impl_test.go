@@ -286,17 +286,23 @@ func TestFinalizeCommissioningOverCASERequiresAdministratorConfig(t *testing.T) 
 func TestDiscoverOperationalNodeBoundsSearchContext(t *testing.T) {
 	var gotDeadline time.Time
 	var gotOK bool
-	disc := &capturingDiscoverer{
-		searchFunc: func(ctx context.Context, _ mdnspkg.Query) ([]mdnspkg.CommissionableNode, error) {
-			gotDeadline, gotOK = ctx.Deadline()
-			return nil, nil
-		},
-	}
 
 	// A long-lived outer deadline, standing in for
 	// DefaultCommissioningTimeout's 120s span.
 	outerCtx, cancel := context.WithTimeout(context.Background(), time.Hour)
 	defer cancel()
+
+	disc := &capturingDiscoverer{
+		searchFunc: func(ctx context.Context, _ mdnspkg.Query) ([]mdnspkg.CommissionableNode, error) {
+			gotDeadline, gotOK = ctx.Deadline()
+			// discoverOperationalNode retries an empty result until the
+			// outer ctx is done; cancel it now so this single call is
+			// enough to exercise the per-attempt bound below instead of
+			// retrying every DefaultDiscoveryTimeout for the next hour.
+			cancel()
+			return nil, nil
+		},
+	}
 
 	before := time.Now()
 	_, _ = discoverOperationalNode(outerCtx, disc, operationalCASEPeer{serviceInstance: "test"})
