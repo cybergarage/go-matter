@@ -11,13 +11,86 @@
       --verbose         enable verbose output
 ```
 
+* [matterctl any]()	 - Read/write/invoke any cluster by numeric ID (for clusters without a named command).
 * [matterctl basicinformation]()	 - Basic Information cluster (0x0028) commands.
 * [matterctl completion]()	 - Generate the autocompletion script for the specified shell
 * [matterctl descriptor]()	 - Descriptor cluster (0x001D) commands.
 * [matterctl doc]()	 - Generate markdown documentation to stdout
+* [matterctl generaldiagnostics]()	 - General Diagnostics cluster (0x0033) commands.
 * [matterctl onoff]()	 - On/Off cluster (0x0006) commands.
 * [matterctl pairing]()	 - Pairing Matter devices.
 * [matterctl scan]()	 - Scan for Matter devices.
+
+## matterctl accesscontrol
+
+Access Control cluster (0x001F) commands.
+
+### Options
+
+```
+  -h, --help   help for accesscontrol
+```
+
+### Options inherited from parent commands
+
+```
+      --debug           enable debug output
+      --format string   output format: table|json|csv (default "table")
+      --verbose         enable verbose output
+```
+
+* [matterctl accesscontrol read]()	 - Read an Access Control cluster attribute.
+
+## matterctl accesscontrol help
+
+Help about any command
+
+### Synopsis
+
+Help provides help for any command in the application.
+Simply type accesscontrol help [path to command] for full details.
+
+```
+matterctl accesscontrol help [command] [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for help
+```
+
+### Options inherited from parent commands
+
+```
+      --debug           enable debug output
+      --format string   output format: table|json|csv (default "table")
+      --verbose         enable verbose output
+```
+
+
+## matterctl accesscontrol read
+
+Read an Access Control cluster attribute.
+
+```
+matterctl accesscontrol read <attribute-name> <node ID> <endpoint ID> [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for read
+```
+
+### Options inherited from parent commands
+
+```
+      --debug           enable debug output
+      --format string   output format: table|json|csv (default "table")
+      --verbose         enable verbose output
+```
+
 
 ## matterctl any
 
@@ -524,6 +597,77 @@ matterctl doc [flags]
 
 ```
   -h, --help   help for doc
+```
+
+### Options inherited from parent commands
+
+```
+      --debug           enable debug output
+      --format string   output format: table|json|csv (default "table")
+      --verbose         enable verbose output
+```
+
+
+## matterctl generaldiagnostics
+
+General Diagnostics cluster (0x0033) commands.
+
+### Options
+
+```
+  -h, --help   help for generaldiagnostics
+```
+
+### Options inherited from parent commands
+
+```
+      --debug           enable debug output
+      --format string   output format: table|json|csv (default "table")
+      --verbose         enable verbose output
+```
+
+* [matterctl generaldiagnostics read]()	 - Read a General Diagnostics cluster attribute.
+
+## matterctl generaldiagnostics help
+
+Help about any command
+
+### Synopsis
+
+Help provides help for any command in the application.
+Simply type generaldiagnostics help [path to command] for full details.
+
+```
+matterctl generaldiagnostics help [command] [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for help
+```
+
+### Options inherited from parent commands
+
+```
+      --debug           enable debug output
+      --format string   output format: table|json|csv (default "table")
+      --verbose         enable verbose output
+```
+
+
+## matterctl generaldiagnostics read
+
+Read a General Diagnostics cluster attribute.
+
+```
+matterctl generaldiagnostics read <attribute-name> <node ID> <endpoint ID> [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for read
 ```
 
 ### Options inherited from parent commands
