@@ -87,7 +87,13 @@ type device struct {
 	service Service
 }
 
-func newDeviceWith(bleDev ble.Device, bleSrv ble.Service) (Device, error) {
+// NewDeviceWith wraps a raw ble.Device/ble.Service pair (as returned by a
+// ble.Scanner) into a Device, parsing bleSrv's advertisement data. Exported
+// so a fake ble.Scanner/Central (e.g. for testing against a simulated BLE
+// peripheral instead of real hardware) can produce Devices the same way the
+// real scanner does, without needing access to this package's unexported
+// device type.
+func NewDeviceWith(bleDev ble.Device, bleSrv ble.Service) (Device, error) {
 	matterSrv, err := NewServiceWith(bleSrv)
 	if err != nil {
 		return nil, err

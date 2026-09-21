@@ -60,6 +60,16 @@ func WithCommissionerDiscoverer(d mdns.Discoverer) CommissionerOption {
 	}
 }
 
+// WithCommissionerCentral overrides the BLE central a Commissioner uses for
+// scanning and connecting to commissionable devices. Primarily for tests
+// that need to inject a fake ble.Central backed by an in-process simulated
+// peripheral instead of a real Bluetooth adapter.
+func WithCommissionerCentral(c ble.Central) CommissionerOption {
+	return func(cmr *commissioner) {
+		cmr.Central = c
+	}
+}
+
 // WithCommissionerOperationalCredentialsConfig sets the default
 // OperationalCredentialsConfig used when commissioning devices, mirroring
 // WithCommissionerAdministratorConfig — together these are the fabric-wide
