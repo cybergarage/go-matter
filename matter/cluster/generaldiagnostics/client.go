@@ -35,21 +35,28 @@ const (
 )
 
 // RebootCount reads the RebootCount attribute of the given endpoint.
-func RebootCount(sess session.SecureSession, endpointID im.EndpointID) (uint16, error) {
+// RebootCount is nullable (11.13.6): ok is false, with a nil error, when
+// the device reports it as null (e.g. it doesn't track reboot count)
+// rather than as an unsigned integer — confirmed against a real,
+// commercially available device, which does exactly this.
+func RebootCount(sess session.SecureSession, endpointID im.EndpointID) (uint16, bool, error) {
 	resp, err := im.ReadAttribute(sess, endpointID, ClusterID, RebootCountAttributeID)
 	if err != nil {
-		return 0, fmt.Errorf("generaldiagnostics: RebootCount: %w", err)
+		return 0, false, fmt.Errorf("generaldiagnostics: RebootCount: %w", err)
 	}
 	if resp.Status != nil {
-		return 0, fmt.Errorf("generaldiagnostics: RebootCount failed: IM status 0x%02X, cluster status 0x%02X",
+		return 0, false, fmt.Errorf("generaldiagnostics: RebootCount failed: IM status 0x%02X, cluster status 0x%02X",
 			resp.Status.IMStatus, resp.Status.ClusterStatus)
 	}
 	if resp.Value == nil {
-		return 0, fmt.Errorf("generaldiagnostics: RebootCount: ReadResponse missing attribute value")
+		return 0, false, fmt.Errorf("generaldiagnostics: RebootCount: ReadResponse missing attribute value")
 	}
-	v, ok := resp.Value.Unsigned2()
-	if !ok {
-		return 0, fmt.Errorf("generaldiagnostics: RebootCount: attribute value is not a UINT16")
+	if resp.Value.Type().IsNull() {
+		return 0, false, nil
 	}
-	return v, nil
+	v, valueOK := resp.Value.Unsigned2()
+	if !valueOK {
+		return 0, false, fmt.Errorf("generaldiagnostics: RebootCount: attribute value is not a UINT16")
+	}
+	return v, true, nil
 }

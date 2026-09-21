@@ -227,8 +227,12 @@ func TestMockBasicOperations(t *testing.T) {
 		t.Errorf("accesscontrol.AccessControlEntriesPerFabric() = 0, want a positive spec-mandated minimum")
 	}
 
-	// General Diagnostics (0x0033) — mandatory on endpoint 0.
-	if _, err := generaldiagnostics.RebootCount(sess, rootEndpointID); err != nil {
+	// General Diagnostics (0x0033) — mandatory on endpoint 0. The mock
+	// always reports a concrete value (never null), unlike some real
+	// devices — see generaldiagnostics.RebootCount's doc comment.
+	if _, ok, err := generaldiagnostics.RebootCount(sess, rootEndpointID); err != nil {
 		t.Errorf("generaldiagnostics.RebootCount() error = %v", err)
+	} else if !ok {
+		t.Error("generaldiagnostics.RebootCount() = null, want a concrete value from the mock")
 	}
 }

@@ -172,8 +172,10 @@ func verifyLiveBasicOperations(t *testing.T, cmr matter.Commissioner, nodeID mat
 	}
 
 	// General Diagnostics (0x0033) — mandatory on endpoint 0.
-	if rebootCount, err := generaldiagnostics.RebootCount(sess, liveRootEndpointID); err != nil {
+	if rebootCount, ok, err := generaldiagnostics.RebootCount(sess, liveRootEndpointID); err != nil {
 		t.Errorf("generaldiagnostics.RebootCount() error = %v", err)
+	} else if !ok {
+		t.Logf("generaldiagnostics.RebootCount() = null (device doesn't track it)")
 	} else {
 		t.Logf("generaldiagnostics.RebootCount() = %d", rebootCount)
 	}
