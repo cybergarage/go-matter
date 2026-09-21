@@ -25,8 +25,9 @@ import (
 // exchange over a session — mirrors how read_impl_test.go's tests call
 // parseReadResponse(data) directly rather than going through ReadBoolAttribute.
 func readListResponse(data []byte, itemFn func(dec tlv.Decoder, item tlv.Element) error) (*InvokeStatus, error) {
+	var haveContainer bool
 	return parseReadResponseCore(data, func(dec tlv.Decoder, elem tlv.Element) error {
-		return decodeListAttributeData(dec, elem, itemFn)
+		return decodeListAttributeData(dec, elem, &haveContainer, itemFn)
 	})
 }
 
@@ -158,6 +159,101 @@ func TestReadListAttributeStructList(t *testing.T) {
 	}
 	if got[0].DeviceType != 0x0100 || got[0].Revision != 1 {
 		t.Errorf("got[0] = %+v, want {DeviceType:0x100 Revision:1}", got[0])
+	}
+}
+
+// TestReadListAttributeChunkedList reproduces the exact wire pattern a real
+// device sent for Descriptor's DeviceTypeList (10.5.4.3, "List Chunking"):
+// an initiating AttributeReportIB whose Data is an empty array, immediately
+// followed by a second AttributeReportIB for the same path whose
+// AttributePathIB carries a null ListIndex and whose Data is the single
+// appended item directly (not wrapped in another array) — which this
+// client previously discarded entirely (parseAttributeReportIBsCore only
+// parsed the first AttributeReportIB), making every chunked list attribute
+// read back empty.
+func TestReadListAttributeChunkedList(t *testing.T) {
+	data := buildReportDataMessage(t, func(enc tlv.Encoder) {
+		enc.BeginStructure(tlv.NewAnonymousTag()) // AttributeReportIB #1: initiate
+		enc.BeginStructure(tlv.NewContextTag(1))  // AttributeDataIB
+		enc.BeginList(tlv.NewContextTag(1))       // AttributePathIB
+		enc.PutUnsigned2(tlv.NewContextTag(2), 0)
+		if err := enc.EndContainer(); err != nil { // end AttributePathIB
+			t.Fatal(err)
+		}
+		enc.BeginArray(tlv.NewContextTag(2)) // Data: empty array
+		if err := enc.EndContainer(); err != nil {
+			t.Fatal(err)
+		}
+		if err := enc.EndContainer(); err != nil { // end AttributeDataIB
+			t.Fatal(err)
+		}
+		if err := enc.EndContainer(); err != nil { // end AttributeReportIB #1
+			t.Fatal(err)
+		}
+
+		enc.BeginStructure(tlv.NewAnonymousTag()) // AttributeReportIB #2: append
+		enc.BeginStructure(tlv.NewContextTag(1))  // AttributeDataIB
+		enc.BeginList(tlv.NewContextTag(1))       // AttributePathIB
+		enc.PutUnsigned2(tlv.NewContextTag(2), 0)
+		enc.PutNull(tlv.NewContextTag(5)) // ListIndex: null (append)
+		if err := enc.EndContainer(); err != nil {
+			t.Fatal(err)
+		}
+		enc.BeginStructure(tlv.NewContextTag(2))       // Data: the appended item itself, not an array
+		enc.PutUnsigned4(tlv.NewContextTag(0), 0x0016) // DeviceType: Root Node
+		enc.PutUnsigned2(tlv.NewContextTag(1), 1)      // Revision
+		if err := enc.EndContainer(); err != nil {
+			t.Fatal(err)
+		}
+		if err := enc.EndContainer(); err != nil { // end AttributeDataIB
+			t.Fatal(err)
+		}
+		if err := enc.EndContainer(); err != nil { // end AttributeReportIB #2
+			t.Fatal(err)
+		}
+	})
+
+	type deviceType struct {
+		DeviceType uint32
+		Revision   uint16
+	}
+	var got []deviceType
+	status, err := readListResponse(data, func(dec tlv.Decoder, item tlv.Element) error {
+		var dt deviceType
+		for dec.Next() {
+			elem := dec.Element()
+			if elem.Type().IsEndOfContainer() {
+				break
+			}
+			ct, ok := elem.Tag().(tlv.ContextTag)
+			if !ok {
+				continue
+			}
+			switch ct.ContextNumber() {
+			case 0:
+				if v, ok := elem.Unsigned4(); ok {
+					dt.DeviceType = v
+				}
+			case 1:
+				if v, ok := elem.Unsigned2(); ok {
+					dt.Revision = v
+				}
+			}
+		}
+		got = append(got, dt)
+		return dec.Error()
+	})
+	if err != nil {
+		t.Fatalf("parseReadResponseCore() error = %v", err)
+	}
+	if status != nil {
+		t.Fatalf("status = %+v, want nil", status)
+	}
+	if len(got) != 1 {
+		t.Fatalf("got %d items, want 1 (%+v)", len(got), got)
+	}
+	if got[0].DeviceType != 0x0016 || got[0].Revision != 1 {
+		t.Errorf("got[0] = %+v, want {DeviceType:0x16 Revision:1}", got[0])
 	}
 }
 

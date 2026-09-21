@@ -257,10 +257,19 @@ func parseReadResponseCore(data []byte, dataFunc func(dec tlv.Decoder, elem tlv.
 	return status, nil
 }
 
-// parseAttributeReportIBsCore decodes the elements of the attribute-report-IBs
-// list, assuming the caller has already consumed the List/Array-begin
-// marker. Only the first AttributeReportIB is parsed; any further ones are
-// skipped.
+// parseAttributeReportIBsCore decodes every element of the
+// attribute-report-IBs list, assuming the caller has already consumed the
+// List/Array-begin marker. Every report is parsed, not just the first: a
+// server may split a single List/Array-typed attribute's value across
+// several AttributeReportIBs (10.5.4.3, "List Chunking") — an initiating
+// report carrying the (possibly empty) whole array, followed by zero or
+// more single-item "append" reports for the same path — and this client
+// only ever requests one attribute path per ReadRequestMessage (see this
+// file's own doc comments), so every report here belongs to that same
+// path; dataFunc is called once per report that carries data, in order,
+// and ReadListAttribute's own dataFunc (decodeListAttributeData) is what
+// actually reassembles them. For the common non-chunked case (one report,
+// a plain scalar attribute), this is exactly the previous behavior.
 func parseAttributeReportIBsCore(dec tlv.Decoder, dataFunc func(dec tlv.Decoder, elem tlv.Element) error, found *bool) (*InvokeStatus, error) {
 	var status *InvokeStatus
 	for dec.Next() {
@@ -271,17 +280,13 @@ func parseAttributeReportIBsCore(dec tlv.Decoder, dataFunc func(dec tlv.Decoder,
 		if !elem.Type().IsStructure() {
 			return nil, fmt.Errorf("attribute-report-IB is not a structure")
 		}
-		if *found {
-			if err := skipContainer(dec); err != nil {
-				return nil, err
-			}
-			continue
-		}
 		s, err := parseAttributeReportIBCore(dec, dataFunc)
 		if err != nil {
 			return nil, err
 		}
-		status = s
+		if s != nil {
+			status = s
+		}
 		*found = true
 	}
 	return status, dec.Error()

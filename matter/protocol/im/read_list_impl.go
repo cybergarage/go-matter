@@ -40,29 +40,45 @@ func ReadListAttribute(sess SecureSession, endpointID EndpointID, clusterID Clus
 		return nil, err
 	}
 
+	var haveContainer bool
 	return parseReadResponseCore(responseRaw, func(dec tlv.Decoder, elem tlv.Element) error {
-		return decodeListAttributeData(dec, elem, itemFn)
+		return decodeListAttributeData(dec, elem, &haveContainer, itemFn)
 	})
 }
 
-// decodeListAttributeData validates that a Data element (10.6.3, tag 2) is a
-// List/Array and streams its items to itemFn, assuming the caller (a
-// parseReadResponseCore dataFunc) has not yet consumed any of the
-// container's contents. Split out from ReadListAttribute so it can also be
-// driven directly against a hand-built ReadResponse payload in tests,
+// decodeListAttributeData handles one AttributeReportIB's Data element
+// (10.6.3, tag 2) toward reassembling a List/Array-typed attribute's value,
+// which a server may split across multiple reports (10.5.4.3, "List
+// Chunking"): an initiating report whose Data is the (possibly empty) whole
+// array, followed by zero or more single-item "append" reports — each with
+// Data holding just that one item directly, not wrapped in another array —
+// that parseAttributeReportIBsCore now feeds this function one at a time,
+// in order, instead of stopping after the first. *haveContainer tracks
+// whether the initiating report has been seen yet, shared across every
+// call for one ReadListAttribute invocation via the closure in
+// ReadListAttribute above. Split out from ReadListAttribute so it can also
+// be driven directly against a hand-built ReadResponse payload in tests,
 // without needing a matching Interaction Model exchange over a session.
-func decodeListAttributeData(dec tlv.Decoder, elem tlv.Element, itemFn func(dec tlv.Decoder, item tlv.Element) error) error {
-	if !elem.Type().IsList() && !elem.Type().IsArray() {
-		return fmt.Errorf("im: ReadListAttribute: attribute value is not a List/Array (%v)", elem.Type())
-	}
-	for dec.Next() {
-		item := dec.Element()
-		if item.Type().IsEndOfContainer() {
-			return dec.Error()
+func decodeListAttributeData(dec tlv.Decoder, elem tlv.Element, haveContainer *bool, itemFn func(dec tlv.Decoder, item tlv.Element) error) error {
+	if !*haveContainer {
+		if !elem.Type().IsList() && !elem.Type().IsArray() {
+			return fmt.Errorf("im: ReadListAttribute: attribute value is not a List/Array (%v)", elem.Type())
 		}
-		if err := itemFn(dec, item); err != nil {
-			return err
+		*haveContainer = true
+		for dec.Next() {
+			item := dec.Element()
+			if item.Type().IsEndOfContainer() {
+				return dec.Error()
+			}
+			if err := itemFn(dec, item); err != nil {
+				return err
+			}
 		}
+		return dec.Error()
 	}
-	return dec.Error()
+	// A later chunk-append report: elem is the single appended item
+	// itself, not a container of items — hand it to itemFn directly, the
+	// same as any other item it would otherwise stream off the initiating
+	// report's own container.
+	return itemFn(dec, elem)
 }
