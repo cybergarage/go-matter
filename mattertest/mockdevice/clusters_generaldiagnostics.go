@@ -33,6 +33,9 @@ const (
 // into srv.
 func registerGeneralDiagnosticsHandlers(srv *imServer, d *Device) {
 	srv.handleRead(defaultEndpointID, generalDiagnosticsClusterID, rebootCountAttrID, func() (func(enc tlv.Encoder) error, error) {
+		if d.generalDiagnosticsRebootCountNull {
+			return nullAttribute(), nil
+		}
 		return uint16Attribute(mockRebootCount), nil
 	})
 }

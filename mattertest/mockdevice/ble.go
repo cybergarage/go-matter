@@ -52,6 +52,23 @@ type BLEHandshakeObserver interface {
 	HandshakeOrderOK(ctx context.Context) (bool, error)
 }
 
+// FakeBLECentralOption configures the bleChannel NewFakeBLECentral builds.
+type FakeBLECentralOption func(*bleChannel)
+
+// WithFakeBLECentralWriteWithoutResponseOnly makes the simulated
+// peripheral's C1 characteristic reject only the first with-response GATT
+// write it sees — the BTP handshake request — outright (matching
+// matter/ble/transport.go's Handshake own fallback-safety assumption:
+// nothing is transmitted on that failure), forcing Handshake to fall back
+// to WriteWithoutResponse. Later with-response writes (device_ble.go's
+// Transmit, sending PASE/CASE message segments over the same
+// characteristic) still succeed, matching a real device (VendorID
+// 0x1392/5010) this project tested against: only its very first
+// with-response write was ever rejected.
+func WithFakeBLECentralWriteWithoutResponseOnly() FakeBLECentralOption {
+	return func(ch *bleChannel) { ch.rejectFirstWriteWithResponse = true }
+}
+
 // NewFakeBLECentral wires dev up to a simulated BLE peripheral and starts it
 // (via Device.StartBLE), then returns a matter/ble.Central that only ever
 // discovers and connects to that one simulated peripheral, for injection via
@@ -59,8 +76,11 @@ type BLEHandshakeObserver interface {
 // returned BLEHandshakeObserver lets a test confirm the peripheral actually
 // saw the write-then-subscribe order matter/ble/transport.go's Handshake is
 // supposed to produce.
-func NewFakeBLECentral(dev *Device) (matterble.Central, BLEHandshakeObserver, error) {
+func NewFakeBLECentral(dev *Device, opts ...FakeBLECentralOption) (matterble.Central, BLEHandshakeObserver, error) {
 	ch := newBLEChannel()
+	for _, opt := range opts {
+		opt(ch)
+	}
 	peripheral := newBLEPeripheralTransport(ch)
 	if err := dev.StartBLE(peripheral, peripheral.Close); err != nil {
 		return nil, nil, err
@@ -100,6 +120,18 @@ type bleChannel struct {
 	orderWriteFirst     bool
 	orderDetermined     chan struct{}
 	orderDeterminedOnce sync.Once
+
+	// rejectFirstWriteWithResponse makes fakeBLETransport.Write's first
+	// call (the with-response GATT write for the BTP handshake request)
+	// fail without transmitting anything, mirroring a real device
+	// (VendorID 0x1392/5010) this project tested against: only its very
+	// first with-response write — the handshake — was ever rejected;
+	// every later with-response write (device_ble.go's Transmit, sending
+	// PASE/CASE message segments over the same characteristic) succeeded
+	// normally on that device, so only the first call rejects here too —
+	// see WithFakeBLECentralWriteWithoutResponseOnly.
+	rejectFirstWriteWithResponse bool
+	writeWithResponseSeen        bool
 }
 
 func newBLEChannel() *bleChannel {
@@ -518,6 +550,21 @@ func (t *fakeBLETransport) Read(ctx context.Context) ([]byte, error) {
 }
 
 func (t *fakeBLETransport) Write(ctx context.Context, data []byte) (int, error) {
+	if t.ch.rejectFirstWriteWithResponse {
+		t.ch.orderMu.Lock()
+		reject := !t.ch.writeWithResponseSeen
+		t.ch.writeWithResponseSeen = true
+		t.ch.orderMu.Unlock()
+		if reject {
+			// Nothing is transmitted here — recordFirstWrite is only
+			// called from WriteWithoutResponse — matching how a real
+			// with-response write CoreBluetooth rejects client-side never
+			// reaches the peer either, which is exactly what makes
+			// matter/ble/transport.go's fallback to WriteWithoutResponse
+			// safe.
+			return 0, fmt.Errorf("mockdevice: ble: C1 characteristic does not support write-with-response")
+		}
+	}
 	return t.WriteWithoutResponse(ctx, data)
 }
 

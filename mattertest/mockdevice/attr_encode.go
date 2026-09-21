@@ -54,6 +54,15 @@ func utf8Attribute(v string) func(enc tlv.Encoder) error {
 	}
 }
 
+// nullAttribute builds the readHandler-shaped encoder for a nullable
+// attribute's null value.
+func nullAttribute() func(enc tlv.Encoder) error {
+	return func(enc tlv.Encoder) error {
+		enc.PutNull(tlv.NewContextTag(2))
+		return nil
+	}
+}
+
 // listAttribute wraps encodeItems — which must emit zero or more
 // anonymously-tagged elements, one per list item, matching how
 // im.ReadListAttribute's itemFn decodes them — in the Array container a

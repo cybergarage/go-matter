@@ -69,6 +69,12 @@ type Device struct {
 	commissioningComplete chan struct{}
 	completeOnce          sync.Once
 
+	// generalDiagnosticsRebootCountNull makes registerGeneralDiagnosticsHandlers
+	// report RebootCount as null instead of a concrete value, mirroring a
+	// real device (VendorID 0x1392/5010) this project tested against — see
+	// WithGeneralDiagnosticsRebootCountNull.
+	generalDiagnosticsRebootCountNull bool
+
 	wg sync.WaitGroup
 }
 
@@ -93,6 +99,16 @@ func WithVendorID(v uint16) Option {
 // WithProductID sets the product ID this device advertises.
 func WithProductID(p uint16) Option {
 	return func(dev *Device) { dev.productID = p }
+}
+
+// WithGeneralDiagnosticsRebootCountNull makes the mock report General
+// Diagnostics' RebootCount attribute as null instead of a concrete value.
+// RebootCount is nullable per spec (11.13.6), and a real device (VendorID
+// 0x1392/5010) this project tested against does exactly this — a client
+// that only handles the common concrete-value case would otherwise go
+// untested against this legal response.
+func WithGeneralDiagnosticsRebootCountNull() Option {
+	return func(dev *Device) { dev.generalDiagnosticsRebootCountNull = true }
 }
 
 // New creates a Device with the given options applied over synthetic
