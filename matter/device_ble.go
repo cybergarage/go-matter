@@ -20,6 +20,7 @@ import (
 
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/ble"
+	"github.com/cybergarage/go-matter/matter/ble/btp"
 	"github.com/cybergarage/go-matter/matter/mdns"
 	"github.com/cybergarage/go-matter/matter/protocol/pase"
 	"github.com/cybergarage/go-matter/matter/protocol/session"
@@ -31,6 +32,7 @@ type bleDevice struct {
 	ble.Device
 	ble.Service
 	transport  ble.Transport
+	segmenter  *btp.Segmenter
 	discoverer mdns.Discoverer
 }
 
@@ -56,19 +58,40 @@ func (dev *bleDevice) Address() string {
 
 // Transmit writes data to the transport.
 func (dev *bleDevice) Transmit(ctx context.Context, b []byte) error {
-	if dev.transport == nil {
+	if dev.transport == nil || dev.segmenter == nil {
 		return fmt.Errorf("transport is not opened")
 	}
-	_, err := dev.transport.Write(ctx, b)
-	return err
+	// 4.19.4.4. BTP Data Packet Header. Messages larger than the negotiated
+	// fragment size must be split into multiple segments written in order.
+	for _, seg := range dev.segmenter.EncodeMessage(b) {
+		if _, err := dev.transport.Write(ctx, seg); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Receive reads data from the transport.
 func (dev *bleDevice) Receive(ctx context.Context) ([]byte, error) {
-	if dev.transport == nil {
+	if dev.transport == nil || dev.segmenter == nil {
 		return nil, fmt.Errorf("transport is not opened")
 	}
-	return dev.transport.Read(ctx)
+	// A single Matter message may be split across multiple BTP segments;
+	// keep feeding received segments to the reassembler until it reports a
+	// complete message.
+	for {
+		segBytes, err := dev.transport.Read(ctx)
+		if err != nil {
+			return nil, err
+		}
+		msg, ok, err := dev.segmenter.Feed(segBytes)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			return msg, nil
+		}
+	}
 }
 
 // Commission commissions the node with the given commissioning options.
@@ -124,6 +147,7 @@ func (dev *bleDevice) Commission(ctx context.Context, payload OnboardingPayload,
 	}
 
 	log.Infof("Handshake response: %s", res.String())
+	dev.segmenter = btp.NewSegmenter(res.FragmentSize())
 
 	paseClient := pase.NewInitiator(dev, payload.Passcode())
 	sessionKeys, err := paseClient.EstablishSession(ctx)

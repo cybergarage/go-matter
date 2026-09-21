@@ -99,6 +99,11 @@ type HandshakeResponse interface {
 	Opcode() byte
 	// Vendord returns the vendor ID.
 	Vendord() int
+	// FragmentSize returns the negotiated BTP fragment size, i.e. the
+	// maximum size in bytes (header included) of a single data segment.
+	FragmentSize() int
+	// WindowSize returns the negotiated BTP receive window size.
+	WindowSize() int
 	// Bytes returns the byte representation of the handshake response.
 	Bytes() []byte
 	// String returns the string representation of the handshake response.
@@ -142,6 +147,22 @@ func (res *handshakeResponse) Vendord() int {
 		return 0
 	}
 	return int((res.bytes[2] & 0xF0) >> 4)
+}
+
+// FragmentSize returns the negotiated BTP fragment size.
+func (res *handshakeResponse) FragmentSize() int {
+	if len(res.bytes) < 6 {
+		return 0
+	}
+	return int(res.bytes[3]) | int(res.bytes[4])<<8
+}
+
+// WindowSize returns the negotiated BTP receive window size.
+func (res *handshakeResponse) WindowSize() int {
+	if len(res.bytes) < 6 {
+		return 0
+	}
+	return int(res.bytes[5])
 }
 
 // Bytes returns the byte representation of the handshake response.
