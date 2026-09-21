@@ -19,16 +19,17 @@ Matter is an open-source connectivity standard for smart home and IoT (Internet 
 
 | Category | Package | Status | Description |
 |----------|---------|--------|-------------|
-| Discovery | `ble.btp` | ✅ Under verification | BLE transport protocol (BTP) implementation |
+| Discovery | `ble.btp` | ✅ Implemented | BLE transport protocol (BTP) implementation |
 |           | `mdns` | ✅ Implemented | mDNS (Multicast DNS) service discovery |
-| Commissioning | `protocol.pase` | ✅ Under verification | Passcode-Authenticated Session Establishment (PASE / SPAKE2+) |
-|               | `protocol.case` | ✅ Under verification | Certificate-Authenticated Session Establishment (CASE) |
+| Commissioning | `protocol.pase` | ✅ Implemented | Passcode-Authenticated Session Establishment (PASE / SPAKE2+) |
+|               | `protocol.case` | ✅ Implemented | Certificate-Authenticated Session Establishment (CASE) |
 |               | `protocol.session` | ✅ Implemented | Secure session management |
-|               | `credentials` | ✅ Under verification | Attestation, CSR, and CA/NOC chain handling |
+|               | `credentials` | ✅ Under verification | Attestation, CSR, and CA/NOC chain handling (attestation chain-of-trust validation is intentionally skipped for now) |
 |               | `store` | ✅ Implemented | Persistent fabric and commissionee record store |
-| Interaction Model | `protocol.im` | ✅ Under verification | Read/Write/Invoke Interaction Model transactions, incl. chunked list reassembly |
+| Interaction Model | `protocol.im` | ✅ Implemented | Read/Write/Invoke Interaction Model transactions, incl. chunked list reassembly |
 |                    | `protocol.mrp` | ✅ Implemented | Message Reliability Protocol (acknowledgement, counters) |
-| Clusters | `cluster` | 🚧 In progress | Basic Information, Descriptor, On/Off, General Commissioning/Diagnostics, Network Commissioning, Operational Credentials, Access Control |
+| Clusters | `cluster` | ✅ Implemented | Basic Information, Descriptor, General Commissioning/Diagnostics, Network Commissioning, Operational Credentials, Access Control |
+|          | `cluster.onoff` | ✅ Under verification | On/Off cluster client (not yet exercised against a real device) |
 | Operation | `cmd.matterctl` | 🚧 In progress | `matterctl` CLI (pairing, scan, per-cluster read/write/invoke) |
 | Encoding | `encoding.base38` | ✅ Implemented | Base38 encoding/decoding |
 |          | `encoding.qr` | ✅ Implemented | QR code generation |
