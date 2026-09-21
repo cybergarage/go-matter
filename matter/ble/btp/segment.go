@@ -116,7 +116,7 @@ func (s *Segmenter) EncodeMessage(payload []byte) [][]byte {
 // Feed processes one received raw BTP segment. Once the final fragment of a
 // message has been fed, it returns the fully reassembled message and
 // ok == true; until then, ok is false and message is nil.
-func (s *Segmenter) Feed(seg []byte) (message []byte, ok bool, err error) {
+func (s *Segmenter) Feed(seg []byte) ([]byte, bool, error) {
 	if len(seg) < 2 {
 		return nil, false, fmt.Errorf("btp: segment too short: %d bytes", len(seg))
 	}

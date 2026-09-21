@@ -29,7 +29,8 @@ func TestSegmenterEncodeMessageSingleFragment(t *testing.T) {
 	}
 
 	seg := segs[0]
-	want := []byte{headerFlagStartMessage | headerFlagEndMessage, 0x00, byte(len(payload)), 0x00}
+	want := make([]byte, 0, 4+len(payload))
+	want = append(want, headerFlagStartMessage|headerFlagEndMessage, 0x00, byte(len(payload)), 0x00)
 	want = append(want, payload...)
 	if !bytes.Equal(seg, want) {
 		t.Errorf("segment = % X, want % X", seg, want)
@@ -131,7 +132,8 @@ func TestSegmenterEncodeMessagePiggybacksAck(t *testing.T) {
 		t.Fatalf("EncodeMessage() produced %d segments, want 1", len(segs))
 	}
 	got := segs[0]
-	want := []byte{headerFlagStartMessage | headerFlagEndMessage | headerFlagFragmentAck, 0x01, 0x00, byte(len(outPayload)), 0x00}
+	want := make([]byte, 0, 5+len(outPayload))
+	want = append(want, headerFlagStartMessage|headerFlagEndMessage|headerFlagFragmentAck, 0x01, 0x00, byte(len(outPayload)), 0x00)
 	want = append(want, outPayload...)
 	if !bytes.Equal(got, want) {
 		t.Errorf("segment = % X, want % X", got, want)
