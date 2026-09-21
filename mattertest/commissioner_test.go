@@ -48,7 +48,17 @@ func TestCommissioner(t *testing.T) {
 	log.EnableStdoutDebug(true)
 	defer log.EnableStdoutDebug(false)
 
-	cmr := matter.NewCommissioner(matter.WithCommissionerStoreDir(t.TempDir()))
+	// WithCommissionerAdministratorConfig/WithCommissionerOperationalCredentialsConfig
+	// are required here, not just passed to Commission below: Connect (used
+	// by verifyLiveBasicOperations after commissioning) resolves the fabric
+	// identity from the commissioner's own fields, which are otherwise left
+	// nil (see commissioner_impl.go's Connect: "no fabric identity
+	// available").
+	cmr := matter.NewCommissioner(
+		matter.WithCommissionerStoreDir(t.TempDir()),
+		matter.WithCommissionerAdministratorConfig(scenario.Admin),
+		matter.WithCommissionerOperationalCredentialsConfig(scenario.Operational),
+	)
 	if err := cmr.Start(); err != nil {
 		t.Fatalf("Failed to start commissioner: %v", err)
 	}
