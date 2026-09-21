@@ -20,11 +20,12 @@ import (
 )
 
 // General Diagnostics cluster (0x0033) attribute IDs, per Matter Core Spec
-// 11.13.6. Only RebootCount is modeled here — the simplest mandatory
-// scalar attribute, enough to exercise a real IM read against this cluster.
+// 11.13.6 (NetworkInterfaces is 0x0000, a list; RebootCount is 0x0001).
+// Only RebootCount is modeled here — the simplest mandatory scalar
+// attribute, enough to exercise a real IM read against this cluster.
 const (
 	generalDiagnosticsClusterID im.ClusterID   = 0x0033
-	rebootCountAttrID           im.AttributeID = 0x0000
+	rebootCountAttrID           im.AttributeID = 0x0001
 
 	mockRebootCount uint16 = 1
 )

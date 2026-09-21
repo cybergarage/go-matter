@@ -28,17 +28,22 @@ import (
 const ClusterID im.ClusterID = 0x0033
 
 // Attribute IDs for the General Diagnostics cluster.
-// 11.13.6. Attributes.
+// 11.13.6. Attributes. NetworkInterfaces is attribute 0x0000 (a list, not
+// modeled by this package); RebootCount is 0x0001 — confirmed against
+// connectedhomeip's general-diagnostics-cluster.xml after an earlier
+// off-by-one here (0x0000) silently read NetworkInterfaces instead, which
+// happened to decode as null against one real device and hard-failed
+// ("attribute-report-IBs is not a list") against a second, exposing the
+// mistake.
 const (
 	// RebootCountAttributeID reports the number of times the device has rebooted.
-	RebootCountAttributeID im.AttributeID = 0x0000
+	RebootCountAttributeID im.AttributeID = 0x0001
 )
 
 // RebootCount reads the RebootCount attribute of the given endpoint.
 // RebootCount is nullable (11.13.6): ok is false, with a nil error, when
 // the device reports it as null (e.g. it doesn't track reboot count)
-// rather than as an unsigned integer — confirmed against a real,
-// commercially available device, which does exactly this.
+// rather than as an unsigned integer.
 func RebootCount(sess session.SecureSession, endpointID im.EndpointID) (uint16, bool, error) {
 	resp, err := im.ReadAttribute(sess, endpointID, ClusterID, RebootCountAttributeID)
 	if err != nil {
