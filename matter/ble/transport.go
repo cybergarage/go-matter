@@ -16,6 +16,7 @@ package ble
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cybergarage/go-ble/ble"
 	"github.com/cybergarage/go-matter/matter/ble/btp"
@@ -57,13 +58,25 @@ func (t *transport) Handshake(ctx context.Context) (btp.HandshakeResponse, error
 	// session, which writes C1 then enables C2, against go-matter's
 	// previous subscribe-then-write order, which the same device never
 	// responded to).
-	_, err := t.Write(ctx, btp.NewHandshakeRequest().Bytes())
-	if err != nil {
-		return nil, err
+	//
+	// Not every commissionee's C1 characteristic actually advertises the
+	// GATT "Write" (with-response) property, though: on one real device
+	// (VendorID 5010, ProductID 259), go-ble's underlying CoreBluetooth
+	// binding rejected the with-response write outright — "the specified
+	// UUID is not allowed for this operation" — a client-side property
+	// check that fires before anything is transmitted to the peer, not a
+	// peer-side NAK. So falling back to a without-response write here is
+	// always safe: the with-response attempt above never reached the
+	// device.
+	handshakeReq := btp.NewHandshakeRequest().Bytes()
+	if _, withRespErr := t.Write(ctx, handshakeReq); withRespErr != nil {
+		if _, withoutRespErr := t.WriteWithoutResponse(ctx, handshakeReq); withoutRespErr != nil {
+			return nil, fmt.Errorf("write C1 handshake request: with response: %w; without response: %w", withRespErr, withoutRespErr)
+		}
 	}
 
 	if err := t.Subscribe(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("subscribe to C2 notifications: %w", err)
 	}
 
 	resBytes, err := t.Read(ctx)
