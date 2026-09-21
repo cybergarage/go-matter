@@ -51,7 +51,7 @@ func (t *transport) Handshake(ctx context.Context) (btp.HandshakeResponse, error
 	// type="request" for every C1 write.
 	//
 	// The write must also happen *before* subscribing to C2, not after:
-	// some commissionees only flush their buffered handshake response once
+	// some commissions only flush their buffered handshake response once
 	// they observe the client enabling notifications following the write,
 	// and never deliver it if notifications were already enabled beforehand
 	// (confirmed by comparing raw HCI captures of a working chip-tool

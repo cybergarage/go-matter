@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"unicode"
 
 	"github.com/cybergarage/go-matter/matter/types"
@@ -127,33 +128,33 @@ func encodeManualPairingCode(version uint8, vendorID uint16, productID uint16, d
 // decodeManualPairingCode decodes an 11-digit or 21-digit manual pairing code string and returns the extracted fields.
 func decodeManualPairingCode(paraingCodeStr string) (*pairingCode, error) {
 	// Remove any non-digit characters (e.g., spaces or hyphens) from the c.
-	code := ""
+	var code strings.Builder
 	for _, r := range paraingCodeStr {
 		if unicode.IsDigit(r) {
-			code += string(r)
+			code.WriteString(string(r))
 		}
 	}
 
 	// Verify the Verhoeff checksum of the entire code.
-	if !validateVerhoeffCheck(code) {
+	if !validateVerhoeffCheck(code.String()) {
 		return nil, errors.New("manual pairing code failed checksum validation")
 	}
 
 	// Check length: must be 11 or 21 digits.
-	if len(code) != 11 && len(code) != 21 {
+	if len(code.String()) != 11 && len(code.String()) != 21 {
 		return nil, errors.New("manual pairing code must be 11 or 21 digits long")
 	}
 
 	// Determine if VendorID/ProductID are included based on length.
-	isLong := (len(code) == 21)
+	isLong := (len(code.String()) == 21)
 
 	// DIGIT[1] := (VID_PID_PRESENT << 2) |(DISCRIMINATOR >> 10)
 	// DIGIT[2..6] :=((DISCRIMINATOR & 0x300)<< 6) |(PASSCODE & 0x3FFF)
 	// DIGIT[7..10] :=(PASSCODE >> 14)
 
-	d1, _ := strconv.Atoi(code[0:1])
-	d2_6, _ := strconv.Atoi(code[1:6])
-	d7_10, _ := strconv.Atoi(code[6:10])
+	d1, _ := strconv.Atoi(code.String()[0:1])
+	d2_6, _ := strconv.Atoi(code.String()[1:6])
+	d7_10, _ := strconv.Atoi(code.String()[6:10])
 
 	version := uint8(0)
 	vpIDPresent := uint8((d1 >> 2) & 0x1)
@@ -176,8 +177,8 @@ func decodeManualPairingCode(paraingCodeStr string) (*pairingCode, error) {
 		// DIGIT[11..15] := (VENDOR_ID)
 		// DIGIT[16..20] := (PRODUCT_ID)
 
-		v11_15, _ := strconv.Atoi(code[10:15])
-		p16_20, _ := strconv.Atoi(code[15:20])
+		v11_15, _ := strconv.Atoi(code.String()[10:15])
+		p16_20, _ := strconv.Atoi(code.String()[15:20])
 		vendorID = uint16(v11_15)
 		productID = uint16(p16_20)
 	}
