@@ -23,7 +23,8 @@ import (
 )
 
 func main() {
-	if err := cmd.Execute(matter.NewCommissioner()); err != nil {
+	commissioner := matter.NewCommissioner(matter.WithCommissionerAppName(cmd.ProgramName))
+	if err := cmd.Execute(commissioner); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
