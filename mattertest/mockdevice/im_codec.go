@@ -449,6 +449,56 @@ func (s *imServer) sendReadData(exchangeID message.ExchangeID, endpoint im.Endpo
 	return s.sendIMMessage(exchangeID, message.ReportDataMessage, enc.Bytes())
 }
 
+// sendReadDataChunked replies to a ReadRequest with one AttributeReportIB
+// per entry of encodeChunks, all for the same (endpoint, cluster,
+// attribute) path — reproducing List Chunking (10.5.4.3) the way a real
+// device sent it for Descriptor's DeviceTypeList: the first report's Data
+// (from encodeChunks[0]) is the list's own container, and every later
+// report carries a null ListIndex on its AttributePathIB (signaling
+// "append") with Data holding just that one item directly.
+// 10.7.9. ReportDataMessage / 10.6.3. AttributeDataIB.
+func (s *imServer) sendReadDataChunked(exchangeID message.ExchangeID, endpoint im.EndpointID, cluster im.ClusterID, attribute im.AttributeID, encodeChunks []func(enc tlv.Encoder) error) error {
+	enc := tlv.NewEncoder()
+	enc.BeginStructure(tlv.NewAnonymousTag())
+	enc.BeginArray(tlv.NewContextTag(1)) // attribute-report-IBs
+	for i, encodeData := range encodeChunks {
+		enc.BeginStructure(tlv.NewAnonymousTag()) // AttributeReportIB
+		enc.BeginStructure(tlv.NewContextTag(1))  // AttributeDataIB
+		enc.PutUnsigned4(tlv.NewContextTag(0), 0) // DataVersion
+		enc.BeginList(tlv.NewContextTag(1))       // AttributePathIB
+		enc.PutUnsigned2(tlv.NewContextTag(2), uint16(endpoint))
+		if err := enc.PutUnsigned(tlv.NewContextTag(3), uint64(cluster)); err != nil {
+			return err
+		}
+		if err := enc.PutUnsigned(tlv.NewContextTag(4), uint64(attribute)); err != nil {
+			return err
+		}
+		if i > 0 {
+			enc.PutNull(tlv.NewContextTag(5)) // ListIndex: null (append)
+		}
+		if err := enc.EndContainer(); err != nil { // end AttributePathIB
+			return err
+		}
+		if err := encodeData(enc); err != nil { // Data
+			return err
+		}
+		if err := enc.EndContainer(); err != nil { // end AttributeDataIB
+			return err
+		}
+		if err := enc.EndContainer(); err != nil { // end AttributeReportIB
+			return err
+		}
+	}
+	if err := enc.EndContainer(); err != nil { // end attribute-report-IBs
+		return err
+	}
+	enc.PutUnsigned1(tlv.NewContextTag(interactionModelRevisionTag), interactionModelRevision)
+	if err := enc.EndContainer(); err != nil {
+		return err
+	}
+	return s.sendIMMessage(exchangeID, message.ReportDataMessage, enc.Bytes())
+}
+
 // sendReadStatus replies to a ReadRequest with an AttributeStatusIB — the
 // attribute path was recognized but could not be read.
 // 10.6.5. AttributeStatusIB.

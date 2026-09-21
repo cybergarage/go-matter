@@ -52,14 +52,33 @@ var operationalServerClusterIDs = []im.ClusterID{
 // endpoint (0, the Root Node), so ClientList and PartsList are always
 // empty.
 func registerDescriptorHandlers(srv *imServer, d *Device) {
-	srv.handleRead(defaultEndpointID, descriptorClusterID, deviceTypeListAttributeID, func() (func(enc tlv.Encoder) error, error) {
-		return listAttribute(func(enc tlv.Encoder) error {
-			enc.BeginStructure(tlv.NewAnonymousTag())
-			enc.PutUnsigned4(tlv.NewContextTag(0), rootNodeDeviceTypeID)
-			enc.PutUnsigned2(tlv.NewContextTag(1), rootNodeDeviceTypeRevision)
-			return enc.EndContainer()
-		}), nil
-	})
+	// encodeRootNodeDeviceTypeFields writes DeviceTypeStruct's own fields
+	// (9.5.5.1), shared by both the non-chunked (wrapped in an Array item)
+	// and chunked (written directly as Data) encodings below.
+	encodeRootNodeDeviceTypeFields := func(enc tlv.Encoder) error {
+		enc.PutUnsigned4(tlv.NewContextTag(0), rootNodeDeviceTypeID)
+		enc.PutUnsigned2(tlv.NewContextTag(1), rootNodeDeviceTypeRevision)
+		return nil
+	}
+
+	if d.descriptorChunkedDeviceTypeList {
+		srv.handleChunkedRead(defaultEndpointID, descriptorClusterID, deviceTypeListAttributeID, func() ([]func(enc tlv.Encoder) error, error) {
+			return []func(enc tlv.Encoder) error{
+				listAttribute(func(enc tlv.Encoder) error { return nil }), // initiate: empty list
+				chunkedListItemAttribute(encodeRootNodeDeviceTypeFields),  // append: the one item
+			}, nil
+		})
+	} else {
+		srv.handleRead(defaultEndpointID, descriptorClusterID, deviceTypeListAttributeID, func() (func(enc tlv.Encoder) error, error) {
+			return listAttribute(func(enc tlv.Encoder) error {
+				enc.BeginStructure(tlv.NewAnonymousTag())
+				if err := encodeRootNodeDeviceTypeFields(enc); err != nil {
+					return err
+				}
+				return enc.EndContainer()
+			}), nil
+		})
+	}
 
 	srv.handleRead(defaultEndpointID, descriptorClusterID, serverListAttributeID, func() (func(enc tlv.Encoder) error, error) {
 		return listAttribute(func(enc tlv.Encoder) error {

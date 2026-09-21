@@ -67,6 +67,16 @@ type readKey struct {
 // AttributeStatusIB{Failure} instead.
 type readHandler func() (encodeData func(enc tlv.Encoder) error, err error)
 
+// chunkedReadHandler returns the sequence of Data-field encoders to send as
+// separate AttributeReportIBs for one attribute path (10.5.4.3, "List
+// Chunking"): the first encoder writes the list's own (possibly empty)
+// container, and each subsequent one writes a single item directly — not
+// wrapped in another array — to append to it, matching how a real device
+// split Descriptor's DeviceTypeList across two reports instead of sending
+// it as a single non-chunked array. Registered instead of (never alongside)
+// a plain readHandler for the same attribute.
+type chunkedReadHandler func() (encodeChunks []func(enc tlv.Encoder) error, err error)
+
 // imServer is a minimal Interaction Model server: it dispatches
 // ReadRequestMessage/InvokeRequestMessage traffic received over a
 // session.SecureSession to registered per-(endpoint,cluster,command/attribute)
@@ -74,16 +84,18 @@ type readHandler func() (encodeData func(enc tlv.Encoder) error, err error)
 // (spec 10.7.2 ReadRequestMessage / 10.7.9 InvokeRequestMessage and their
 // responses) — not a general-purpose IM implementation.
 type imServer struct {
-	sess    session.SecureSession
-	invokes map[invokeKey]invokeHandler
-	reads   map[readKey]readHandler
+	sess         session.SecureSession
+	invokes      map[invokeKey]invokeHandler
+	reads        map[readKey]readHandler
+	chunkedReads map[readKey]chunkedReadHandler
 }
 
 func newIMServer(sess session.SecureSession) *imServer {
 	return &imServer{
-		sess:    sess,
-		invokes: make(map[invokeKey]invokeHandler),
-		reads:   make(map[readKey]readHandler),
+		sess:         sess,
+		invokes:      make(map[invokeKey]invokeHandler),
+		reads:        make(map[readKey]readHandler),
+		chunkedReads: make(map[readKey]chunkedReadHandler),
 	}
 }
 
@@ -93,6 +105,12 @@ func (s *imServer) handleInvoke(endpoint im.EndpointID, cluster im.ClusterID, co
 
 func (s *imServer) handleRead(endpoint im.EndpointID, cluster im.ClusterID, attribute im.AttributeID, h readHandler) {
 	s.reads[readKey{endpoint, cluster, attribute}] = h
+}
+
+// handleChunkedRead registers h in place of (never alongside) handleRead
+// for the same (endpoint, cluster, attribute) — see chunkedReadHandler.
+func (s *imServer) handleChunkedRead(endpoint im.EndpointID, cluster im.ClusterID, attribute im.AttributeID, h chunkedReadHandler) {
+	s.chunkedReads[readKey{endpoint, cluster, attribute}] = h
 }
 
 // serveOne receives and responds to exactly one IM request.
@@ -162,6 +180,13 @@ func (s *imServer) serveRead(exchangeID message.ExchangeID, tlvData []byte) erro
 	req, err := decodeReadRequest(tlvData)
 	if err != nil {
 		return fmt.Errorf("mockdevice: im: decode ReadRequest: %w", err)
+	}
+	if ch, ok := s.chunkedReads[readKey(req)]; ok {
+		encodeChunks, err := ch()
+		if err != nil {
+			return s.sendReadStatus(exchangeID, req, 0x01 /* Failure */)
+		}
+		return s.sendReadDataChunked(exchangeID, req.endpoint, req.cluster, req.attribute, encodeChunks)
 	}
 	h, ok := s.reads[readKey(req)]
 	if !ok {

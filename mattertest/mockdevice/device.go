@@ -74,6 +74,10 @@ type Device struct {
 	// real device (VendorID 0x1392/5010) this project tested against — see
 	// WithGeneralDiagnosticsRebootCountNull.
 	generalDiagnosticsRebootCountNull bool
+	// descriptorChunkedDeviceTypeList makes registerDescriptorHandlers
+	// report DeviceTypeList as a chunked response instead of a single
+	// array — see WithDescriptorChunkedDeviceTypeList.
+	descriptorChunkedDeviceTypeList bool
 
 	wg sync.WaitGroup
 }
@@ -109,6 +113,17 @@ func WithProductID(p uint16) Option {
 // untested against this legal response.
 func WithGeneralDiagnosticsRebootCountNull() Option {
 	return func(dev *Device) { dev.generalDiagnosticsRebootCountNull = true }
+}
+
+// WithDescriptorChunkedDeviceTypeList makes the mock report Descriptor's
+// DeviceTypeList as a chunked response — an initiating report with an
+// empty list, followed by a separate report appending each item — instead
+// of a single non-chunked array, mirroring a real device (VendorID
+// 0x138A/5002) this project tested against, which does exactly this
+// (10.5.4.3, "List Chunking"). A client that only handles a single,
+// complete array would otherwise go untested against this legal response.
+func WithDescriptorChunkedDeviceTypeList() Option {
+	return func(dev *Device) { dev.descriptorChunkedDeviceTypeList = true }
 }
 
 // New creates a Device with the given options applied over synthetic

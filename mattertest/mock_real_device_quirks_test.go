@@ -22,6 +22,7 @@ import (
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter"
 	"github.com/cybergarage/go-matter/matter/cluster/basicinformation"
+	"github.com/cybergarage/go-matter/matter/cluster/descriptor"
 	"github.com/cybergarage/go-matter/matter/cluster/generaldiagnostics"
 	"github.com/cybergarage/go-matter/matter/config"
 	"github.com/cybergarage/go-matter/matter/encoding"
@@ -42,19 +43,24 @@ const (
 	mockRealDeviceQuirksProductID     = 0x8004
 )
 
-// TestMockRealDeviceQuirks reproduces two behaviors a real, commercially
-// available device (VendorID 0x1392/5010, ProductID 0x0103/259) exhibited
-// against a live NUC/BlueZ run and that no other mock test exercises:
+// TestMockRealDeviceQuirks reproduces behaviors two different real,
+// commercially available devices exhibited against live NUC/BlueZ runs
+// that no other mock test exercises:
 //
-//   - Its C1 (BTP handshake) characteristic rejects a with-response GATT
-//     write outright, requiring matter/ble/transport.go's Handshake to fall
-//     back to a without-response write.
-//   - Its General Diagnostics RebootCount attribute reads back as null
-//     (spec-legal, 11.13.6) rather than a concrete value.
+//   - Device A (VendorID 0x1392/5010, ProductID 0x0103/259): its C1 (BTP
+//     handshake) characteristic rejects a with-response GATT write
+//     outright, requiring matter/ble/transport.go's Handshake to fall back
+//     to a without-response write.
+//   - Device A: its General Diagnostics RebootCount attribute reads back
+//     as null (spec-legal, 11.13.6) rather than a concrete value.
+//   - Device B (VendorID 0x138A/5002, ProductID 0x1392/5010): its
+//     Descriptor DeviceTypeList reads back as a chunked response
+//     (10.5.4.3, "List Chunking") — an empty initiating report followed by
+//     a separate single-item append — rather than one complete array.
 //
-// Both were real interop bugs this project only found by testing against
-// that hardware; this test keeps them covered by `go test` without needing
-// the device (or any Bluetooth adapter) present.
+// Every one of these was a real interop bug this project only found by
+// testing against that hardware; this test keeps them covered by
+// `go test` without needing the device (or any Bluetooth adapter) present.
 func TestMockRealDeviceQuirks(t *testing.T) {
 	log.EnableStdoutDebug(true)
 	defer log.EnableStdoutDebug(false)
@@ -65,6 +71,7 @@ func TestMockRealDeviceQuirks(t *testing.T) {
 		mockdevice.WithVendorID(mockRealDeviceQuirksVendorID),
 		mockdevice.WithProductID(mockRealDeviceQuirksProductID),
 		mockdevice.WithGeneralDiagnosticsRebootCountNull(),
+		mockdevice.WithDescriptorChunkedDeviceTypeList(),
 	)
 	if err != nil {
 		t.Fatalf("mockdevice.New() error = %v", err)
@@ -164,5 +171,15 @@ func TestMockRealDeviceQuirks(t *testing.T) {
 		t.Errorf("generaldiagnostics.RebootCount() error = %v", err)
 	} else if ok {
 		t.Errorf("generaldiagnostics.RebootCount() = (%d, true), want (_, false): this mock device is configured to report it as null", rebootCount)
+	}
+
+	// 0x0016: the Root Node device type (matches mock_basic_operations_test.go's
+	// mockBasicOperationsDeviceTypeID) — this mock always reports it as its
+	// one endpoint's device type, chunked or not.
+	const rootNodeDeviceTypeID uint32 = 0x0016
+	if deviceTypes, err := descriptor.DeviceTypeList(sess, rootEndpointID); err != nil {
+		t.Errorf("descriptor.DeviceTypeList() error = %v", err)
+	} else if len(deviceTypes) != 1 || deviceTypes[0].DeviceType != rootNodeDeviceTypeID || deviceTypes[0].Revision != 1 {
+		t.Errorf("descriptor.DeviceTypeList() = %+v, want [{DeviceType:0x%04X Revision:1}] reassembled from this mock's chunked response", deviceTypes, rootNodeDeviceTypeID)
 	}
 }

@@ -76,3 +76,18 @@ func listAttribute(encodeItems func(enc tlv.Encoder) error) func(enc tlv.Encoder
 		return enc.EndContainer()
 	}
 }
+
+// chunkedListItemAttribute writes a single list item directly as the Data
+// element (ContextTag(2)) — not wrapped in an Array — for use as one of a
+// chunked list's later "append" reports (10.5.4.3, "List Chunking"; see
+// imServer.sendReadDataChunked). encodeFields must emit the item's own
+// contents (e.g. a Structure's fields) without its own outer tag.
+func chunkedListItemAttribute(encodeFields func(enc tlv.Encoder) error) func(enc tlv.Encoder) error {
+	return func(enc tlv.Encoder) error {
+		enc.BeginStructure(tlv.NewContextTag(2))
+		if err := encodeFields(enc); err != nil {
+			return err
+		}
+		return enc.EndContainer()
+	}
+}
