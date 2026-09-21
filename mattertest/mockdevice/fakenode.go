@@ -77,7 +77,8 @@ func (n *fakeCommissionableNode) String() string {
 // by exact service instance name (only once AddNOC has actually run — the
 // compressed fabric ID/node ID identity doesn't exist before that).
 type fakeDiscoverer struct {
-	dev *Device
+	dev                    *Device
+	skipCommissionableNode bool
 }
 
 // NewFakeDiscoverer returns an mdns.Discoverer that only ever "discovers"
@@ -85,6 +86,19 @@ type fakeDiscoverer struct {
 // in-process mockdevice.Device instead of scanning the real network.
 func NewFakeDiscoverer(dev *Device) mdns.Discoverer {
 	return &fakeDiscoverer{dev: dev}
+}
+
+// NewFakeOperationalDiscoverer is NewFakeDiscoverer, except it never answers
+// a commissionable-node query. For a BLE-simulated Device (see
+// NewFakeBLECentral): commissioner_impl.go's Discover runs BLE scanning and
+// mDNS commissionable-node discovery in parallel, and a plain
+// NewFakeDiscoverer here would let the commissionable-node branch answer
+// too, so commissionMatchingDevice could commission over that (mDNS,
+// requireNetwork=false) result instead of the BLE one a BLE test actually
+// means to exercise. The operational-node branch (needed after AddNOC, once
+// the device is Wi-Fi-provisioned) still answers normally.
+func NewFakeOperationalDiscoverer(dev *Device) mdns.Discoverer {
+	return &fakeDiscoverer{dev: dev, skipCommissionableNode: true}
 }
 
 func (f *fakeDiscoverer) Start() error { return nil }
@@ -101,6 +115,9 @@ func (f *fakeDiscoverer) Search(_ context.Context, query mdns.Query) ([]mdns.Com
 
 	service := query.Service()
 	if service == mdns.CommissionableNodeService {
+		if f.skipCommissionableNode {
+			return nil, nil
+		}
 		return []mdns.CommissionableNode{node}, nil
 	}
 

@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/cybergarage/go-logger/log"
+	"github.com/cybergarage/go-matter/matter/io"
 	"github.com/cybergarage/go-matter/matter/types"
 )
 
@@ -50,8 +51,19 @@ type Device struct {
 
 	fs *fabricState
 
-	conn      *net.UDPConn
-	transport *udpDeviceTransport
+	conn          *net.UDPConn
+	paseTransport io.Transport
+	caseTransport io.Transport
+	closer        func() error
+	// expectNetworkCommissioning is true for a BLE-simulated Device
+	// (StartBLE): commissionWithSession's requireNetwork=true for the BLE
+	// transport (matter/device_ble.go) means the commissioner sends
+	// AddOrUpdateWiFiNetwork/ConnectNetwork over the PASE session, after
+	// AddNOC but before moving on to CASE — serve must keep its PASE
+	// Interaction Model loop running for that, not stop as soon as AddNOC
+	// finishes the way Start's UDP mode (requireNetwork=false, no Network
+	// Commissioning traffic at all) correctly does.
+	expectNetworkCommissioning bool
 
 	commissioningComplete chan struct{}
 	completeOnce          sync.Once
@@ -127,19 +139,57 @@ func (d *Device) Start() error {
 		return fmt.Errorf("mockdevice: listen: %w", err)
 	}
 	d.conn = conn
-	d.transport = &udpDeviceTransport{conn: conn}
+	udp := &udpDeviceTransport{conn: conn}
+	d.paseTransport = udp
+	d.caseTransport = udp
+	d.closer = conn.Close
 	d.wg.Add(1)
 	go d.serve()
 	return nil
 }
 
-// Stop closes the device's socket and waits for its serve goroutine to
-// exit.
+// StartBLE begins serving PASE (and, over it, Network Commissioning/AddNOC)
+// over paseTransport instead of a loopback UDP socket, simulating a BLE
+// peripheral for tests exercising matter.WithCommissionerCentral instead of
+// a real Bluetooth adapter. CASE, which a real commissioner establishes
+// separately over the operational network after Wi-Fi provisioning (see
+// matter/operational_transport.go), still runs over a loopback UDP socket
+// exactly like Start's — this method opens one and pairs it with
+// NewFakeOperationalDiscoverer for that purpose. closer is called by Stop to
+// unblock paseTransport's Receive and let serve's goroutine exit; the UDP
+// socket opened here is closed alongside it automatically.
+func (d *Device) StartBLE(paseTransport io.Transport, closer func() error) error {
+	addr, err := net.ResolveUDPAddr("udp", "127.0.0.1:0")
+	if err != nil {
+		return fmt.Errorf("mockdevice: resolve loopback address: %w", err)
+	}
+	conn, err := net.ListenUDP("udp", addr)
+	if err != nil {
+		return fmt.Errorf("mockdevice: listen: %w", err)
+	}
+	d.conn = conn
+	d.paseTransport = paseTransport
+	d.caseTransport = &udpDeviceTransport{conn: conn}
+	d.expectNetworkCommissioning = true
+	d.closer = func() error {
+		udpErr := conn.Close()
+		if err := closer(); err != nil {
+			return err
+		}
+		return udpErr
+	}
+	d.wg.Add(1)
+	go d.serve()
+	return nil
+}
+
+// Stop shuts down the device's transport and waits for its serve goroutine
+// to exit.
 func (d *Device) Stop() error {
-	if d.conn == nil {
+	if d.closer == nil {
 		return nil
 	}
-	err := d.conn.Close()
+	err := d.closer()
 	d.wg.Wait()
 	return err
 }
@@ -186,7 +236,7 @@ func (d *Device) serve() {
 	defer d.wg.Done()
 	ctx := context.Background()
 
-	paseSess, err := handlePASE(ctx, d.transport, d.passcode)
+	paseSess, err := handlePASE(ctx, d.paseTransport, d.passcode)
 	if err != nil {
 		log.Debugf("mockdevice: PASE ended: %v", err)
 		return
@@ -194,9 +244,18 @@ func (d *Device) serve() {
 
 	paseIM := newIMServer(paseSess)
 	addNOCDone := make(chan struct{})
+	networkCommissioningDone := make(chan struct{})
 	registerGeneralCommissioningHandlers(paseIM, d.signalCommissioningComplete)
 	registerOperationalCredentialsHandlers(paseIM, d.fs, paseSess.SessionKeys().AttestationChallenge, func() {
 		close(addNOCDone)
+	})
+	// Only exercised by a BLE-simulated Device (commissionNetwork requires
+	// it — see commissionWithSession's requireNetwork=true for the BLE
+	// transport in matter/device_ble.go); UDP-mode commissioning never
+	// invokes it, since requireNetwork=false there skips Network
+	// Commissioning entirely when no Wi-Fi config is supplied.
+	registerNetworkCommissioningHandlers(paseIM, func() {
+		close(networkCommissioningDone)
 	})
 
 	for {
@@ -209,10 +268,17 @@ func (d *Device) serve() {
 		default:
 			continue
 		}
+		if d.expectNetworkCommissioning {
+			select {
+			case <-networkCommissioningDone:
+			default:
+				continue
+			}
+		}
 		break
 	}
 
-	caseSess, err := handleCASE(ctx, d.transport, d.fs)
+	caseSess, err := handleCASE(ctx, d.caseTransport, d.fs)
 	if err != nil {
 		log.Debugf("mockdevice: CASE ended: %v", err)
 		return

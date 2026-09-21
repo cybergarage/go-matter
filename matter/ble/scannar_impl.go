@@ -41,7 +41,7 @@ func (scn *scanner) onScanResult(bleDev ble.Device) {
 	if !ok {
 		return
 	}
-	dev, err := newDeviceWith(bleDev, bleSrv)
+	dev, err := NewDeviceWith(bleDev, bleSrv)
 	if err != nil {
 		return
 	}
