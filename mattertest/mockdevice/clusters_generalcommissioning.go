@@ -45,8 +45,8 @@ func registerGeneralCommissioningHandlers(srv *imServer, onCommissioningComplete
 		return armFailSafeResponseCommandID, fields, err
 	})
 
-	srv.handleRead(defaultEndpointID, generalCommissioningClusterID, supportsConcurrentConnectionAttributeID, func() (bool, error) {
-		return true, nil
+	srv.handleRead(defaultEndpointID, generalCommissioningClusterID, supportsConcurrentConnectionAttributeID, func() (func(enc tlv.Encoder) error, error) {
+		return boolAttribute(true), nil
 	})
 
 	srv.handleInvoke(defaultEndpointID, generalCommissioningClusterID, commissioningCompleteCommandID, func(map[uint8]tlv.Element) (im.CommandID, []byte, error) {

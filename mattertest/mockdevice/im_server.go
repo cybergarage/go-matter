@@ -60,10 +60,12 @@ type readKey struct {
 	attribute im.AttributeID
 }
 
-// readHandler returns the value to report for one attribute read. Only
-// boolean attributes are needed for commissioning
-// (SupportsConcurrentConnection), so this server only supports that type.
-type readHandler func() (bool, error)
+// readHandler returns a closure that writes this attribute's Data element
+// (10.6.3. AttributeDataIB, ContextTag(2)) into the ReportDataMessage being
+// built — a scalar Put* call, or a BeginArray/.../EndContainer sequence for
+// a list attribute. Returning a non-nil err sends an
+// AttributeStatusIB{Failure} instead.
+type readHandler func() (encodeData func(enc tlv.Encoder) error, err error)
 
 // imServer is a minimal Interaction Model server: it dispatches
 // ReadRequestMessage/InvokeRequestMessage traffic received over a
@@ -165,9 +167,9 @@ func (s *imServer) serveRead(exchangeID message.ExchangeID, tlvData []byte) erro
 	if !ok {
 		return s.sendReadStatus(exchangeID, req, 0x86 /* UnsupportedAttribute */)
 	}
-	value, err := h()
+	encodeData, err := h()
 	if err != nil {
 		return s.sendReadStatus(exchangeID, req, 0x01 /* Failure */)
 	}
-	return s.sendReadData(exchangeID, req.endpoint, req.cluster, req.attribute, value)
+	return s.sendReadData(exchangeID, req.endpoint, req.cluster, req.attribute, encodeData)
 }

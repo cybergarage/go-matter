@@ -407,10 +407,12 @@ func (s *imServer) sendInvokeStatus(exchangeID message.ExchangeID, req decodedIn
 	return s.sendIMMessage(exchangeID, message.InvokeResponseMessage, enc.Bytes())
 }
 
-// sendReadData replies to a ReadRequest with an AttributeDataIB carrying a
-// boolean value.
+// sendReadData replies to a ReadRequest with an AttributeDataIB carrying an
+// arbitrary attribute value, written by encodeData at the Data element
+// (ContextTag(2)) — a scalar Put* call, or a BeginArray/.../EndContainer
+// sequence for a list attribute.
 // 10.7.9. ReportDataMessage / 10.6.3. AttributeDataIB.
-func (s *imServer) sendReadData(exchangeID message.ExchangeID, endpoint im.EndpointID, cluster im.ClusterID, attribute im.AttributeID, value bool) error {
+func (s *imServer) sendReadData(exchangeID message.ExchangeID, endpoint im.EndpointID, cluster im.ClusterID, attribute im.AttributeID, encodeData func(enc tlv.Encoder) error) error {
 	enc := tlv.NewEncoder()
 	enc.BeginStructure(tlv.NewAnonymousTag())
 	enc.BeginArray(tlv.NewContextTag(1))      // attribute-report-IBs
@@ -428,7 +430,9 @@ func (s *imServer) sendReadData(exchangeID message.ExchangeID, endpoint im.Endpo
 	if err := enc.EndContainer(); err != nil { // end AttributePathIB
 		return err
 	}
-	enc.PutBool(tlv.NewContextTag(2), value)   // Data
+	if err := encodeData(enc); err != nil { // Data
+		return err
+	}
 	if err := enc.EndContainer(); err != nil { // end AttributeDataIB
 		return err
 	}

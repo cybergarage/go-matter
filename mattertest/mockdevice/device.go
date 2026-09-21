@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/cybergarage/go-logger/log"
+	"github.com/cybergarage/go-matter/matter/encoding/message"
 	"github.com/cybergarage/go-matter/matter/io"
 	"github.com/cybergarage/go-matter/matter/types"
 )
@@ -184,7 +185,7 @@ func (d *Device) StartBLE(paseTransport io.Transport, closer func() error) error
 }
 
 // Stop shuts down the device's transport and waits for its serve goroutine
-// to exit.
+// (and everything it spawned) to exit.
 func (d *Device) Stop() error {
 	if d.closer == nil {
 		return nil
@@ -228,10 +229,11 @@ func (d *Device) signalCommissioningComplete() {
 // serve runs PASE to completion, then serves Interaction Model requests
 // over the resulting secure session until AddNOC succeeds (the last
 // PASE-phase step before a commissioner moves on to Network Commissioning —
-// skipped here, see the Device doc comment — and then CASE), then runs CASE
-// to completion and serves Interaction Model requests (just
-// CommissioningComplete, in the base scenario) over that session until the
-// connection closes.
+// skipped here, see the Device doc comment — and then CASE), then accepts
+// and serves any number of CASE sessions in turn (the commissioning-time
+// one, and any later Commissioner.Connect reconnection) for as long as this
+// Device runs — see the CASE dispatch loop below for why a single
+// handleCASE-then-serve-forever pass isn't enough.
 func (d *Device) serve() {
 	defer d.wg.Done()
 	ctx := context.Background()
@@ -278,20 +280,157 @@ func (d *Device) serve() {
 		break
 	}
 
-	caseSess, err := handleCASE(ctx, d.caseTransport, d.fs)
+	// This goroutine becomes the CASE dispatch pump: the sole reader of
+	// d.caseTransport's physical socket for the rest of this Device's
+	// life, demultiplexing every datagram it reads — the commissioning-
+	// time handshake, and any number of later Commissioner.Connect
+	// reconnections, all arriving on this same shared socket (mockdevice's
+	// fake discoverers always report this Device's one listening port for
+	// both commissionable- and operational-node lookups; see
+	// fakenode.go's Search) — by peeking each raw datagram's cleartext
+	// SessionID and handing it to either the currently active CASE
+	// session's channelTransport, or a freshly spawned handshake attempt's
+	// own channelTransport.
+	//
+	// A per-session/per-attempt channelTransport (rather than a single
+	// shared transport with a one-packet pushback buffer) is required
+	// because session.SecureSession.Receive
+	// (matter/protocol/session/session_impl.go) transparently loops past
+	// standalone MRP acks and foreign-session packets, re-reading its
+	// transport internally without ever returning control to its caller.
+	// A single imServer.serveOne call can therefore silently pull an
+	// unbounded number of physical packets, not just the one routed to
+	// it — so if every session read the same shared transport directly, an
+	// old session still blocked past a trailing ack could silently steal
+	// and discard a brand new handshake's Sigma1 before this dispatch loop
+	// ever saw it, and Connect would simply time out. Each session (and
+	// handshake attempt) instead runs on its own goroutine, reading only
+	// its own channel — its internal retry loop can never observe a packet
+	// this pump decided belongs to someone else.
+	var sessionsWG sync.WaitGroup
+	defer sessionsWG.Wait()
+
+	var mu sync.Mutex
+	// pendingCh is the channel of a CASE handshake currently in progress
+	// (Sigma1..SigmaFinished), if any: every message of that exchange
+	// travels over the unsecured session (header SessionID 0, spec
+	// 4.14.1.1), the same as Sigma1 itself, so this — not the header's
+	// SessionID, which can't tell two different unsecured exchanges apart
+	// — is what lets a multi-packet handshake's later messages (e.g.
+	// Sigma3) reach the same goroutine/channel Sigma1 started, instead of
+	// each spawning a new handshake attempt of its own.
+	var pendingCh *channelTransport
+	var activeSessionID message.SessionID
+	var activeCh *channelTransport
+	var haveActiveSession bool
+	// allCh tracks every channelTransport ever created, so that once this
+	// pump's own physical Receive errors (Device.Stop closed the socket),
+	// every session/handshake goroutine still blocked on one — including
+	// stale ones no longer pendingCh/activeCh — gets unblocked too. See
+	// channelTransport's doc comment for why closing, not context
+	// cancellation, is what does this.
+	var allCh []*channelTransport
+
+	for {
+		raw, err := d.caseTransport.Receive(ctx)
+		if err != nil {
+			log.Debugf("mockdevice: CASE dispatch: transport ended: %v", err)
+			mu.Lock()
+			for _, c := range allCh {
+				c.close()
+			}
+			mu.Unlock()
+			return
+		}
+		hdr, err := message.NewHeaderFromBytes(raw)
+		if err != nil {
+			log.Debugf("mockdevice: CASE dispatch: malformed frame header: %v", err)
+			continue
+		}
+
+		mu.Lock()
+		switch {
+		case haveActiveSession && hdr.SessionID() == activeSessionID:
+			ch := activeCh
+			mu.Unlock()
+			ch.feed(raw)
+			continue
+		case pendingCh != nil && hdr.SessionID() == 0:
+			ch := pendingCh
+			mu.Unlock()
+			ch.feed(raw)
+			continue
+		}
+		// Neither the active session nor an in-progress handshake: start a
+		// fresh CASE handshake attempt on its own goroutine, so this pump
+		// keeps reading regardless of how long it takes. handleCASE's own
+		// receiveNonAckMessage discards raw harmlessly if it turns out not
+		// to actually be a Sigma1 (e.g. a stray unsecured MRP ack, or a
+		// stray encrypted packet left over from a session that just
+		// ended).
+		attemptCh := newChannelTransport(d.caseTransport)
+		pendingCh = attemptCh
+		allCh = append(allCh, attemptCh)
+		mu.Unlock()
+		attemptCh.feed(raw)
+		sessionsWG.Go(func() {
+			d.serveCASESession(ctx, attemptCh, &mu, &pendingCh, &activeSessionID, &activeCh, &haveActiveSession)
+		})
+	}
+}
+
+// serveCASESession runs one CASE handshake attempt over ch to completion
+// and, if it succeeds, serves Interaction Model requests over the
+// resulting session until it ends — recording itself as the dispatch
+// pump's active session for as long as it's the most recently established
+// one. mu guards pendingCh/activeSessionID/activeCh/haveActiveSession,
+// shared with serve's dispatch loop.
+func (d *Device) serveCASESession(ctx context.Context, ch *channelTransport, mu *sync.Mutex, pendingCh **channelTransport, activeSessionID *message.SessionID, activeCh **channelTransport, haveActiveSession *bool) {
+	caseSess, err := handleCASE(ctx, ch, d.fs)
+
+	mu.Lock()
+	if *pendingCh == ch {
+		*pendingCh = nil
+	}
+	if err == nil {
+		*activeSessionID = caseSess.SessionKeys().InitiatorSessionID()
+		*activeCh = ch
+		*haveActiveSession = true
+	}
+	mu.Unlock()
+
 	if err != nil {
-		log.Debugf("mockdevice: CASE ended: %v", err)
+		log.Debugf("mockdevice: CASE handshake attempt failed: %v", err)
 		return
 	}
 
 	caseIM := newIMServer(caseSess)
-	registerGeneralCommissioningHandlers(caseIM, d.signalCommissioningComplete)
+	registerCASEHandlers(d, caseIM)
+
 	for {
 		if err := caseIM.serveOne(); err != nil {
 			log.Debugf("mockdevice: IM (CASE) ended: %v", err)
+			mu.Lock()
+			if *activeCh == ch {
+				*haveActiveSession = false
+				*activeCh = nil
+			}
+			mu.Unlock()
 			return
 		}
 	}
+}
+
+// registerCASEHandlers wires every operational-phase (CASE) cluster handler
+// onto a freshly created caseIM. Called once per CASE session — including
+// every later Commissioner.Connect reconnection — since imServer's handler
+// map is per-instance, not shared across sessions.
+func registerCASEHandlers(d *Device, caseIM *imServer) {
+	registerGeneralCommissioningHandlers(caseIM, d.signalCommissioningComplete)
+	registerDescriptorHandlers(caseIM, d)
+	registerBasicInformationHandlers(caseIM, d)
+	registerAccessControlHandlers(caseIM, d)
+	registerGeneralDiagnosticsHandlers(caseIM, d)
 }
 
 // udpDeviceTransport adapts a bound *net.UDPConn to io.Transport for a
