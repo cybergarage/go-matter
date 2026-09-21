@@ -48,8 +48,21 @@ func (t *transport) Handshake(ctx context.Context) (btp.HandshakeResponse, error
 	// write, matching the reference chip-tool implementation's
 	// BluezConnection::SendWriteRequestImpl, which explicitly sets
 	// type="request" for every C1 write.
+	//
+	// The write must also happen *before* subscribing to C2, not after:
+	// some commissionees only flush their buffered handshake response once
+	// they observe the client enabling notifications following the write,
+	// and never deliver it if notifications were already enabled beforehand
+	// (confirmed by comparing raw HCI captures of a working chip-tool
+	// session, which writes C1 then enables C2, against go-matter's
+	// previous subscribe-then-write order, which the same device never
+	// responded to).
 	_, err := t.Write(ctx, btp.NewHandshakeRequest().Bytes())
 	if err != nil {
+		return nil, err
+	}
+
+	if err := t.Subscribe(); err != nil {
 		return nil, err
 	}
 
