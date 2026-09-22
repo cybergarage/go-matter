@@ -495,7 +495,11 @@ type fakeBLECharacteristic struct {
 	name string
 }
 
-func (c *fakeBLECharacteristic) Service() ble.Service      { return nil }
+func (c *fakeBLECharacteristic) Service() ble.Service { return nil }
+
+// MTU reports the BTP characteristic payload limit, because the fake link has
+// no real ATT connection to negotiate one over.
+func (c *fakeBLECharacteristic) MTU() (int, error)         { return matterble.C1MaxDataLen + 3, nil }
 func (c *fakeBLECharacteristic) UUID() ble.UUID            { return c.uuid }
 func (c *fakeBLECharacteristic) Name() string              { return c.name }
 func (c *fakeBLECharacteristic) ID() string                { return "" }
@@ -525,6 +529,9 @@ func (t *fakeBLETransport) Subscribe() error {
 	t.ch.subscribe()
 	return nil
 }
+
+// MTU reports the BTP characteristic payload limit.
+func (t *fakeBLETransport) MTU() (int, error) { return matterble.C1MaxDataLen + 3, nil }
 
 func (t *fakeBLETransport) WriteCharacteristic() (ble.Characteristic, error) {
 	return &fakeBLECharacteristic{uuid: matterble.C1UUID, name: "C1 (Client TX Buffer)"}, nil
@@ -640,10 +647,14 @@ func (d *fakeBLEDevice) Manufacturer() ble.Manufacturer { return fakeManufacture
 func (d *fakeBLEDevice) LocalName() string              { return "MOCK_" + d.addr.String() }
 func (d *fakeBLEDevice) Address() ble.Address           { return d.addr }
 func (d *fakeBLEDevice) Services() []ble.Service        { return []ble.Service{d.service} }
-func (d *fakeBLEDevice) RSSI() int                      { return -40 }
-func (d *fakeBLEDevice) DiscoveredAt() time.Time        { return time.Time{} }
-func (d *fakeBLEDevice) ModifiedAt() time.Time          { return time.Time{} }
-func (d *fakeBLEDevice) LastSeenAt() time.Time          { return time.Time{} }
+
+// Manufacturers reports no manufacturer specific data: the fake advertisement
+// carries its identity in the Matter service data instead.
+func (d *fakeBLEDevice) Manufacturers() []ble.Manufacturer { return nil }
+func (d *fakeBLEDevice) RSSI() int                         { return -40 }
+func (d *fakeBLEDevice) DiscoveredAt() time.Time           { return time.Time{} }
+func (d *fakeBLEDevice) ModifiedAt() time.Time             { return time.Time{} }
+func (d *fakeBLEDevice) LastSeenAt() time.Time             { return time.Time{} }
 
 func (d *fakeBLEDevice) Connect(context.Context) error {
 	d.mu.Lock()
