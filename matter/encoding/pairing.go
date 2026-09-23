@@ -131,7 +131,7 @@ func decodeManualPairingCode(paraingCodeStr string) (*pairingCode, error) {
 	var code strings.Builder
 	for _, r := range paraingCodeStr {
 		if unicode.IsDigit(r) {
-			code.WriteString(string(r))
+			code.WriteRune(r)
 		}
 	}
 

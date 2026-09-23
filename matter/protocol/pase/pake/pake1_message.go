@@ -165,7 +165,7 @@ func (m *pake1Message) Bytes() ([]byte, error) {
 
 func (m *pake1Message) Map() map[string]any {
 	return map[string]any{
-		"message":       m.Message.Map(),
+		messageMapKey:   m.Message.Map(),
 		"pake-1-struct": m.Pake1.Map(),
 	}
 }

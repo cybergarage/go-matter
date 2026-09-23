@@ -20,3 +20,7 @@ import (
 // Message represents a complete message with frame header, protocol header, and payload.
 // 4.4. Message Frame Format.
 type Message = message.Message
+
+// messageMapKey is the key which every PAKE message uses to hold its framing
+// message in the map of its Map() representation.
+const messageMapKey = "message"

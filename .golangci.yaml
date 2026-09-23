@@ -13,6 +13,12 @@ linters:
     - err113
     - errcheck
     - exhaustive
+    # A Matter message, a cluster payload and a cobra command are built from a
+    # handful of the fields of a large struct, so requiring every field to be
+    # written out adds a directive to almost every literal without finding a
+    # defect.
+    - exhaustruct
+    - exhaustruct_v5
     - forbidigo
     - funlen
     - gochecknoglobals
@@ -55,6 +61,10 @@ linters:
       disabled-checks:
         - singleCaseSwitch
         - dupArg
+        # The crypto and the protocol code names its values after the Matter
+        # specification, which writes the curve points and the transcript as
+        # Z, V, M, N and L, and renaming them would hide that correspondence.
+        - captLocal
     gosec:
       excludes:
         - G101
@@ -77,6 +87,11 @@ linters:
         - -SA1008
         - -SA5008
         - -QF1008
+        # SPAKE2+ multiplies and adds arbitrary curve points, which the
+        # crypto/ecdh package that replaced crypto/elliptic does not expose,
+        # so the deprecated low-level API is the only one which can express
+        # the PAKE.
+        - -SA1019
   exclusions:
     generated: lax
     presets:
@@ -86,7 +101,6 @@ linters:
       - std-error-handling
     rules:
       - linters:
-          - exhaustruct
           - goconst
           - gosec
           - forcetypeassert

@@ -141,8 +141,9 @@ func ccmCBCMAC(block cipher.Block, nonce, plaintext, aad []byte) ([]byte, error)
 	if hasAAD {
 		// For 0 < len(aad) < 0xFF00, encode length as 2-byte big-endian prefix.
 		aadLen := len(aad)
-		header := []byte{byte(aadLen >> 8), byte(aadLen & 0xFF)}
-		aadBlock := append(header, aad...) //nolint:gocritic
+		aadBlock := make([]byte, 0, 2+len(aad))
+		aadBlock = append(aadBlock, byte(aadLen>>8), byte(aadLen&0xFF))
+		aadBlock = append(aadBlock, aad...)
 		// Pad to block boundary.
 		if rem := len(aadBlock) % ccmBlockSize; rem != 0 {
 			aadBlock = append(aadBlock, make([]byte, ccmBlockSize-rem)...)

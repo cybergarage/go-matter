@@ -75,6 +75,8 @@ func TestCommissioner(t *testing.T) {
 		{
 			name: scenario.Name,
 			run: func(t *testing.T) {
+				t.Helper()
+
 				ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 				defer cancel()
 

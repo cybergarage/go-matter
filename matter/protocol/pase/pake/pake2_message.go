@@ -250,7 +250,7 @@ func (m *pake2Message) Bytes() ([]byte, error) {
 
 func (m *pake2Message) Map() map[string]any {
 	return map[string]any{
-		"message":       m.Message.Map(),
+		messageMapKey:   m.Message.Map(),
 		"pake-2-struct": m.Pake2.Map(),
 	}
 }

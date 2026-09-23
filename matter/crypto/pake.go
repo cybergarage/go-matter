@@ -212,7 +212,7 @@ func CryptoPB(y, w0 []byte) ([]byte, error) {
 // x is the initiator's ephemeral random scalar, w0 and w1 are derived by CryptoPAKEValuesInitiator,
 // and pB is the responder's public value received in Pake2.
 // 3.10.3. Computation of transcript TT.
-func CryptoPAKESharedPoints(x, w0, w1, pB []byte) (Z []byte, V []byte, err error) {
+func CryptoPAKESharedPoints(x, w0, w1, pB []byte) ([]byte, []byte, error) {
 	if len(x) != CryptoGroupSizeBytes {
 		return nil, nil, newErrInvalidLen("x", CryptoGroupSizeBytes, len(x))
 	}
@@ -245,8 +245,8 @@ func CryptoPAKESharedPoints(x, w0, w1, pB []byte) (Z []byte, V []byte, err error
 	Zx, Zy := curve.ScalarMult(tmpX, tmpY, x)
 	// V = w1 * tmp
 	Vx, Vy := curve.ScalarMult(tmpX, tmpY, w1)
-	Z = elliptic.Marshal(curve, Zx, Zy)
-	V = elliptic.Marshal(curve, Vx, Vy)
+	Z := elliptic.Marshal(curve, Zx, Zy)
+	V := elliptic.Marshal(curve, Vx, Vy)
 	return Z, V, nil
 }
 
@@ -262,7 +262,7 @@ func CryptoPAKESharedPoints(x, w0, w1, pB []byte) (Z []byte, V []byte, err error
 // (=w1·P), never w1 itself, per connectedhomeip's Spake2p::ComputeRoundTwo
 // (VERIFIER role: PointAddMul(Z, X, xy, invert(M), xy*w0); PointMul(V, L, xy)).
 // 3.10.3. Computation of transcript TT.
-func CryptoPAKESharedPointsResponder(y, w0, l, pA []byte) (Z []byte, V []byte, err error) {
+func CryptoPAKESharedPointsResponder(y, w0, l, pA []byte) ([]byte, []byte, error) {
 	if len(y) != CryptoGroupSizeBytes {
 		return nil, nil, newErrInvalidLen("y", CryptoGroupSizeBytes, len(y))
 	}
@@ -297,8 +297,8 @@ func CryptoPAKESharedPointsResponder(y, w0, l, pA []byte) (Z []byte, V []byte, e
 	Zx, Zy := curve.ScalarMult(tmpX, tmpY, y)
 	// V = y * L
 	Vx, Vy := curve.ScalarMult(Lx, Ly, y)
-	Z = elliptic.Marshal(curve, Zx, Zy)
-	V = elliptic.Marshal(curve, Vx, Vy)
+	Z := elliptic.Marshal(curve, Zx, Zy)
+	V := elliptic.Marshal(curve, Vx, Vy)
 	return Z, V, nil
 }
 
