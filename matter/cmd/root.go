@@ -33,11 +33,23 @@ const (
 )
 
 var rootCmd = &cobra.Command{ // nolint:exhaustruct
-	Use:               ProgramName,
+	Use:   ProgramName,
+	Short: "Commission and operate Matter devices",
+	Long: `matterctl commissions a Matter device onto a fabric and operates it afterwards.
+
+  matterctl scan                             discover commissionable devices
+  matterctl pairing code <node> <code>       commission a device over BLE or IP
+  matterctl basicinformation read ...        read an attribute of a cluster
+  matterctl onoff on <node> <endpoint>       invoke a command of a cluster
+  matterctl any read <cluster> <attr> ...    reach a cluster which has no command of its own
+  matterctl reset                            forget the commissioned devices
+
+matterctl is a commissioner. Running as a Matter device is not supported.`,
 	Version:           matter.Version,
-	Short:             "",
-	Long:              "",
 	DisableAutoGenTag: true,
+	// The usage is not printed for a runtime error, such as a device which
+	// is not found, because the command line itself is valid.
+	SilenceUsage: true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		log.SetDefault(nil)
 		verbose := viper.GetBool(VerboseParamStr)

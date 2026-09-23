@@ -1,6 +1,19 @@
 ## matterctl
 
+Commission and operate Matter devices
 
+### Synopsis
+
+matterctl commissions a Matter device onto a fabric and operates it afterwards.
+
+  matterctl scan                             discover commissionable devices
+  matterctl pairing code <node> <code>       commission a device over BLE or IP
+  matterctl basicinformation read ...        read an attribute of a cluster
+  matterctl onoff on <node> <endpoint>       invoke a command of a cluster
+  matterctl any read <cluster> <attr> ...    reach a cluster which has no command of its own
+  matterctl reset                            forget the commissioned devices
+
+matterctl is a commissioner. Running as a Matter device is not supported.
 
 ### Options
 
@@ -19,6 +32,7 @@
 * [matterctl generaldiagnostics]()	 - General Diagnostics cluster (0x0033) commands.
 * [matterctl onoff]()	 - On/Off cluster (0x0006) commands.
 * [matterctl pairing]()	 - Pairing Matter devices.
+* [matterctl reset]()	 - Remove the local persistence directory.
 * [matterctl scan]()	 - Scan for Matter devices.
 
 ## matterctl accesscontrol
@@ -938,6 +952,33 @@ matterctl pairing help [command] [flags]
 
 ```
   -h, --help   help for help
+```
+
+### Options inherited from parent commands
+
+```
+      --debug           enable debug output
+      --format string   output format: table|json|csv (default "table")
+      --verbose         enable verbose output
+```
+
+
+## matterctl reset
+
+Remove the local persistence directory.
+
+### Synopsis
+
+Remove ~/.matterctl, deleting the persisted fabric identity and commissioned-device records. For testing only.
+
+```
+matterctl reset [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for reset
 ```
 
 ### Options inherited from parent commands
