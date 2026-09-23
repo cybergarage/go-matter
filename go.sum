@@ -6,6 +6,8 @@ github.com/cybergarage/go-logger v1.3.12 h1:jGQHdG0M0Urc8GJtILPT5nz/s0PiP/vW5Rt5
 github.com/cybergarage/go-logger v1.3.12/go.mod h1:3/G/eFtmCZDWlw6+D6tJHffynx0Qe8sMWHXojwLN/Pg=
 github.com/cybergarage/go-mdns v0.9.0 h1:bymHmdPV5fWPQXgip7IdFXhgHtlkRyYV1i/RTg2RL3c=
 github.com/cybergarage/go-mdns v0.9.0/go.mod h1:Wy625/55lF5XTOV0Dfnnj+jBq1iURE5ulWsheTfafNo=
+github.com/cybergarage/go-mdns v0.9.1 h1:3QRgdMTHajrlg9jRm+usw9B7Kn9e/wKBmhj+V4R68t0=
+github.com/cybergarage/go-mdns v0.9.1/go.mod h1:Wy625/55lF5XTOV0Dfnnj+jBq1iURE5ulWsheTfafNo=
 github.com/cybergarage/go-safecast v1.3.5 h1:dCroj5TEEhwLVMGCzWQgQLBrtbSWTb8JNw/8UQMtt1E=
 github.com/cybergarage/go-safecast v1.3.5/go.mod h1:1Ds38TLydkKlIe7hXG3Zy/I1JmwaN9OuWLP0psFi3X0=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
