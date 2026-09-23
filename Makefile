@@ -59,9 +59,23 @@ DOCS_ROOT_DIR=doc
 
 all: codecov
 
+# The version is generated from the latest tag. It is kept as it is when there
+# is no tag yet, and when the generated version is not newer than the one which
+# version.go holds, so that a release which is prepared by hand is not lost.
 version:
-	@pushd ${PKG_SRC_DIR} && ./version.gen > version.go && popd
-	-git commit ${PKG_SRC_DIR}/version.go -m "Update version"
+	@cur_version=$$(sed -n 's/.*Version = "\(.*\)".*/\1/p' ${PKG_SRC_DIR}/version.go); \
+	new_version=$$(cd ${PKG_SRC_DIR} && ./version.gen 2>/dev/null | sed -n 's/.*Version = "\(.*\)".*/\1/p'); \
+	if [ -z "$$new_version" ]; then \
+		echo "version: no tag is found: $$cur_version is kept"; \
+	elif [ "$$cur_version" = "$$new_version" ]; then \
+		echo "version: $$cur_version is up to date"; \
+	elif [ "$$(printf '%s\n%s\n' "$$cur_version" "$$new_version" | sort -V | tail -n 1)" != "$$new_version" ]; then \
+		echo "version: $$cur_version is kept ($$new_version is not newer)"; \
+	else \
+		(cd ${PKG_SRC_DIR} && ./version.gen > version.go) && \
+		echo "version: $$cur_version -> $$new_version"; \
+		git commit ${PKG_SRC_DIR}/version.go -m "Update version" || true; \
+	fi
 
 format: version
 	gofmt -s -w ${PKG_SRC_DIR} ${TEST_PKG_DIR} ${BIN_ROOT_DIR}
