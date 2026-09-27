@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -112,6 +113,50 @@ func TestNewCommissionerWithAdministratorConfig(t *testing.T) {
 	}
 }
 
+// TestStartUsesInjectedStore checks that a Store passed with
+// WithCommissionerStore is used as is: Start restores the fabric identity
+// from it and never opens a file store under the home directory.
+func TestStartUsesInjectedStore(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+
+	st := store.NewMemStore()
+	if err := st.SaveFabric(store.FabricRecord{
+		FabricID:      2,
+		AdminNodeID:   1,
+		AdminVendorID: 0xFFF1,
+		IPK:           []byte("0123456789abcdef"),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	cmr, ok := NewCommissioner(WithCommissionerStore(st)).(*commissioner)
+	if !ok {
+		t.Fatalf("NewCommissioner(...) returned %T, want *commissioner", cmr)
+	}
+	cmr.discoverer = &stubDiscoverer{}
+
+	if err := cmr.Start(); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	if cmr.store != st {
+		t.Fatal("Start() replaced the injected store")
+	}
+	if cmr.adminConfig == nil {
+		t.Fatal("Start() did not restore the administrator config from the injected store")
+	}
+	if fabricID, ok := cmr.adminConfig.FabricID(); !ok || fabricID != 2 {
+		t.Fatalf("adminConfig.FabricID() = (%v, %v), want (2, true)", fabricID, ok)
+	}
+	entries, err := os.ReadDir(home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("Start() wrote to the home directory: %v", entries)
+	}
+}
+
 func TestConnectRequiresStore(t *testing.T) {
 	cmr := &commissioner{}
 	_, err := cmr.Connect(context.Background(), 1)
@@ -121,30 +166,24 @@ func TestConnectRequiresStore(t *testing.T) {
 }
 
 func TestConnectRequiresFabricIdentity(t *testing.T) {
-	st, err := store.NewStore(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
+	st := store.NewMemStore()
 	cmr := &commissioner{store: st}
 
-	_, err = cmr.Connect(context.Background(), 1)
+	_, err := cmr.Connect(context.Background(), 1)
 	if !errors.Is(err, ErrNotFound) {
 		t.Fatalf("Connect(...) error = %v, want ErrNotFound", err)
 	}
 }
 
 func TestConnectReturnsNotFoundForUnknownNode(t *testing.T) {
-	st, err := store.NewStore(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
+	st := store.NewMemStore()
 	cmr := &commissioner{
 		store:             st,
 		adminConfig:       validAdministratorConfig(),
 		operationalConfig: validOperationalCredentialsConfig(),
 	}
 
-	_, err = cmr.Connect(context.Background(), 0xDEAD)
+	_, err := cmr.Connect(context.Background(), 0xDEAD)
 	if !errors.Is(err, ErrNotFound) {
 		t.Fatalf("Connect(...) error = %v, want ErrNotFound", err)
 	}
@@ -158,10 +197,7 @@ func TestConnectSuccess(t *testing.T) {
 		establishOperationalCASESession = prevEstablishCASE
 	})
 
-	st, err := store.NewStore(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
+	st := store.NewMemStore()
 	adminCfg := validAdministratorConfig()
 	cmr := &commissioner{
 		store:             st,
@@ -223,10 +259,7 @@ func TestConnectAppliesDefaultTimeout(t *testing.T) {
 		establishOperationalCASESession = prevEstablishCASE
 	})
 
-	st, err := store.NewStore(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
+	st := store.NewMemStore()
 	adminCfg := validAdministratorConfig()
 	cmr := &commissioner{
 		store:             st,

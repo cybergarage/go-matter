@@ -33,7 +33,7 @@ import (
 // DefaultAppName is the directory name (under the user's home directory,
 // prefixed with ".") a Commissioner persists its fabric identity and
 // commissioned-device records to, unless overridden by
-// WithCommissionerAppName or WithCommissionerStoreDir.
+// WithCommissionerAppName, WithCommissionerStoreDir or WithCommissionerStore.
 const DefaultAppName = "go-matter"
 
 // CommissionerOption defines a functional option for configuring a Commissioner.
@@ -98,6 +98,18 @@ func WithCommissionerAppName(name string) CommissionerOption {
 func WithCommissionerStoreDir(dir string) CommissionerOption {
 	return func(cmr *commissioner) {
 		cmr.storeDir = dir
+	}
+}
+
+// WithCommissionerStore sets the Store a Commissioner persists its fabric
+// identity and commissioned-device records to, bypassing the file store
+// under ~/.{appName} (and WithCommissionerAppName/WithCommissionerStoreDir)
+// entirely. Use it to keep that state somewhere other than the local
+// filesystem (store.NewStoreWithKVStore over a custom store.KVStore), or
+// in memory in tests (store.NewMemStore()).
+func WithCommissionerStore(st store.Store) CommissionerOption {
+	return func(cmr *commissioner) {
+		cmr.store = st
 	}
 }
 
@@ -442,27 +454,23 @@ func (cmr *commissioner) commissionOptions(opts ...CommissionOption) []Commissio
 	return append(defaults, opts...)
 }
 
-// Start resolves this Commissioner's persistence directory (storeDir if
-// explicitly set, else ~/.{appName}), opens its Store, and — only for
+// Start opens this Commissioner's Store — the one passed via
+// WithCommissionerStore if any, else a file store in storeDir if
+// explicitly set, else in ~/.{appName} — and — only for
 // whichever of adminConfig/operationalConfig wasn't explicitly passed via
 // WithCommissionerAdministratorConfig/WithCommissionerOperationalCredentialsConfig —
 // falls back to a previously persisted fabric identity, if one exists.
 // Explicit config always wins; disk is a best-effort fallback, and a load
 // failure is logged, not fatal.
 func (cmr *commissioner) Start() error {
-	dir := cmr.storeDir
-	if dir == "" {
-		home, err := os.UserHomeDir()
+	if cmr.store == nil {
+		st, err := cmr.openFileStore()
 		if err != nil {
-			return fmt.Errorf("commissioner: resolve home directory: %w", err)
+			return err
 		}
-		dir = filepath.Join(home, "."+cmr.appName)
+		cmr.store = st
 	}
-	st, err := store.NewStore(dir)
-	if err != nil {
-		return fmt.Errorf("commissioner: open persistence store: %w", err)
-	}
-	cmr.store = st
+	st := cmr.store
 
 	if cmr.adminConfig == nil || cmr.operationalConfig == nil {
 		rec, ok, err := st.LoadFabric()
@@ -482,6 +490,24 @@ func (cmr *commissioner) Start() error {
 		return err
 	}
 	return nil
+}
+
+// openFileStore opens the default file-backed Store in storeDir, or in
+// ~/.{appName} when storeDir is not set.
+func (cmr *commissioner) openFileStore() (store.Store, error) {
+	dir := cmr.storeDir
+	if dir == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return nil, fmt.Errorf("commissioner: resolve home directory: %w", err)
+		}
+		dir = filepath.Join(home, "."+cmr.appName)
+	}
+	st, err := store.NewStore(dir)
+	if err != nil {
+		return nil, fmt.Errorf("commissioner: open persistence store: %w", err)
+	}
+	return st, nil
 }
 
 func administratorConfigFromRecord(rec store.FabricRecord) config.AdministratorConfig {
