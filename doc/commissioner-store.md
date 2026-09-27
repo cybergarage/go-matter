@@ -9,14 +9,16 @@ having to manage that state itself.
 
 The persistence layer is implemented in the [`matter/store`](../matter/store)
 package; `Commissioner` wires it in automatically (see
-[Lifecycle](#lifecycle) below).
+[Lifecycle](#lifecycle) below). The filesystem is only the default backend:
+the same records can be kept in memory or in any other storage (see
+[Storage backends](#storage-backends)).
 
 ## Directory Layout
 
 ```
 ~/.{app-name}/
 ├── fabric.json
-└── commissionees/
+└── commissions/
     └── <compressedFabricID>-<nodeID>.json
 ```
 
@@ -75,7 +77,7 @@ Example:
 }
 ```
 
-## `commissionees/<compressedFabricID>-<nodeID>.json` — per-device record
+## `commissions/<compressedFabricID>-<nodeID>.json` — per-device record
 
 One record per device the `Commissioner` has successfully commissioned.
 
@@ -124,12 +126,61 @@ cmr := matter.NewCommissioner(matter.WithCommissionerAppName("myapp"))
 // mainly for tests, which should always use this to avoid touching the
 // real user's home directory (e.g. matter.WithCommissionerStoreDir(t.TempDir())).
 cmr := matter.NewCommissioner(matter.WithCommissionerStoreDir("/path/to/dir"))
+
+// A Store of your own, bypassing the filesystem entirely. In tests,
+// store.NewMemStore() keeps everything in memory.
+cmr := matter.NewCommissioner(matter.WithCommissionerStore(store.NewMemStore()))
 ```
+
+## Storage backends
+
+The `matter/store` package has two layers:
+
+| Layer | Type | Role |
+|-------|------|------|
+| Backend | `store.KVStore` | Byte values under slash-separated keys (`fabric.json`, `commissions/<id>.json`): `Get`, `Set`, `Delete`, `List(prefix)`. |
+| Backend | `store.TxKVStore` | A `KVStore` that also groups several writes into one atomic update with `Begin()` → `Tx` (`Set`/`Delete`/`Commit`/`Rollback`). |
+| Typed | `store.Store` | `FabricRecord` and `CommissioneeRecord`, encoded as JSON onto a `KVStore`. |
+
+Two backends are provided:
+
+- `store.NewFileKVStore(dir)` keeps one file per key under `dir`, so the
+  key `commissions/<id>.json` is the file of that name. `store.NewStore(dir)`
+  is `store.NewStoreWithKVStore` over this backend, and is what a
+  `Commissioner` opens by default.
+- `store.NewMemKVStore()` keeps everything in memory.
+  `store.NewMemStore()` is `store.NewStoreWithKVStore` over this backend.
+
+Any other storage (a database, a secure element, a remote service) can be
+plugged in by implementing `KVStore` and passing
+`store.NewStoreWithKVStore(kv)` to `matter.WithCommissionerStore`.
+
+A key is one or more non-empty segments separated by `/`; a segment may only
+contain ASCII letters, digits, `.`, `-` and `_`, and must not start with `.`.
+So no key can escape a `FileKVStore`'s directory, and names starting with `.`
+are left to the backend's own bookkeeping.
+
+### Atomicity
+
+- A single `Set` on a `FileKVStore` writes a temporary file, syncs it and
+  renames it over the target, so a crash leaves either the old or the new
+  value, never a truncated one.
+- A `Tx.Commit` on a `FileKVStore` first writes every pending write to
+  `.journal.json` in the base directory, then applies them, then removes the
+  journal. `NewFileKVStore` replays a journal left behind by a crash, so a
+  committed transaction is always applied in full, and one that did not
+  reach its journal is not applied at all.
+
+The `Commissioner` itself does not need transactions yet. They are there for
+the device side, where the NOC, the ACL and the fabric table written during
+commissioning must be committed together, or rolled back when the fail-safe
+expires.
 
 ## Lifecycle
 
-- **`Start()`** resolves the directory (`storeDir` if set, else
-  `~/.{appName}`) and opens the store. For whichever of
+- **`Start()`** uses the `Store` passed with `WithCommissionerStore`, if
+  any; otherwise it resolves the directory (`storeDir` if set, else
+  `~/.{appName}`) and opens a file store there. For whichever of
   `AdministratorConfig`/`OperationalCredentialsConfig` was *not* passed
   explicitly via `WithCommissionerAdministratorConfig`/
   `WithCommissionerOperationalCredentialsConfig`, it tries to load a
@@ -138,7 +189,7 @@ cmr := matter.NewCommissioner(matter.WithCommissionerStoreDir("/path/to/dir"))
   given directly, and a load failure is logged, not fatal.
 - **`Commission(...)`**, on success, saves `fabric.json` (using whatever
   `AdministratorConfig`/`OperationalCredentialsConfig` were actually used
-  for that call) and a new `commissionees/*.json` record for the device
+  for that call) and a new `commissions/*.json` record for the device
   just commissioned. A save failure is logged but does not fail
   `Commission()` — the device is genuinely commissioned regardless of
   whether the local cache write succeeded.
@@ -151,10 +202,12 @@ this package writes is created at `0600` inside a `0700` directory as the
 mitigation for that — the same posture as e.g. `~/.ssh`. This is not new
 exposure: the same key material already flows through the process in
 plaintext PEM/DER today, supplied by the caller; persistence just makes it
-durable on disk. There is currently no encryption at rest, no file
-locking for multiple `Commissioner` instances sharing a directory, and no
-API to delete/forget a device's record — treat `~/.{app-name}/` with the
-same care as any other local credential store.
+durable on disk. There is currently no encryption at rest and no file
+locking for multiple processes sharing a directory — treat `~/.{app-name}/`
+with the same care as any other local credential store. A `Commissioner`
+can forget a device with `Store.DeleteCommissionee`. To keep the key
+material out of plaintext files, plug in a `KVStore` backed by an
+encrypted or hardware-protected store.
 
 ## Programmatic access
 
