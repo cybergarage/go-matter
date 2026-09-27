@@ -23,11 +23,6 @@ import (
 )
 
 const (
-	// dirMode is deliberately restrictive: fabric.json and every
-	// commissionee record hold private key material in plaintext.
-	dirMode  = 0o700
-	fileMode = 0o600
-
 	fabricFileName         = "fabric.json"
 	commissioneesDirName   = "commissions"
 	commissioneeFileGlob   = "*.json"
