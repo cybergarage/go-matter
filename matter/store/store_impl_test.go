@@ -28,15 +28,15 @@ func TestNewStoreCreatesDirectories(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStore(...) error = %v", err)
 	}
-	if got := s.Dir(); got != dir {
-		t.Fatalf("Dir() = %q, want %q", got, dir)
-	}
 	assertPermissions(t, dir, dirMode)
+	if err := s.SaveCommissionee(CommissioneeRecord{NodeID: 1, CompressedFabricID: 1}); err != nil {
+		t.Fatal(err)
+	}
 	assertPermissions(t, filepath.Join(dir, commissioneesDirName), dirMode)
 }
 
 func TestFabricRecordRoundTrip(t *testing.T) {
-	s := newTestStore(t)
+	s, dir := newTestStore(t)
 
 	if _, ok, err := s.LoadFabric(); err != nil || ok {
 		t.Fatalf("LoadFabric() before save = (_, %v, %v), want (_, false, nil)", ok, err)
@@ -56,7 +56,7 @@ func TestFabricRecordRoundTrip(t *testing.T) {
 	if err := s.SaveFabric(want); err != nil {
 		t.Fatalf("SaveFabric(...) error = %v", err)
 	}
-	assertPermissions(t, filepath.Join(s.Dir(), fabricFileName), fileMode)
+	assertPermissions(t, filepath.Join(dir, fabricKey), fileMode)
 
 	got, ok, err := s.LoadFabric()
 	if err != nil || !ok {
@@ -72,7 +72,7 @@ func TestFabricRecordRoundTrip(t *testing.T) {
 }
 
 func TestCommissioneeRecordRoundTrip(t *testing.T) {
-	s := newTestStore(t)
+	s, dir := newTestStore(t)
 
 	if _, ok, err := s.LoadCommissionee(0x1111, 0x2222); err != nil || ok {
 		t.Fatalf("LoadCommissionee(...) before save = (_, %v, %v), want (_, false, nil)", ok, err)
@@ -92,7 +92,7 @@ func TestCommissioneeRecordRoundTrip(t *testing.T) {
 		t.Fatalf("SaveCommissionee(...) error = %v", err)
 	}
 
-	wantPath := filepath.Join(s.Dir(), commissioneesDirName, "0000000000001111-0000000000002222.json")
+	wantPath := filepath.Join(dir, commissioneesDirName, "0000000000001111-0000000000002222.json")
 	assertPermissions(t, wantPath, fileMode)
 
 	got, ok, err := s.LoadCommissionee(0x1111, 0x2222)
@@ -108,7 +108,13 @@ func TestCommissioneeRecordRoundTrip(t *testing.T) {
 }
 
 func TestListCommissionees(t *testing.T) {
-	s := newTestStore(t)
+	for name, s := range testStores(t) {
+		t.Run(name, func(t *testing.T) { testListCommissionees(t, s) })
+	}
+}
+
+func testListCommissionees(t *testing.T, s Store) {
+	t.Helper()
 
 	if recs, err := s.ListCommissionees(); err != nil || len(recs) != 0 {
 		t.Fatalf("ListCommissionees() before save = (%v, %v), want (empty, nil)", recs, err)
@@ -139,13 +145,91 @@ func TestListCommissionees(t *testing.T) {
 	}
 }
 
-func newTestStore(t *testing.T) Store {
+func TestDeleteCommissionee(t *testing.T) {
+	for name, s := range testStores(t) {
+		t.Run(name, func(t *testing.T) {
+			if err := s.SaveCommissionee(CommissioneeRecord{NodeID: 2, CompressedFabricID: 0xA}); err != nil {
+				t.Fatal(err)
+			}
+			if err := s.DeleteCommissionee(0xA, 2); err != nil {
+				t.Fatalf("DeleteCommissionee(...) error = %v", err)
+			}
+			if _, ok, err := s.LoadCommissionee(0xA, 2); err != nil || ok {
+				t.Fatalf("LoadCommissionee(...) after delete = (_, %v, %v), want (_, false, nil)", ok, err)
+			}
+			if err := s.DeleteCommissionee(0xA, 2); err != nil {
+				t.Fatalf("DeleteCommissionee(missing) error = %v, want nil", err)
+			}
+		})
+	}
+}
+
+// TestNewStoreReadsExistingLayout guards the on-disk format: a directory
+// written by an earlier release, which wrote fabric.json and
+// commissions/*.json directly, must still load.
+func TestNewStoreReadsExistingLayout(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, commissioneesDirName), dirMode); err != nil {
+		t.Fatal(err)
+	}
+	fabric := `{"fabricId": 2, "adminNodeId": 1, "adminVendorId": 65521, "ipk": "AAECAwQFBgcICQoLDA0ODw=="}`
+	if err := os.WriteFile(filepath.Join(dir, "fabric.json"), []byte(fabric), fileMode); err != nil {
+		t.Fatal(err)
+	}
+	node := `{"nodeId": 34, "fabricId": 2, "compressedFabricId": 17, "vendorId": 65521}`
+	if err := os.WriteFile(filepath.Join(dir, commissioneesDirName, "0000000000000011-0000000000000022.json"), []byte(node), fileMode); err != nil {
+		t.Fatal(err)
+	}
+	// Files that are not records are ignored.
+	if err := os.WriteFile(filepath.Join(dir, commissioneesDirName, "README"), []byte("x"), fileMode); err != nil {
+		t.Fatal(err)
+	}
+
+	s, err := NewStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f, ok, err := s.LoadFabric()
+	if err != nil || !ok || f.FabricID != 2 || f.AdminNodeID != 1 || len(f.IPK) != 16 {
+		t.Fatalf("LoadFabric() = (%+v, %v, %v), want the existing record", f, ok, err)
+	}
+	rec, ok, err := s.LoadCommissionee(0x11, 0x22)
+	if err != nil || !ok || rec.NodeID != 34 {
+		t.Fatalf("LoadCommissionee(...) = (%+v, %v, %v), want the existing record", rec, ok, err)
+	}
+	recs, err := s.ListCommissionees()
+	if err != nil || len(recs) != 1 {
+		t.Fatalf("ListCommissionees() = (%v, %v), want 1 record", recs, err)
+	}
+}
+
+func TestMemStoreRoundTrip(t *testing.T) {
+	s := NewMemStore()
+	if _, ok, err := s.LoadFabric(); err != nil || ok {
+		t.Fatalf("LoadFabric() on an empty store = (_, %v, %v), want (_, false, nil)", ok, err)
+	}
+	if err := s.SaveFabric(FabricRecord{FabricID: 7}); err != nil {
+		t.Fatal(err)
+	}
+	if rec, ok, err := s.LoadFabric(); err != nil || !ok || rec.FabricID != 7 {
+		t.Fatalf("LoadFabric() = (%+v, %v, %v), want FabricID 7", rec, ok, err)
+	}
+}
+
+func newTestStore(t *testing.T) (Store, string) {
 	t.Helper()
-	s, err := NewStore(t.TempDir())
+	dir := t.TempDir()
+	s, err := NewStore(dir)
 	if err != nil {
 		t.Fatalf("NewStore(...) error = %v", err)
 	}
-	return s
+	return s, dir
+}
+
+func testStores(t *testing.T) map[string]Store {
+	t.Helper()
+	s, _ := newTestStore(t)
+	return map[string]Store{"file": s, "mem": NewMemStore()}
 }
 
 func assertPermissions(t *testing.T, path string, want os.FileMode) {

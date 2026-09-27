@@ -13,18 +13,21 @@
 // limitations under the License.
 
 // Package store persists a Commissioner's fabric identity and per-device
-// commissioning records to the local filesystem, so a controller built on
-// this library can resume the same fabric and recall which devices it has
-// already commissioned across process restarts.
+// commissioning records, so a controller built on this library can resume
+// the same fabric and recall which devices it has already commissioned
+// across process restarts.
+//
+// The package has two layers. KVStore (and TxKVStore, for atomic
+// multi-key updates) is the backend: FileKVStore keeps one file per key
+// under a directory, MemKVStore keeps everything in memory, and any other
+// backend can be plugged in by implementing the interface. Store is the
+// typed layer on top, built with NewStoreWithKVStore; NewStore and
+// NewMemStore are shorthands for the two built-in backends.
 package store
 
 // Store persists a Commissioner's fabric-wide identity (FabricRecord) and
-// its per-commissioned-device records (CommissioneeRecord) under a single
-// base directory.
+// its per-commissioned-device records (CommissioneeRecord) to a KVStore.
 type Store interface {
-	// Dir returns the resolved base directory this Store reads from and
-	// writes to.
-	Dir() string
 	// SaveFabric writes rec as the fabric-wide identity, replacing any
 	// previously saved record.
 	SaveFabric(rec FabricRecord) error
@@ -38,6 +41,10 @@ type Store interface {
 	// compressedFabricID/nodeID. ok is false, with a nil error, when no
 	// such record has been saved.
 	LoadCommissionee(compressedFabricID, nodeID uint64) (rec CommissioneeRecord, ok bool, err error)
+	// DeleteCommissionee removes the record for the device identified by
+	// compressedFabricID/nodeID. Deleting a record that does not exist is
+	// not an error.
+	DeleteCommissionee(compressedFabricID, nodeID uint64) error
 	// ListCommissionees returns every saved commissionee record, in no
 	// particular order.
 	ListCommissionees() ([]CommissioneeRecord, error)

@@ -18,70 +18,84 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
+	"strings"
 )
 
+// The keys below are also file paths relative to a FileKVStore's
+// directory, so a Store on a FileKVStore reads and writes exactly the
+// layout earlier releases wrote directly.
 const (
-	fabricFileName         = "fabric.json"
-	commissioneesDirName   = "commissions"
-	commissioneeFileGlob   = "*.json"
-	commissioneeFileLayout = "%016X-%016X.json"
+	fabricKey            = "fabric.json"
+	commissioneesDirName = "commissions"
+	commissioneeSuffix   = ".json"
+	commissioneeKeyFmt   = commissioneesDirName + "/%016X-%016X" + commissioneeSuffix
 )
 
-type fileStore struct {
-	dir             string
-	commissioneeDir string
+type kvStore struct {
+	kv KVStore
 }
 
-// NewStore returns a Store rooted at dir, creating dir and its
-// "commissions" subdirectory (both at 0700) if they don't already exist.
+// NewStore returns a Store that persists to files under dir, creating dir
+// (at 0700) if it doesn't already exist. It is NewStoreWithKVStore over a
+// FileKVStore rooted at dir.
 func NewStore(dir string) (Store, error) {
-	if dir == "" {
-		return nil, fmt.Errorf("store: directory is required")
-	}
-	commissioneeDir := filepath.Join(dir, commissioneesDirName)
-	if err := os.MkdirAll(commissioneeDir, dirMode); err != nil {
-		return nil, fmt.Errorf("store: create %s: %w", commissioneeDir, err)
-	}
-	return &fileStore{dir: dir, commissioneeDir: commissioneeDir}, nil
-}
-
-func (s *fileStore) Dir() string {
-	return s.dir
-}
-
-func (s *fileStore) SaveFabric(rec FabricRecord) error {
-	return writeJSONFile(filepath.Join(s.dir, fabricFileName), rec)
-}
-
-func (s *fileStore) LoadFabric() (FabricRecord, bool, error) {
-	var rec FabricRecord
-	ok, err := readJSONFile(filepath.Join(s.dir, fabricFileName), &rec)
-	return rec, ok, err
-}
-
-func (s *fileStore) SaveCommissionee(rec CommissioneeRecord) error {
-	path := filepath.Join(s.commissioneeDir, commissioneeFileName(rec.CompressedFabricID, rec.NodeID))
-	return writeJSONFile(path, rec)
-}
-
-func (s *fileStore) LoadCommissionee(compressedFabricID, nodeID uint64) (CommissioneeRecord, bool, error) {
-	var rec CommissioneeRecord
-	path := filepath.Join(s.commissioneeDir, commissioneeFileName(compressedFabricID, nodeID))
-	ok, err := readJSONFile(path, &rec)
-	return rec, ok, err
-}
-
-func (s *fileStore) ListCommissionees() ([]CommissioneeRecord, error) {
-	matches, err := filepath.Glob(filepath.Join(s.commissioneeDir, commissioneeFileGlob))
+	kv, err := NewFileKVStore(dir)
 	if err != nil {
-		return nil, fmt.Errorf("store: list %s: %w", s.commissioneeDir, err)
+		return nil, err
 	}
-	recs := make([]CommissioneeRecord, 0, len(matches))
-	for _, path := range matches {
+	return NewStoreWithKVStore(kv), nil
+}
+
+// NewMemStore returns a Store that keeps everything in memory. It is
+// meant for tests.
+func NewMemStore() Store {
+	return NewStoreWithKVStore(NewMemKVStore())
+}
+
+// NewStoreWithKVStore returns a Store that persists to kv. Records are
+// stored as JSON.
+func NewStoreWithKVStore(kv KVStore) Store {
+	return &kvStore{kv: kv}
+}
+
+func (s *kvStore) SaveFabric(rec FabricRecord) error {
+	return s.put(fabricKey, rec)
+}
+
+func (s *kvStore) LoadFabric() (FabricRecord, bool, error) {
+	var rec FabricRecord
+	ok, err := s.load(fabricKey, &rec)
+	return rec, ok, err
+}
+
+func (s *kvStore) SaveCommissionee(rec CommissioneeRecord) error {
+	return s.put(commissioneeKey(rec.CompressedFabricID, rec.NodeID), rec)
+}
+
+func (s *kvStore) LoadCommissionee(compressedFabricID, nodeID uint64) (CommissioneeRecord, bool, error) {
+	var rec CommissioneeRecord
+	ok, err := s.load(commissioneeKey(compressedFabricID, nodeID), &rec)
+	return rec, ok, err
+}
+
+func (s *kvStore) DeleteCommissionee(compressedFabricID, nodeID uint64) error {
+	return s.kv.Delete(commissioneeKey(compressedFabricID, nodeID))
+}
+
+func (s *kvStore) ListCommissionees() ([]CommissioneeRecord, error) {
+	prefix := commissioneesDirName + "/"
+	keys, err := s.kv.List(prefix)
+	if err != nil {
+		return nil, err
+	}
+	recs := make([]CommissioneeRecord, 0, len(keys))
+	for _, key := range keys {
+		name := strings.TrimPrefix(key, prefix)
+		if strings.Contains(name, "/") || !strings.HasSuffix(name, commissioneeSuffix) {
+			continue
+		}
 		var rec CommissioneeRecord
-		ok, err := readJSONFile(path, &rec)
+		ok, err := s.load(key, &rec)
 		if err != nil {
 			return nil, err
 		}
@@ -93,31 +107,30 @@ func (s *fileStore) ListCommissionees() ([]CommissioneeRecord, error) {
 	return recs, nil
 }
 
-func commissioneeFileName(compressedFabricID, nodeID uint64) string {
-	return fmt.Sprintf(commissioneeFileLayout, compressedFabricID, nodeID)
+func commissioneeKey(compressedFabricID, nodeID uint64) string {
+	return fmt.Sprintf(commissioneeKeyFmt, compressedFabricID, nodeID)
 }
 
-func writeJSONFile(path string, v any) error {
+func (s *kvStore) put(key string, v any) error {
 	b, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
-		return fmt.Errorf("store: marshal %s: %w", path, err)
+		return fmt.Errorf("store: marshal %s: %w", key, err)
 	}
-	if err := os.WriteFile(path, b, fileMode); err != nil {
-		return fmt.Errorf("store: write %s: %w", path, err)
-	}
-	return nil
+	return s.kv.Set(key, b)
 }
 
-func readJSONFile(path string, v any) (bool, error) {
-	b, err := os.ReadFile(path)
+// load reads key into v. ok is false, with a nil error, when key is not
+// stored.
+func (s *kvStore) load(key string, v any) (bool, error) {
+	b, err := s.kv.Get(key)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
+		if errors.Is(err, ErrNotFound) {
 			return false, nil
 		}
-		return false, fmt.Errorf("store: read %s: %w", path, err)
+		return false, err
 	}
 	if err := json.Unmarshal(b, v); err != nil {
-		return false, fmt.Errorf("store: unmarshal %s: %w", path, err)
+		return false, fmt.Errorf("store: unmarshal %s: %w", key, err)
 	}
 	return true, nil
 }
