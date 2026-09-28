@@ -543,7 +543,7 @@ func TestAddNOCTableFull(t *testing.T) {
 
 func TestFreeFabricIndex(t *testing.T) {
 	recs := func(indexes ...uint8) []store.DeviceFabricRecord {
-		var out []store.DeviceFabricRecord
+		out := make([]store.DeviceFabricRecord, 0, len(indexes))
 		for _, i := range indexes {
 			out = append(out, store.DeviceFabricRecord{FabricIndex: i})
 		}
