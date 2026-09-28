@@ -34,3 +34,36 @@ jobs:
     #    token: ${{ secrets.CODECOV_TOKEN }}
     #    slug: cybergarage/go-matter
     #    files: ./matter-cover.out
+
+  # chip-tool, the controller of the Matter SDK, commissions the device in
+  # matter/device over the network; it discovers the device through
+  # avahi-daemon. The job does not fail the workflow until the device is
+  # complete enough for chip-tool.
+  chip-tool:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+    - uses: actions/checkout@v5
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.25.x'
+
+    - name: Set up Avahi
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y avahi-daemon avahi-utils
+        sudo systemctl start avahi-daemon
+
+    - name: Set up chip-tool
+      run: |
+        sudo snap install chip-tool
+        sudo snap connect chip-tool:avahi-observe || true
+        snap info chip-tool | grep -E '^(name|installed)'
+
+    - name: Test with chip-tool
+      env:
+        # Fail, rather than skip, if chip-tool is not usable.
+        GO_MATTER_TEST_REQUIRE: chip-tool
+      run: make test-chip-tool

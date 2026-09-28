@@ -54,7 +54,7 @@ BINS=\
 
 DOCS_ROOT_DIR=doc
 
-.PHONY: format vet lint clean
+.PHONY: format vet lint test-chip-tool clean
 .IGNORE: lint
 
 all: codecov
@@ -90,6 +90,13 @@ test: lint
 	go clean -testcache
 	go test -v -p 1 -timeout 10m -cover -coverpkg=${PKG}/... -coverprofile=${PKG_COVER}.out ${PKG}/... ${TEST_PKG}/...
 	go tool cover -html=${PKG_COVER}.out -o ${PKG_COVER}.html
+
+# test-chip-tool runs only the tests which commission the device with
+# chip-tool, and logs what chip-tool printed. chip-tool is $CHIP_TOOL or
+# chip-tool on the PATH; set GO_MATTER_TEST_REQUIRE=chip-tool to fail
+# instead of skipping when it is missing.
+test-chip-tool:
+	go test -v -count=1 -timeout 10m -run 'TestChipTool' ${TEST_PKG}
 
 cover: test
 	open ${PKG_COVER}.html || xdg-open ${PKG_COVER}.html || gnome-open ${PKG_COVER}.html
