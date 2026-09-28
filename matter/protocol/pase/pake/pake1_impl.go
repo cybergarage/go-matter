@@ -105,7 +105,7 @@ func (p *pake1) Decode(dec tlv.Decoder) error {
 	return nil
 }
 
-func (p *pake1) pA() []byte {
+func (p *pake1) PA() []byte {
 	return p.pa
 }
 

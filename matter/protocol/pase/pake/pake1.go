@@ -23,8 +23,8 @@ type Pake1Message interface {
 // Pake1 represents the PASE PAKE1 message, which includes the initiator random, responder random, and other parameters.
 type Pake1 interface {
 	Pake1Helper
-	// pA returns the initiator random value from the Pake1 message.
-	pA() []byte
+	// PA returns the initiator's SPAKE2+ public value pA.
+	PA() []byte
 	// Bytes returns the byte representation of the Pake1 message for transmission.
 	Bytes() ([]byte, error)
 }

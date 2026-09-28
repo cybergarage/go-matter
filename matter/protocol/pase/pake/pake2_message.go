@@ -26,6 +26,9 @@ type pake2Message struct {
 	paramReq    pbkdf.ParamRequestMessage
 	paramRes    pbkdf.ParamResponseMessage
 	pake1       Pake1Message
+	precomputed bool
+	pB          []byte
+	cB          []byte
 	headerOps   []message.HeaderOption
 	protocolOps []message.ProtocolHeaderOption
 	pake2ReqOps []Pake2Option
@@ -80,6 +83,19 @@ func WithPake2MessagePake1Ack(ack mrp.Ack) Pake2MessageOption {
 	}
 }
 
+// WithPake2MessagePrecomputed provides the pB and cB values for the Pake2
+// message. When this option is set, the automatic derivation inside
+// NewPake2Message is skipped. Use this when the responder has already run
+// the SPAKE2+ computation itself (pase.Responder does), mirroring
+// WithPake3MessagePrecomputedCA on the initiator side.
+func WithPake2MessagePrecomputed(pB, cB []byte) Pake2MessageOption {
+	return func(msg *pake2Message) {
+		msg.precomputed = true
+		msg.pB = pB
+		msg.cB = cB
+	}
+}
+
 // NewPake2MessageFromBytes creates a new Pake2Message from the given byte slice, which is expected to be a valid message containing a Pake2 payload.
 func NewPake2MessageFromBytes(data []byte) (Pake2Message, error) {
 	msg, err := message.NewMessageFromBytes(data)
@@ -94,6 +110,9 @@ func NewPake2MessageFromBytes(data []byte) (Pake2Message, error) {
 		paramReq:    nil,
 		paramRes:    nil,
 		pake1:       nil,
+		precomputed: false,
+		pB:          nil,
+		cB:          nil,
 		headerOps:   nil,
 		protocolOps: nil,
 		pake2ReqOps: nil,
@@ -105,9 +124,12 @@ func NewPake2MessageFromBytes(data []byte) (Pake2Message, error) {
 // NewPake2Message creates a new Pake2Message using the provided options.
 func NewPake2Message(opts ...any) (Pake2Message, error) {
 	msg := &pake2Message{
-		paramReq: nil,
-		paramRes: nil,
-		pake1:    nil,
+		paramReq:    nil,
+		paramRes:    nil,
+		pake1:       nil,
+		precomputed: false,
+		pB:          nil,
+		cB:          nil,
 		headerOps: []message.HeaderOption{
 			message.WithHeaderSessionID(0x0000),
 			message.WithHeaderSecurityFlags(0x00),
@@ -187,7 +209,7 @@ func NewPake2Message(opts ...any) (Pake2Message, error) {
 			return nil, errInvalidParam("pake1", pake1)
 		}
 
-		pA := pake1.pA()
+		pA := pake1.PA()
 		if len(pA) == 0 {
 			return nil, errInvalidParam("pake1.pA", pA)
 		}
@@ -215,19 +237,29 @@ func NewPake2Message(opts ...any) (Pake2Message, error) {
 		return cB, nil
 	}
 
-	// pB
-	w0, _, pB, err := computePB(msg.paramReq, msg.paramRes)
-	if err != nil {
-		return nil, err
-	}
-	msg.pake2ReqOps = append(msg.pake2ReqOps, WithPake2PB(pB))
+	if msg.precomputed {
+		if len(msg.pB) == 0 {
+			return nil, errInvalidParam("precomputed pB", msg.pB)
+		}
+		if len(msg.cB) == 0 {
+			return nil, errInvalidParam("precomputed cB", msg.cB)
+		}
+		msg.pake2ReqOps = append(msg.pake2ReqOps, WithPake2PB(msg.pB), WithPake2CB(msg.cB))
+	} else {
+		// pB
+		w0, _, pB, err := computePB(msg.paramReq, msg.paramRes)
+		if err != nil {
+			return nil, err
+		}
+		msg.pake2ReqOps = append(msg.pake2ReqOps, WithPake2PB(pB))
 
-	// pC
-	cB, err := computeCB(msg.paramReq, msg.paramRes, msg.pake1, w0, pB)
-	if err != nil {
-		return nil, err
+		// cB
+		cB, err := computeCB(msg.paramReq, msg.paramRes, msg.pake1, w0, pB)
+		if err != nil {
+			return nil, err
+		}
+		msg.pake2ReqOps = append(msg.pake2ReqOps, WithPake2CB(cB))
 	}
-	msg.pake2ReqOps = append(msg.pake2ReqOps, WithPake2CB(cB))
 
 	msg.Pake2 = NewPake2(msg.pake2ReqOps...)
 	payload, err := msg.Pake2.Bytes()

@@ -163,7 +163,7 @@ func NewPake3Message(opts ...any) (Pake3Message, error) {
 			return nil, errInvalidParam("pake2", pake2)
 		}
 
-		pA := pake1.pA()
+		pA := pake1.PA()
 		if len(pA) == 0 {
 			return nil, errInvalidParam("pake1.pA", pA)
 		}

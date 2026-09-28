@@ -23,8 +23,8 @@ type Pake3Message interface {
 // Pake3 represents the PASE PAKE3 message, which includes the cA value and other parameters.
 type Pake3 interface {
 	Pake3Helper
-	// cA returns the cA value from the Pake3 message.
-	cA() []byte
+	// CA returns the initiator's key confirmation value cA.
+	CA() []byte
 	// Bytes returns the byte representation of the Pake3 message for transmission.
 	Bytes() ([]byte, error)
 }
