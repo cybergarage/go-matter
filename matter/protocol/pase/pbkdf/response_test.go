@@ -39,3 +39,24 @@ func TestResponseDefault(t *testing.T) {
 		t.Errorf("%v != %v", resp.Map(), respParsed.Map())
 	}
 }
+
+// TestResponseWithExplicitParamsEchoesInitiatorRandom guards against a
+// regression where NewParamResponse copied the initiator's random only when
+// it generated the PBKDF parameters itself, so a responder passing its own
+// salt and iterations could not build a response at all.
+func TestResponseWithExplicitParamsEchoesInitiatorRandom(t *testing.T) {
+	req := NewParamRequest()
+	resp, err := NewParamResponse(
+		WithParamResponseParamRequest(req),
+		WithParamResponsePBKDFParams(NewParams(
+			WithParamsSalt(make([]byte, PBKDBFSaltMin)),
+			WithParamsIterations(PBKDBFIterationsMin),
+		)),
+	)
+	if err != nil {
+		t.Fatalf("NewParamResponse(...) error = %v", err)
+	}
+	if !reflect.DeepEqual(resp.InitiatorRandom(), req.InitiatorRandom()) {
+		t.Fatal("the response does not echo the initiator's random")
+	}
+}

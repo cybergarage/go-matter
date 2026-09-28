@@ -107,10 +107,14 @@ func NewParamResponse(opts ...ParamResponseOption) (ParamResponse, error) {
 		id := uint16(types.NewSessionID())
 		r.responderSessionID = &id
 	}
+	// The response echoes the initiator's random, whether or not the
+	// caller supplies the PBKDF parameters itself.
+	if r.initiatorRandom == nil && r.paremRequest != nil {
+		r.initiatorRandom = r.paremRequest.InitiatorRandom()
+	}
 	if r.pbkdfParams == nil {
 		opts := []ParamsOption{}
 		if r.paremRequest != nil {
-			r.initiatorRandom = r.paremRequest.InitiatorRandom()
 			if !r.paremRequest.HasPBKDFParams() {
 				opts = append(opts, WithParamsSalt(crypto.CryptoTRNG(PBKDBFSaltMin)))
 				opts = append(opts, WithParamsIterations(PBKDBFIterationsMin))
