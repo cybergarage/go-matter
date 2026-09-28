@@ -148,7 +148,7 @@ func encodeDNSResponse(s CommissionableService, ip net.IP) []byte {
 		ttl      = 120
 		response = 0x8400
 	)
-	var records [][]byte
+	records := make([][]byte, 0, 8)
 	rr := func(name string, typ, class uint16, rdata []byte) {
 		b := encodeName(name)
 		b = binary.BigEndian.AppendUint16(b, typ)
@@ -166,8 +166,9 @@ func encodeDNSResponse(s CommissionableService, ip net.IP) []byte {
 	srv = binary.BigEndian.AppendUint16(srv, 0)
 	srv = binary.BigEndian.AppendUint16(srv, uint16(s.Port))
 	rr(s.InstanceFullName(), typeSRV, flushIN, append(srv, encodeName(s.HostFullName())...))
-	var txt []byte
-	for _, e := range s.TXT() {
+	entries := s.TXT()
+	txt := make([]byte, 0, len(entries)*16)
+	for _, e := range entries {
 		txt = append(txt, byte(len(e)))
 		txt = append(txt, e...)
 	}
@@ -187,7 +188,7 @@ func encodeDNSResponse(s CommissionableService, ip net.IP) []byte {
 }
 
 func encodeName(name string) []byte {
-	var b []byte
+	b := make([]byte, 0, len(name)+2)
 	for label := range strings.SplitSeq(name, ".") {
 		b = append(b, byte(len(label)))
 		b = append(b, label...)

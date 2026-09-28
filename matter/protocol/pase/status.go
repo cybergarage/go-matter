@@ -22,10 +22,10 @@ import (
 
 // Status codes PASE reports with (Matter Core 4.11.3, 4.14.1.2).
 const (
-	statusGeneralSuccess          uint16 = 0
-	statusGeneralFailure          uint16 = 1
-	statusProtocolSessionSuccess  uint16 = 0
-	statusProtocolInvalidParamter uint16 = 2
+	statusGeneralSuccess           uint16 = 0
+	statusGeneralFailure           uint16 = 1
+	statusProtocolSessionSuccess   uint16 = 0
+	statusProtocolInvalidParameter uint16 = 2
 )
 
 // newStatusReport builds a Secure Channel StatusReport answering req, on

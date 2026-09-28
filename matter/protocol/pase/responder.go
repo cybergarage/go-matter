@@ -121,7 +121,7 @@ func (r *Responder) EstablishSession(ctx context.Context) (SessionKeys, error) {
 	// 4.14.1.2: passcode ID 0 is the default commissioning passcode, the
 	// only one this responder has a verifier for.
 	if id := paramReq.PasscodeID(); id != 0 {
-		r.sendStatusReport(ctx, reqMsg, statusGeneralFailure, statusProtocolInvalidParamter)
+		r.sendStatusReport(ctx, reqMsg, statusGeneralFailure, statusProtocolInvalidParameter)
 		return nil, fmt.Errorf("%w: passcode ID %d", ErrUnexpectedMessage, id)
 	}
 
@@ -171,7 +171,7 @@ func (r *Responder) EstablishSession(ctx context.Context) (SessionKeys, error) {
 	}
 	z, v, err := crypto.CryptoPAKESharedPointsResponder(y, r.verifier.W0, r.verifier.L, pA)
 	if err != nil {
-		r.sendStatusReport(ctx, pake1Msg, statusGeneralFailure, statusProtocolInvalidParamter)
+		r.sendStatusReport(ctx, pake1Msg, statusGeneralFailure, statusProtocolInvalidParameter)
 		return nil, fmt.Errorf("%w: %w", ErrPASEVerification, err)
 	}
 	tt, err := crypto.CryptoTranscript(paramReq.Payload(), paramRes.Payload(), pA, pB, z, v, r.verifier.W0)
@@ -210,7 +210,7 @@ func (r *Responder) EstablishSession(ctx context.Context) (SessionKeys, error) {
 		return nil, fmt.Errorf("pase: decode Pake3: %w", err)
 	}
 	if subtle.ConstantTimeCompare(pake3.CA(), cAExpected) != 1 {
-		r.sendStatusReport(ctx, pake3Msg, statusGeneralFailure, statusProtocolInvalidParamter)
+		r.sendStatusReport(ctx, pake3Msg, statusGeneralFailure, statusProtocolInvalidParameter)
 		return nil, fmt.Errorf("%w: cA mismatch", ErrPASEVerification)
 	}
 

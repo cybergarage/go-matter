@@ -15,6 +15,7 @@
 package device
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -321,7 +322,7 @@ func (d *Device) serve(conn *net.UDPConn) {
 			}
 			return
 		}
-		d.dispatch(conn, append([]byte(nil), buf[:n]...), peer)
+		d.dispatch(conn, bytes.Clone(buf[:n]), peer)
 	}
 }
 

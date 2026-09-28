@@ -275,7 +275,7 @@ func (i *Initiator) sendFailureStatusReport(ctx context.Context, pake2 message.M
 		headerOpts = append(headerOpts, message.WithHeaderSourceNodeID(src))
 	}
 	headerOpts = append(headerOpts, message.WithHeaderMessageCounter(pake1.MessageCounter().Next()))
-	msg := newStatusReport(pake2, headerOpts, message.InitiatorFlag|message.ReliabilityFlag|message.AckFlag, statusGeneralFailure, statusProtocolInvalidParamter)
+	msg := newStatusReport(pake2, headerOpts, message.InitiatorFlag|message.ReliabilityFlag|message.AckFlag, statusGeneralFailure, statusProtocolInvalidParameter)
 	b, err := msg.Bytes()
 	if err == nil {
 		err = i.t.Transmit(ctx, b)
