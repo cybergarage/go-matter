@@ -160,10 +160,9 @@ func (s *FileKVStore) List(prefix string) ([]string, error) {
 			return err
 		}
 		key := filepath.ToSlash(rel)
-		if ValidateKey(key) != nil || !strings.HasPrefix(key, prefix) {
-			return nil
+		if isValidKey(key) && strings.HasPrefix(key, prefix) {
+			keys = append(keys, key)
 		}
-		keys = append(keys, key)
 		return nil
 	})
 	if err != nil {

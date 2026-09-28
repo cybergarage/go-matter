@@ -100,6 +100,12 @@ func ValidateKey(key string) error {
 	return nil
 }
 
+// isValidKey reports whether key is a well-formed KVStore key, for callers
+// that skip an invalid key rather than report it.
+func isValidKey(key string) bool {
+	return ValidateKey(key) == nil
+}
+
 func isKeyChar(c rune) bool {
 	switch {
 	case 'a' <= c && c <= 'z', 'A' <= c && c <= 'Z', '0' <= c && c <= '9':
