@@ -221,7 +221,8 @@ func TestResponderRejectsWrongCA(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt, _ := crypto.CryptoTranscript(m.paramReq.Payload(), paramRes.Payload(), pA, pake2Msg.PB(), z, v, w0)
-	cA, _, _, _ := crypto.CryptoP2(tt, pA, pake2Msg.PB())
+	// Only cA is needed: this initiator sends it without checking cB.
+	cA, _, _, _ := crypto.CryptoP2(tt, pA, pake2Msg.PB()) //nolint:dogsled
 	pake3Msg, err := pake.NewPake3Message(
 		pake.WithPake3MessageParamRequestMessage(m.paramReq),
 		pake.WithPake3MessagePake1Message(pake1Msg),
