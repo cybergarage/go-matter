@@ -120,16 +120,18 @@ func TestResponderWithWrongPasscode(t *testing.T) {
 	defer cancel()
 	initT, respT := newPipe()
 
-	rctx, rcancel := context.WithCancel(ctx)
-	done := runResponder(rctx, NewResponder(respT, testVerifier(t, testPasscode)))
+	done := runResponder(ctx, NewResponder(respT, testVerifier(t, testPasscode)))
 	_, err := NewInitiator(initT, testPasscode+1).EstablishSession(ctx)
 	if !errors.Is(err, ErrPASEVerification) {
 		t.Fatalf("Initiator.EstablishSession() with a wrong passcode error = %v, want ErrPASEVerification", err)
 	}
-	// The initiator gives up at cB, so the responder never sees Pake3.
-	rcancel()
-	if res := <-done; res.err == nil {
-		t.Fatal("Responder.EstablishSession() = nil error, want an error")
+	// The initiator gives up at cB and says so, so the responder ends the
+	// exchange at once rather than waiting for Pake3 until its deadline.
+	if res := <-done; !errors.Is(res.err, ErrStatusReport) {
+		t.Fatalf("Responder.EstablishSession() error = %v, want ErrStatusReport", res.err)
+	}
+	if ctx.Err() != nil {
+		t.Fatal("the responder only ended at the test deadline")
 	}
 }
 

@@ -204,7 +204,10 @@ func (i *Initiator) EstablishSession(ctx context.Context) (SessionKeys, error) {
 	}
 
 	// 8) Verify cB: the received cB must match our expected cB using constant-time comparison.
+	// On a mismatch, tell the responder so it can end the exchange instead
+	// of waiting for a Pake3 that never comes (4.14.1.2).
 	if subtle.ConstantTimeCompare(cBReceived, cBExpected) != 1 {
+		i.sendFailureStatusReport(ctx, pake2Msg, pake1Msg)
 		return nil, fmt.Errorf("%w: cB mismatch", ErrPASEVerification)
 	}
 
@@ -261,6 +264,25 @@ func (i *Initiator) EstablishSession(ctx context.Context) (SessionKeys, error) {
 		paramReqMsg.InitiatorSessionID(),
 		SessionID(pbkdfResMsg.ResponderSessionID()),
 	), nil
+}
+
+// sendFailureStatusReport answers pake2 with a failure StatusReport, on the
+// exchange and toward the node pake1 used. It is best effort: the handshake
+// has failed either way.
+func (i *Initiator) sendFailureStatusReport(ctx context.Context, pake2 message.Message, pake1 message.Message) {
+	var headerOpts []message.HeaderOption
+	if src, ok := pake1.SourceNodeID(); ok {
+		headerOpts = append(headerOpts, message.WithHeaderSourceNodeID(src))
+	}
+	headerOpts = append(headerOpts, message.WithHeaderMessageCounter(pake1.MessageCounter().Next()))
+	msg := newStatusReport(pake2, headerOpts, message.InitiatorFlag|message.ReliabilityFlag|message.AckFlag, statusGeneralFailure, statusProtocolInvalidParamter)
+	b, err := msg.Bytes()
+	if err == nil {
+		err = i.t.Transmit(ctx, b)
+	}
+	if err != nil {
+		log.Warnf("PASE initiator: send failure StatusReport: %v", err)
+	}
 }
 
 // statusReportHeaderLen is the fixed-width portion of a StatusReport payload:

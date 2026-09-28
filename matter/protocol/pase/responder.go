@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/subtle"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"time"
@@ -34,15 +33,6 @@ import (
 // DefaultResponderTimeout bounds a whole PASE exchange on the responder side
 // when the caller's context has no deadline of its own.
 const DefaultResponderTimeout = 60 * time.Second
-
-// Status codes a PASE responder reports with (Matter Core 4.11.3,
-// 4.14.1.2).
-const (
-	statusGeneralSuccess          uint16 = 0
-	statusGeneralFailure          uint16 = 1
-	statusProtocolSessionSuccess  uint16 = 0
-	statusProtocolInvalidParamter uint16 = 2
-)
 
 // ErrUnexpectedMessage is returned when the initiator sends a message the
 // PASE exchange does not expect at that point.
@@ -287,6 +277,10 @@ func (r *Responder) receive(ctx context.Context, want message.Opcode) (message.M
 		}
 		r.lastPeerCounter = msg.MessageCounter()
 		r.hasLastPeer = true
+		if msg.ProtocolID() == message.SecureChannel && msg.Opcode().IsStatusReport() && want != message.StatusReport {
+			// The initiator gave up, typically on a cB it could not verify.
+			return nil, nil, fmt.Errorf("%w: the initiator ended the exchange", ErrStatusReport)
+		}
 		if msg.ProtocolID() != message.SecureChannel || msg.Opcode() != want {
 			return nil, nil, fmt.Errorf("%w: got protocol 0x%04X opcode 0x%02X, want opcode 0x%02X", ErrUnexpectedMessage, uint16(msg.ProtocolID()), uint8(msg.Opcode()), uint8(want))
 		}
@@ -307,30 +301,11 @@ func (r *Responder) send(ctx context.Context, msg byteser) error {
 	return r.t.Transmit(ctx, b)
 }
 
-// sendStatusReport answers req with a StatusReport. Its payload is the
-// fixed-width little-endian structure Initiator.parseStatusReport reads,
-// not TLV. A failure to send a failure report is only logged: the exchange
-// is failing anyway, and the caller reports the original cause.
+// sendStatusReport answers req with a StatusReport. A failure to send a
+// failure report is only logged: the exchange is failing anyway, and the
+// caller reports the original cause.
 func (r *Responder) sendStatusReport(ctx context.Context, req message.Message, generalCode, protocolCode uint16) error {
-	payload := make([]byte, statusReportHeaderLen)
-	binary.LittleEndian.PutUint16(payload[0:2], generalCode)
-	binary.LittleEndian.PutUint32(payload[2:6], uint32(message.SecureChannel))
-	binary.LittleEndian.PutUint16(payload[6:8], protocolCode)
-
-	msg := message.NewMessage(
-		message.WithMessageFrameHeader(message.NewHeader(append([]message.HeaderOption{
-			message.WithHeaderSessionID(0),
-			message.WithHeaderSecurityFlags(0x00),
-		}, r.replyHeaderOptions(req)...)...)),
-		message.WithMessageProtocolHeader(message.NewProtocolHeader(
-			message.WithHeaderExchangeFlags(message.ReliabilityFlag|message.AckFlag),
-			message.WithHeaderOpcode(message.StatusReport),
-			message.WithHeaderExchangeID(req.ExchangeID()),
-			message.WithHeaderProtocolID(message.SecureChannel),
-			message.WithHeaderAckCounter(req.MessageCounter()),
-		)),
-		message.WithMessagePayload(payload),
-	)
+	msg := newStatusReport(req, r.replyHeaderOptions(req), message.ReliabilityFlag|message.AckFlag, generalCode, protocolCode)
 	err := r.send(ctx, msg)
 	if err != nil && generalCode != statusGeneralSuccess {
 		log.Warnf("PASE responder: send failure StatusReport: %v", err)
