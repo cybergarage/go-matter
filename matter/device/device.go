@@ -27,6 +27,7 @@ import (
 	"github.com/cybergarage/go-matter/matter/crypto"
 	"github.com/cybergarage/go-matter/matter/encoding/message"
 	"github.com/cybergarage/go-matter/matter/mdns"
+	caseprotocol "github.com/cybergarage/go-matter/matter/protocol/case"
 	"github.com/cybergarage/go-matter/matter/protocol/im"
 	"github.com/cybergarage/go-matter/matter/protocol/pase"
 	"github.com/cybergarage/go-matter/matter/protocol/session"
@@ -54,17 +55,22 @@ const peerQueueLength = 16
 // WithPasscode was given.
 var ErrNoVerifier = errors.New("device: a PASE verifier or passcode is required")
 
-// Session is a secure session a Device has established with a peer. The
-// device serves the Interaction Model on it.
+// Session is a secure session a Device has established with a peer, with
+// PASE or CASE. The device serves the Interaction Model on it.
 type Session struct {
-	keys      pase.SessionKeys
+	keys      session.SessionKeys
 	peer      *net.UDPAddr
 	transport *peerTransport
 	secure    session.SecureSession
+	isCASE    bool
+	// fabricIndex and peerNodeID are guarded by the device's lock: a
+	// PASE session is bound to the fabric AddNOC adds over it.
+	fabricIndex uint8
+	peerNodeID  uint64
 }
 
-// Keys returns the session's keys, as the PASE responder derived them.
-func (s *Session) Keys() pase.SessionKeys {
+// Keys returns the session's keys.
+func (s *Session) Keys() session.SessionKeys {
 	return s.keys
 }
 
@@ -72,6 +78,30 @@ func (s *Session) Keys() pase.SessionKeys {
 func (s *Session) Peer() net.Addr {
 	return s.peer
 }
+
+// IsCASE reports whether the session was established with CASE rather
+// than PASE.
+func (s *Session) IsCASE() bool {
+	return s.isCASE
+}
+
+// PeerNodeID returns the peer's operational node ID for a CASE session,
+// and 0 for a PASE session.
+func (s *Session) PeerNodeID() uint64 {
+	return s.peerNodeID
+}
+
+// sessionInfo is what a cluster needs to know about the session a request
+// arrived on.
+type sessionInfo struct {
+	isCASE bool
+	// fabricIndex is the accessing fabric: the CASE session's, the one a
+	// PASE session was bound to by AddNOC, or 0.
+	fabricIndex uint8
+}
+
+// sessionLookup returns what the device knows about a session.
+type sessionLookup func(im.SecureSession) sessionInfo
 
 // Option configures a Device.
 type Option func(*Device) error
@@ -199,7 +229,7 @@ func WithSupportedFabrics(n int) Option {
 }
 
 // WithSessionHandler sets the function called, on its own goroutine, each
-// time a commissioner establishes a PASE session.
+// time a peer establishes a PASE or CASE session.
 func WithSessionHandler(h func(*Session)) Option {
 	return func(d *Device) error {
 		d.onSession = h
@@ -231,7 +261,11 @@ type Device struct {
 	// initiator's address; a device runs one at a time.
 	pase     *peerTransport
 	paseAddr string
+	// cases are the unsecured CASE exchanges in progress, by the
+	// initiator's address.
+	cases    map[string]*peerTransport
 	sessions map[types.SessionID]*Session
+	opCreds  *operationalCredentials
 }
 
 // New returns a Device configured by opts. It does not touch the network
@@ -253,7 +287,9 @@ func New(opts ...Option) (*Device, error) {
 		attestation: nil,
 		imServer:    im.NewServer(),
 		failSafe:    nil,
+		cases:       map[string]*peerTransport{},
 		sessions:    map[types.SessionID]*Session{},
+		opCreds:     nil,
 
 		supportedFabrics: DefaultSupportedFabrics,
 	}
@@ -272,15 +308,65 @@ func New(opts ...Option) (*Device, error) {
 		d.store = store.NewMemDeviceStore()
 	}
 	d.failSafe = newFailSafe(d.store)
-	newGeneralCommissioning(d.failSafe, d.isCASESession).register(d.imServer)
-	newOperationalCredentials(d.store, d.failSafe, d.attestation, d.supportedFabrics).register(d.imServer)
+	d.failSafe.onRollback = d.unbindFabric
+	newGeneralCommissioning(d.failSafe, d.lookupSession).register(d.imServer)
+	d.opCreds = newOperationalCredentials(d.store, d.failSafe, d.attestation, d.supportedFabrics)
+	d.opCreds.onFabricAdded = d.bindFabric
+	d.opCreds.register(d.imServer)
 	return d, nil
 }
 
-// isCASESession reports whether sess was established with CASE. The device
-// only establishes PASE sessions so far.
-func (d *Device) isCASESession(im.SecureSession) bool {
-	return false
+// sessionFor returns the Session whose secure session is sec.
+func (d *Device) sessionForLocked(sec im.SecureSession) *Session {
+	for _, sess := range d.sessions {
+		if sess.secure == sec {
+			return sess
+		}
+	}
+	return nil
+}
+
+// lookupSession tells the clusters whether a request arrived over CASE,
+// and on which fabric.
+func (d *Device) lookupSession(sec im.SecureSession) sessionInfo {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	sess := d.sessionForLocked(sec)
+	if sess == nil {
+		return sessionInfo{isCASE: false, fabricIndex: 0}
+	}
+	return sessionInfo{isCASE: sess.isCASE, fabricIndex: sess.fabricIndex}
+}
+
+// bindFabric binds the PASE session AddNOC arrived on to the fabric it
+// added, so the commissioner can go on arming the fail-safe over it
+// (11.18.6.8).
+func (d *Device) bindFabric(sec im.SecureSession, fabricIndex uint8) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if sess := d.sessionForLocked(sec); sess != nil && !sess.isCASE {
+		sess.fabricIndex = fabricIndex
+	}
+}
+
+// unbindFabric undoes what a fabric the fail-safe rolled back left behind:
+// the PASE session bound to it returns to no fabric, and the CASE sessions
+// on it are closed. It is called with the fail-safe's lock held.
+func (d *Device) unbindFabric(fabricIndex uint8) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	for id, sess := range d.sessions {
+		if sess.fabricIndex != fabricIndex {
+			continue
+		}
+		if !sess.isCASE {
+			sess.fabricIndex = 0
+			continue
+		}
+		log.Infof("device: closing CASE session %d with %s: fabric %d was rolled back", id, sess.peer, fabricIndex)
+		sess.transport.close()
+		delete(d.sessions, id)
+	}
 }
 
 // Start listens on the configured address and publishes the commissionable
@@ -391,9 +477,9 @@ func (d *Device) serve(conn *net.UDPConn) {
 	}
 }
 
-// dispatch routes one datagram: an unsecured message to the PASE exchange
-// with its sender, starting one on a PBKDFParamRequest, and a secured
-// message to the session its session ID names.
+// dispatch routes one datagram: an unsecured message to the PASE or CASE
+// exchange with its sender, starting one on a PBKDFParamRequest or a
+// Sigma1, and a secured message to the session its session ID names.
 func (d *Device) dispatch(conn *net.UDPConn, b []byte, peer *net.UDPAddr) {
 	header, err := message.NewHeaderFromBytes(b)
 	if err != nil {
@@ -414,15 +500,35 @@ func (d *Device) dispatch(conn *net.UDPConn, b []byte, peer *net.UDPAddr) {
 		return
 	}
 
-	if d.pase != nil && d.paseAddr == peer.String() {
+	addr := peer.String()
+	if ex, ok := d.cases[addr]; ok {
+		ex.deliver(b)
+		return
+	}
+	if d.pase != nil && d.paseAddr == addr {
 		d.pase.deliver(b)
 		return
 	}
 	msg, err := message.NewMessageFromBytes(b)
-	if err != nil || msg.ProtocolID() != message.SecureChannel || msg.Opcode() != message.PBKDFParamRequest {
-		log.Debugf("device: drop unsecured message from %s outside a PASE exchange", peer)
+	if err != nil || msg.ProtocolID() != message.SecureChannel {
+		log.Debugf("device: drop unsecured message from %s outside a session establishment", peer)
 		return
 	}
+	switch msg.Opcode() {
+	case message.PBKDFParamRequest:
+		d.startPASELocked(conn, peer, b)
+	case message.CASESigma1:
+		pt := newPeerTransport(conn, peer)
+		pt.deliver(b)
+		d.cases[addr] = pt
+		d.wg.Add(1)
+		go d.runCASE(pt, d.newSessionIDLocked())
+	default:
+		log.Debugf("device: drop unsecured opcode 0x%02X from %s outside a session establishment", uint8(msg.Opcode()), peer)
+	}
+}
+
+func (d *Device) startPASELocked(conn *net.UDPConn, peer *net.UDPAddr, b []byte) {
 	if d.pase != nil {
 		log.Infof("device: PASE already in progress with %s, ignoring %s", d.paseAddr, peer)
 		return
@@ -447,20 +553,68 @@ func (d *Device) runPASE(pt *peerTransport, sessionID types.SessionID) {
 		log.Warnf("device: PASE with %s failed: %v", pt.peer, err)
 		return
 	}
-	transport := newPeerTransport(pt.conn, pt.peer)
-	sess := &Session{
-		keys:      keys,
-		peer:      pt.peer,
-		transport: transport,
-		secure:    session.NewSecureSession(transport, keys, session.WithRole(session.RoleResponder)),
+	if d.conn == nil {
+		// The device stopped during the exchange.
+		d.mu.Unlock()
+		return
 	}
-	d.sessions[sessionID] = sess
-	handler := d.onSession
-	d.wg.Add(1)
-	go d.serveSession(sess)
+	sess := d.addSessionLocked(pt, sessionID, keys, false, 0, 0)
 	d.mu.Unlock()
 
 	log.Infof("device: PASE session %d established with %s", sessionID, pt.peer)
+	d.notifySession(sess)
+}
+
+func (d *Device) runCASE(pt *peerTransport, sessionID types.SessionID) {
+	defer d.wg.Done()
+	responder := caseprotocol.NewResponder(pt, d.opCreds.responderFabrics, caseprotocol.WithResponderSessionID(sessionID))
+	established, err := responder.EstablishSession(d.ctx)
+
+	d.mu.Lock()
+	addr := pt.peer.String()
+	if d.cases[addr] == pt {
+		delete(d.cases, addr)
+	}
+	if err != nil {
+		d.mu.Unlock()
+		log.Warnf("device: CASE with %s failed: %v", pt.peer, err)
+		return
+	}
+	if d.conn == nil {
+		// The device stopped during the exchange.
+		d.mu.Unlock()
+		return
+	}
+	sess := d.addSessionLocked(pt, sessionID, established.Keys, true, established.FabricIndex, established.PeerNodeID)
+	d.mu.Unlock()
+
+	log.Infof("device: CASE session %d established with node 0x%016X on fabric %d at %s", sessionID, established.PeerNodeID, established.FabricIndex, pt.peer)
+	d.notifySession(sess)
+}
+
+// addSessionLocked registers a newly established session and starts
+// serving the Interaction Model on it.
+func (d *Device) addSessionLocked(pt *peerTransport, sessionID types.SessionID, keys session.SessionKeys, isCASE bool, fabricIndex uint8, peerNodeID uint64) *Session {
+	transport := newPeerTransport(pt.conn, pt.peer)
+	sess := &Session{
+		keys:        keys,
+		peer:        pt.peer,
+		transport:   transport,
+		secure:      session.NewSecureSession(transport, keys, session.WithRole(session.RoleResponder)),
+		isCASE:      isCASE,
+		fabricIndex: fabricIndex,
+		peerNodeID:  peerNodeID,
+	}
+	d.sessions[sessionID] = sess
+	d.wg.Add(1)
+	go d.serveSession(sess)
+	return sess
+}
+
+func (d *Device) notifySession(sess *Session) {
+	d.mu.Lock()
+	handler := d.onSession
+	d.mu.Unlock()
 	if handler != nil {
 		handler(sess)
 	}

@@ -64,8 +64,8 @@ func armRequest(t *testing.T, expiry uint16, breadcrumb uint64) *im.CommandReque
 
 func TestGeneralCommissioningCommands(t *testing.T) {
 	fs, ft, _ := newTestFailSafe(t)
-	caseSession := false
-	gc := newGeneralCommissioning(fs, func(im.SecureSession) bool { return caseSession })
+	current := sessionInfo{isCASE: false, fabricIndex: 0}
+	gc := newGeneralCommissioning(fs, func(im.SecureSession) sessionInfo { return current })
 
 	if code := errorCode(t, gc.armFailSafe(armRequest(t, 60, 7))); code != CommissioningOK {
 		t.Fatalf("ArmFailSafe ErrorCode = %d", code)
@@ -97,7 +97,14 @@ func TestGeneralCommissioningCommands(t *testing.T) {
 	if code := errorCode(t, gc.commissioningComplete(&im.CommandRequest{})); code != CommissioningInvalidAuthentication {
 		t.Fatalf("CommissioningComplete over PASE: ErrorCode %d, want InvalidAuthentication", code)
 	}
-	caseSession = true
+	// AddNOC gives the fail-safe to the new fabric; only a CASE session on
+	// that fabric completes it.
+	fs.addFabric(1)
+	current = sessionInfo{isCASE: true, fabricIndex: 2}
+	if code := errorCode(t, gc.commissioningComplete(&im.CommandRequest{})); code != CommissioningInvalidAuthentication {
+		t.Fatalf("CommissioningComplete over CASE on another fabric: ErrorCode %d, want InvalidAuthentication", code)
+	}
+	current = sessionInfo{isCASE: true, fabricIndex: 1}
 	if code := errorCode(t, gc.commissioningComplete(&im.CommandRequest{})); code != CommissioningOK {
 		t.Fatalf("CommissioningComplete over CASE: ErrorCode %d", code)
 	}
@@ -109,6 +116,7 @@ func TestGeneralCommissioningCommands(t *testing.T) {
 	}
 
 	// An expiry resets the breadcrumb.
+	current = sessionInfo{isCASE: false, fabricIndex: 0}
 	gc.armFailSafe(armRequest(t, 10, 9))
 	ft.advance(10 * time.Second)
 	if gc.breadcrumb != 0 {

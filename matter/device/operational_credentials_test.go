@@ -30,10 +30,12 @@ import (
 
 	"github.com/cybergarage/go-matter/matter/cluster/generalcommissioning"
 	"github.com/cybergarage/go-matter/matter/cluster/operationalcredentials"
+	"github.com/cybergarage/go-matter/matter/config"
 	"github.com/cybergarage/go-matter/matter/credentials"
 	"github.com/cybergarage/go-matter/matter/credentials/chipcert"
 	"github.com/cybergarage/go-matter/matter/credentials/testcreds"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
+	caseprotocol "github.com/cybergarage/go-matter/matter/protocol/case"
 	"github.com/cybergarage/go-matter/matter/protocol/im"
 	"github.com/cybergarage/go-matter/matter/protocol/pase"
 	"github.com/cybergarage/go-matter/matter/protocol/session"
@@ -52,8 +54,10 @@ var testIPK = []byte("0123456789abcdef")
 // testCA is a commissioner's fabric root: a Matter RCAC and the CA which
 // issues NOCs under it.
 type testCA struct {
-	rootDER []byte
-	ca      *credentials.CertificateAuthority
+	fabricID   uint64
+	rootDER    []byte
+	rootKeyDER []byte
+	ca         *credentials.CertificateAuthority
 }
 
 func newTestCA(t *testing.T, fabricID uint64) *testCA {
@@ -94,7 +98,45 @@ func newTestCA(t *testing.T, fabricID uint64) *testCA {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &testCA{rootDER: rootDER, ca: ca}
+	return &testCA{fabricID: fabricID, rootDER: rootDER, rootKeyDER: keyDER, ca: ca}
+}
+
+// admin returns the configuration of an administrator on the CA's fabric,
+// with a NOC for nodeID, as a commissioner initiates CASE with.
+func (c *testCA) admin(t *testing.T, nodeID uint64) config.AdministratorConfig {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	signer, err := credentials.NewSoftwareSigner(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	csrDER, err := credentials.CreateCSR(signer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	csr, err := credentials.ParseCSR(csrDER)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nocDER, err := c.ca.IssueNOC(csr, nodeID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	keyDER, err := x509.MarshalPKCS8PrivateKey(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return config.NewAdministratorConfig(
+		config.WithAdministratorNodeID(nodeID),
+		config.WithAdministratorFabricID(c.fabricID),
+		config.WithAdministratorRootCertificate(c.rootDER),
+		config.WithAdministratorRootPrivateKey(c.rootKeyDER),
+		config.WithAdministratorNOC(nocDER),
+		config.WithAdministratorPrivateKey(keyDER),
+	)
 }
 
 func (c *testCA) rootTLV(t *testing.T) []byte {
@@ -138,6 +180,14 @@ func testAttestationProvider(t *testing.T) credentials.AttestationProvider {
 // credentials and returns a commissioner's PASE session with it.
 func startCommissioning(t *testing.T) (*Device, session.SecureSession) {
 	t.Helper()
+	d, sess, _ := startCommissioningWithClient(t)
+	return d, sess
+}
+
+// startCommissioningWithClient is startCommissioning which also returns
+// the commissioner's UDP transport, to go on to CASE over.
+func startCommissioningWithClient(t *testing.T) (*Device, session.SecureSession, *udpClient) {
+	t.Helper()
 	d, _, _ := startTestDevice(t, WithAttestationProvider(testAttestationProvider(t)))
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -146,7 +196,7 @@ func startCommissioning(t *testing.T) (*Device, session.SecureSession) {
 	if err != nil {
 		t.Fatalf("PASE: %v", err)
 	}
-	return d, session.NewSecureSession(client, keys)
+	return d, session.NewSecureSession(client, keys), client
 }
 
 func randomNonce(t *testing.T) []byte {
@@ -488,7 +538,7 @@ func TestAddNOCChecks(t *testing.T) {
 	if got := nocStatus(t, oc.addNOC(newAddNOCRequest(t, noc, testAdminNodeID, testIPK))); got != NOCStatusOK {
 		t.Fatalf("AddNOC: %d, want OK", got)
 	}
-	if code, err := fs.commit(); code != CommissioningOK || err != nil {
+	if code, err := fs.commit(1); code != CommissioningOK || err != nil {
 		t.Fatalf("commit: (%d, %v)", code, err)
 	}
 
@@ -560,6 +610,138 @@ func TestFreeFabricIndex(t *testing.T) {
 	} {
 		if got, ok := freeFabricIndex(tc.fabrics); !ok || got != tc.want {
 			t.Errorf("freeFabricIndex(%v) = (%d, %v), want %d", tc.fabrics, got, ok, tc.want)
+		}
+	}
+}
+
+// addNOCOverPASE takes a PASE session through ArmFailSafe, CSRRequest,
+// AddTrustedRootCertificate and AddNOC for node on ca's fabric.
+func addNOCOverPASE(t *testing.T, sess session.SecureSession, ca *testCA, node uint64) {
+	t.Helper()
+	if err := generalcommissioning.ArmFailSafe(sess, 0, 60, 1); err != nil {
+		t.Fatal(err)
+	}
+	nocsr, _, err := operationalcredentials.CSRRequest(sess, 0, randomNonce(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	elements, err := credentials.ParseNOCSRElements(nocsr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	csr, err := credentials.ParseCSR(elements.CSR)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nocDER, err := ca.ca.IssueNOC(csr, node)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := operationalcredentials.AddTrustedRootCertificate(sess, 0, ca.rootDER); err != nil {
+		t.Fatal(err)
+	}
+	if err := operationalcredentials.AddNOC(sess, 0, nocDER, nil, testIPK, testAdminNodeID, testAdminVendorID); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// caseSession establishes CASE with the device as admin, over client.
+func caseSession(t *testing.T, client *udpClient, admin config.AdministratorConfig, node uint64) session.SecureSession {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	keys, err := caseprotocol.NewInitiator(client, admin, caseprotocol.WithPeerNodeID(node), caseprotocol.WithIPK(testIPK)).EstablishSession(ctx)
+	if err != nil {
+		t.Fatalf("CASE: %v", err)
+	}
+	return session.NewSecureSession(client, keys)
+}
+
+// TestDeviceCommissioningCompletesOverCASE commissions the device to the
+// end: after AddNOC over PASE, the commissioner establishes CASE with the
+// new fabric's credentials and sends CommissioningComplete over it, which
+// commits the fabric to the store.
+func TestDeviceCommissioningCompletesOverCASE(t *testing.T) {
+	d, pase, client := startCommissioningWithClient(t)
+	ca := newTestCA(t, testFabricID)
+	addNOCOverPASE(t, pase, ca, testCommissioneeNode)
+
+	// The PASE session is now bound to the new fabric, so the
+	// commissioner can keep extending the fail-safe over it.
+	if err := generalcommissioning.ArmFailSafe(pase, 0, 60, 2); err != nil {
+		t.Fatalf("ArmFailSafe over PASE after AddNOC: %v", err)
+	}
+
+	// A CASE session on another fabric is refused.
+	other := newTestCA(t, testFabricID)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if _, err := caseprotocol.NewInitiator(client, other.admin(t, testAdminNodeID), caseprotocol.WithPeerNodeID(testCommissioneeNode), caseprotocol.WithIPK(testIPK)).EstablishSession(ctx); err == nil {
+		t.Fatal("CASE succeeded under a root the device does not trust")
+	}
+
+	operational := caseSession(t, client, ca.admin(t, testAdminNodeID), testCommissioneeNode)
+	if err := generalcommissioning.CommissioningComplete(operational, 0); err != nil {
+		t.Fatalf("CommissioningComplete over CASE: %v", err)
+	}
+	if d.failSafe.isArmed() {
+		t.Fatal("the fail-safe is still armed after CommissioningComplete")
+	}
+	fabrics, err := d.store.ListDeviceFabrics()
+	if err != nil || len(fabrics) != 1 {
+		t.Fatalf("the store holds (%d fabrics, %v) after CommissioningComplete, want 1", len(fabrics), err)
+	}
+	if f := fabrics[0]; f.FabricID != testFabricID || f.NodeID != testCommissioneeNode || f.FabricIndex != 1 {
+		t.Fatalf("committed fabric %+v, want fabric 0x%X node 0x%X at index 1", f, testFabricID, testCommissioneeNode)
+	}
+	if acl, err := d.store.LoadACL(1); err != nil || len(acl) != 1 {
+		t.Fatalf("committed ACL (%+v, %v), want the admin entry", acl, err)
+	}
+
+	// The operational session keeps serving the Interaction Model, and a
+	// new CASE session can be established on the committed fabric.
+	if n := readUint8(t, operational, commissionedFabricsAttributeID); n != 1 {
+		t.Fatalf("CommissionedFabrics over CASE = %d, want 1", n)
+	}
+	again := caseSession(t, client, ca.admin(t, testAdminNodeID+1), testCommissioneeNode)
+	if n := readUint8(t, again, commissionedFabricsAttributeID); n != 1 {
+		t.Fatalf("CommissionedFabrics over a second CASE session = %d, want 1", n)
+	}
+}
+
+// TestDeviceRollbackClosesCASESessions checks that the CASE sessions on a
+// fabric the fail-safe rolls back end with it.
+func TestDeviceRollbackClosesCASESessions(t *testing.T) {
+	d, pase, client := startCommissioningWithClient(t)
+	ca := newTestCA(t, testFabricID)
+	addNOCOverPASE(t, pase, ca, testCommissioneeNode)
+	caseSession(t, client, ca.admin(t, testAdminNodeID), testCommissioneeNode)
+
+	countCASE := func() int {
+		d.mu.Lock()
+		defer d.mu.Unlock()
+		n := 0
+		for _, s := range d.sessions {
+			if s.isCASE {
+				n++
+			}
+		}
+		return n
+	}
+	if n := countCASE(); n != 1 {
+		t.Fatalf("%d CASE sessions after CASE, want 1", n)
+	}
+	if err := generalcommissioning.ArmFailSafe(pase, 0, 0, 0); err != nil {
+		t.Fatal(err)
+	}
+	if n := countCASE(); n != 0 {
+		t.Fatalf("%d CASE sessions after the fail-safe rolled back, want 0", n)
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	for _, s := range d.sessions {
+		if !s.isCASE && s.fabricIndex != 0 {
+			t.Fatalf("the PASE session is still bound to fabric %d", s.fabricIndex)
 		}
 	}
 }

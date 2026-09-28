@@ -176,12 +176,12 @@ func TestFailSafeDisarmAndBusy(t *testing.T) {
 
 func TestFailSafeCommit(t *testing.T) {
 	fs, ft, s := newTestFailSafe(t)
-	if code, _ := fs.commit(); code != CommissioningNoFailSafe {
+	if code, _ := fs.commit(0); code != CommissioningNoFailSafe {
 		t.Fatalf("commit() while disarmed = %d, want NoFailSafe", code)
 	}
 	fs.arm(0, time.Minute)
 	stage(t, fs)
-	if code, err := fs.commit(); code != CommissioningOK || err != nil {
+	if code, err := fs.commit(0); code != CommissioningOK || err != nil {
 		t.Fatalf("commit() = (%d, %v)", code, err)
 	}
 	if !hasFabric(t, s) || fs.isArmed() {

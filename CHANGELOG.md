@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The device serves the **Operational Credentials cluster**: AttestationRequest and CertificateChainRequest with the credentials `device.WithAttestationProvider` sets, CSRRequest with a newly generated operational key, AddTrustedRootCertificate, and AddNOC, which checks the NOC and writes the fabric, an Administer ACL entry for CaseAdminSubject and the IPK through the fail-safe's transaction. The NOCs, Fabrics, SupportedFabrics, CommissionedFabrics and TrustedRootCertificates attributes report the fabrics, the one being added included. `device.WithSupportedFabrics` sets how many fabrics the device can join.
 - `credentials.ParseOperationalCertificate`, `VerifyRootCertificate` and `VerifyOperationalChain`, which read Matter TLV operational certificates and check a NOC chains to its root.
 - **The CASE responder**, `caseprotocol.Responder`, the device side of CASE. It finds the fabric a Sigma1's destination ID names among the device's fabrics, proves the device's identity on it in Sigma2, and checks in Sigma3 that the initiator's NOC chains to that fabric's root. Session resumption is not supported; a resumption request gets a full Sigma2.
+- The device answers **CASE** on the fabrics it has joined, the one being added under the fail-safe included, and serves the Interaction Model on CASE sessions, so commissioning completes: CommissioningComplete over CASE on the new fabric commits it. AddNOC binds the PASE session to the new fabric, and rolling the fail-safe back closes the CASE sessions on it. `Session.IsCASE` and `Session.PeerNodeID` describe a session.
 - `credentials.OperationalCertificate.CATs`, the CASE Authenticated Tags of a NOC.
 - `pake.Pake1.PA`, `pake.Pake3.CA` and `pake.WithPake2MessagePrecomputed`, which the responder needs.
 - `store.PersistentCounter`, a counter that never repeats a value across restarts without persisting every increment, for the boot count and the global group message counters.
@@ -35,6 +36,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - A standalone MRP ack sets the initiator flag exactly when the acknowledged message did not, instead of always; a commissioner's acks are unchanged.
 - `device.Session` no longer has `Transport()`: the device serves the Interaction Model on it.
+- `device.Session.Keys` returns `session.SessionKeys`, since a session may now be a CASE one.
 - `Store` no longer has a `Dir()` method, since a store which is not backed by a directory has none. `store.FileKVStore.Dir()` still returns it.
 - A record is written to a temporary file and renamed into place, so a crash can no longer leave a truncated JSON file. The directory layout is unchanged, and an existing `~/.{app-name}/` directory is read as it is.
 

@@ -26,6 +26,7 @@ import (
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/credentials"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
+	caseprotocol "github.com/cybergarage/go-matter/matter/protocol/case"
 	"github.com/cybergarage/go-matter/matter/protocol/im"
 	"github.com/cybergarage/go-matter/matter/store"
 )
@@ -107,6 +108,9 @@ type operationalCredentials struct {
 	attestation credentials.AttestationProvider
 	maxFabrics  uint8
 	now         func() time.Time
+	// onFabricAdded is called when AddNOC adds a fabric over sess, which
+	// is from then on bound to that fabric (11.18.6.8).
+	onFabricAdded func(sess im.SecureSession, fabricIndex uint8)
 
 	epoch       uint64
 	pendingKey  *ecdsa.PrivateKey
@@ -123,9 +127,11 @@ func newOperationalCredentials(s store.DeviceStore, fs *failSafe, attestation cr
 		maxFabrics:  maxFabrics,
 		now:         time.Now,
 		epoch:       0,
-		pendingKey:  nil,
-		pendingRoot: nil,
-		addedFabric: 0,
+
+		onFabricAdded: nil,
+		pendingKey:    nil,
+		pendingRoot:   nil,
+		addedFabric:   0,
 	}
 }
 
@@ -514,6 +520,10 @@ func (oc *operationalCredentials) addNOC(req *im.CommandRequest) im.CommandResul
 		return im.CommandStatus(im.StatusFailure)
 	}
 	oc.addedFabric = index
+	oc.failSafe.addFabric(index)
+	if oc.onFabricAdded != nil {
+		oc.onFabricAdded(req.Session, index)
+	}
 	log.Infof("device: AddNOC: joined fabric 0x%016X as node 0x%016X (fabric index %d)", noc.FabricID, noc.NodeID, index)
 	return nocResponse(NOCStatusOK, index)
 }
@@ -677,4 +687,57 @@ func appendUnique(list [][]byte, b []byte) [][]byte {
 		}
 	}
 	return append(list, b)
+}
+
+// responderFabrics returns the fabrics CASE can reach the device on, the
+// one AddNOC added under the armed fail-safe included: the commissioner
+// completes commissioning over CASE on it.
+func (oc *operationalCredentials) responderFabrics() ([]caseprotocol.ResponderFabric, error) {
+	oc.mutex.Lock()
+	defer oc.mutex.Unlock()
+	view := oc.view()
+	records, err := listFabrics(view)
+	if err != nil {
+		return nil, err
+	}
+	fabrics := make([]caseprotocol.ResponderFabric, 0, len(records))
+	for _, rec := range records {
+		signer, err := credentials.ParseSoftwareSigner(rec.PrivateKey)
+		if err != nil {
+			log.Errorf("device: fabric %d: operational key: %v", rec.FabricIndex, err)
+			continue
+		}
+		keys, err := view.LoadGroupKeys(rec.FabricIndex)
+		if err != nil {
+			return nil, err
+		}
+		ipk, ok := identityProtectionKey(keys)
+		if !ok {
+			log.Errorf("device: fabric %d has no IPK", rec.FabricIndex)
+			continue
+		}
+		fabrics = append(fabrics, caseprotocol.ResponderFabric{
+			FabricIndex:   rec.FabricIndex,
+			FabricID:      rec.FabricID,
+			NodeID:        rec.NodeID,
+			RootPublicKey: rec.RootPublicKey,
+			RCAC:          rec.RCAC,
+			ICAC:          rec.ICAC,
+			NOC:           rec.NOC,
+			IPK:           ipk,
+			Signer:        signer,
+		})
+	}
+	return fabrics, nil
+}
+
+// identityProtectionKey returns the current epoch key of a fabric's group
+// key set 0, its IPK (4.16.2.2).
+func identityProtectionKey(keys store.GroupKeysRecord) ([]byte, bool) {
+	for _, set := range keys.KeySets {
+		if set.GroupKeySetID == 0 && 0 < len(set.EpochKeys) {
+			return set.EpochKeys[len(set.EpochKeys)-1].Key, true
+		}
+	}
+	return nil, false
 }

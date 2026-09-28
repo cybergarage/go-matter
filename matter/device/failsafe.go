@@ -60,9 +60,14 @@ type failSafe struct {
 	timer         timerFunc
 	maxCumulative time.Duration
 	onExpire      func()
+	// onRollback is called, with the fail-safe's lock held, when a rollback
+	// removes the fabric AddNOC added under it; it must not call back into
+	// the fail-safe.
+	onRollback func(addedFabric uint8)
 
 	armed      bool
 	fabric     uint8
+	added      uint8
 	tx         store.DeviceStoreTx
 	firstArmed time.Time
 	stop       func() bool
@@ -80,8 +85,10 @@ func newFailSafe(s store.DeviceStore) *failSafe {
 		timer:         realTimer,
 		maxCumulative: DefaultMaxCumulativeFailSafeLimit,
 		onExpire:      nil,
+		onRollback:    nil,
 		armed:         false,
 		fabric:        0,
+		added:         0,
 		tx:            nil,
 		firstArmed:    time.Time{},
 		stop:          nil,
@@ -155,6 +162,9 @@ func (fs *failSafe) rollbackLocked() {
 	if err := fs.tx.Rollback(); err != nil {
 		log.Errorf("device: fail-safe: roll back: %v", err)
 	}
+	if fs.added != 0 && fs.onRollback != nil {
+		fs.onRollback(fs.added)
+	}
 	fs.disarmLocked()
 }
 
@@ -165,17 +175,21 @@ func (fs *failSafe) disarmLocked() {
 	fs.generation++
 	fs.armed = false
 	fs.fabric = 0
+	fs.added = 0
 	fs.tx = nil
 	fs.stop = nil
 }
 
-// commit commits what the fail-safe guarded and disarms it
-// (CommissioningComplete, 11.10.7.6).
-func (fs *failSafe) commit() (CommissioningError, error) {
+// commit commits what the fail-safe guarded and disarms it, when fabric
+// is the fabric associated with it (CommissioningComplete, 11.10.7.6).
+func (fs *failSafe) commit(fabric uint8) (CommissioningError, error) {
 	fs.mutex.Lock()
 	defer fs.mutex.Unlock()
 	if !fs.armed {
 		return CommissioningNoFailSafe, nil
+	}
+	if fabric != fs.fabric {
+		return CommissioningInvalidAuthentication, nil
 	}
 	err := fs.tx.Commit()
 	fs.disarmLocked()
@@ -188,6 +202,18 @@ func (fs *failSafe) transaction() store.DeviceStoreTx {
 	fs.mutex.Lock()
 	defer fs.mutex.Unlock()
 	return fs.tx
+}
+
+// addFabric associates the fail-safe with the fabric AddNOC added under
+// it: from then on it is that fabric's to extend and complete, and a
+// rollback removes it (11.18.6.8).
+func (fs *failSafe) addFabric(fabric uint8) {
+	fs.mutex.Lock()
+	defer fs.mutex.Unlock()
+	if fs.armed {
+		fs.fabric = fabric
+		fs.added = fabric
+	}
 }
 
 // armedTransaction returns the transaction and the epoch of the arming in

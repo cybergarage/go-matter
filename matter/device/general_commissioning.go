@@ -61,18 +61,18 @@ const rootEndpoint im.EndpointID = 0
 type generalCommissioning struct {
 	mutex              sync.Mutex
 	failSafe           *failSafe
-	isCASE             func(im.SecureSession) bool
+	lookup             sessionLookup
 	breadcrumb         uint64
 	regulatoryConfig   RegulatoryLocation
 	countryCode        string
 	locationCapability RegulatoryLocation
 }
 
-func newGeneralCommissioning(fs *failSafe, isCASE func(im.SecureSession) bool) *generalCommissioning {
+func newGeneralCommissioning(fs *failSafe, lookup sessionLookup) *generalCommissioning {
 	gc := &generalCommissioning{
 		mutex:              sync.Mutex{},
 		failSafe:           fs,
-		isCASE:             isCASE,
+		lookup:             lookup,
 		breadcrumb:         0,
 		regulatoryConfig:   RegulatoryIndoorOutdoor,
 		countryCode:        "XX",
@@ -158,12 +158,6 @@ func commissioningResponse(cmd im.CommandID, code CommissioningError) im.Command
 	return im.CommandResponse(cmd, enc.Bytes())
 }
 
-// accessingFabric returns the fabric a session belongs to: 0 for a PASE
-// session, which has none. CASE sessions are not supported yet.
-func accessingFabric(im.SecureSession) uint8 {
-	return 0
-}
-
 // armFailSafe handles ArmFailSafe (11.10.7.2).
 func (gc *generalCommissioning) armFailSafe(req *im.CommandRequest) im.CommandResult {
 	expiryField, ok := req.Field(0)
@@ -183,7 +177,7 @@ func (gc *generalCommissioning) armFailSafe(req *im.CommandRequest) im.CommandRe
 		return im.CommandStatus(im.StatusInvalidCommand)
 	}
 
-	code := gc.failSafe.arm(accessingFabric(req.Session), time.Duration(expiry)*time.Second)
+	code := gc.failSafe.arm(gc.lookup(req.Session).fabricIndex, time.Duration(expiry)*time.Second)
 	if code == CommissioningOK {
 		gc.setBreadcrumb(breadcrumb)
 		if expiry == 0 {
@@ -225,12 +219,13 @@ func (gc *generalCommissioning) setRegulatoryConfig(req *im.CommandRequest) im.C
 }
 
 // commissioningComplete handles CommissioningComplete (11.10.7.6): only
-// over CASE, and only while the fail-safe is armed.
+// over CASE, on the fabric the fail-safe was armed for, while it is armed.
 func (gc *generalCommissioning) commissioningComplete(req *im.CommandRequest) im.CommandResult {
-	if gc.isCASE == nil || !gc.isCASE(req.Session) {
+	info := gc.lookup(req.Session)
+	if !info.isCASE {
 		return commissioningResponse(commissioningCompleteResponseCommandID, CommissioningInvalidAuthentication)
 	}
-	code, err := gc.failSafe.commit()
+	code, err := gc.failSafe.commit(info.fabricIndex)
 	if err != nil {
 		return im.CommandStatus(im.StatusFailure)
 	}

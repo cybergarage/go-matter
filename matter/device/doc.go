@@ -16,15 +16,15 @@
 // needs to be commissioned, as opposed to commissioning others.
 //
 // It is at an early stage. A Device listens on UDP, advertises itself as a
-// commissionable node (_matterc._udp) with the go-mdns responder, and
-// answers PASE with a provisioned verifier. On each PASE session it serves
-// the Interaction Model with the General Commissioning cluster, whose
-// fail-safe guards the commissioning changes with a DeviceStore
-// transaction, and the Operational Credentials cluster: the device attests
-// with the credentials of an AttestationProvider, generates its operational
-// key for CSRRequest, and joins the fabric AddTrustedRootCertificate and
-// AddNOC install, through the fail-safe's transaction. CASE, over which
-// commissioning completes, is not implemented yet.
+// commissionable node (_matterc._udp) with the go-mdns responder, answers
+// PASE with a provisioned verifier, and answers CASE on the fabrics it has
+// joined. On each session it serves the Interaction Model with the General
+// Commissioning cluster, whose fail-safe guards the commissioning changes
+// with a DeviceStore transaction, and the Operational Credentials cluster:
+// the device attests with the credentials of an AttestationProvider,
+// generates its operational key for CSRRequest, and joins the fabric
+// AddTrustedRootCertificate and AddNOC install. The commissioner then
+// completes commissioning over CASE on the new fabric, which commits it.
 //
 // Nothing here is Matter certified. A product built on this package needs
 // its own vendor ID, device attestation credentials and certification.
