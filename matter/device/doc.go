@@ -20,8 +20,11 @@
 // answers PASE with a provisioned verifier. On each PASE session it serves
 // the Interaction Model with the General Commissioning cluster, whose
 // fail-safe guards the commissioning changes with a DeviceStore
-// transaction. The Operational Credentials cluster and CASE, which
-// commissioning goes through next, are not implemented yet.
+// transaction, and the Operational Credentials cluster: the device attests
+// with the credentials of an AttestationProvider, generates its operational
+// key for CSRRequest, and joins the fabric AddTrustedRootCertificate and
+// AddNOC install, through the fail-safe's transaction. CASE, over which
+// commissioning completes, is not implemented yet.
 //
 // Nothing here is Matter certified. A product built on this package needs
 // its own vendor ID, device attestation credentials and certification.

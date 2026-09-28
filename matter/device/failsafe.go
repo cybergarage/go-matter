@@ -67,6 +67,9 @@ type failSafe struct {
 	firstArmed time.Time
 	stop       func() bool
 	generation int
+	// epoch counts the times the fail-safe has been armed from disarmed,
+	// so state staged while it was armed can tell whether it still is.
+	epoch uint64
 }
 
 func newFailSafe(s store.DeviceStore) *failSafe {
@@ -83,6 +86,7 @@ func newFailSafe(s store.DeviceStore) *failSafe {
 		firstArmed:    time.Time{},
 		stop:          nil,
 		generation:    0,
+		epoch:         0,
 	}
 }
 
@@ -113,6 +117,7 @@ func (fs *failSafe) arm(fabric uint8, expiry time.Duration) CommissioningError {
 		fs.fabric = fabric
 		fs.tx = tx
 		fs.firstArmed = now
+		fs.epoch++
 	}
 	// The fail-safe never stays armed past the cumulative limit counted
 	// from when it was first armed (11.10.5.2).
@@ -183,6 +188,14 @@ func (fs *failSafe) transaction() store.DeviceStoreTx {
 	fs.mutex.Lock()
 	defer fs.mutex.Unlock()
 	return fs.tx
+}
+
+// armedTransaction returns the transaction and the epoch of the arming in
+// progress, or a nil transaction when the fail-safe is not armed.
+func (fs *failSafe) armedTransaction() (store.DeviceStoreTx, uint64) {
+	fs.mutex.Lock()
+	defer fs.mutex.Unlock()
+	return fs.tx, fs.epoch
 }
 
 func (fs *failSafe) isArmed() bool {

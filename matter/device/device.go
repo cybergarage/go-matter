@@ -23,6 +23,7 @@ import (
 	"sync"
 
 	"github.com/cybergarage/go-logger/log"
+	"github.com/cybergarage/go-matter/matter/credentials"
 	"github.com/cybergarage/go-matter/matter/crypto"
 	"github.com/cybergarage/go-matter/matter/encoding/message"
 	"github.com/cybergarage/go-matter/matter/mdns"
@@ -172,6 +173,31 @@ func WithDeviceStore(s store.DeviceStore) Option {
 	}
 }
 
+// WithAttestationProvider sets the attestation credentials (DAC, PAI and
+// Certification Declaration) the device proves it is a certified product
+// with. Without one, the device cannot be commissioned: it answers the
+// Operational Credentials cluster's attestation and CSR requests with
+// Failure. matter/credentials/testcreds provides the Matter SDK's test
+// credentials for development.
+func WithAttestationProvider(p credentials.AttestationProvider) Option {
+	return func(d *Device) error {
+		d.attestation = p
+		return nil
+	}
+}
+
+// WithSupportedFabrics sets how many fabrics the device can join, at least
+// DefaultSupportedFabrics and at most 254 (Matter Core 11.18.5.3).
+func WithSupportedFabrics(n int) Option {
+	return func(d *Device) error {
+		if n < DefaultSupportedFabrics || int(store.MaxFabricIndex) < n {
+			return fmt.Errorf("device: supported fabrics %d is outside %d..%d", n, DefaultSupportedFabrics, store.MaxFabricIndex)
+		}
+		d.supportedFabrics = uint8(n)
+		return nil
+	}
+}
+
 // WithSessionHandler sets the function called, on its own goroutine, each
 // time a commissioner establishes a PASE session.
 func WithSessionHandler(h func(*Session)) Option {
@@ -191,8 +217,11 @@ type Device struct {
 	advertiser  Advertiser
 	onSession   func(*Session)
 	store       store.DeviceStore
+	attestation credentials.AttestationProvider
 	imServer    *im.Server
 	failSafe    *failSafe
+
+	supportedFabrics uint8
 
 	conn   *net.UDPConn
 	ctx    context.Context
@@ -218,12 +247,15 @@ func New(opts ...Option) (*Device, error) {
 			Hostname:          NewHostname(),
 			CommissioningMode: mdns.CommissioningModePasscode,
 		},
-		advertiser: NewMDNSAdvertiser(),
-		onSession:  nil,
-		store:      nil,
-		imServer:   im.NewServer(),
-		failSafe:   nil,
-		sessions:   map[types.SessionID]*Session{},
+		advertiser:  NewMDNSAdvertiser(),
+		onSession:   nil,
+		store:       nil,
+		attestation: nil,
+		imServer:    im.NewServer(),
+		failSafe:    nil,
+		sessions:    map[types.SessionID]*Session{},
+
+		supportedFabrics: DefaultSupportedFabrics,
 	}
 	for _, opt := range opts {
 		if err := opt(d); err != nil {
@@ -241,6 +273,7 @@ func New(opts ...Option) (*Device, error) {
 	}
 	d.failSafe = newFailSafe(d.store)
 	newGeneralCommissioning(d.failSafe, d.isCASESession).register(d.imServer)
+	newOperationalCredentials(d.store, d.failSafe, d.attestation, d.supportedFabrics).register(d.imServer)
 	return d, nil
 }
 
