@@ -154,7 +154,8 @@ func WithDeviceName(name string) Option {
 }
 
 // WithAdvertiser sets the Advertiser the device publishes its
-// commissionable service through.
+// commissionable service through, replacing the default MDNSAdvertiser.
+// nil advertises nothing, for a device a commissioner reaches by address.
 func WithAdvertiser(a Advertiser) Option {
 	return func(d *Device) error {
 		d.advertiser = a
@@ -205,7 +206,7 @@ func New(opts ...Option) (*Device, error) {
 			Hostname:          NewHostname(),
 			CommissioningMode: mdns.CommissioningModePasscode,
 		},
-		advertiser: nil,
+		advertiser: NewMDNSAdvertiser(),
 		onSession:  nil,
 		sessions:   map[types.SessionID]*Session{},
 	}

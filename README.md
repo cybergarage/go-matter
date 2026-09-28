@@ -16,7 +16,7 @@ Matter is an open-source connectivity standard for smart home and IoT (Internet 
 
 go-matter is a **commissioner (controller)**. It discovers a commissionable device over BLE and mDNS, commissions it onto a fabric, and reads, writes and invokes the clusters of the node afterwards.
 
-**Running as a Matter device is under development.** The `matter/device` package answers PASE and describes its commissionable mDNS service, but go-matter cannot yet be commissioned all the way by another controller, and it serves no cluster of its own. The device role is planned for v1.0.0.
+**Running as a Matter device is under development.** The `matter/device` package advertises itself as a commissionable node over mDNS and answers PASE, but go-matter cannot yet be commissioned all the way by another controller, and it serves no cluster of its own. The device role is planned for v1.0.0.
 
 | | Status |
 | --- | --- |

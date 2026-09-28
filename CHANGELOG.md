@@ -13,7 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `store.NewMemStore`, an in-memory `Store` for tests, and `Store.DeleteCommissionee`, which forgets a device.
 - **A device-side store**, the groundwork for running as a Matter device. `store.DeviceStore` keeps the fabrics a device has joined with their operational credentials, the Access Control entries and the group keys of each fabric, and removes all three together as RemoveFabric does. Its transactions let the changes made while a fail-safe is armed be committed or rolled back as one.
 - **The PASE responder**, `pase.Responder`, the device side of PASE. It authenticates a commissioner against a `pase.Verifier` (w0, L, salt and iterations) rather than the passcode itself.
-- **`matter/device`**, the start of the device role: a `Device` listens on UDP, answers PASE with its verifier, and hands each new session to the application. `CommissionableService` describes its `_matterc._udp` service (instance name, subtypes and TXT entries), which an `Advertiser` publishes; go-matter does not ship an mDNS responder yet.
+- **`matter/device`**, the start of the device role: a `Device` listens on UDP, answers PASE with its verifier, and hands each new session to the application. `CommissionableService` describes its `_matterc._udp` service (instance name, subtypes and TXT entries), which the default `MDNSAdvertiser` publishes with the go-mdns responder.
 - `pake.Pake1.PA`, `pake.Pake3.CA` and `pake.WithPake2MessagePrecomputed`, which the responder needs.
 - `store.PersistentCounter`, a counter that never repeats a value across restarts without persisting every increment, for the boot count and the global group message counters.
 

@@ -6,7 +6,7 @@ and authenticated by a commissioner, but not yet commissioned all the way.
 
 | Step | Status |
 |------|--------|
-| Commissionable mDNS service (`_matterc._udp`) | The service is described; publishing it needs an `Advertiser` |
+| Commissionable mDNS service (`_matterc._udp`) | Implemented, with the go-mdns responder |
 | PASE | Implemented (`pase.Responder`) |
 | Fail-safe, General Commissioning | Not implemented |
 | Device attestation, CSR, AddNOC | Not implemented |
@@ -24,7 +24,6 @@ dev, err := device.New(
     device.WithDiscriminator(3840),
     device.WithVendorID(0xFFF1),        // a test vendor ID
     device.WithProductID(0x8001),
-    device.WithAdvertiser(advertiser),  // optional, see below
     device.WithSessionHandler(func(s *device.Session) {
         // s.Keys() are the PASE session keys; s.Transport() receives the
         // commissioner's messages on that session.
@@ -62,9 +61,18 @@ which is convenient for tests and tools.
 A test encodes these records as an mDNS response and parses them with the
 commissioner's own discovery code, so both sides agree on the format.
 
-go-matter does not publish the records itself yet:
-[go-mdns](https://github.com/cybergarage/go-mdns), which it uses to browse,
-has no responder so far. A `Device` publishes through the `Advertiser`
-interface given with `WithAdvertiser`, which can wrap the platform's service
-(Bonjour, Avahi) or an mDNS responder library. Without one the device
-advertises nothing, and a commissioner has to be pointed at its address.
+A `Device` publishes them with an `MDNSAdvertiser`, which runs the
+[go-mdns](https://github.com/cybergarage/go-mdns) responder: it announces
+the service when the device starts, answers the commissioners' queries by
+service type and by subtype (such as `_L3840`), and sends goodbye records
+when the device stops. The host name resolves to the addresses of the
+interface each query arrives on.
+
+`WithAdvertiser` replaces it, such as with a wrapper of the platform's
+service (Bonjour, Avahi), and `WithAdvertiser(nil)` advertises nothing, for
+a device a commissioner reaches by its address.
+`NewMDNSAdvertiserWithServer` publishes through an `mdns.Server` the
+application already runs.
+
+A test finds a device with go-matter's own discovery by its long
+discriminator over mDNS, and establishes PASE at the discovered address.

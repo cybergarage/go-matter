@@ -16,11 +16,11 @@ package device
 
 // Advertiser publishes a device's DNS-SD services on the network.
 //
-// go-matter does not ship an mDNS responder yet, so a Device advertises
-// nothing unless one is given with WithAdvertiser. An implementation can
-// wrap the platform's service (Bonjour, Avahi) or an mDNS responder library;
-// CommissionableService provides the names, subtypes and TXT entries it
-// needs.
+// A Device publishes through an MDNSAdvertiser, the go-mdns responder,
+// unless WithAdvertiser gives it another one, such as a wrapper of the
+// platform's service (Bonjour, Avahi), or nil to advertise nothing.
+// CommissionableService provides the names, subtypes and TXT entries an
+// implementation needs.
 type Advertiser interface {
 	// AdvertiseCommissionable publishes svc, replacing whatever this
 	// Advertiser published for the device before.

@@ -16,8 +16,8 @@
 // needs to be commissioned, as opposed to commissioning others.
 //
 // It is at an early stage. A Device listens on UDP, advertises itself as a
-// commissionable node (_matterc._udp) through an Advertiser, and answers
-// PASE with a provisioned verifier. Once PASE succeeds it hands the new
+// commissionable node (_matterc._udp) with the go-mdns responder, and
+// answers PASE with a provisioned verifier. Once PASE succeeds it hands the new
 // session to the application and routes the peer's secured messages for
 // that session to it. The clusters that commissioning goes through next
 // (General Commissioning, Operational Credentials) and CASE are not
