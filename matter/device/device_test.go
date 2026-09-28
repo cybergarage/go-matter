@@ -34,9 +34,10 @@ import (
 const testPasscode = types.Passcode(20202021)
 
 type recordingAdvertiser struct {
-	mu        sync.Mutex
-	published []CommissionableService
-	withdrawn int
+	mu          sync.Mutex
+	published   []CommissionableService
+	operational [][]OperationalService
+	withdrawn   int
 }
 
 func (a *recordingAdvertiser) AdvertiseCommissionable(svc CommissionableService) error {
@@ -44,6 +45,23 @@ func (a *recordingAdvertiser) AdvertiseCommissionable(svc CommissionableService)
 	defer a.mu.Unlock()
 	a.published = append(a.published, svc)
 	return nil
+}
+
+func (a *recordingAdvertiser) AdvertiseOperational(svcs []OperationalService) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.operational = append(a.operational, svcs)
+	return nil
+}
+
+// lastOperational returns the operational services last advertised.
+func (a *recordingAdvertiser) lastOperational() []OperationalService {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if len(a.operational) == 0 {
+		return nil
+	}
+	return a.operational[len(a.operational)-1]
 }
 
 func (a *recordingAdvertiser) Withdraw() error {

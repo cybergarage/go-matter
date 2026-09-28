@@ -19,12 +19,16 @@ package device
 // A Device publishes through an MDNSAdvertiser, the go-mdns responder,
 // unless WithAdvertiser gives it another one, such as a wrapper of the
 // platform's service (Bonjour, Avahi), or nil to advertise nothing.
-// CommissionableService provides the names, subtypes and TXT entries an
-// implementation needs.
+// CommissionableService and OperationalService provide the names,
+// subtypes and TXT entries an implementation needs.
 type Advertiser interface {
-	// AdvertiseCommissionable publishes svc, replacing whatever this
-	// Advertiser published for the device before.
+	// AdvertiseCommissionable publishes svc, replacing the commissionable
+	// service this Advertiser published for the device before.
 	AdvertiseCommissionable(svc CommissionableService) error
+	// AdvertiseOperational publishes svcs, one for each fabric the device
+	// has joined, replacing the operational services it published before:
+	// those not in svcs are withdrawn.
+	AdvertiseOperational(svcs []OperationalService) error
 	// Withdraw stops publishing the device's services.
 	Withdraw() error
 }

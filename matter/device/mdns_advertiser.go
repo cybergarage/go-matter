@@ -30,6 +30,8 @@ type MDNSAdvertiser struct {
 	owned   bool
 	started bool
 	current *mdns.LocalService
+	// operational are the published operational services, by full name.
+	operational map[string]*mdns.LocalService
 }
 
 // NewMDNSAdvertiser returns an MDNSAdvertiser with a server of its own.
@@ -40,6 +42,8 @@ func NewMDNSAdvertiser() *MDNSAdvertiser {
 		owned:   true,
 		started: false,
 		current: nil,
+
+		operational: map[string]*mdns.LocalService{},
 	}
 }
 
@@ -53,6 +57,8 @@ func NewMDNSAdvertiserWithServer(server *mdns.Server) *MDNSAdvertiser {
 		owned:   false,
 		started: true,
 		current: nil,
+
+		operational: map[string]*mdns.LocalService{},
 	}
 }
 
@@ -80,11 +86,8 @@ func (a *MDNSAdvertiser) AdvertiseCommissionable(svc CommissionableService) erro
 
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
-	if !a.started {
-		if err := a.server.Start(); err != nil {
-			return err
-		}
-		a.started = true
+	if err := a.startLocked(); err != nil {
+		return err
 	}
 	// A new instance name is a new service: withdraw the previous one, as
 	// a device does when it reopens its commissioning window.
@@ -100,8 +103,76 @@ func (a *MDNSAdvertiser) AdvertiseCommissionable(svc CommissionableService) erro
 	return nil
 }
 
+func (a *MDNSAdvertiser) startLocked() error {
+	if a.started {
+		return nil
+	}
+	if err := a.server.Start(); err != nil {
+		return err
+	}
+	a.started = true
+	return nil
+}
+
+// operationalLocalService maps an OperationalService to the service the
+// responder publishes.
+func operationalLocalService(svc OperationalService) *mdns.LocalService {
+	return &mdns.LocalService{
+		Instance:  svc.InstanceName(),
+		Service:   OperationalServiceType,
+		Domain:    ServiceDomain,
+		Subtypes:  svc.Subtypes(),
+		Host:      svc.Hostname,
+		Port:      svc.Port,
+		TXT:       svc.TXT(),
+		Addresses: nil,
+	}
+}
+
+// AdvertiseOperational implements Advertiser.
+func (a *MDNSAdvertiser) AdvertiseOperational(svcs []OperationalService) error {
+	locals := make(map[string]*mdns.LocalService, len(svcs))
+	for _, svc := range svcs {
+		if err := svc.Validate(); err != nil {
+			return err
+		}
+		local := operationalLocalService(svc)
+		locals[local.FullName()] = local
+	}
+
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	var errs []error
+	for name, published := range a.operational {
+		if _, keep := locals[name]; keep {
+			continue
+		}
+		if err := a.server.Deregister(published); err != nil {
+			errs = append(errs, err)
+		}
+		delete(a.operational, name)
+	}
+	if len(locals) == 0 {
+		return errors.Join(errs...)
+	}
+	if err := a.startLocked(); err != nil {
+		return errors.Join(append(errs, err)...)
+	}
+	for name, local := range locals {
+		if _, published := a.operational[name]; published {
+			continue
+		}
+		if err := a.server.Register(local); err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		a.operational[name] = local
+	}
+	return errors.Join(errs...)
+}
+
 // Withdraw implements Advertiser. It sends goodbye records for the
-// published service and stops the server the advertiser owns.
+// published services and stops the server the advertiser owns.
 func (a *MDNSAdvertiser) Withdraw() error {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
@@ -111,6 +182,12 @@ func (a *MDNSAdvertiser) Withdraw() error {
 			errs = append(errs, err)
 		}
 		a.current = nil
+	}
+	for name, published := range a.operational {
+		if err := a.server.Deregister(published); err != nil {
+			errs = append(errs, err)
+		}
+		delete(a.operational, name)
 	}
 	if a.owned && a.started {
 		if err := a.server.Stop(); err != nil {

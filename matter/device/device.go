@@ -266,6 +266,10 @@ type Device struct {
 	cases    map[string]*peerTransport
 	sessions map[types.SessionID]*Session
 	opCreds  *operationalCredentials
+	// refresh asks the advertising loop to republish the operational
+	// services, which it does until refreshDone is closed.
+	refresh     chan struct{}
+	refreshDone chan struct{}
 }
 
 // New returns a Device configured by opts. It does not touch the network
@@ -290,6 +294,8 @@ func New(opts ...Option) (*Device, error) {
 		cases:       map[string]*peerTransport{},
 		sessions:    map[types.SessionID]*Session{},
 		opCreds:     nil,
+		refresh:     make(chan struct{}, 1),
+		refreshDone: nil,
 
 		supportedFabrics: DefaultSupportedFabrics,
 	}
@@ -308,10 +314,16 @@ func New(opts ...Option) (*Device, error) {
 		d.store = store.NewMemDeviceStore()
 	}
 	d.failSafe = newFailSafe(d.store)
-	d.failSafe.onRollback = d.unbindFabric
+	d.failSafe.onRollback = func(fabricIndex uint8) {
+		d.unbindFabric(fabricIndex)
+		d.requestRefresh()
+	}
 	newGeneralCommissioning(d.failSafe, d.lookupSession).register(d.imServer)
 	d.opCreds = newOperationalCredentials(d.store, d.failSafe, d.attestation, d.supportedFabrics)
-	d.opCreds.onFabricAdded = d.bindFabric
+	d.opCreds.onFabricAdded = func(sec im.SecureSession, fabricIndex uint8) {
+		d.bindFabric(sec, fabricIndex)
+		d.requestRefresh()
+	}
 	d.opCreds.register(d.imServer)
 	return d, nil
 }
@@ -405,7 +417,74 @@ func (d *Device) Start() error {
 	d.ctx, d.cancel = context.WithCancel(context.Background())
 	d.wg.Add(1)
 	go d.serve(conn)
+	d.refreshDone = make(chan struct{})
+	go d.advertiseOperational(d.ctx, d.refreshDone)
+	d.requestRefresh()
 	return nil
+}
+
+// requestRefresh asks for the operational services to be republished, as
+// the fabrics changed. It never blocks, so it can be called with locks
+// held.
+func (d *Device) requestRefresh() {
+	select {
+	case d.refresh <- struct{}{}:
+	default:
+	}
+}
+
+// advertiseOperational publishes an operational service for each fabric
+// the device is on, each time requestRefresh asks, until ctx ends.
+func (d *Device) advertiseOperational(ctx context.Context, done chan struct{}) {
+	defer close(done)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-d.refresh:
+		}
+		if d.advertiser == nil {
+			continue
+		}
+		svcs, err := d.operationalServices()
+		if err != nil {
+			log.Errorf("device: list the operational services: %v", err)
+			continue
+		}
+		if err := d.advertiser.AdvertiseOperational(svcs); err != nil {
+			log.Errorf("device: advertise the operational services: %v", err)
+		}
+	}
+}
+
+// operationalServices returns the operational service of each fabric the
+// device is on, the one added under the fail-safe included.
+func (d *Device) operationalServices() ([]OperationalService, error) {
+	fabrics, err := d.opCreds.fabrics()
+	if err != nil {
+		return nil, err
+	}
+	d.mu.Lock()
+	service := d.service
+	d.mu.Unlock()
+	svcs := make([]OperationalService, 0, len(fabrics))
+	for _, f := range fabrics {
+		cfid, err := caseprotocol.ComputeCompressedFabricID(f.RootPublicKey, f.FabricID)
+		if err != nil {
+			log.Errorf("device: fabric %d: %v", f.FabricIndex, err)
+			continue
+		}
+		svcs = append(svcs, OperationalService{
+			CompressedFabricID:     cfid,
+			NodeID:                 f.NodeID,
+			Hostname:               service.Hostname,
+			Port:                   service.Port,
+			SessionIdleInterval:    service.SessionIdleInterval,
+			SessionActiveInterval:  service.SessionActiveInterval,
+			SessionActiveThreshold: service.SessionActiveThreshold,
+		})
+	}
+	return svcs, nil
 }
 
 // Stop withdraws the advertisement, closes the socket, and waits for the
@@ -423,8 +502,10 @@ func (d *Device) Stop() error {
 		sess.transport.close()
 		delete(d.sessions, id)
 	}
+	refreshDone := d.refreshDone
 	d.mu.Unlock()
 	d.failSafe.close()
+	<-refreshDone
 
 	var errs []error
 	if d.advertiser != nil {

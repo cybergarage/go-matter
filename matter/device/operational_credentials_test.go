@@ -188,7 +188,15 @@ func startCommissioning(t *testing.T) (*Device, session.SecureSession) {
 // the commissioner's UDP transport, to go on to CASE over.
 func startCommissioningWithClient(t *testing.T) (*Device, session.SecureSession, *udpClient) {
 	t.Helper()
-	d, _, _ := startTestDevice(t, WithAttestationProvider(testAttestationProvider(t)))
+	d, _, sess, client := startCommissioningWithAdvertiser(t)
+	return d, sess, client
+}
+
+// startCommissioningWithAdvertiser is startCommissioningWithClient which
+// also returns what the device advertises through.
+func startCommissioningWithAdvertiser(t *testing.T) (*Device, *recordingAdvertiser, session.SecureSession, *udpClient) {
+	t.Helper()
+	d, adv, _ := startTestDevice(t, WithAttestationProvider(testAttestationProvider(t)))
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	client := dialDevice(t, d)
@@ -196,7 +204,7 @@ func startCommissioningWithClient(t *testing.T) (*Device, session.SecureSession,
 	if err != nil {
 		t.Fatalf("PASE: %v", err)
 	}
-	return d, session.NewSecureSession(client, keys), client
+	return d, adv, session.NewSecureSession(client, keys), client
 }
 
 func randomNonce(t *testing.T) []byte {
@@ -712,9 +720,25 @@ func TestDeviceCommissioningCompletesOverCASE(t *testing.T) {
 // TestDeviceRollbackClosesCASESessions checks that the CASE sessions on a
 // fabric the fail-safe rolls back end with it.
 func TestDeviceRollbackClosesCASESessions(t *testing.T) {
-	d, pase, client := startCommissioningWithClient(t)
+	d, adv, pase, client := startCommissioningWithAdvertiser(t)
 	ca := newTestCA(t, testFabricID)
 	addNOCOverPASE(t, pase, ca, testCommissioneeNode)
+
+	// AddNOC makes the device advertise itself on the new fabric.
+	root, err := credentials.ParseOperationalCertificate(ca.rootTLV(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfid, err := caseprotocol.ComputeCompressedFabricID(root.PublicKey, testFabricID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	waitOperational(t, adv, 1)
+	svc := adv.lastOperational()[0]
+	if svc.CompressedFabricID != cfid || svc.NodeID != testCommissioneeNode || svc.Port != d.CommissionableService().Port {
+		t.Fatalf("advertised %+v, want fabric 0x%X node 0x%X", svc, cfid, testCommissioneeNode)
+	}
+
 	caseSession(t, client, ca.admin(t, testAdminNodeID), testCommissioneeNode)
 
 	countCASE := func() int {
@@ -737,11 +761,31 @@ func TestDeviceRollbackClosesCASESessions(t *testing.T) {
 	if n := countCASE(); n != 0 {
 		t.Fatalf("%d CASE sessions after the fail-safe rolled back, want 0", n)
 	}
+	waitOperational(t, adv, 0)
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	for _, s := range d.sessions {
 		if !s.isCASE && s.fabricIndex != 0 {
 			t.Fatalf("the PASE session is still bound to fabric %d", s.fabricIndex)
 		}
+	}
+}
+
+// waitOperational waits for the device to advertise n operational
+// services.
+func waitOperational(t *testing.T, adv *recordingAdvertiser, n int) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		adv.mu.Lock()
+		published := len(adv.operational)
+		adv.mu.Unlock()
+		if 0 < published && len(adv.lastOperational()) == n {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the device advertises %v, want %d operational services", adv.lastOperational(), n)
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }
