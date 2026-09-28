@@ -14,6 +14,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **A device-side store**, the groundwork for running as a Matter device. `store.DeviceStore` keeps the fabrics a device has joined with their operational credentials, the Access Control entries and the group keys of each fabric, and removes all three together as RemoveFabric does. Its transactions let the changes made while a fail-safe is armed be committed or rolled back as one.
 - **The PASE responder**, `pase.Responder`, the device side of PASE. It authenticates a commissioner against a `pase.Verifier` (w0, L, salt and iterations) rather than the passcode itself.
 - **`matter/device`**, the start of the device role: a `Device` listens on UDP, answers PASE with its verifier, and hands each new session to the application. `CommissionableService` describes its `_matterc._udp` service (instance name, subtypes and TXT entries), which the default `MDNSAdvertiser` publishes with the go-mdns responder.
+- **An Interaction Model server**, `im.Server`, which answers Invoke and Read (with wildcard paths) with registered command handlers and attribute readers. A report must fit in one message.
+- `session.WithRole(session.RoleResponder)`, so a device can use a secure session with the responder's keys and session IDs.
+- The device serves the Interaction Model on each PASE session with the **General Commissioning cluster**: ArmFailSafe, SetRegulatoryConfig, CommissioningComplete (over CASE only) and its attributes. The fail-safe guards the commissioning changes with a `DeviceStore` transaction, rolled back when it expires. `device.WithDeviceStore` sets the store.
 - `pake.Pake1.PA`, `pake.Pake3.CA` and `pake.WithPake2MessagePrecomputed`, which the responder needs.
 - `store.PersistentCounter`, a counter that never repeats a value across restarts without persisting every increment, for the boot count and the global group message counters.
 
@@ -24,6 +27,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- A standalone MRP ack sets the initiator flag exactly when the acknowledged message did not, instead of always; a commissioner's acks are unchanged.
+- `device.Session` no longer has `Transport()`: the device serves the Interaction Model on it.
 - `Store` no longer has a `Dir()` method, since a store which is not backed by a directory has none. `store.FileKVStore.Dir()` still returns it.
 - A record is written to a temporary file and renamed into place, so a crash can no longer leave a truncated JSON file. The directory layout is unchanged, and an existing `~/.{app-name}/` directory is read as it is.
 

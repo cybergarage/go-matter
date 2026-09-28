@@ -17,11 +17,11 @@
 //
 // It is at an early stage. A Device listens on UDP, advertises itself as a
 // commissionable node (_matterc._udp) with the go-mdns responder, and
-// answers PASE with a provisioned verifier. Once PASE succeeds it hands the new
-// session to the application and routes the peer's secured messages for
-// that session to it. The clusters that commissioning goes through next
-// (General Commissioning, Operational Credentials) and CASE are not
-// implemented yet.
+// answers PASE with a provisioned verifier. On each PASE session it serves
+// the Interaction Model with the General Commissioning cluster, whose
+// fail-safe guards the commissioning changes with a DeviceStore
+// transaction. The Operational Credentials cluster and CASE, which
+// commissioning goes through next, are not implemented yet.
 //
 // Nothing here is Matter certified. A product built on this package needs
 // its own vendor ID, device attestation credentials and certification.

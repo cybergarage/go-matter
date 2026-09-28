@@ -23,9 +23,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cybergarage/go-matter/matter/encoding/message"
+	"github.com/cybergarage/go-matter/matter/cluster/generalcommissioning"
+	"github.com/cybergarage/go-matter/matter/protocol/im"
 	"github.com/cybergarage/go-matter/matter/protocol/pase"
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pbkdf"
+	"github.com/cybergarage/go-matter/matter/protocol/session"
 	"github.com/cybergarage/go-matter/matter/types"
 )
 
@@ -148,32 +150,41 @@ func TestDeviceCommissionablePASEOverUDP(t *testing.T) {
 		t.Fatalf("responder session ID: device %d, commissioner %d", sess.Keys().ResponderSessionID(), keys.ResponderSessionID())
 	}
 
-	// A message the commissioner sends on the new session reaches the
-	// session's transport.
-	secured := message.NewMessage(
-		message.WithMessageFrameHeader(message.NewHeader(
-			message.WithHeaderSessionID(keys.ResponderSessionID()),
-			message.WithHeaderMessageCounter(message.NewMessageCounter()),
-		)),
-		message.WithMessagePayload([]byte("ciphertext")),
-	)
-	wire, err := secured.Bytes()
+	// The commissioner's requests on the new session are answered by the
+	// device's Interaction Model server.
+	commissioner := session.NewSecureSession(client, keys)
+	if err := generalcommissioning.ArmFailSafe(commissioner, 0, 60, 42); err != nil {
+		t.Fatalf("ArmFailSafe() error = %v", err)
+	}
+	if !d.failSafe.isArmed() {
+		t.Fatal("ArmFailSafe did not arm the device's fail-safe")
+	}
+	resp, err := im.ReadAttribute(commissioner, 0, GeneralCommissioningClusterID, breadcrumbAttributeID)
+	if err != nil || resp.Status != nil {
+		t.Fatalf("read Breadcrumb: (%+v, %v)", resp, err)
+	}
+	if v, _ := resp.Value.Unsigned(); v != 42 {
+		t.Fatalf("Breadcrumb = %d, want the 42 ArmFailSafe set", v)
+	}
+	if err := generalcommissioning.SetRegulatoryConfig(commissioner, 0, generalcommissioning.RegulatoryLocationTypeIndoor, "JP", 43); err != nil {
+		t.Fatalf("SetRegulatoryConfig() error = %v", err)
+	}
+	// CommissioningComplete is only accepted over CASE.
+	complete, err := im.Invoke(commissioner, 0, GeneralCommissioningClusterID, commissioningCompleteCommandID, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := client.Transmit(ctx, wire); err != nil {
-		t.Fatal(err)
-	}
-	got, err := sess.Transport().Receive(ctx)
-	if err != nil {
-		t.Fatalf("session Transport().Receive() error = %v", err)
-	}
-	if !bytes.Equal(got, wire) {
-		t.Fatal("the session transport received a different message")
+	if code, _ := complete.Field(0); code == nil {
+		t.Fatal("CommissioningCompleteResponse lacks ErrorCode")
+	} else if v, _ := code.Unsigned(); CommissioningError(v) != CommissioningInvalidAuthentication {
+		t.Fatalf("CommissioningComplete over PASE: ErrorCode %d, want InvalidAuthentication", v)
 	}
 
 	if err := d.Stop(); err != nil {
 		t.Fatal(err)
+	}
+	if d.failSafe.isArmed() {
+		t.Fatal("the fail-safe is still armed after Stop")
 	}
 	adv.mu.Lock()
 	defer adv.mu.Unlock()

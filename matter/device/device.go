@@ -26,7 +26,10 @@ import (
 	"github.com/cybergarage/go-matter/matter/crypto"
 	"github.com/cybergarage/go-matter/matter/encoding/message"
 	"github.com/cybergarage/go-matter/matter/mdns"
+	"github.com/cybergarage/go-matter/matter/protocol/im"
 	"github.com/cybergarage/go-matter/matter/protocol/pase"
+	"github.com/cybergarage/go-matter/matter/protocol/session"
+	"github.com/cybergarage/go-matter/matter/store"
 	"github.com/cybergarage/go-matter/matter/types"
 )
 
@@ -50,11 +53,13 @@ const peerQueueLength = 16
 // WithPasscode was given.
 var ErrNoVerifier = errors.New("device: a PASE verifier or passcode is required")
 
-// Session is a secure session a Device has established with a peer.
+// Session is a secure session a Device has established with a peer. The
+// device serves the Interaction Model on it.
 type Session struct {
 	keys      pase.SessionKeys
 	peer      *net.UDPAddr
 	transport *peerTransport
+	secure    session.SecureSession
 }
 
 // Keys returns the session's keys, as the PASE responder derived them.
@@ -65,12 +70,6 @@ func (s *Session) Keys() pase.SessionKeys {
 // Peer returns the address the session was established from.
 func (s *Session) Peer() net.Addr {
 	return s.peer
-}
-
-// Transport receives the peer's messages for this session, still
-// encrypted, and sends raw messages to the peer.
-func (s *Session) Transport() pase.Transport {
-	return s.transport
 }
 
 // Option configures a Device.
@@ -163,6 +162,16 @@ func WithAdvertiser(a Advertiser) Option {
 	}
 }
 
+// WithDeviceStore sets where the device persists its fabrics, ACLs, group
+// keys and counters. The default keeps them in memory, so they do not
+// survive the process.
+func WithDeviceStore(s store.DeviceStore) Option {
+	return func(d *Device) error {
+		d.store = s
+		return nil
+	}
+}
+
 // WithSessionHandler sets the function called, on its own goroutine, each
 // time a commissioner establishes a PASE session.
 func WithSessionHandler(h func(*Session)) Option {
@@ -181,6 +190,9 @@ type Device struct {
 	service     CommissionableService
 	advertiser  Advertiser
 	onSession   func(*Session)
+	store       store.DeviceStore
+	imServer    *im.Server
+	failSafe    *failSafe
 
 	conn   *net.UDPConn
 	ctx    context.Context
@@ -208,6 +220,9 @@ func New(opts ...Option) (*Device, error) {
 		},
 		advertiser: NewMDNSAdvertiser(),
 		onSession:  nil,
+		store:      nil,
+		imServer:   im.NewServer(),
+		failSafe:   nil,
 		sessions:   map[types.SessionID]*Session{},
 	}
 	for _, opt := range opts {
@@ -221,7 +236,18 @@ func New(opts ...Option) (*Device, error) {
 	if d.service.Discriminator > MaxDiscriminator {
 		return nil, fmt.Errorf("device: discriminator 0x%X exceeds 12 bits", d.service.Discriminator)
 	}
+	if d.store == nil {
+		d.store = store.NewMemDeviceStore()
+	}
+	d.failSafe = newFailSafe(d.store)
+	newGeneralCommissioning(d.failSafe, d.isCASESession).register(d.imServer)
 	return d, nil
+}
+
+// isCASESession reports whether sess was established with CASE. The device
+// only establishes PASE sessions so far.
+func (d *Device) isCASESession(im.SecureSession) bool {
+	return false
 }
 
 // Start listens on the configured address and publishes the commissionable
@@ -274,7 +300,12 @@ func (d *Device) Stop() error {
 	}
 	d.conn = nil
 	d.cancel()
+	for id, sess := range d.sessions {
+		sess.transport.close()
+		delete(d.sessions, id)
+	}
 	d.mu.Unlock()
+	d.failSafe.close()
 
 	var errs []error
 	if d.advertiser != nil {
@@ -383,14 +414,39 @@ func (d *Device) runPASE(pt *peerTransport, sessionID types.SessionID) {
 		log.Warnf("device: PASE with %s failed: %v", pt.peer, err)
 		return
 	}
-	sess := &Session{keys: keys, peer: pt.peer, transport: newPeerTransport(pt.conn, pt.peer)}
+	transport := newPeerTransport(pt.conn, pt.peer)
+	sess := &Session{
+		keys:      keys,
+		peer:      pt.peer,
+		transport: transport,
+		secure:    session.NewSecureSession(transport, keys, session.WithRole(session.RoleResponder)),
+	}
 	d.sessions[sessionID] = sess
 	handler := d.onSession
+	d.wg.Add(1)
+	go d.serveSession(sess)
 	d.mu.Unlock()
 
 	log.Infof("device: PASE session %d established with %s", sessionID, pt.peer)
 	if handler != nil {
 		handler(sess)
+	}
+}
+
+// serveSession answers the Interaction Model requests arriving on sess until
+// its transport is closed. A message which fails, such as one which does
+// not decrypt, is logged and the session keeps serving.
+func (d *Device) serveSession(sess *Session) {
+	defer d.wg.Done()
+	for {
+		err := d.imServer.ServeOne(sess.secure)
+		if err == nil {
+			continue
+		}
+		if sess.transport.isClosed() {
+			return
+		}
+		log.Warnf("device: session with %s: %v", sess.peer, err)
 	}
 }
 
@@ -405,16 +461,41 @@ func (d *Device) newSessionIDLocked() types.SessionID {
 	}
 }
 
+// errTransportClosed is returned by a closed peerTransport.
+var errTransportClosed = errors.New("device: transport closed")
+
 // peerTransport is the io.Transport for one peer over the device's shared
-// socket: it sends to the peer, and receives what dispatch delivers.
+// socket: it sends to the peer, and receives what dispatch delivers until
+// it is closed.
 type peerTransport struct {
-	conn *net.UDPConn
-	peer *net.UDPAddr
-	in   chan []byte
+	conn      *net.UDPConn
+	peer      *net.UDPAddr
+	in        chan []byte
+	closed    chan struct{}
+	closeOnce sync.Once
 }
 
 func newPeerTransport(conn *net.UDPConn, peer *net.UDPAddr) *peerTransport {
-	return &peerTransport{conn: conn, peer: peer, in: make(chan []byte, peerQueueLength)}
+	return &peerTransport{
+		conn:      conn,
+		peer:      peer,
+		in:        make(chan []byte, peerQueueLength),
+		closed:    make(chan struct{}),
+		closeOnce: sync.Once{},
+	}
+}
+
+func (t *peerTransport) close() {
+	t.closeOnce.Do(func() { close(t.closed) })
+}
+
+func (t *peerTransport) isClosed() bool {
+	select {
+	case <-t.closed:
+		return true
+	default:
+		return false
+	}
 }
 
 func (t *peerTransport) deliver(b []byte) {
@@ -434,6 +515,8 @@ func (t *peerTransport) Receive(ctx context.Context) ([]byte, error) {
 	select {
 	case b := <-t.in:
 		return b, nil
+	case <-t.closed:
+		return nil, errTransportClosed
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
