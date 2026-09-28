@@ -107,6 +107,16 @@ func WithResponderSessionID(id session.SessionID) ResponderOption {
 	}
 }
 
+// WithResponderEstablishedHandler sets a function called with the new
+// session just before the responder reports success to the initiator,
+// which may send its first message on the session as soon as it has the
+// report: the caller sets the session up in h so that message finds it.
+func WithResponderEstablishedHandler(h func(*ResponderSession)) ResponderOption {
+	return func(r *Responder) {
+		r.established = h
+	}
+}
+
 // Responder is the device side of CASE (Matter Core 4.14.2): it answers a
 // Sigma1 addressed to one of its fabrics, proves its identity on that
 // fabric in Sigma2, and checks the initiator's in Sigma3. Session
@@ -115,9 +125,10 @@ func WithResponderSessionID(id session.SessionID) ResponderOption {
 //
 // A Responder runs one exchange; create a new one for each attempt.
 type Responder struct {
-	t         Transport
-	fabrics   func() ([]ResponderFabric, error)
-	sessionID session.SessionID
+	t           Transport
+	fabrics     func() ([]ResponderFabric, error)
+	sessionID   session.SessionID
+	established func(*ResponderSession)
 
 	counter         message.MessageCounter
 	lastPeerCounter message.MessageCounter
@@ -132,6 +143,7 @@ func NewResponder(t Transport, fabrics func() ([]ResponderFabric, error), opts .
 		t:               t,
 		fabrics:         fabrics,
 		sessionID:       0,
+		established:     nil,
 		counter:         message.NewMessageCounter(),
 		lastPeerCounter: 0,
 		hasLastPeer:     false,
@@ -251,22 +263,26 @@ func (r *Responder) EstablishSession(ctx context.Context) (*ResponderSession, er
 		return nil, err
 	}
 
-	// 4) SigmaFinished.
-	if err := r.sendStatusReport(ctx, sigma3Msg, statusGeneralSuccess, statusProtocolSessionSuccess); err != nil {
-		return nil, fmt.Errorf("case: transmit StatusReport: %w", err)
-	}
-
 	keys, err := deriveSessionKeys(sharedSecret, ipk, sigma1Msg.Payload(), sigma2Payload, sigma3Msg.Payload(),
 		session.SessionID(s1.InitiatorSessionID), sessionID, session.NodeID(fabric.NodeID), session.NodeID(peer.NodeID))
 	if err != nil {
 		return nil, err
 	}
-	return &ResponderSession{
+	established := &ResponderSession{
 		Keys:        keys,
 		FabricIndex: fabric.FabricIndex,
 		PeerNodeID:  peer.NodeID,
 		PeerCATs:    peer.CATs,
-	}, nil
+	}
+	if r.established != nil {
+		r.established(established)
+	}
+
+	// 4) SigmaFinished.
+	if err := r.sendStatusReport(ctx, sigma3Msg, statusGeneralSuccess, statusProtocolSessionSuccess); err != nil {
+		return nil, fmt.Errorf("case: transmit StatusReport: %w", err)
+	}
+	return established, nil
 }
 
 // findFabric returns the fabric whose destination ID (Matter Core

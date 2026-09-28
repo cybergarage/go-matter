@@ -45,9 +45,10 @@ var ErrUnexpectedMessage = errors.New("unexpected PASE message")
 //
 // A Responder runs one exchange; create a new one for each attempt.
 type Responder struct {
-	t         Transport
-	verifier  Verifier
-	sessionID SessionID
+	t           Transport
+	verifier    Verifier
+	sessionID   SessionID
+	established func(SessionKeys)
 
 	counter message.MessageCounter
 	// lastPeerCounter and lastSent let the responder answer a retransmitted
@@ -71,6 +72,17 @@ func WithResponderSessionID(id SessionID) ResponderOption {
 	}
 }
 
+// WithResponderEstablishedHandler sets a function called with the new
+// session's keys just before the responder reports success to the
+// initiator, which may send its first message on the session as soon as it
+// has the report: the caller sets the session up in h so that message
+// finds it.
+func WithResponderEstablishedHandler(h func(SessionKeys)) ResponderOption {
+	return func(r *Responder) {
+		r.established = h
+	}
+}
+
 // NewResponder returns a PASE responder that runs over t and authenticates
 // the initiator against verifier.
 func NewResponder(t Transport, verifier Verifier, opts ...ResponderOption) *Responder {
@@ -78,6 +90,7 @@ func NewResponder(t Transport, verifier Verifier, opts ...ResponderOption) *Resp
 		t:               t,
 		verifier:        verifier,
 		sessionID:       0,
+		established:     nil,
 		counter:         message.NewMessageCounter(),
 		lastPeerCounter: 0,
 		hasLastPeer:     false,
@@ -214,24 +227,28 @@ func (r *Responder) EstablishSession(ctx context.Context) (SessionKeys, error) {
 		return nil, fmt.Errorf("%w: cA mismatch", ErrPASEVerification)
 	}
 
-	// 7) StatusReport: success.
-	if err := r.sendStatusReport(ctx, pake3Msg, statusGeneralSuccess, statusProtocolSessionSuccess); err != nil {
-		return nil, fmt.Errorf("pase: transmit StatusReport: %w", err)
-	}
-
-	// 8) Session keys (Matter Core 4.14.1.3), exactly as the initiator
+	// 7) Session keys (Matter Core 4.14.1.3), exactly as the initiator
 	// derives them.
 	keys, err := crypto.CryptoKDF(ke, nil, []byte("SessionKeys"), 3*CryptoSymmetricKeyLen)
 	if err != nil {
 		return nil, fmt.Errorf("pase: session key derivation: %w", err)
 	}
-	return newSessionKeys(
+	sessionKeys := newSessionKeys(
 		keys[0:CryptoSymmetricKeyLen],
 		keys[CryptoSymmetricKeyLen:2*CryptoSymmetricKeyLen],
 		keys[2*CryptoSymmetricKeyLen:3*CryptoSymmetricKeyLen],
 		paramReq.InitiatorSessionID(),
 		sessionID,
-	), nil
+	)
+	if r.established != nil {
+		r.established(sessionKeys)
+	}
+
+	// 8) StatusReport: success.
+	if err := r.sendStatusReport(ctx, pake3Msg, statusGeneralSuccess, statusProtocolSessionSuccess); err != nil {
+		return nil, fmt.Errorf("pase: transmit StatusReport: %w", err)
+	}
+	return sessionKeys, nil
 }
 
 func (r *Responder) nextCounter() message.MessageCounter {
