@@ -12,6 +12,8 @@ Matter is an open-source connectivity standard for smart home and IoT (Internet 
 
 **Note:** 🌱 This is a spare-time hobby project, so progress may be slow and changes may appear irregular. Thank you for your patience 🙂
 
+> **Bundled third-party test credentials.** `matter/credentials/testcreds` contains the public test attestation credentials of the Matter SDK, [project-chip/connectedhomeip](https://github.com/project-chip/connectedhomeip) (Apache License 2.0): the development DAC and PAI for vendor ID 0xFFF1 and product ID 0x8000, the test PAA, and the example Certification Declaration. They are copied unmodified from commit `d305b0761957c960c26c0841e1b50add2365871d`, with the SDK's `LICENSE` and `NOTICE`. See [matter/credentials/testcreds/certs/README.md](matter/credentials/testcreds/certs/README.md) for the source of each file. They are for development and testing only: their private key is public, and commissioners accept them only in development mode.
+
 ## Status
 
 go-matter is a **commissioner (controller)**. It discovers a commissionable device over BLE and mDNS, commissions it onto a fabric, and reads, writes and invokes the clusters of the node afterwards.

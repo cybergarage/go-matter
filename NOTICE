@@ -1,0 +1,9 @@
+go-matter
+Copyright (C) 2022-2026 The go-matter Authors.
+
+This product includes the public test attestation credentials of the Matter
+SDK, project-chip/connectedhomeip (https://github.com/project-chip/connectedhomeip),
+licensed under the Apache License, Version 2.0. They are in
+matter/credentials/testcreds/certs, copied unmodified from commit
+d305b0761957c960c26c0841e1b50add2365871d; the SDK's LICENSE and NOTICE are
+reproduced there, and certs/README.md lists the source of each file.

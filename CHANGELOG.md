@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **An Interaction Model server**, `im.Server`, which answers Invoke and Read (with wildcard paths) with registered command handlers and attribute readers. A report must fit in one message.
 - `session.WithRole(session.RoleResponder)`, so a device can use a secure session with the responder's keys and session IDs.
 - The device serves the Interaction Model on each PASE session with the **General Commissioning cluster**: ArmFailSafe, SetRegulatoryConfig, CommissioningComplete (over CASE only) and its attributes. The fail-safe guards the commissioning changes with a `DeviceStore` transaction, rolled back when it expires. `device.WithDeviceStore` sets the store.
+- `credentials.AttestationProvider` and `credentials.Signer`, which a device proves its origin and signs with without exposing its private keys, with `NewAttestationProvider`, `NewSoftwareSigner`, `CreateCSR`, `BuildAttestationElements`, `BuildNOCSRElements` and `SignWithChallenge` for the device side of attestation and CSR.
+- `credentials/testcreds`: the public test attestation credentials of the Matter SDK (project-chip/connectedhomeip, Apache License 2.0) for vendor 0xFFF1 and product 0x8000, for development and testing only. The source is given in the README, `NOTICE` and `matter/credentials/testcreds/certs/README.md`.
 - `pake.Pake1.PA`, `pake.Pake3.CA` and `pake.WithPake2MessagePrecomputed`, which the responder needs.
 - `store.PersistentCounter`, a counter that never repeats a value across restarts without persisting every increment, for the boot count and the global group message counters.
 
