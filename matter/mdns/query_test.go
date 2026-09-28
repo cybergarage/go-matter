@@ -14,7 +14,11 @@
 
 package mdns
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/cybergarage/go-mdns/mdns"
+)
 
 func TestNewOperationalNodeQueryBrowse(t *testing.T) {
 	query := NewOperationalNodeQuery("")
@@ -24,6 +28,9 @@ func TestNewOperationalNodeQueryBrowse(t *testing.T) {
 	}
 	if got := query.DomainName(); got != "_matter._tcp.local" {
 		t.Fatalf("DomainName() = %q, want %q", got, "_matter._tcp.local")
+	}
+	if got := query.Type(); got != mdns.PTR {
+		t.Fatalf("Type() = %v, want PTR to browse", got)
 	}
 }
 
@@ -35,5 +42,9 @@ func TestNewOperationalNodeQuerySpecificServiceInstance(t *testing.T) {
 	}
 	if got := query.DomainName(); got != "1122334455667788._matter._tcp.local" {
 		t.Fatalf("DomainName() = %q, want %q", got, "1122334455667788._matter._tcp.local")
+	}
+	// An instance has no PTR record; it is resolved with ANY.
+	if got := query.Type(); got != mdns.ANY {
+		t.Fatalf("Type() = %v, want ANY to resolve the instance", got)
 	}
 }

@@ -29,6 +29,7 @@ type query struct {
 	subtype string
 	service string
 	domain  string
+	typ     mdns.Type
 	handler MessageHandler
 }
 
@@ -46,6 +47,15 @@ func WithQuerySubtype(subtype string) QueryOption {
 func WithQueryService(service string) QueryOption {
 	return func(q *query) {
 		q.service = service
+	}
+}
+
+// WithQueryType sets the question record type of the query. The default,
+// PTR, browses a service type; a service instance is resolved with SRV,
+// TXT or ANY.
+func WithQueryType(typ mdns.Type) QueryOption {
+	return func(q *query) {
+		q.typ = typ
 	}
 }
 
@@ -80,6 +90,7 @@ func NewQuery(opts ...QueryOption) Query {
 		subtype: "",
 		service: "",
 		domain:  mdns.LocalDomain,
+		typ:     mdns.PTR,
 		handler: nil,
 	}
 	for _, opt := range opts {
@@ -96,6 +107,11 @@ func (q *query) Subtype() string {
 // Service returns the service name for the query.
 func (q *query) Service() string {
 	return q.service
+}
+
+// Type returns the question record type of the query.
+func (q *query) Type() mdns.Type {
+	return q.typ
 }
 
 // DomainName returns the domain name for the query.

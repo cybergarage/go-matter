@@ -60,6 +60,7 @@ func (disc *discoverer) Search(ctx context.Context, query Query) ([]Commissionab
 	dnsQuery := mdns.NewQuery(
 		mdns.WithQuerySubtype(query.Subtype()),
 		mdns.WithQueryService(service),
+		mdns.WithQueryType(query.Type()),
 	)
 
 	if _, ok := ctx.Deadline(); !ok {

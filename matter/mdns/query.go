@@ -31,15 +31,20 @@ const (
 )
 
 // NewOperationalNodeQuery returns a query for operational-node discovery.
-// When serviceInstance is empty, the query browses all operational nodes on the local domain.
-// When serviceInstance is non-empty, it queries that exact service instance under `_matter._tcp`.
+// When serviceInstance is empty, the query browses all operational nodes on
+// the local domain with PTR. When serviceInstance is non-empty, it resolves
+// that exact service instance under `_matter._tcp` with ANY, which a node
+// answers with the instance's SRV and TXT records: an instance name has no
+// PTR record, so a PTR question for it is never answered.
 func NewOperationalNodeQuery(serviceInstance string) Query {
-	service := OperationalNodeService
-	if len(serviceInstance) != 0 {
-		service = serviceInstance + "." + OperationalNodeService
+	if len(serviceInstance) == 0 {
+		return NewQuery(
+			WithQueryService(OperationalNodeService),
+		)
 	}
 	return NewQuery(
-		WithQueryService(service),
+		WithQueryService(serviceInstance+"."+OperationalNodeService),
+		WithQueryType(mdns.ANY),
 	)
 }
 
@@ -71,6 +76,8 @@ type Query interface {
 	Service() string
 	// DomainName returns the domain name for the query.
 	DomainName() string
+	// Type returns the question record type of the query.
+	Type() mdns.Type
 	// MessageHandler returns the message handler for the query if set.
 	MessageHandler() (MessageHandler, bool)
 	// String returns the string representation of the query.
