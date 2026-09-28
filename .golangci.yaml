@@ -56,6 +56,9 @@ linters:
     - fatcontext
     - embeddedstructfieldcheck
     - predeclared
+    # Deprecated since golangci-lint v2.12.0 in favor of gomodguard_v2, which
+    # "default: all" already enables.
+    - gomodguard
   settings:
     gocritic:
       disabled-checks:
