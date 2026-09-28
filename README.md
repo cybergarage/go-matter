@@ -154,6 +154,8 @@ $ matterctl reset
   - [matterctl](doc/matterctl.md)
 - Commissioner
   - [Commissioner Persistent Store](doc/commissioner-store.md)
+- Device
+  - [Device Persistent Store](doc/device-store.md)
 
 
 ## References

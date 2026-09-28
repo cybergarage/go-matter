@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **A pluggable storage backend** for the persistent store. `store.KVStore` holds byte values under slash-separated keys and `store.TxKVStore` adds atomic multi-key transactions, which a device will need for the fail-safe. `store.FileKVStore` (one file per key, written atomically, transactions journaled) and `store.MemKVStore` are provided, and `store.NewStoreWithKVStore` builds the typed `Store` on any backend.
 - `matter.WithCommissionerStore` passes a `Store` to a `Commissioner` instead of the file store under `~/.{app-name}/`.
 - `store.NewMemStore`, an in-memory `Store` for tests, and `Store.DeleteCommissionee`, which forgets a device.
+- **A device-side store**, the groundwork for running as a Matter device. `store.DeviceStore` keeps the fabrics a device has joined with their operational credentials, the Access Control entries and the group keys of each fabric, and removes all three together as RemoveFabric does. Its transactions let the changes made while a fail-safe is armed be committed or rolled back as one.
+- `store.PersistentCounter`, a counter that never repeats a value across restarts without persisting every increment, for the boot count and the global group message counters.
 
 ### Changed
 

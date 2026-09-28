@@ -12,17 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package store persists a Commissioner's fabric identity and per-device
-// commissioning records, so a controller built on this library can resume
-// the same fabric and recall which devices it has already commissioned
-// across process restarts.
+// Package store persists the state a Matter node keeps across restarts.
 //
 // The package has two layers. KVStore (and TxKVStore, for atomic
 // multi-key updates) is the backend: FileKVStore keeps one file per key
 // under a directory, MemKVStore keeps everything in memory, and any other
-// backend can be plugged in by implementing the interface. Store is the
-// typed layer on top, built with NewStoreWithKVStore; NewStore and
-// NewMemStore are shorthands for the two built-in backends.
+// backend can be plugged in by implementing the interface.
+//
+// The typed stores sit on top:
+//
+//   - Store keeps a Commissioner's fabric identity and the devices it has
+//     commissioned, so a controller can resume the same fabric and reach
+//     those devices again. NewStoreWithKVStore builds one on any backend;
+//     NewStore and NewMemStore are shorthands for the built-in ones.
+//   - DeviceStore keeps what a device must persist: the fabrics it has
+//     joined, their Access Control entries and group keys, and persistent
+//     counters. It needs a TxKVStore, so that the changes made while a
+//     fail-safe is armed are committed or rolled back as one.
+//
+// Both can share one KVStore.
 package store
 
 // Store persists a Commissioner's fabric-wide identity (FabricRecord) and
