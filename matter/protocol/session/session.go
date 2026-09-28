@@ -60,11 +60,14 @@ type SessionID = types.SessionID
 // 4.7. Encryption.
 type SecureSession interface {
 	// Transmit encrypts payload (protocol header + application payload) and sends it
-	// over the underlying transport using the I2R (Initiator-to-Responder) key.
-	// The caller provides raw (unencrypted) protocol-header and payload bytes.
+	// over the underlying transport with this side's outbound key: the I2R
+	// (Initiator-to-Responder) key for the initiator, the R2I key for the
+	// responder (see WithRole). The caller provides raw (unencrypted)
+	// protocol-header and payload bytes.
 	Transmit(payload []byte) error
 	// Receive reads one message from the underlying transport, decrypts the payload
-	// using the R2I (Responder-to-Initiator) key, and returns the decrypted payload.
+	// with this side's inbound key (the R2I key for the initiator, the I2R key
+	// for the responder), and returns the decrypted payload.
 	Receive() ([]byte, error)
 	// Transport returns the underlying raw transport.
 	Transport() Transport

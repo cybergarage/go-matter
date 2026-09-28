@@ -36,23 +36,89 @@ import (
 // encrypted for this session's keys in the first place.
 var errForeignSession = errors.New("session: packet does not belong to this session")
 
+// Role is the side of session establishment this node took, which decides
+// which of the session's keys and session IDs it sends and receives with.
+type Role int
+
+const (
+	// RoleInitiator is the side which started session establishment, such
+	// as a commissioner: it encrypts with I2RKey, decrypts with R2IKey, and
+	// addresses the peer by ResponderSessionID.
+	RoleInitiator Role = iota
+	// RoleResponder is the side which answered it, such as a device being
+	// commissioned: it encrypts with R2IKey, decrypts with I2RKey, and
+	// addresses the peer by InitiatorSessionID.
+	RoleResponder
+)
+
+// SecureSessionOption configures a SecureSession.
+type SecureSessionOption func(*secureSession)
+
+// WithRole sets the side this node took in session establishment. The
+// default is RoleInitiator.
+func WithRole(role Role) SecureSessionOption {
+	return func(s *secureSession) {
+		s.role = role
+	}
+}
+
 // secureSession is the concrete implementation of SecureSession.
 type secureSession struct {
 	t          Transport
 	keys       SessionKeys
+	role       Role
 	msgCounter uint32 // atomic outbound message counter
 }
 
-// NewSecureSession creates a SecureSession from an established PASE session.
-// The session uses the I2RKey for encryption of outbound messages and R2IKey
-// for decryption of inbound messages.
+// NewSecureSession creates a SecureSession from established session keys.
+// By default the session is the initiator's: it encrypts outbound messages
+// with the I2RKey and decrypts inbound ones with the R2IKey. WithRole
+// (RoleResponder) makes it the responder's, with the keys and session IDs
+// the other way round.
 // 4.7. Encryption.
-func NewSecureSession(t Transport, keys SessionKeys) SecureSession {
-	return &secureSession{
+func NewSecureSession(t Transport, keys SessionKeys, opts ...SecureSessionOption) SecureSession {
+	s := &secureSession{
 		t:          t,
 		keys:       keys,
+		role:       RoleInitiator,
 		msgCounter: uint32(message.NewMessageCounter()),
 	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
+}
+
+// txKey and rxKey are the keys this side encrypts and decrypts with.
+func (s *secureSession) txKey() []byte {
+	if s.role == RoleResponder {
+		return s.keys.R2IKey()
+	}
+	return s.keys.I2RKey()
+}
+
+func (s *secureSession) rxKey() []byte {
+	if s.role == RoleResponder {
+		return s.keys.I2RKey()
+	}
+	return s.keys.R2IKey()
+}
+
+// peerSessionID is the session ID the peer chose, which this side puts in
+// the header of every message it sends; localSessionID is the one this side
+// chose, which every message addressed to it carries (4.13.2.4).
+func (s *secureSession) peerSessionID() SessionID {
+	if s.role == RoleResponder {
+		return s.keys.InitiatorSessionID()
+	}
+	return s.keys.ResponderSessionID()
+}
+
+func (s *secureSession) localSessionID() SessionID {
+	if s.role == RoleResponder {
+		return s.keys.ResponderSessionID()
+	}
+	return s.keys.InitiatorSessionID()
 }
 
 // Transport returns the underlying raw transport.
@@ -65,15 +131,16 @@ func (s *secureSession) SessionKeys() SessionKeys {
 	return s.keys
 }
 
-// Transmit encrypts payload using AES-128-CCM with the I2RKey and transmits it.
+// Transmit encrypts payload using AES-128-CCM with this side's outbound key
+// and transmits it.
 //
 // Outgoing message format (spec section 4.7):
 //
 //	[unencrypted message header] [AES-CCM ciphertext of (payload)] [16-byte MIC]
 //
-// The SessionID field in the message header is set to the responder's session ID
-// so the remote peer can look up the session context. The source node ID present
-// in the header is the initiator's node ID established during the PASE handshake.
+// The SessionID field in the message header is set to the session ID the
+// peer chose, so the remote peer can look up the session context. The CCM
+// nonce uses this side's node ID (SessionKeys.LocalNodeID).
 // 4.7. Encryption.
 func (s *secureSession) Transmit(payload []byte) error {
 	return s.transmitPayload(payload)
@@ -95,7 +162,7 @@ func (s *secureSession) transmitPayload(payload []byte) error {
 	// for how the (unrelated) CCM nonce's node ID is still determined.
 	secFlags := message.SecurityFlag(0x00)
 	hdr := message.NewHeader(
-		message.WithHeaderSessionID(s.keys.ResponderSessionID()),
+		message.WithHeaderSessionID(s.peerSessionID()),
 		message.WithHeaderSecurityFlags(secFlags),
 		message.WithHeaderMessageCounter(message.MessageCounter(counter)),
 	)
@@ -110,9 +177,10 @@ func (s *secureSession) transmitPayload(payload []byte) error {
 	nodeID := uint64(s.keys.LocalNodeID())
 	nonce := crypto.CryptoCCMNonce(byte(secFlags), counter, nodeID)
 
-	// Encrypt payload using I2RKey (initiator-to-responder).
+	// Encrypt payload with this side's outbound key: I2RKey for the
+	// initiator, R2IKey for the responder.
 	// AAD = the serialized message header bytes.
-	ciphertextWithTag, err := crypto.CryptoCCMEncrypt(s.keys.I2RKey(), nonce, payload, hdrBytes)
+	ciphertextWithTag, err := crypto.CryptoCCMEncrypt(s.txKey(), nonce, payload, hdrBytes)
 	if err != nil {
 		return fmt.Errorf("session: AES-CCM encryption failed: %w", err)
 	}
@@ -137,21 +205,25 @@ func (s *secureSession) transmitPayload(payload []byte) error {
 // then arrives interleaved with a later, unrelated exchange and gets
 // mistaken for its response.
 //
-// InitiatorFlag is set because this client is always the one who opened the
-// exchange being acknowledged (every IM request originates here): the flag
-// reflects which peer initiated the *exchange*, not who happens to be
-// sending this particular message, so every message this side sends within
-// that exchange — including a standalone ack of the device's response —
-// carries it. connectedhomeip's own ReliableMessageContext::
+// The InitiatorFlag reflects which peer initiated the *exchange*, not who
+// happens to be sending this particular message, so every message a side
+// sends within that exchange — including a standalone ack — carries it
+// exactly when the acknowledged message did not: a commissioner acking a
+// device's response to its own request sets it, and a device acking a
+// commissioner's request leaves it clear. connectedhomeip's own ReliableMessageContext::
 // SendStandaloneAckMessage sends acks through the same generic
 // ExchangeContext::SendMessage path used for every other message on the
 // exchange, which sets this flag from the exchange's stored role
 // automatically; omitting it here left the device unable to match our ack
 // to the exchange it was acknowledging, so it kept retransmitting anyway.
 // 4.12.7.1. MRP Standalone Acknowledgement.
-func (s *secureSession) sendAck(exchangeID message.ExchangeID, protocolID message.ProtocolID, ackedCounter message.MessageCounter) error {
+func (s *secureSession) sendAck(exchangeID message.ExchangeID, protocolID message.ProtocolID, ackedCounter message.MessageCounter, ackedFromInitiator bool) error {
+	flags := message.ExchangeFlag(0)
+	if !ackedFromInitiator {
+		flags = message.InitiatorFlag
+	}
 	ackHdr := message.NewProtocolHeader(
-		message.WithHeaderExchangeFlags(message.InitiatorFlag),
+		message.WithHeaderExchangeFlags(flags),
 		message.WithHeaderExchangeID(exchangeID),
 		message.WithHeaderProtocolID(protocolID),
 		message.WithHeaderOpcode(message.MRPStandaloneAck),
@@ -164,7 +236,8 @@ func (s *secureSession) sendAck(exchangeID message.ExchangeID, protocolID messag
 	return s.transmitPayload(payload)
 }
 
-// Receive reads one message from the transport, decrypts it using the R2IKey, and
+// Receive reads one message from the transport, decrypts it with this side's
+// inbound key, and
 // returns the decrypted payload (protocol header + application payload bytes).
 // Standalone MRP acknowledgement messages (opcode 0x10, SecureChannel protocol,
 // no application payload) are silently discarded and the next message is
@@ -191,7 +264,7 @@ func (s *secureSession) Receive() ([]byte, error) {
 			continue
 		}
 		if protHdrErr == nil && protHdr.IsReliability() {
-			if ackErr := s.sendAck(protHdr.ExchangeID(), protHdr.ProtocolID(), hdr.MessageCounter()); ackErr != nil {
+			if ackErr := s.sendAck(protHdr.ExchangeID(), protHdr.ProtocolID(), hdr.MessageCounter(), protHdr.IsInitiator()); ackErr != nil {
 				log.Errorf("session: failed to send MRP ack: %v", ackErr)
 			}
 		}
@@ -219,13 +292,14 @@ func (s *secureSession) receiveOne() ([]byte, message.Header, error) {
 		return nil, nil, fmt.Errorf("session: failed to parse message header: %w", err)
 	}
 
-	// A message addressed to this session carries the SessionID we assigned
-	// the peer during session establishment (InitiatorSessionID — the ID the
-	// peer uses when addressing us). Anything else is not part of this
-	// session's traffic; decrypting it with this session's keys would only
-	// ever fail AES-CCM authentication, so it's rejected here instead.
-	if hdr.SessionID() != s.keys.InitiatorSessionID() {
-		return nil, nil, fmt.Errorf("%w (got %d, want %d)", errForeignSession, hdr.SessionID(), s.keys.InitiatorSessionID())
+	// A message addressed to this session carries the SessionID this side
+	// chose during session establishment (the InitiatorSessionID for the
+	// initiator, the ResponderSessionID for the responder — the ID the peer
+	// uses when addressing us). Anything else is not part of this session's
+	// traffic; decrypting it with this session's keys would only ever fail
+	// AES-CCM authentication, so it's rejected here instead.
+	if hdr.SessionID() != s.localSessionID() {
+		return nil, nil, fmt.Errorf("%w (got %d, want %d)", errForeignSession, hdr.SessionID(), s.localSessionID())
 	}
 
 	// Compute the byte length of the header to split header from ciphertext.
@@ -251,8 +325,9 @@ func (s *secureSession) receiveOne() ([]byte, message.Header, error) {
 	binary.LittleEndian.PutUint32(nonce[1:5], msgCounter)
 	binary.LittleEndian.PutUint64(nonce[5:13], uint64(s.keys.PeerNodeID()))
 
-	// Decrypt using R2IKey (responder-to-initiator).
-	plaintext, err := crypto.CryptoCCMDecrypt(s.keys.R2IKey(), nonce, ciphertextWithTag, hdrBytes)
+	// Decrypt with this side's inbound key: R2IKey for the initiator,
+	// I2RKey for the responder.
+	plaintext, err := crypto.CryptoCCMDecrypt(s.rxKey(), nonce, ciphertextWithTag, hdrBytes)
 	if err != nil {
 		return nil, nil, fmt.Errorf("session: AES-CCM decryption failed (securityFlags=%#02x, sessionID=%d, msgCounter=%d, hdrLen=%d, rawLen=%d): %w",
 			byte(hdr.SecurityFlags()), hdr.SessionID(), msgCounter, len(hdrBytes), len(raw), err)
