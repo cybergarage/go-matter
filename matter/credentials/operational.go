@@ -30,6 +30,7 @@ import (
 var (
 	oidMatterICACID = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 37244, 1, 3}
 	oidMatterRCACID = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 37244, 1, 4}
+	oidMatterCAT    = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 37244, 1, 6}
 )
 
 // Operational node ID ranges (Matter Core 2.5.5): an operational node ID is
@@ -74,6 +75,9 @@ type OperationalCertificate struct {
 	// FabricID is the subject's fabric ID; 0 when it has none, which is
 	// optional in an RCAC and ICAC.
 	FabricID uint64
+	// CATs are the CASE Authenticated Tags of a NOC's subject (Matter Core
+	// 6.6.2.1.2).
+	CATs []uint32
 }
 
 // ParseOperationalCertificate parses a certificate in the Matter TLV
@@ -102,12 +106,27 @@ func ParseOperationalCertificate(tlvBytes []byte) (*OperationalCertificate, erro
 		PublicKey:   ecdhPub.Bytes(),
 		NodeID:      0,
 		FabricID:    0,
+		CATs:        nil,
 	}
 	if oc.NodeID, _, err = subjectUint64(cert, oidMatterNodeID); err != nil {
 		return nil, err
 	}
 	if oc.FabricID, _, err = subjectUint64(cert, oidMatterFabricID); err != nil {
 		return nil, err
+	}
+	for _, atv := range cert.Subject.Names {
+		if !atv.Type.Equal(oidMatterCAT) {
+			continue
+		}
+		s, ok := atv.Value.(string)
+		if !ok || len(s) != 8 {
+			return nil, fmt.Errorf("%w: CASE Authenticated Tag %v is not an 8-digit hex string", ErrInvalidOperationalCertificate, atv.Value)
+		}
+		cat, err := strconv.ParseUint(s, 16, 32)
+		if err != nil {
+			return nil, fmt.Errorf("%w: CASE Authenticated Tag: %w", ErrInvalidOperationalCertificate, err)
+		}
+		oc.CATs = append(oc.CATs, uint32(cat))
 	}
 	return oc, nil
 }

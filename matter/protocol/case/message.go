@@ -287,3 +287,144 @@ func encodeSigmaTBSData(noc, icac, senderEphPubKey, receiverEphPubKey []byte) ([
 	enc.EndContainer()
 	return cloneBytes(enc.Bytes()), nil
 }
+
+// topLevelFields decodes a TLV structure and returns its top-level octet
+// string and unsigned fields by context tag, skipping the contents of
+// nested containers such as the session parameters.
+func topLevelFields(b []byte, what string) (map[uint8][]byte, map[uint8]uint64, error) {
+	dec := tlv.NewDecoderWithBytes(b)
+	if !dec.Next() || !dec.Element().Type().IsStructure() {
+		return nil, nil, fmt.Errorf("case: %s: expected a structure", what)
+	}
+	octets := map[uint8][]byte{}
+	uints := map[uint8]uint64{}
+	depth := 0
+	for dec.Next() {
+		elem := dec.Element()
+		if elem.Type().IsEndOfContainer() {
+			if depth == 0 {
+				return octets, uints, nil
+			}
+			depth--
+			continue
+		}
+		if elem.Type().IsContainer() {
+			depth++
+			continue
+		}
+		if 0 < depth {
+			continue
+		}
+		ct, ok := elem.Tag().(tlv.ContextTag)
+		if !ok {
+			continue
+		}
+		tag := uint8(ct.ContextNumber())
+		if v, ok := elem.Bytes(); ok {
+			octets[tag] = cloneBytes(v)
+		} else if v, ok := elem.Unsigned(); ok {
+			uints[tag] = v
+		}
+	}
+	if err := dec.Error(); err != nil {
+		return nil, nil, fmt.Errorf("case: %s: %w", what, err)
+	}
+	return nil, nil, fmt.Errorf("case: %s: unterminated structure", what)
+}
+
+// decodeSigma1 decodes a Sigma1 (Matter Core 4.14.2.3). The resumption
+// fields are ignored: this responder always answers with a full Sigma2.
+func decodeSigma1(b []byte) (sigma1, error) {
+	octets, uints, err := topLevelFields(b, "Sigma1")
+	if err != nil {
+		return sigma1{}, err
+	}
+	out := sigma1{
+		InitiatorRandom:    octets[1],
+		InitiatorSessionID: 0,
+		DestinationID:      octets[3],
+		InitiatorEphPubKey: octets[4],
+	}
+	sessionID, ok := uints[2]
+	switch {
+	case len(out.InitiatorRandom) != randomLen:
+		return sigma1{}, fmt.Errorf("case: Sigma1: missing initiator random")
+	case !ok || sessionID == 0 || 0xFFFF < sessionID:
+		return sigma1{}, fmt.Errorf("case: Sigma1: invalid initiator session ID")
+	case len(out.DestinationID) != destinationIDLen:
+		return sigma1{}, fmt.Errorf("case: Sigma1: missing destination ID")
+	case len(out.InitiatorEphPubKey) != ephPubKeyLen:
+		return sigma1{}, fmt.Errorf("case: Sigma1: missing initiator ephemeral public key")
+	}
+	out.InitiatorSessionID = uint16(sessionID)
+	return out, nil
+}
+
+func encodeSigma2(v sigma2) ([]byte, error) {
+	enc := tlv.NewEncoder()
+	enc.BeginStructure(tlv.NewAnonymousTag())
+	if err := enc.PutOctet(tlv.NewContextTag(1), v.ResponderRandom); err != nil {
+		return nil, err
+	}
+	enc.PutUnsigned2(tlv.NewContextTag(2), v.ResponderSessionID)
+	if err := enc.PutOctet(tlv.NewContextTag(3), v.ResponderEphPubKey); err != nil {
+		return nil, err
+	}
+	if err := enc.PutOctet(tlv.NewContextTag(4), v.Encrypted2); err != nil {
+		return nil, err
+	}
+	encodeSessionParams(enc, tlv.NewContextTag(5), defaultSessionParams)
+	if err := enc.EndContainer(); err != nil {
+		return nil, err
+	}
+	return cloneBytes(enc.Bytes()), nil
+}
+
+func encodeSigma2TBEData(v sigma2TBEData) ([]byte, error) {
+	enc := tlv.NewEncoder()
+	enc.BeginStructure(tlv.NewAnonymousTag())
+	if err := enc.PutOctet(tlv.NewContextTag(1), v.ResponderNOC); err != nil {
+		return nil, err
+	}
+	if len(v.ResponderICAC) != 0 {
+		if err := enc.PutOctet(tlv.NewContextTag(2), v.ResponderICAC); err != nil {
+			return nil, err
+		}
+	}
+	if err := enc.PutOctet(tlv.NewContextTag(3), v.Signature); err != nil {
+		return nil, err
+	}
+	if err := enc.PutOctet(tlv.NewContextTag(4), v.ResumptionID); err != nil {
+		return nil, err
+	}
+	if err := enc.EndContainer(); err != nil {
+		return nil, err
+	}
+	return cloneBytes(enc.Bytes()), nil
+}
+
+func decodeSigma3(b []byte) (sigma3, error) {
+	octets, _, err := topLevelFields(b, "Sigma3")
+	if err != nil {
+		return sigma3{}, err
+	}
+	if len(octets[1]) == 0 {
+		return sigma3{}, fmt.Errorf("case: Sigma3: missing encrypted3")
+	}
+	return sigma3{Encrypted3: octets[1]}, nil
+}
+
+func decodeSigma3TBEData(b []byte) (sigma3TBEData, error) {
+	octets, _, err := topLevelFields(b, "Sigma3 encrypted payload")
+	if err != nil {
+		return sigma3TBEData{}, err
+	}
+	out := sigma3TBEData{InitiatorNOC: octets[1], InitiatorICAC: octets[2], Signature: octets[3]}
+	if len(out.InitiatorNOC) == 0 {
+		return sigma3TBEData{}, fmt.Errorf("case: Sigma3 encrypted payload missing initiator NOC")
+	}
+	if len(out.Signature) != signatureLen {
+		return sigma3TBEData{}, fmt.Errorf("case: Sigma3 encrypted payload missing signature")
+	}
+	return out, nil
+}

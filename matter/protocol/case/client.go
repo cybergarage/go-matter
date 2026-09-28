@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package caseprotocol provides CASE (Certificate Authenticated Session Establishment)
-// client primitives used to finalize commissioning over the operational network.
+// Package caseprotocol provides CASE (Certificate Authenticated Session
+// Establishment): the Initiator a commissioner finalizes commissioning over
+// the operational network with, and the Responder a device answers it with.
 package caseprotocol
 
 import (
@@ -44,6 +45,8 @@ const (
 	randomLen             = 32
 	resumptionIDLen       = 16
 	signatureLen          = 64
+	destinationIDLen      = 32
+	ephPubKeyLen          = 65
 )
 
 // caseRetryAttempts / caseRetryInterval implement a minimal retransmission
