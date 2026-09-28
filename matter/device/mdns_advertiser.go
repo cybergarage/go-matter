@@ -103,6 +103,20 @@ func (a *MDNSAdvertiser) AdvertiseCommissionable(svc CommissionableService) erro
 	return nil
 }
 
+// WithdrawCommissionable implements Advertiser. It sends goodbye records
+// for the commissionable service, and keeps the server running for the
+// operational services.
+func (a *MDNSAdvertiser) WithdrawCommissionable() error {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	if a.current == nil {
+		return nil
+	}
+	err := a.server.Deregister(a.current)
+	a.current = nil
+	return err
+}
+
 func (a *MDNSAdvertiser) startLocked() error {
 	if a.started {
 		return nil

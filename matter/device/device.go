@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/credentials"
@@ -253,6 +254,15 @@ type Device struct {
 
 	supportedFabrics uint8
 
+	// window is the commissioning window, and initialWindowTimeout how
+	// long the one opened at Start lasts.
+	window               commissioningWindow
+	initialWindowTimeout time.Duration
+	// now and timer are the clock of the commissioning window and the
+	// fail-safe; tests replace them.
+	now   func() time.Time
+	timer timerFunc
+
 	conn   *net.UDPConn
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -298,6 +308,11 @@ func New(opts ...Option) (*Device, error) {
 		refreshDone: nil,
 
 		supportedFabrics: DefaultSupportedFabrics,
+
+		window:               commissioningWindow{open: false, stop: nil, generation: 0, failures: 0, commissioner: nil},
+		initialWindowTimeout: DefaultCommissioningTimeout,
+		now:                  time.Now,
+		timer:                realTimer,
 	}
 	for _, opt := range opts {
 		if err := opt(d); err != nil {
@@ -314,11 +329,16 @@ func New(opts ...Option) (*Device, error) {
 		d.store = store.NewMemDeviceStore()
 	}
 	d.failSafe = newFailSafe(d.store)
+	d.failSafe.now = d.now
+	d.failSafe.timer = d.timer
+	d.failSafe.onExpire = d.failSafeExpired
 	d.failSafe.onRollback = func(fabricIndex uint8) {
 		d.unbindFabric(fabricIndex)
 		d.requestRefresh()
 	}
-	newGeneralCommissioning(d.failSafe, d.lookupSession).register(d.imServer)
+	gc := newGeneralCommissioning(d.failSafe, d.lookupSession)
+	gc.onComplete = d.commissioningCompleted
+	gc.register(d.imServer)
 	d.opCreds = newOperationalCredentials(d.store, d.failSafe, d.attestation, d.supportedFabrics)
 	d.opCreds.onFabricAdded = func(sec im.SecureSession, fabricIndex uint8) {
 		d.bindFabric(sec, fabricIndex)
@@ -381,8 +401,11 @@ func (d *Device) unbindFabric(fabricIndex uint8) {
 	}
 }
 
-// Start listens on the configured address and publishes the commissionable
-// service, if an Advertiser was given.
+// Start listens on the configured address. A device on no fabric opens its
+// commissioning window, publishing the commissionable service if an
+// Advertiser was given; a device on fabrics publishes their operational
+// services, and becomes commissionable only when OpenCommissioningWindow
+// is called.
 func (d *Device) Start() error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -407,10 +430,15 @@ func (d *Device) Start() error {
 		_ = conn.Close()
 		return err
 	}
-	if d.advertiser != nil {
-		if err := d.advertiser.AdvertiseCommissionable(d.service); err != nil {
+	fabrics, err := d.store.ListDeviceFabrics()
+	if err != nil {
+		_ = conn.Close()
+		return fmt.Errorf("device: list the fabrics: %w", err)
+	}
+	if len(fabrics) == 0 {
+		if err := d.openWindowLocked(d.initialWindowTimeout); err != nil {
 			_ = conn.Close()
-			return fmt.Errorf("device: advertise: %w", err)
+			return err
 		}
 	}
 	d.conn = conn
@@ -498,6 +526,9 @@ func (d *Device) Stop() error {
 	}
 	d.conn = nil
 	d.cancel()
+	d.window.open = false
+	d.window.commissioner = nil
+	d.stopWindowTimerLocked()
 	for id, sess := range d.sessions {
 		sess.transport.close()
 		delete(d.sessions, id)
@@ -610,6 +641,10 @@ func (d *Device) dispatch(conn *net.UDPConn, b []byte, peer *net.UDPAddr) {
 }
 
 func (d *Device) startPASELocked(conn *net.UDPConn, peer *net.UDPAddr, b []byte) {
+	if !d.acceptsPASELocked() {
+		log.Debugf("device: the commissioning window is closed or in use, ignoring PASE from %s", peer)
+		return
+	}
 	if d.pase != nil {
 		log.Infof("device: PASE already in progress with %s, ignoring %s", d.paseAddr, peer)
 		return
@@ -624,22 +659,46 @@ func (d *Device) startPASELocked(conn *net.UDPConn, peer *net.UDPAddr, b []byte)
 
 func (d *Device) runPASE(pt *peerTransport, sessionID types.SessionID) {
 	defer d.wg.Done()
-	keys, err := pase.NewResponder(pt, d.verifier, pase.WithResponderSessionID(sessionID)).EstablishSession(d.ctx)
+	// The session is set up before the responder reports success, since
+	// the commissioner sends its first request on it right away.
+	var sess *Session
+	established := func(keys pase.SessionKeys) {
+		d.mu.Lock()
+		if d.conn != nil {
+			sess = d.addSessionLocked(pt, sessionID, keys, false, 0, 0)
+			d.commissioningStartedLocked(sess)
+		}
+		d.mu.Unlock()
+		// The fail-safe guards the commissioning from the start, so a
+		// commissioner which goes away frees the window (11.10.6.2.1).
+		if sess != nil && !d.failSafe.isArmed() {
+			if code := d.failSafe.arm(0, PASEFailSafeExpiry); code != CommissioningOK {
+				log.Warnf("device: arm the fail-safe for PASE: %d", code)
+			}
+		}
+	}
+	_, err := pase.NewResponder(pt, d.verifier,
+		pase.WithResponderSessionID(sessionID),
+		pase.WithResponderEstablishedHandler(established),
+	).EstablishSession(d.ctx)
 
 	d.mu.Lock()
 	d.pase = nil
 	d.paseAddr = ""
-	if err != nil {
-		d.mu.Unlock()
-		log.Warnf("device: PASE with %s failed: %v", pt.peer, err)
-		return
-	}
 	if d.conn == nil {
 		// The device stopped during the exchange.
 		d.mu.Unlock()
 		return
 	}
-	sess := d.addSessionLocked(pt, sessionID, keys, false, 0, 0)
+	if err != nil {
+		log.Warnf("device: PASE with %s failed: %v", pt.peer, err)
+		if sess != nil {
+			d.closeSessionLocked(sess)
+		}
+		d.failedAttemptLocked("PASE failed")
+		d.mu.Unlock()
+		return
+	}
 	d.mu.Unlock()
 
 	log.Infof("device: PASE session %d established with %s", sessionID, pt.peer)
@@ -648,28 +707,41 @@ func (d *Device) runPASE(pt *peerTransport, sessionID types.SessionID) {
 
 func (d *Device) runCASE(pt *peerTransport, sessionID types.SessionID) {
 	defer d.wg.Done()
-	responder := caseprotocol.NewResponder(pt, d.opCreds.responderFabrics, caseprotocol.WithResponderSessionID(sessionID))
-	established, err := responder.EstablishSession(d.ctx)
+	var sess *Session
+	established := func(es *caseprotocol.ResponderSession) {
+		d.mu.Lock()
+		defer d.mu.Unlock()
+		if d.conn != nil {
+			sess = d.addSessionLocked(pt, sessionID, es.Keys, true, es.FabricIndex, es.PeerNodeID)
+		}
+	}
+	responder := caseprotocol.NewResponder(pt, d.opCreds.responderFabrics,
+		caseprotocol.WithResponderSessionID(sessionID),
+		caseprotocol.WithResponderEstablishedHandler(established),
+	)
+	es, err := responder.EstablishSession(d.ctx)
 
 	d.mu.Lock()
 	addr := pt.peer.String()
 	if d.cases[addr] == pt {
 		delete(d.cases, addr)
 	}
-	if err != nil {
-		d.mu.Unlock()
-		log.Warnf("device: CASE with %s failed: %v", pt.peer, err)
-		return
-	}
 	if d.conn == nil {
 		// The device stopped during the exchange.
 		d.mu.Unlock()
 		return
 	}
-	sess := d.addSessionLocked(pt, sessionID, established.Keys, true, established.FabricIndex, established.PeerNodeID)
+	if err != nil {
+		if sess != nil {
+			d.closeSessionLocked(sess)
+		}
+		d.mu.Unlock()
+		log.Warnf("device: CASE with %s failed: %v", pt.peer, err)
+		return
+	}
 	d.mu.Unlock()
 
-	log.Infof("device: CASE session %d established with node 0x%016X on fabric %d at %s", sessionID, established.PeerNodeID, established.FabricIndex, pt.peer)
+	log.Infof("device: CASE session %d established with node 0x%016X on fabric %d at %s", sessionID, es.PeerNodeID, es.FabricIndex, pt.peer)
 	d.notifySession(sess)
 }
 

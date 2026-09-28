@@ -24,6 +24,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **The CASE responder**, `caseprotocol.Responder`, the device side of CASE. It finds the fabric a Sigma1's destination ID names among the device's fabrics, proves the device's identity on it in Sigma2, and checks in Sigma3 that the initiator's NOC chains to that fabric's root. Session resumption is not supported; a resumption request gets a full Sigma2.
 - The device answers **CASE** on the fabrics it has joined, the one being added under the fail-safe included, and serves the Interaction Model on CASE sessions, so commissioning completes: CommissioningComplete over CASE on the new fabric commits it. AddNOC binds the PASE session to the new fabric, and rolling the fail-safe back closes the CASE sessions on it. `Session.IsCASE` and `Session.PeerNodeID` describe a session.
 - The device advertises an **operational service** (`_matter._tcp`, `<compressed fabric ID>-<node ID>` with the `_I` subtype) for each fabric it is on, from AddNOC on, so a commissioner finds it for CASE; rolling the fail-safe back withdraws it. `device.OperationalService` describes it.
+- **The commissioning window.** A device advertises itself as commissionable and accepts PASE only while its window is open: at Start when it is on no fabric (`device.WithCommissioningTimeout`, 15 minutes by default), or after `OpenCommissioningWindow`. A PASE session takes the window: the device stops advertising, arms the fail-safe for 60 seconds and refuses other commissioners. A failed attempt, PASE failing or the fail-safe expiring, advertises again, and the window closes after 20 of them, when it times out, on `CloseCommissioningWindow`, or when CommissioningComplete succeeds, which also ends the PASE sessions.
+- `pase.WithResponderEstablishedHandler` and `caseprotocol.WithResponderEstablishedHandler`, which hand the new session over before the initiator is told it is established, so the device has set it up by the time the initiator's first message arrives.
 - `mattertest` commissions a `matter/device` Device with go-matter's own Commissioner over real mDNS and UDP, from discovery to CommissioningComplete.
 - `credentials.OperationalCertificate.CATs`, the CASE Authenticated Tags of a NOC.
 - `pake.Pake1.PA`, `pake.Pake3.CA` and `pake.WithPake2MessagePrecomputed`, which the responder needs.
@@ -40,7 +42,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - A standalone MRP ack sets the initiator flag exactly when the acknowledged message did not, instead of always; a commissioner's acks are unchanged.
 - `device.Session` no longer has `Transport()`: the device serves the Interaction Model on it.
 - `device.Session.Keys` returns `session.SessionKeys`, since a session may now be a CASE one.
-- `device.Advertiser` has `AdvertiseOperational`, which publishes the operational services.
+- `device.Advertiser` has `AdvertiseOperational`, which publishes the operational services, and `WithdrawCommissionable`, which withdraws the commissionable service when the commissioning window closes.
+- A device already on a fabric no longer advertises itself as commissionable at Start, and a commissioned device no longer accepts PASE until its commissioning window is opened again.
 - `Store` no longer has a `Dir()` method, since a store which is not backed by a directory has none. `store.FileKVStore.Dir()` still returns it.
 - A record is written to a temporary file and renamed into place, so a crash can no longer leave a truncated JSON file. The directory layout is unchanged, and an existing `~/.{app-name}/` directory is read as it is.
 

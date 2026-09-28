@@ -59,9 +59,11 @@ const rootEndpoint im.EndpointID = 0
 
 // generalCommissioning is the server of the General Commissioning cluster.
 type generalCommissioning struct {
-	mutex              sync.Mutex
-	failSafe           *failSafe
-	lookup             sessionLookup
+	mutex    sync.Mutex
+	failSafe *failSafe
+	lookup   sessionLookup
+	// onComplete is called when CommissioningComplete succeeds.
+	onComplete         func()
 	breadcrumb         uint64
 	regulatoryConfig   RegulatoryLocation
 	countryCode        string
@@ -73,6 +75,7 @@ func newGeneralCommissioning(fs *failSafe, lookup sessionLookup) *generalCommiss
 		mutex:              sync.Mutex{},
 		failSafe:           fs,
 		lookup:             lookup,
+		onComplete:         nil,
 		breadcrumb:         0,
 		regulatoryConfig:   RegulatoryIndoorOutdoor,
 		countryCode:        "XX",
@@ -231,6 +234,9 @@ func (gc *generalCommissioning) commissioningComplete(req *im.CommandRequest) im
 	}
 	if code == CommissioningOK {
 		gc.setBreadcrumb(0)
+		if gc.onComplete != nil {
+			gc.onComplete()
+		}
 	}
 	return commissioningResponse(commissioningCompleteResponseCommandID, code)
 }

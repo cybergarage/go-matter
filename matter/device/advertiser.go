@@ -25,6 +25,9 @@ type Advertiser interface {
 	// AdvertiseCommissionable publishes svc, replacing the commissionable
 	// service this Advertiser published for the device before.
 	AdvertiseCommissionable(svc CommissionableService) error
+	// WithdrawCommissionable stops publishing the commissionable service,
+	// as the commissioning window closes; publishing none is not an error.
+	WithdrawCommissionable() error
 	// AdvertiseOperational publishes svcs, one for each fabric the device
 	// has joined, replacing the operational services it published before:
 	// those not in svcs are withdrawn.

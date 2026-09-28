@@ -15,10 +15,11 @@
 // Package device is the device side of go-matter: the pieces a Matter node
 // needs to be commissioned, as opposed to commissioning others.
 //
-// It is at an early stage. A Device listens on UDP, advertises itself as a
-// commissionable node (_matterc._udp) with the go-mdns responder, answers
-// PASE with a provisioned verifier, and answers CASE on the fabrics it has
-// joined. On each session it serves the Interaction Model with the General
+// It is at an early stage. A Device listens on UDP. While its
+// commissioning window is open it advertises itself as a commissionable
+// node (_matterc._udp) with the go-mdns responder and answers PASE with a
+// provisioned verifier; on the fabrics it has joined it advertises an
+// operational node (_matter._tcp) and answers CASE. On each session it serves the Interaction Model with the General
 // Commissioning cluster, whose fail-safe guards the commissioning changes
 // with a DeviceStore transaction, and the Operational Credentials cluster:
 // the device attests with the credentials of an AttestationProvider,

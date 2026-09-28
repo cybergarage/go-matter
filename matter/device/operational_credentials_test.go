@@ -264,7 +264,13 @@ func TestDeviceOperationalCredentialsOverPASE(t *testing.T) {
 	d, sess := startCommissioning(t)
 	challenge := sess.SessionKeys().AttestationChallenge()
 
-	// Commissioning changes need the fail-safe.
+	// PASE armed the fail-safe; commissioning changes need it.
+	if !d.failSafe.isArmed() {
+		t.Fatal("the fail-safe is not armed once PASE is established")
+	}
+	if err := generalcommissioning.ArmFailSafe(sess, 0, 0, 0); err != nil {
+		t.Fatal(err)
+	}
 	resp, err := im.Invoke(sess, 0, OperationalCredentialsClusterID, csrRequestCommandID, csrRequestFields(t, randomNonce(t)))
 	if err != nil {
 		t.Fatal(err)
@@ -670,7 +676,7 @@ func caseSession(t *testing.T, client *udpClient, admin config.AdministratorConf
 // new fabric's credentials and sends CommissioningComplete over it, which
 // commits the fabric to the store.
 func TestDeviceCommissioningCompletesOverCASE(t *testing.T) {
-	d, pase, client := startCommissioningWithClient(t)
+	d, adv, pase, client := startCommissioningWithAdvertiser(t)
 	ca := newTestCA(t, testFabricID)
 	addNOCOverPASE(t, pase, ca, testCommissioneeNode)
 
@@ -704,6 +710,18 @@ func TestDeviceCommissioningCompletesOverCASE(t *testing.T) {
 	}
 	if acl, err := d.store.LoadACL(1); err != nil || len(acl) != 1 {
 		t.Fatalf("committed ACL (%+v, %v), want the admin entry", acl, err)
+	}
+
+	// Commissioning completed: the window is closed, the device no longer
+	// advertises itself as commissionable, and the PASE session is gone.
+	if d.IsCommissioningWindowOpen() || adv.isCommissionable() {
+		t.Fatal("the commissioning window is still open after CommissioningComplete")
+	}
+	if d.commissionerSession() != nil {
+		t.Fatal("the PASE session outlived CommissioningComplete")
+	}
+	if err := tryPASE(t, d, testPasscode); err == nil {
+		t.Fatal("the commissioned device accepted PASE")
 	}
 
 	// The operational session keeps serving the Interaction Model, and a
@@ -752,6 +770,8 @@ func TestDeviceRollbackClosesCASESessions(t *testing.T) {
 		}
 		return n
 	}
+	// The device sets the session up before it reports success, so it is
+	// there as soon as the initiator returns.
 	if n := countCASE(); n != 1 {
 		t.Fatalf("%d CASE sessions after CASE, want 1", n)
 	}

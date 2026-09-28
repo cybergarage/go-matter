@@ -38,13 +38,30 @@ type recordingAdvertiser struct {
 	published   []CommissionableService
 	operational [][]OperationalService
 	withdrawn   int
+	// commissionable reports whether the commissionable service is
+	// published.
+	commissionable bool
 }
 
 func (a *recordingAdvertiser) AdvertiseCommissionable(svc CommissionableService) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.published = append(a.published, svc)
+	a.commissionable = true
 	return nil
+}
+
+func (a *recordingAdvertiser) WithdrawCommissionable() error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.commissionable = false
+	return nil
+}
+
+func (a *recordingAdvertiser) isCommissionable() bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.commissionable
 }
 
 func (a *recordingAdvertiser) AdvertiseOperational(svcs []OperationalService) error {
@@ -68,6 +85,7 @@ func (a *recordingAdvertiser) Withdraw() error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.withdrawn++
+	a.commissionable = false
 	return nil
 }
 
