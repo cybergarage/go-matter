@@ -68,7 +68,7 @@ func TestDeviceFabricRoundTripAndList(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			var indexes []uint8
+			indexes := make([]uint8, 0, len(recs))
 			for _, r := range recs {
 				indexes = append(indexes, r.FabricIndex)
 			}

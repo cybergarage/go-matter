@@ -56,7 +56,7 @@ func TestPersistentCounterNeverRepeatsAcrossRestarts(t *testing.T) {
 
 func TestPersistentCounterReserveOne(t *testing.T) {
 	kv := NewMemKVStore()
-	for boot := uint32(0); boot < 3; boot++ {
+	for boot := range uint32(3) {
 		c, err := NewPersistentCounter(kv, "boot", 1, 0)
 		if err != nil {
 			t.Fatal(err)
@@ -88,9 +88,7 @@ func TestPersistentCounterConcurrent(t *testing.T) {
 	seen := make(chan uint32, workers*per)
 	var wg sync.WaitGroup
 	for range workers {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for range per {
 				v, err := c.Next()
 				if err != nil {
@@ -99,7 +97,7 @@ func TestPersistentCounterConcurrent(t *testing.T) {
 				}
 				seen <- v
 			}
-		}()
+		})
 	}
 	wg.Wait()
 	close(seen)
