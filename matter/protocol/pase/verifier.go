@@ -82,3 +82,30 @@ func (v Verifier) validateParams() error {
 	}
 	return nil
 }
+
+// Bytes returns the serialized verifier, w0 followed by L, as the
+// Administrator Commissioning cluster's PAKEPasscodeVerifier carries it
+// (Matter Core 11.19.8.1).
+func (v Verifier) Bytes() []byte {
+	b := make([]byte, 0, len(v.W0)+len(v.L))
+	b = append(b, v.W0...)
+	return append(b, v.L...)
+}
+
+// ParseVerifier returns the Verifier of a serialized verifier, w0
+// followed by L, with the salt and iteration count it was derived with.
+func ParseVerifier(serialized, salt []byte, iterations int) (Verifier, error) {
+	if len(serialized) != crypto.CryptoGroupSizeBytes+crypto.CryptoPublicKeySizeBytes {
+		return Verifier{}, fmt.Errorf("pase: serialized verifier is %d bytes, want %d", len(serialized), crypto.CryptoGroupSizeBytes+crypto.CryptoPublicKeySizeBytes)
+	}
+	v := Verifier{
+		W0:         append([]byte(nil), serialized[:crypto.CryptoGroupSizeBytes]...),
+		L:          append([]byte(nil), serialized[crypto.CryptoGroupSizeBytes:]...),
+		Salt:       append([]byte(nil), salt...),
+		Iterations: iterations,
+	}
+	if err := v.Validate(); err != nil {
+		return Verifier{}, err
+	}
+	return v, nil
+}
