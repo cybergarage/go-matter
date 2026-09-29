@@ -92,6 +92,33 @@ type CommandHandler func(req *CommandRequest) CommandResult
 // StatusSuccess to report that status instead.
 type AttributeReader func(enc tlv.Encoder, tag tlv.Tag) Status
 
+// AttributeRequest is the read of one attribute, as an
+// AttributeReadHandler receives it.
+type AttributeRequest struct {
+	// Session is the session the read arrived on, which a fabric-scoped
+	// attribute reports for.
+	Session SecureSession
+	// Path is the attribute read.
+	Path AttributePath
+	// FabricFiltered reports whether the peer asked only for the entries
+	// of its own fabric of a fabric-scoped list (8.4.3.2).
+	FabricFiltered bool
+}
+
+// AttributeReadHandler is an AttributeReader which knows the read it
+// answers, for the attributes which depend on the session.
+type AttributeReadHandler func(req *AttributeRequest, enc tlv.Encoder, tag tlv.Tag) Status
+
+type commandEntry struct {
+	handler   CommandHandler
+	privilege Privilege
+}
+
+type attributeEntry struct {
+	handler   AttributeReadHandler
+	privilege Privilege
+}
+
 type commandPath struct {
 	endpoint EndpointID
 	cluster  ClusterID
@@ -115,32 +142,68 @@ type AttributePath struct {
 // StatusInvalidAction.
 type Server struct {
 	mutex      sync.RWMutex
-	commands   map[commandPath]CommandHandler
-	attributes map[AttributePath]AttributeReader
+	commands   map[commandPath]commandEntry
+	attributes map[AttributePath]attributeEntry
+	access     AccessChecker
 }
 
 // NewServer returns a Server with nothing registered.
 func NewServer() *Server {
 	return &Server{
 		mutex:      sync.RWMutex{},
-		commands:   map[commandPath]CommandHandler{},
-		attributes: map[AttributePath]AttributeReader{},
+		commands:   map[commandPath]commandEntry{},
+		attributes: map[AttributePath]attributeEntry{},
+		access:     nil,
 	}
 }
 
-// HandleCommand registers h for a command, replacing any previous handler.
-func (s *Server) HandleCommand(endpoint EndpointID, cluster ClusterID, command CommandID, h CommandHandler) {
+// SetAccessChecker sets the checker every request is subject to, with the
+// privilege its handler requires; a request it refuses is answered with
+// StatusUnsupportedAccess, and a wildcard read leaves out the attributes
+// it refuses (8.4.3.2).
+func (s *Server) SetAccessChecker(c AccessChecker) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	s.commands[commandPath{endpoint, cluster, command}] = h
+	s.access = c
+}
+
+// HandleCommand registers h for a command, replacing any previous handler.
+// It requires DefaultInvokePrivilege unless WithPrivilege says otherwise.
+func (s *Server) HandleCommand(endpoint EndpointID, cluster ClusterID, command CommandID, h CommandHandler, opts ...HandlerOption) {
+	o := newHandlerOptions(DefaultInvokePrivilege, opts)
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.commands[commandPath{endpoint, cluster, command}] = commandEntry{handler: h, privilege: o.privilege}
 }
 
 // HandleAttribute registers r for an attribute, replacing any previous
-// reader.
-func (s *Server) HandleAttribute(endpoint EndpointID, cluster ClusterID, attribute AttributeID, r AttributeReader) {
+// reader. It requires DefaultReadPrivilege unless WithPrivilege says
+// otherwise.
+func (s *Server) HandleAttribute(endpoint EndpointID, cluster ClusterID, attribute AttributeID, r AttributeReader, opts ...HandlerOption) {
+	s.HandleAttributeRead(endpoint, cluster, attribute, func(_ *AttributeRequest, enc tlv.Encoder, tag tlv.Tag) Status {
+		return r(enc, tag)
+	}, opts...)
+}
+
+// HandleAttributeRead registers h for an attribute, replacing any previous
+// reader, as HandleAttribute does for a reader which needs the request.
+func (s *Server) HandleAttributeRead(endpoint EndpointID, cluster ClusterID, attribute AttributeID, h AttributeReadHandler, opts ...HandlerOption) {
+	o := newHandlerOptions(DefaultReadPrivilege, opts)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	s.attributes[AttributePath{Endpoint: endpoint, Cluster: cluster, Attribute: attribute}] = r
+	s.attributes[AttributePath{Endpoint: endpoint, Cluster: cluster, Attribute: attribute}] = attributeEntry{handler: h, privilege: o.privilege}
+}
+
+// allowed reports whether the access checker grants sess privilege on the
+// cluster at the endpoint.
+func (s *Server) allowed(sess SecureSession, endpoint EndpointID, cluster ClusterID, privilege Privilege) bool {
+	s.mutex.RLock()
+	access := s.access
+	s.mutex.RUnlock()
+	if access == nil {
+		return true
+	}
+	return access(AccessRequest{Session: sess, Endpoint: endpoint, Cluster: cluster, Privilege: privilege})
 }
 
 // Serve answers the interactions arriving on sess until receiving fails,
@@ -209,11 +272,11 @@ func (s *Server) ServeOne(sess SecureSession) error {
 	}
 }
 
-func (s *Server) commandHandler(p commandPath) (CommandHandler, Status) {
+func (s *Server) commandHandler(p commandPath) (commandEntry, Status) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	if h, ok := s.commands[p]; ok {
-		return h, StatusSuccess
+	if e, ok := s.commands[p]; ok {
+		return e, StatusSuccess
 	}
 	endpointKnown, clusterKnown := false, false
 	for known := range s.commands {
@@ -234,11 +297,11 @@ func (s *Server) commandHandler(p commandPath) (CommandHandler, Status) {
 	}
 	switch {
 	case !endpointKnown:
-		return nil, StatusUnsupportedEndpoint
+		return commandEntry{handler: nil, privilege: 0}, StatusUnsupportedEndpoint
 	case !clusterKnown:
-		return nil, StatusUnsupportedCluster
+		return commandEntry{handler: nil, privilege: 0}, StatusUnsupportedCluster
 	default:
-		return nil, StatusUnsupportedCommand
+		return commandEntry{handler: nil, privilege: 0}, StatusUnsupportedCommand
 	}
 }
 
@@ -254,10 +317,14 @@ func (s *Server) serveInvoke(sess SecureSession, exchange message.ExchangeID, bo
 	for _, cmd := range req.commands {
 		cmd.Session = sess
 		cmd.Timed = req.timed
-		h, status := s.commandHandler(commandPath{cmd.Endpoint, cmd.Cluster, cmd.Command})
+		entry, status := s.commandHandler(commandPath{cmd.Endpoint, cmd.Cluster, cmd.Command})
 		result := CommandStatus(status)
-		if h != nil {
-			result = h(cmd)
+		switch {
+		case entry.handler == nil:
+		case !s.allowed(sess, cmd.Endpoint, cmd.Cluster, entry.privilege):
+			result = CommandStatus(StatusUnsupportedAccess)
+		default:
+			result = entry.handler(cmd)
 		}
 		results = append(results, invokeResult{path: commandPath{cmd.Endpoint, cmd.Cluster, cmd.Command}, result: result})
 	}
@@ -316,14 +383,14 @@ func (s *Server) expand(p requestedPath) ([]AttributePath, Status) {
 	}
 }
 
-func (s *Server) reader(p AttributePath) AttributeReader {
+func (s *Server) attribute(p AttributePath) attributeEntry {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	return s.attributes[p]
 }
 
 func (s *Server) serveRead(sess SecureSession, exchange message.ExchangeID, body []byte) error {
-	paths, err := decodeReadRequest(body)
+	paths, fabricFiltered, err := decodeReadRequest(body)
 	if err != nil {
 		if sendErr := sendStatusResponse(sess, exchange, StatusInvalidAction); sendErr != nil {
 			return sendErr
@@ -338,7 +405,19 @@ func (s *Server) serveRead(sess SecureSession, exchange message.ExchangeID, body
 			continue
 		}
 		for _, ap := range expanded {
-			reports = append(reports, attributeReport{path: ap, status: StatusSuccess, read: s.reader(ap)})
+			entry := s.attribute(ap)
+			if !s.allowed(sess, ap.Endpoint, ap.Cluster, entry.privilege) {
+				// A wildcard read leaves out what the subject may not
+				// read; a concrete one reports it (8.4.3.2).
+				if p.concrete() {
+					reports = append(reports, attributeReport{path: ap, status: StatusUnsupportedAccess, read: nil})
+				}
+				continue
+			}
+			req := &AttributeRequest{Session: sess, Path: ap, FabricFiltered: fabricFiltered}
+			handler := entry.handler
+			read := func(enc tlv.Encoder, tag tlv.Tag) Status { return handler(req, enc, tag) }
+			reports = append(reports, attributeReport{path: ap, status: StatusSuccess, read: read})
 		}
 	}
 	payload, err := encodeReportData(reports)

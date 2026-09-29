@@ -221,12 +221,15 @@ func (p requestedPath) concretePath() AttributePath {
 	return ap
 }
 
-func decodeReadRequest(body []byte) ([]requestedPath, error) {
+// decodeReadRequest decodes a ReadRequestMessage (10.7.2): its attribute
+// paths and whether it is fabric-filtered.
+func decodeReadRequest(body []byte) ([]requestedPath, bool, error) {
 	dec, err := openTopLevel(body)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	var paths []requestedPath
+	fabricFiltered := false
 	for dec.Next() {
 		elem := dec.Element()
 		if elem.Type().IsEndOfContainer() {
@@ -241,22 +244,28 @@ func decodeReadRequest(body []byte) ([]requestedPath, error) {
 					break
 				}
 				if !pathElem.Type().IsContainer() {
-					return nil, errors.New("attribute-path-IB is not a list")
+					return nil, false, errors.New("attribute-path-IB is not a list")
 				}
 				p, err := decodeAttributePathIB(dec)
 				if err != nil {
-					return nil, err
+					return nil, false, err
 				}
 				paths = append(paths, p)
 			}
+		case tag == readRequestFabricFilteredTag && !elem.Type().IsContainer():
+			fabricFiltered, _ = elem.Bool()
 		case elem.Type().IsContainer():
 			if err := skipContainer(dec); err != nil {
-				return nil, err
+				return nil, false, err
 			}
 		}
 	}
-	return paths, dec.Error()
+	return paths, fabricFiltered, dec.Error()
 }
+
+// readRequestFabricFilteredTag is the tag of a ReadRequestMessage's
+// FabricFiltered field.
+const readRequestFabricFilteredTag = 3
 
 func decodeAttributePathIB(dec tlv.Decoder) (requestedPath, error) {
 	var p requestedPath

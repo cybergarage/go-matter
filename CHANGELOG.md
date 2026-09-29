@@ -29,6 +29,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `mattertest` commissions a `matter/device` Device with go-matter's own Commissioner over real mDNS and UDP, from discovery to CommissioningComplete.
 - `mattertest` commissions a `matter/device` Device with **chip-tool** when it is installed (`$CHIP_TOOL` or `chip-tool` on the PATH, such as the chip-tool snap), and reads an attribute over CASE afterwards, logging chip-tool's output. `make test-chip-tool` runs only these tests, and `GO_MATTER_TEST_REQUIRE=chip-tool` fails them instead of skipping when chip-tool is missing. A GitHub Actions job installs Avahi and the chip-tool snap to run them.
 - `credentials.OperationalCertificate.CATs`, the CASE Authenticated Tags of a NOC.
+- **Access control in `im.Server`.** `SetAccessChecker` subjects every invoke and read to a check with the privilege its handler requires (`im.WithPrivilege`; Operate for commands and View for attributes by default). A refused command or concrete read is answered with UNSUPPORTED_ACCESS, and a wildcard read leaves the attribute out. `HandleAttributeRead` registers a reader which gets the session and whether the read is fabric-filtered, for fabric-scoped attributes.
 - `pake.Pake1.PA`, `pake.Pake3.CA` and `pake.WithPake2MessagePrecomputed`, which the responder needs.
 - `store.PersistentCounter`, a counter that never repeats a value across restarts without persisting every increment, for the boot count and the global group message counters.
 
