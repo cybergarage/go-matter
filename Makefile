@@ -54,7 +54,7 @@ BINS=\
 
 DOCS_ROOT_DIR=doc
 
-.PHONY: format vet lint test-chip-tool clean
+.PHONY: format certs vet lint test-chip-tool clean
 .IGNORE: lint
 
 all: codecov
@@ -80,7 +80,13 @@ version:
 format: version
 	gofmt -s -w ${PKG_SRC_DIR} ${TEST_PKG_DIR} ${BIN_ROOT_DIR}
 
-vet: format
+# certs generates the administrator certificates mattertest embeds, which
+# are not committed, when they are missing, such as in a fresh checkout.
+TEST_CERTS_DIR=${TEST_PKG_DIR}/certs
+certs:
+	@if [ ! -f ${TEST_CERTS_DIR}/admin-noc.pem ]; then $(MAKE) -C ${TEST_CERTS_DIR}; fi
+
+vet: format certs
 	go vet ${PKG_ID} ${TEST_PKG_ID} ${BINS}
 
 lint: vet
@@ -95,7 +101,7 @@ test: lint
 # chip-tool, and logs what chip-tool printed. chip-tool is $CHIP_TOOL or
 # chip-tool on the PATH; set GO_MATTER_TEST_REQUIRE=chip-tool to fail
 # instead of skipping when it is missing.
-test-chip-tool:
+test-chip-tool: certs
 	go test -v -count=1 -timeout 10m -run 'TestChipTool' ${TEST_PKG}
 
 cover: test

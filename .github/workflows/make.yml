@@ -66,4 +66,23 @@ jobs:
       env:
         # Fail, rather than skip, if chip-tool is not usable.
         GO_MATTER_TEST_REQUIRE: chip-tool
-      run: make test-chip-tool
+      run: |
+        set -o pipefail
+        make test-chip-tool 2>&1 | tee chip-tool-test.log
+
+    # Step logs can only be read signed in; the job summary and the
+    # annotations can be read by anyone, so the end of the log goes there.
+    - name: Summarize the chip-tool test
+      if: always()
+      run: |
+        test -f chip-tool-test.log || exit 0
+        {
+          echo '## chip-tool test'
+          echo '```'
+          grep -E -- '--- (PASS|FAIL|SKIP)|chiptool_test.go|\$ chip-tool|Error|error|[Ff]ailed|FAIL|Timeout|timed out|Commissioning|Successfully' chip-tool-test.log | tail -n 150
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"
+        if grep -q -- '--- FAIL' chip-tool-test.log; then
+          msg=$(grep -E 'chiptool_test.go|Error|error|[Ff]ailed|Timeout|timed out' chip-tool-test.log | tail -n 40 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+          echo "::error title=chip-tool test failed::${msg}"
+        fi
