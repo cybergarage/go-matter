@@ -202,9 +202,11 @@ func decryptWireMessage(t *testing.T, key []byte, wire []byte) message.ProtocolH
 // session's SessionID, so the earlier foreign-session filter didn't catch it
 // — arrived interleaved with an unrelated later exchange and was
 // misinterpreted as its response. Receive must send a standalone MRP ack
-// (opcode 0x10) referencing the received message's ExchangeID, ProtocolID
-// and MessageCounter immediately after receiving any reliable message, so
-// the device has no reason to retransmit it.
+// (opcode 0x10, always on the Secure Channel protocol per 4.12.7.1,
+// regardless of the acknowledged message's own protocol) referencing the
+// received message's ExchangeID and MessageCounter immediately after
+// receiving any reliable message, so the device has no reason to
+// retransmit it.
 func TestSecureSessionReceiveSendsMRPAckForReliableMessage(t *testing.T) {
 	key := bytes.Repeat([]byte{0x33}, 16)
 	keys := &stubSessionKeys{i2rKey: key, r2iKey: key}
@@ -244,8 +246,8 @@ func TestSecureSessionReceiveSendsMRPAckForReliableMessage(t *testing.T) {
 	if got := ackProtHdr.ExchangeID(); got != 0xBEEF {
 		t.Errorf("ack ExchangeID() = %#x, want 0xBEEF", got)
 	}
-	if got := ackProtHdr.ProtocolID(); got != message.InteractionModel {
-		t.Errorf("ack ProtocolID() = %v, want InteractionModel", got)
+	if got := ackProtHdr.ProtocolID(); got != message.SecureChannel {
+		t.Errorf("ack ProtocolID() = %v, want SecureChannel (a standalone ack always uses the Secure Channel protocol, not the acknowledged message's protocol)", got)
 	}
 	ackedCounter, ok := ackProtHdr.AckMessageCounter()
 	if !ok {

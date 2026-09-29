@@ -217,7 +217,16 @@ func (s *secureSession) transmitPayload(payload []byte) error {
 // automatically; omitting it here left the device unable to match our ack
 // to the exchange it was acknowledging, so it kept retransmitting anyway.
 // 4.12.7.1. MRP Standalone Acknowledgement.
-func (s *secureSession) sendAck(exchangeID message.ExchangeID, protocolID message.ProtocolID, ackedCounter message.MessageCounter, ackedFromInitiator bool) error {
+//
+// The standalone ack always carries the Secure Channel protocol ID, never
+// the acknowledged message's own protocol ID: a peer's MRP layer matches a
+// standalone ack to the exchange it acknowledges by ExchangeID and role
+// alone, and expects every standalone ack on the Secure Channel protocol
+// regardless of which protocol the exchange itself is running. Carrying the
+// acknowledged message's protocol ID instead (e.g. InteractionModel) left
+// chip-tool unable to recognize the ack, so it treated it as an unexpected
+// message on the exchange and kept its retransmission timer running.
+func (s *secureSession) sendAck(exchangeID message.ExchangeID, ackedCounter message.MessageCounter, ackedFromInitiator bool) error {
 	flags := message.ExchangeFlag(0)
 	if !ackedFromInitiator {
 		flags = message.InitiatorFlag
@@ -225,7 +234,7 @@ func (s *secureSession) sendAck(exchangeID message.ExchangeID, protocolID messag
 	ackHdr := message.NewProtocolHeader(
 		message.WithHeaderExchangeFlags(flags),
 		message.WithHeaderExchangeID(exchangeID),
-		message.WithHeaderProtocolID(protocolID),
+		message.WithHeaderProtocolID(message.SecureChannel),
 		message.WithHeaderOpcode(message.MRPStandaloneAck),
 		message.WithHeaderAckCounter(ackedCounter),
 	)
@@ -264,7 +273,7 @@ func (s *secureSession) Receive() ([]byte, error) {
 			continue
 		}
 		if protHdrErr == nil && protHdr.IsReliability() {
-			if ackErr := s.sendAck(protHdr.ExchangeID(), protHdr.ProtocolID(), hdr.MessageCounter(), protHdr.IsInitiator()); ackErr != nil {
+			if ackErr := s.sendAck(protHdr.ExchangeID(), hdr.MessageCounter(), protHdr.IsInitiator()); ackErr != nil {
 				log.Errorf("session: failed to send MRP ack: %v", ackErr)
 			}
 		}
