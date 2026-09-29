@@ -98,11 +98,13 @@ func (gc *generalCommissioning) setBreadcrumb(v uint64) {
 	gc.breadcrumb = v
 }
 
-// register adds the cluster to srv on the root endpoint.
+// register adds the cluster to srv on the root endpoint. Its commands need
+// Administer (11.10.7).
 func (gc *generalCommissioning) register(srv *im.Server) {
-	srv.HandleCommand(rootEndpoint, GeneralCommissioningClusterID, armFailSafeCommandID, gc.armFailSafe)
-	srv.HandleCommand(rootEndpoint, GeneralCommissioningClusterID, setRegulatoryConfigCommandID, gc.setRegulatoryConfig)
-	srv.HandleCommand(rootEndpoint, GeneralCommissioningClusterID, commissioningCompleteCommandID, gc.commissioningComplete)
+	administer := im.WithPrivilege(im.PrivilegeAdminister)
+	srv.HandleCommand(rootEndpoint, GeneralCommissioningClusterID, armFailSafeCommandID, gc.armFailSafe, administer)
+	srv.HandleCommand(rootEndpoint, GeneralCommissioningClusterID, setRegulatoryConfigCommandID, gc.setRegulatoryConfig, administer)
+	srv.HandleCommand(rootEndpoint, GeneralCommissioningClusterID, commissioningCompleteCommandID, gc.commissioningComplete, administer)
 
 	srv.HandleAttribute(rootEndpoint, GeneralCommissioningClusterID, breadcrumbAttributeID, func(enc tlv.Encoder, tag tlv.Tag) im.Status {
 		gc.mutex.Lock()

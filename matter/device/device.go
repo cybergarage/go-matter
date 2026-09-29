@@ -68,6 +68,7 @@ type Session struct {
 	// PASE session is bound to the fabric AddNOC adds over it.
 	fabricIndex uint8
 	peerNodeID  uint64
+	peerCATs    []uint32
 }
 
 // Keys returns the session's keys.
@@ -95,10 +96,15 @@ func (s *Session) PeerNodeID() uint64 {
 // sessionInfo is what a cluster needs to know about the session a request
 // arrived on.
 type sessionInfo struct {
+	// known reports whether the session is one the device established.
+	known  bool
 	isCASE bool
 	// fabricIndex is the accessing fabric: the CASE session's, the one a
 	// PASE session was bound to by AddNOC, or 0.
 	fabricIndex uint8
+	// peerNodeID and peerCATs are the CASE peer's subject.
+	peerNodeID uint64
+	peerCATs   []uint32
 }
 
 // sessionLookup returns what the device knows about a session.
@@ -342,6 +348,8 @@ func New(opts ...Option) (*Device, error) {
 	bi := newBasicInformation(d.service.VendorID, d.service.ProductID, d.service.DeviceName, d.service.Hostname)
 	bi.register(d.imServer)
 	d.opCreds = newOperationalCredentials(d.store, d.failSafe, d.attestation, d.supportedFabrics)
+	d.opCreds.lookup = d.lookupSession
+	d.imServer.SetAccessChecker(d.checkAccess)
 	d.opCreds.onFabricAdded = func(sec im.SecureSession, fabricIndex uint8) {
 		d.bindFabric(sec, fabricIndex)
 		d.requestRefresh()
@@ -367,9 +375,9 @@ func (d *Device) lookupSession(sec im.SecureSession) sessionInfo {
 	defer d.mu.Unlock()
 	sess := d.sessionForLocked(sec)
 	if sess == nil {
-		return sessionInfo{isCASE: false, fabricIndex: 0}
+		return sessionInfo{known: false, isCASE: false, fabricIndex: 0, peerNodeID: 0, peerCATs: nil}
 	}
-	return sessionInfo{isCASE: sess.isCASE, fabricIndex: sess.fabricIndex}
+	return sessionInfo{known: true, isCASE: sess.isCASE, fabricIndex: sess.fabricIndex, peerNodeID: sess.peerNodeID, peerCATs: sess.peerCATs}
 }
 
 // bindFabric binds the PASE session AddNOC arrived on to the fabric it
@@ -667,7 +675,7 @@ func (d *Device) runPASE(pt *peerTransport, sessionID types.SessionID) {
 	established := func(keys pase.SessionKeys) {
 		d.mu.Lock()
 		if d.conn != nil {
-			sess = d.addSessionLocked(pt, sessionID, keys, false, 0, 0)
+			sess = d.addSessionLocked(pt, sessionID, keys, false, 0, 0, nil)
 			d.commissioningStartedLocked(sess)
 		}
 		d.mu.Unlock()
@@ -714,7 +722,7 @@ func (d *Device) runCASE(pt *peerTransport, sessionID types.SessionID) {
 		d.mu.Lock()
 		defer d.mu.Unlock()
 		if d.conn != nil {
-			sess = d.addSessionLocked(pt, sessionID, es.Keys, true, es.FabricIndex, es.PeerNodeID)
+			sess = d.addSessionLocked(pt, sessionID, es.Keys, true, es.FabricIndex, es.PeerNodeID, es.PeerCATs)
 		}
 	}
 	responder := caseprotocol.NewResponder(pt, d.opCreds.responderFabrics,
@@ -749,7 +757,7 @@ func (d *Device) runCASE(pt *peerTransport, sessionID types.SessionID) {
 
 // addSessionLocked registers a newly established session and starts
 // serving the Interaction Model on it.
-func (d *Device) addSessionLocked(pt *peerTransport, sessionID types.SessionID, keys session.SessionKeys, isCASE bool, fabricIndex uint8, peerNodeID uint64) *Session {
+func (d *Device) addSessionLocked(pt *peerTransport, sessionID types.SessionID, keys session.SessionKeys, isCASE bool, fabricIndex uint8, peerNodeID uint64, peerCATs []uint32) *Session {
 	transport := newPeerTransport(pt.conn, pt.peer)
 	sess := &Session{
 		keys:        keys,
@@ -759,6 +767,7 @@ func (d *Device) addSessionLocked(pt *peerTransport, sessionID types.SessionID, 
 		isCASE:      isCASE,
 		fabricIndex: fabricIndex,
 		peerNodeID:  peerNodeID,
+		peerCATs:    peerCATs,
 	}
 	d.sessions[sessionID] = sess
 	d.wg.Add(1)

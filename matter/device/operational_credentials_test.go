@@ -729,9 +729,22 @@ func TestDeviceCommissioningCompletesOverCASE(t *testing.T) {
 	if n := readUint8(t, operational, commissionedFabricsAttributeID); n != 1 {
 		t.Fatalf("CommissionedFabrics over CASE = %d, want 1", n)
 	}
-	again := caseSession(t, client, ca.admin(t, testAdminNodeID+1), testCommissioneeNode)
+	if n := readUint8(t, operational, currentFabricIndexAttributeID); n != 1 {
+		t.Fatalf("CurrentFabricIndex over CASE = %d, want 1", n)
+	}
+	again := caseSession(t, client, ca.admin(t, testAdminNodeID), testCommissioneeNode)
 	if n := readUint8(t, again, commissionedFabricsAttributeID); n != 1 {
 		t.Fatalf("CommissionedFabrics over a second CASE session = %d, want 1", n)
+	}
+
+	// Another node of the fabric, which the ACL does not name, is refused.
+	stranger := caseSession(t, client, ca.admin(t, testAdminNodeID+1), testCommissioneeNode)
+	resp, err := im.ReadAttribute(stranger, 0, OperationalCredentialsClusterID, commissionedFabricsAttributeID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.Status == nil || resp.Status.IMStatus != uint8(im.StatusUnsupportedAccess) {
+		t.Fatalf("a read by a node the ACL does not name: %+v, want UnsupportedAccess", resp.Status)
 	}
 }
 

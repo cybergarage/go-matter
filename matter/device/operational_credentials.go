@@ -108,6 +108,8 @@ type operationalCredentials struct {
 	attestation credentials.AttestationProvider
 	maxFabrics  uint8
 	now         func() time.Time
+	// lookup tells the fabric a session accesses the device on.
+	lookup sessionLookup
 	// onFabricAdded is called when AddNOC adds a fabric over sess, which
 	// is from then on bound to that fabric (11.18.6.8).
 	onFabricAdded func(sess im.SecureSession, fabricIndex uint8)
@@ -128,6 +130,7 @@ func newOperationalCredentials(s store.DeviceStore, fs *failSafe, attestation cr
 		now:         time.Now,
 		epoch:       0,
 
+		lookup:        nil,
 		onFabricAdded: nil,
 		pendingKey:    nil,
 		pendingRoot:   nil,
@@ -137,14 +140,16 @@ func newOperationalCredentials(s store.DeviceStore, fs *failSafe, attestation cr
 
 // register adds the cluster to srv on the root endpoint.
 func (oc *operationalCredentials) register(srv *im.Server) {
-	srv.HandleCommand(rootEndpoint, OperationalCredentialsClusterID, attestationRequestCommandID, oc.attestationRequest)
-	srv.HandleCommand(rootEndpoint, OperationalCredentialsClusterID, certificateChainRequestCommandID, oc.certificateChainRequest)
-	srv.HandleCommand(rootEndpoint, OperationalCredentialsClusterID, csrRequestCommandID, oc.csrRequest)
-	srv.HandleCommand(rootEndpoint, OperationalCredentialsClusterID, addTrustedRootCertificateCommandID, oc.addTrustedRootCertificate)
-	srv.HandleCommand(rootEndpoint, OperationalCredentialsClusterID, addNOCCommandID, oc.addNOC)
+	// The commands, and reading the NOCs, need Administer (11.18.5, 11.18.6).
+	administer := im.WithPrivilege(im.PrivilegeAdminister)
+	srv.HandleCommand(rootEndpoint, OperationalCredentialsClusterID, attestationRequestCommandID, oc.attestationRequest, administer)
+	srv.HandleCommand(rootEndpoint, OperationalCredentialsClusterID, certificateChainRequestCommandID, oc.certificateChainRequest, administer)
+	srv.HandleCommand(rootEndpoint, OperationalCredentialsClusterID, csrRequestCommandID, oc.csrRequest, administer)
+	srv.HandleCommand(rootEndpoint, OperationalCredentialsClusterID, addTrustedRootCertificateCommandID, oc.addTrustedRootCertificate, administer)
+	srv.HandleCommand(rootEndpoint, OperationalCredentialsClusterID, addNOCCommandID, oc.addNOC, administer)
 
-	srv.HandleAttribute(rootEndpoint, OperationalCredentialsClusterID, nocsAttributeID, oc.readNOCs)
-	srv.HandleAttribute(rootEndpoint, OperationalCredentialsClusterID, fabricsAttributeID, oc.readFabrics)
+	srv.HandleAttributeRead(rootEndpoint, OperationalCredentialsClusterID, nocsAttributeID, oc.readNOCs, administer)
+	srv.HandleAttributeRead(rootEndpoint, OperationalCredentialsClusterID, fabricsAttributeID, oc.readFabrics)
 	srv.HandleAttribute(rootEndpoint, OperationalCredentialsClusterID, supportedFabricsAttributeID, func(enc tlv.Encoder, tag tlv.Tag) im.Status {
 		enc.PutUnsigned1(tag, oc.maxFabrics)
 		return im.StatusSuccess
@@ -158,10 +163,8 @@ func (oc *operationalCredentials) register(srv *im.Server) {
 		return im.StatusSuccess
 	})
 	srv.HandleAttribute(rootEndpoint, OperationalCredentialsClusterID, trustedRootCertificatesAttributeID, oc.readTrustedRootCertificates)
-	srv.HandleAttribute(rootEndpoint, OperationalCredentialsClusterID, currentFabricIndexAttributeID, func(enc tlv.Encoder, tag tlv.Tag) im.Status {
-		// The reader does not know the session it reads for; only PASE
-		// sessions, which have no fabric, are served so far.
-		enc.PutUnsigned1(tag, 0)
+	srv.HandleAttributeRead(rootEndpoint, OperationalCredentialsClusterID, currentFabricIndexAttributeID, func(req *im.AttributeRequest, enc tlv.Encoder, tag tlv.Tag) im.Status {
+		enc.PutUnsigned1(tag, oc.accessingFabric(req.Session))
 		return im.StatusSuccess
 	})
 	srv.HandleAttribute(rootEndpoint, OperationalCredentialsClusterID, featureMapAttributeID, func(enc tlv.Encoder, tag tlv.Tag) im.Status {
@@ -590,24 +593,52 @@ func (oc *operationalCredentials) writeFabric(tx store.DeviceStoreTx, index uint
 	return tx.SaveGroupKeys(index, ipk)
 }
 
-// readNOCs reports the NOCs list (11.18.5.1). The reader does not know the
-// accessing fabric, so the fabric-sensitive certificates of every fabric
-// are reported.
-func (oc *operationalCredentials) readNOCs(enc tlv.Encoder, tag tlv.Tag) im.Status {
+// accessingFabric returns the fabric sess accesses the device on, or 0.
+func (oc *operationalCredentials) accessingFabric(sess im.SecureSession) uint8 {
+	if oc.lookup == nil {
+		return 0
+	}
+	return oc.lookup(sess).fabricIndex
+}
+
+// scopedFabrics returns the fabrics a read of a fabric-scoped list
+// reports: all of them, or those of the accessing fabric when the read is
+// fabric-filtered (7.13.6).
+func (oc *operationalCredentials) scopedFabrics(req *im.AttributeRequest) ([]store.DeviceFabricRecord, uint8, error) {
+	accessing := oc.accessingFabric(req.Session)
 	fabrics, err := oc.fabrics()
+	if err != nil || !req.FabricFiltered {
+		return fabrics, accessing, err
+	}
+	filtered := make([]store.DeviceFabricRecord, 0, 1)
+	for _, f := range fabrics {
+		if f.FabricIndex == accessing {
+			filtered = append(filtered, f)
+		}
+	}
+	return filtered, accessing, nil
+}
+
+// readNOCs reports the NOCs list (11.18.5.1). The certificates are
+// fabric-sensitive: an entry of another fabric than the accessing one
+// carries only its FabricIndex.
+func (oc *operationalCredentials) readNOCs(req *im.AttributeRequest, enc tlv.Encoder, tag tlv.Tag) im.Status {
+	fabrics, accessing, err := oc.scopedFabrics(req)
 	if err != nil {
 		return im.StatusFailure
 	}
 	enc.BeginArray(tag)
 	for _, f := range fabrics {
 		enc.BeginStructure(tlv.NewAnonymousTag())
-		if err := enc.PutOctet(tlv.NewContextTag(1), f.NOC); err != nil {
-			return im.StatusFailure
-		}
-		if len(f.ICAC) == 0 {
-			enc.PutNull(tlv.NewContextTag(2))
-		} else if err := enc.PutOctet(tlv.NewContextTag(2), f.ICAC); err != nil {
-			return im.StatusFailure
+		if f.FabricIndex == accessing {
+			if err := enc.PutOctet(tlv.NewContextTag(1), f.NOC); err != nil {
+				return im.StatusFailure
+			}
+			if len(f.ICAC) == 0 {
+				enc.PutNull(tlv.NewContextTag(2))
+			} else if err := enc.PutOctet(tlv.NewContextTag(2), f.ICAC); err != nil {
+				return im.StatusFailure
+			}
 		}
 		enc.PutUnsigned1(tlv.NewContextTag(fabricIndexTag), f.FabricIndex)
 		if err := enc.EndContainer(); err != nil {
@@ -621,9 +652,9 @@ func (oc *operationalCredentials) readNOCs(enc tlv.Encoder, tag tlv.Tag) im.Stat
 }
 
 // readFabrics reports the Fabrics list of FabricDescriptorStruct
-// (11.18.5.2).
-func (oc *operationalCredentials) readFabrics(enc tlv.Encoder, tag tlv.Tag) im.Status {
-	fabrics, err := oc.fabrics()
+// (11.18.5.2), whose fields are not fabric-sensitive.
+func (oc *operationalCredentials) readFabrics(req *im.AttributeRequest, enc tlv.Encoder, tag tlv.Tag) im.Status {
+	fabrics, _, err := oc.scopedFabrics(req)
 	if err != nil {
 		return im.StatusFailure
 	}
@@ -648,6 +679,14 @@ func (oc *operationalCredentials) readFabrics(enc tlv.Encoder, tag tlv.Tag) im.S
 		return im.StatusFailure
 	}
 	return im.StatusSuccess
+}
+
+// aclEntries returns the Access Control entries of a fabric, those staged
+// under the armed fail-safe included.
+func (oc *operationalCredentials) aclEntries(fabricIndex uint8) ([]store.ACLEntry, error) {
+	oc.mutex.Lock()
+	defer oc.mutex.Unlock()
+	return oc.view().LoadACL(fabricIndex)
 }
 
 // readTrustedRootCertificates reports the roots of the fabrics, and the
