@@ -28,6 +28,7 @@ import (
 	"github.com/cybergarage/go-matter/matter/encoding"
 	"github.com/cybergarage/go-matter/matter/store"
 	"github.com/cybergarage/go-matter/matter/types"
+	"github.com/cybergarage/go-matter/mattertest/mockdevice"
 )
 
 // noBLECentral is a BLE central which finds nothing, so a Commissioner
@@ -127,5 +128,46 @@ func TestCommissionerCommissionsDevice(t *testing.T) {
 	nodeID, _ := cme.NodeID()
 	if f := fabrics[0]; f.FabricID != fabricID || f.NodeID != uint64(nodeID) {
 		t.Fatalf("the device joined fabric 0x%X as node 0x%X, want fabric 0x%X as node 0x%X", f.FabricID, f.NodeID, fabricID, uint64(nodeID))
+	}
+}
+
+// failingBLECentral is a BLE central which cannot scan, as on a host whose
+// Bluetooth is off or missing.
+type failingBLECentral struct{ noBLECentral }
+
+func (failingBLECentral) Scan(context.Context, ...ble.ScannerOption) error {
+	return errors.New("bluetooth is not available")
+}
+
+// TestCommissionerDiscoversWithoutBLE checks that a failing BLE scan does
+// not stop the commissioner from finding a device over mDNS.
+func TestCommissionerDiscoversWithoutBLE(t *testing.T) {
+	dev, err := mockdevice.New(
+		mockdevice.WithDiscriminator(mockCommissioningDiscriminator),
+		mockdevice.WithPasscode(mockCommissioningPasscode),
+		mockdevice.WithVendorID(mockCommissioningVendorID),
+		mockdevice.WithProductID(mockCommissioningProductID),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := dev.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = dev.Stop() }()
+
+	cmr := matter.NewCommissioner(
+		matter.WithCommissionerDiscoverer(mockdevice.NewFakeDiscoverer(dev)),
+		matter.WithCommissionerCentral(failingBLECentral{}),
+		matter.WithCommissionerStoreDir(t.TempDir()),
+	)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	devs, err := cmr.Discover(ctx, matter.NewQuery())
+	if err != nil {
+		t.Fatalf("Discover() error = %v, want the mDNS devices despite BLE failing", err)
+	}
+	if len(devs) == 0 {
+		t.Fatal("Discover() found no device over mDNS")
 	}
 }

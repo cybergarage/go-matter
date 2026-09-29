@@ -34,6 +34,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- `Commissioner.Discover`, and so `Commission`, failed on a host without Bluetooth even when mDNS found the device, since a failing BLE scan aborted the discovery. A method which fails is now logged and the other's devices are returned; Discover fails only when both do. This also made `TestMockCommissioning`, and the GitHub Actions build job, fail wherever BlueZ is not running.
 - Operational discovery never found a node: `mdns.NewOperationalNodeQuery` for a service instance asked for its PTR records, which an instance does not have, since go-mdns sends the query's own type instead of ANY. It now asks for ANY, and `mdns.Query` carries the question type (`WithQueryType`).
 - `pbkdf.NewParamResponse` did not echo the initiator's random when the PBKDF parameters were given, so a responder with its own salt could not answer.
 - A PASE initiator that fails to verify cB now sends a failure StatusReport, so the responder ends the exchange instead of waiting for Pake3 until its deadline.

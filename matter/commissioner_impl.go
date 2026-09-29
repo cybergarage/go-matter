@@ -210,8 +210,9 @@ func (cmr *commissioner) Discover(ctx context.Context, query Query) ([]Commissio
 
 	// Run BLE scan and mDNS discovery in parallel
 	type result struct {
-		devs []CommissionableDevice
-		err  error
+		method string
+		devs   []CommissionableDevice
+		err    error
 	}
 
 	// Use a single channel to collect both results symmetrically
@@ -219,23 +220,32 @@ func (cmr *commissioner) Discover(ctx context.Context, query Query) ([]Commissio
 
 	go func() {
 		d, e := scanNodes(ctx)
-		done <- result{devs: d, err: e}
+		done <- result{method: "BLE", devs: d, err: e}
 	}()
 
 	go func() {
 		d, e := discoverNodes(ctx)
-		done <- result{devs: d, err: e}
+		done <- result{method: "mDNS", devs: d, err: e}
 	}()
 
 	var devs []CommissionableDevice
+	var errs []error
 
-	// Collect two results; treat timeouts as normal (skip)
+	// Collect two results; treat timeouts as normal (skip). A method which
+	// fails, such as BLE on a host without Bluetooth, does not stop the
+	// other from discovering devices; only when both fail is Discover an
+	// error.
 	for range 2 {
 		r := <-done
 		if r.err != nil && !errors.Is(r.err, context.DeadlineExceeded) {
-			return nil, r.err
+			log.Warnf("%s discovery failed: %v", r.method, r.err)
+			errs = append(errs, fmt.Errorf("%s discovery: %w", r.method, r.err))
+			continue
 		}
 		devs = append(devs, r.devs...)
+	}
+	if len(errs) == 2 {
+		return nil, fmt.Errorf("%w; %w", errs[0], errs[1])
 	}
 
 	return devs, nil
