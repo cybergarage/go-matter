@@ -260,6 +260,8 @@ type Device struct {
 
 	supportedFabrics uint8
 
+	// discriminator is the device's own, which a basic window advertises.
+	discriminator uint16
 	// window is the commissioning window, and initialWindowTimeout how
 	// long the one opened at Start lasts.
 	window               commissioningWindow
@@ -316,6 +318,7 @@ func New(opts ...Option) (*Device, error) {
 		supportedFabrics: DefaultSupportedFabrics,
 
 		window:               commissioningWindow{open: false, stop: nil, generation: 0, failures: 0, commissioner: nil},
+		discriminator:        0,
 		initialWindowTimeout: DefaultCommissioningTimeout,
 		now:                  time.Now,
 		timer:                realTimer,
@@ -334,6 +337,7 @@ func New(opts ...Option) (*Device, error) {
 	if d.store == nil {
 		d.store = store.NewMemDeviceStore()
 	}
+	d.discriminator = d.service.Discriminator
 	d.failSafe = newFailSafe(d.store)
 	d.failSafe.now = d.now
 	d.failSafe.timer = d.timer
@@ -355,6 +359,7 @@ func New(opts ...Option) (*Device, error) {
 		d.requestRefresh()
 	}
 	d.opCreds.register(d.imServer)
+	(&administratorCommissioning{device: d}).register(d.imServer)
 	return d, nil
 }
 
@@ -446,7 +451,7 @@ func (d *Device) Start() error {
 		return fmt.Errorf("device: list the fabrics: %w", err)
 	}
 	if len(fabrics) == 0 {
-		if err := d.openWindowLocked(d.initialWindowTimeout); err != nil {
+		if err := d.openWindowLocked(d.initialWindowTimeout, d.basicOpeningLocked(0, 0)); err != nil {
 			_ = conn.Close()
 			return err
 		}
@@ -664,10 +669,10 @@ func (d *Device) startPASELocked(conn *net.UDPConn, peer *net.UDPAddr, b []byte)
 	d.pase = pt
 	d.paseAddr = peer.String()
 	d.wg.Add(1)
-	go d.runPASE(pt, d.newSessionIDLocked())
+	go d.runPASE(pt, d.newSessionIDLocked(), d.paseVerifierLocked())
 }
 
-func (d *Device) runPASE(pt *peerTransport, sessionID types.SessionID) {
+func (d *Device) runPASE(pt *peerTransport, sessionID types.SessionID, verifier pase.Verifier) {
 	defer d.wg.Done()
 	// The session is set up before the responder reports success, since
 	// the commissioner sends its first request on it right away.
@@ -687,7 +692,7 @@ func (d *Device) runPASE(pt *peerTransport, sessionID types.SessionID) {
 			}
 		}
 	}
-	_, err := pase.NewResponder(pt, d.verifier,
+	_, err := pase.NewResponder(pt, verifier,
 		pase.WithResponderSessionID(sessionID),
 		pase.WithResponderEstablishedHandler(established),
 	).EstablishSession(d.ctx)

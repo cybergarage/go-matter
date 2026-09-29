@@ -21,6 +21,7 @@ import (
 
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/mdns"
+	"github.com/cybergarage/go-matter/matter/protocol/pase"
 )
 
 // Commissioning window limits (Matter Core 5.4.2.3, 11.19.8.1).
@@ -73,6 +74,7 @@ func WithCommissioningTimeout(timeout time.Duration) Option {
 // MaxFailedCommissioningAttempts failed attempts.
 type commissioningWindow struct {
 	open       bool
+	opening    windowOpening
 	stop       func() bool
 	generation int
 	failures   int
@@ -80,6 +82,30 @@ type commissioningWindow struct {
 	// while there is one, the device neither advertises nor accepts
 	// another PASE.
 	commissioner *Session
+}
+
+// WindowStatus is how the commissioning window is open, the
+// Administrator Commissioning cluster's CommissioningWindowStatusEnum
+// (Matter Core 11.19.5.1).
+type WindowStatus uint8
+
+const (
+	WindowNotOpen      WindowStatus = 0
+	EnhancedWindowOpen WindowStatus = 1
+	BasicWindowOpen    WindowStatus = 2
+)
+
+// windowOpening is how a commissioning window was opened: with the
+// device's own verifier and discriminator (basic), or with those an
+// administrator gave (enhanced), and by which administrator.
+type windowOpening struct {
+	status        WindowStatus
+	verifier      *pase.Verifier
+	discriminator uint16
+	// adminFabric and adminVendor identify the administrator which opened
+	// the window; 0 when the device opened it.
+	adminFabric uint8
+	adminVendor uint16
 }
 
 // IsCommissioningWindowOpen reports whether the device can be
@@ -107,7 +133,91 @@ func (d *Device) OpenCommissioningWindow(timeout time.Duration) error {
 		return ErrCommissioningWindowOpen
 	}
 	d.service.InstanceName = NewInstanceName()
-	return d.openWindowLocked(timeout)
+	return d.openWindowLocked(timeout, d.basicOpeningLocked(0, 0))
+}
+
+// OpenEnhancedCommissioningWindow opens the commissioning window for
+// timeout, as OpenCommissioningWindow does, but with the PASE verifier and
+// the discriminator an administrator generated, so that it hands out a
+// one-time passcode instead of the device's own (11.19.8.1). The device
+// advertises the window with CM=2.
+func (d *Device) OpenEnhancedCommissioningWindow(timeout time.Duration, verifier pase.Verifier, discriminator uint16) error {
+	return d.openEnhancedWindow(timeout, verifier, discriminator, 0, 0)
+}
+
+func (d *Device) openEnhancedWindow(timeout time.Duration, verifier pase.Verifier, discriminator uint16, adminFabric uint8, adminVendor uint16) error {
+	if timeout < MinCommissioningTimeout || MaxCommissioningTimeout < timeout {
+		return fmt.Errorf("device: commissioning timeout %v is outside %v..%v", timeout, MinCommissioningTimeout, MaxCommissioningTimeout)
+	}
+	if err := verifier.Validate(); err != nil {
+		return err
+	}
+	if MaxDiscriminator < discriminator {
+		return fmt.Errorf("device: discriminator 0x%X exceeds 12 bits", discriminator)
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.conn == nil {
+		return ErrNotStarted
+	}
+	if d.window.open {
+		return ErrCommissioningWindowOpen
+	}
+	d.service.InstanceName = NewInstanceName()
+	return d.openWindowLocked(timeout, windowOpening{
+		status:        EnhancedWindowOpen,
+		verifier:      &verifier,
+		discriminator: discriminator,
+		adminFabric:   adminFabric,
+		adminVendor:   adminVendor,
+	})
+}
+
+// openBasicWindow opens the window with the device's own verifier on
+// behalf of an administrator.
+func (d *Device) openBasicWindow(timeout time.Duration, adminFabric uint8, adminVendor uint16) error {
+	if timeout < MinCommissioningTimeout || MaxCommissioningTimeout < timeout {
+		return fmt.Errorf("device: commissioning timeout %v is outside %v..%v", timeout, MinCommissioningTimeout, MaxCommissioningTimeout)
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.conn == nil {
+		return ErrNotStarted
+	}
+	if d.window.open {
+		return ErrCommissioningWindowOpen
+	}
+	d.service.InstanceName = NewInstanceName()
+	return d.openWindowLocked(timeout, d.basicOpeningLocked(adminFabric, adminVendor))
+}
+
+func (d *Device) basicOpeningLocked(adminFabric uint8, adminVendor uint16) windowOpening {
+	return windowOpening{
+		status:        BasicWindowOpen,
+		verifier:      nil,
+		discriminator: d.discriminator,
+		adminFabric:   adminFabric,
+		adminVendor:   adminVendor,
+	}
+}
+
+// windowState returns how the window is open, and by which administrator.
+func (d *Device) windowState() windowOpening {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if !d.window.open {
+		return windowOpening{status: WindowNotOpen, verifier: nil, discriminator: 0, adminFabric: 0, adminVendor: 0}
+	}
+	return d.window.opening
+}
+
+// paseVerifierLocked returns the verifier PASE authenticates with: the
+// one an enhanced window was opened with, or the device's own.
+func (d *Device) paseVerifierLocked() pase.Verifier {
+	if d.window.opening.verifier != nil {
+		return *d.window.opening.verifier
+	}
+	return d.verifier
 }
 
 // CloseCommissioningWindow closes the commissioning window, as
@@ -119,8 +229,26 @@ func (d *Device) CloseCommissioningWindow() error {
 	return d.closeWindowLocked("closed")
 }
 
-func (d *Device) openWindowLocked(timeout time.Duration) error {
+// revokeCommissioning closes the window and ends a commissioning in
+// progress: its PASE session is closed, and the fail-safe rolled back
+// (11.19.8.3).
+func (d *Device) revokeCommissioning() {
+	d.mu.Lock()
+	if err := d.closeWindowLocked("revoked"); err != nil {
+		log.Warnf("device: %v", err)
+	}
+	if sess := d.window.commissioner; sess != nil {
+		d.closeSessionLocked(sess)
+	}
+	d.mu.Unlock()
+	// Not under the device's lock: a rollback calls back into it.
+	d.failSafe.close()
+}
+
+func (d *Device) openWindowLocked(timeout time.Duration, opening windowOpening) error {
 	d.window.open = true
+	d.window.opening = opening
+	d.service.Discriminator = opening.discriminator
 	d.window.failures = 0
 	d.window.generation++
 	gen := d.window.generation
@@ -131,6 +259,8 @@ func (d *Device) openWindowLocked(timeout time.Duration) error {
 	if err := d.advertiseCommissionableLocked(); err != nil {
 		d.stopWindowTimerLocked()
 		d.window.open = false
+		d.window.opening = windowOpening{status: WindowNotOpen, verifier: nil, discriminator: 0, adminFabric: 0, adminVendor: 0}
+		d.service.Discriminator = d.discriminator
 		return err
 	}
 	log.Infof("device: commissioning window open for %v", timeout)
@@ -142,6 +272,8 @@ func (d *Device) closeWindowLocked(reason string) error {
 		return nil
 	}
 	d.window.open = false
+	d.window.opening = windowOpening{status: WindowNotOpen, verifier: nil, discriminator: 0, adminFabric: 0, adminVendor: 0}
+	d.service.Discriminator = d.discriminator
 	d.stopWindowTimerLocked()
 	log.Infof("device: commissioning window %s", reason)
 	if d.advertiser == nil {
@@ -163,6 +295,9 @@ func (d *Device) advertiseCommissionableLocked() error {
 		return nil
 	}
 	d.service.CommissioningMode = mdns.CommissioningModePasscode
+	if d.window.opening.status == EnhancedWindowOpen {
+		d.service.CommissioningMode = mdns.CommissioningModeDynamicPasscode
+	}
 	if err := d.advertiser.AdvertiseCommissionable(d.service); err != nil {
 		return fmt.Errorf("device: advertise: %w", err)
 	}
