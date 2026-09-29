@@ -356,4 +356,17 @@ func TestChipToolOpensCommissioningWindow(t *testing.T) {
 	if !strings.Contains(out, "CurrentFabricIndex: 2") {
 		t.Fatal("chip-tool did not report the second fabric as the current one")
 	}
+
+	// The second administrator labels its fabric, and the first removes
+	// it again.
+	if _, err := chipTool.run(t, "operationalcredentials", "update-fabric-label", "beta", nodeArg(secondNodeID), "0", "--commissioner-name", "beta"); err != nil {
+		t.Fatalf("chip-tool operationalcredentials update-fabric-label: %v", err)
+	}
+	if fabrics, err := d.store.ListDeviceFabrics(); err != nil || len(fabrics) != 2 || fabrics[1].Label != "beta" {
+		t.Fatalf("the device holds (%+v, %v), want the second fabric labelled beta", fabrics, err)
+	}
+	if _, err := chipTool.run(t, "operationalcredentials", "remove-fabric", "2", nodeArg(d.nodeID), "0"); err != nil {
+		t.Fatalf("chip-tool operationalcredentials remove-fabric: %v", err)
+	}
+	d.checkFabrics(t, d.nodeID)
 }

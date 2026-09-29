@@ -43,6 +43,8 @@ const (
 	csrResponseCommandID               im.CommandID = 0x05
 	addNOCCommandID                    im.CommandID = 0x06
 	nocResponseCommandID               im.CommandID = 0x08
+	updateFabricLabelCommandID         im.CommandID = 0x09
+	removeFabricCommandID              im.CommandID = 0x0A
 	addTrustedRootCertificateCommandID im.CommandID = 0x0B
 
 	nocsAttributeID                    im.AttributeID = 0x0000
@@ -63,6 +65,8 @@ const (
 	attestationNonceLength = 32
 	// ipkLength is the length of an epoch key such as the IPK (4.16.2).
 	ipkLength = 16
+	// maxFabricLabelLength is the longest fabric label (11.18.4.5).
+	maxFabricLabelLength = 32
 )
 
 // DefaultSupportedFabrics is how many fabrics a Device can join unless
@@ -110,6 +114,9 @@ type operationalCredentials struct {
 	now         func() time.Time
 	// lookup tells the fabric a session accesses the device on.
 	lookup sessionLookup
+	// onFabricRemoved is called, once RemoveFabric's response is sent,
+	// with the fabric it removed.
+	onFabricRemoved func(fabricIndex uint8)
 	// onFabricAdded is called when AddNOC adds a fabric over sess, which
 	// is from then on bound to that fabric (11.18.6.8).
 	onFabricAdded func(sess im.SecureSession, fabricIndex uint8)
@@ -130,11 +137,12 @@ func newOperationalCredentials(s store.DeviceStore, fs *failSafe, attestation cr
 		now:         time.Now,
 		epoch:       0,
 
-		lookup:        nil,
-		onFabricAdded: nil,
-		pendingKey:    nil,
-		pendingRoot:   nil,
-		addedFabric:   0,
+		lookup:          nil,
+		onFabricRemoved: nil,
+		onFabricAdded:   nil,
+		pendingKey:      nil,
+		pendingRoot:     nil,
+		addedFabric:     0,
 	}
 }
 
@@ -147,6 +155,8 @@ func (oc *operationalCredentials) register(srv *im.Server) {
 	srv.HandleCommand(rootEndpoint, OperationalCredentialsClusterID, csrRequestCommandID, oc.csrRequest, administer)
 	srv.HandleCommand(rootEndpoint, OperationalCredentialsClusterID, addTrustedRootCertificateCommandID, oc.addTrustedRootCertificate, administer)
 	srv.HandleCommand(rootEndpoint, OperationalCredentialsClusterID, addNOCCommandID, oc.addNOC, administer)
+	srv.HandleCommand(rootEndpoint, OperationalCredentialsClusterID, updateFabricLabelCommandID, oc.updateFabricLabel, administer)
+	srv.HandleCommand(rootEndpoint, OperationalCredentialsClusterID, removeFabricCommandID, oc.removeFabric, administer)
 
 	srv.HandleAttributeRead(rootEndpoint, OperationalCredentialsClusterID, nocsAttributeID, oc.readNOCs, administer)
 	srv.HandleAttributeRead(rootEndpoint, OperationalCredentialsClusterID, fabricsAttributeID, oc.readFabrics)
@@ -779,4 +789,98 @@ func identityProtectionKey(keys store.GroupKeysRecord) ([]byte, bool) {
 		}
 	}
 	return nil, false
+}
+
+// removeFabric handles RemoveFabric (11.18.6.12): it removes the fabric,
+// with its ACL and group keys, and once the response is sent the device
+// ends the sessions on it and stops advertising it. The fabric AddNOC is
+// adding under the armed fail-safe cannot be removed; disarming the
+// fail-safe removes it.
+func (oc *operationalCredentials) removeFabric(req *im.CommandRequest) im.CommandResult {
+	field, ok := req.Field(0)
+	if !ok {
+		return im.CommandStatus(im.StatusInvalidCommand)
+	}
+	index, ok := field.Unsigned()
+	if !ok || index < uint64(store.MinFabricIndex) || uint64(store.MaxFabricIndex) < index {
+		return nocResponse(NOCStatusInvalidFabricIndex, 0)
+	}
+	fabricIndex := uint8(index)
+
+	oc.mutex.Lock()
+	defer oc.mutex.Unlock()
+	if oc.armedLocked() != nil && oc.addedFabric == fabricIndex {
+		return nocResponse(NOCStatusInvalidFabricIndex, 0)
+	}
+	if _, ok, err := oc.store.LoadDeviceFabric(fabricIndex); err != nil {
+		return im.CommandStatus(im.StatusFailure)
+	} else if !ok {
+		return nocResponse(NOCStatusInvalidFabricIndex, 0)
+	}
+	if err := oc.store.RemoveDeviceFabric(fabricIndex); err != nil {
+		log.Errorf("device: RemoveFabric %d: %v", fabricIndex, err)
+		return im.CommandStatus(im.StatusFailure)
+	}
+	log.Infof("device: RemoveFabric: removed fabric %d", fabricIndex)
+	result := nocResponse(NOCStatusOK, fabricIndex)
+	if oc.onFabricRemoved != nil {
+		removed := oc.onFabricRemoved
+		result.AfterResponse = func() { removed(fabricIndex) }
+	}
+	return result
+}
+
+// updateFabricLabel handles UpdateFabricLabel (11.18.6.11): it sets the
+// label of the accessing fabric, which no other fabric may use.
+func (oc *operationalCredentials) updateFabricLabel(req *im.CommandRequest) im.CommandResult {
+	field, ok := req.Field(0)
+	if !ok {
+		return im.CommandStatus(im.StatusInvalidCommand)
+	}
+	label, ok := field.UTF8()
+	if !ok {
+		return im.CommandStatus(im.StatusInvalidCommand)
+	}
+	if maxFabricLabelLength < len(label) {
+		return im.CommandStatus(im.StatusConstraintError)
+	}
+	fabricIndex := oc.accessingFabric(req.Session)
+	if fabricIndex == 0 {
+		return im.CommandStatus(im.StatusUnsupportedAccess)
+	}
+
+	oc.mutex.Lock()
+	defer oc.mutex.Unlock()
+	// A fabric AddNOC staged is only in the fail-safe's transaction; its
+	// label goes there too, and lasts only if commissioning completes.
+	var w interface {
+		store.DeviceStoreReader
+		store.DeviceStoreWriter
+	} = oc.store
+	if tx := oc.armedLocked(); tx != nil {
+		w = tx
+	}
+	fabrics, err := listFabrics(w)
+	if err != nil {
+		return im.CommandStatus(im.StatusFailure)
+	}
+	var rec *store.DeviceFabricRecord
+	for i := range fabrics {
+		switch {
+		case fabrics[i].FabricIndex == fabricIndex:
+			rec = &fabrics[i]
+		case label != "" && fabrics[i].Label == label:
+			return nocResponse(NOCStatusLabelConflict, 0)
+		}
+	}
+	if rec == nil {
+		return nocResponse(NOCStatusInvalidFabricIndex, 0)
+	}
+	rec.Label = label
+	rec.UpdatedAt = oc.now()
+	if err := w.SaveDeviceFabric(*rec); err != nil {
+		log.Errorf("device: UpdateFabricLabel %d: %v", fabricIndex, err)
+		return im.CommandStatus(im.StatusFailure)
+	}
+	return nocResponse(NOCStatusOK, fabricIndex)
 }

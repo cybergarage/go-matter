@@ -395,3 +395,32 @@ func (d *Device) closeSessionLocked(sess *Session) {
 		d.window.commissioner = nil
 	}
 }
+
+// fabricRemoved ends what the removed fabric leaves behind: the sessions
+// on it are closed and its operational service withdrawn, and a device
+// left on no fabric opens its commissioning window again, as a new device
+// does (11.18.6.12).
+func (d *Device) fabricRemoved(fabricIndex uint8) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	for _, sess := range d.sessions {
+		if sess.fabricIndex == fabricIndex {
+			d.closeSessionLocked(sess)
+		}
+	}
+	d.requestRefresh()
+	if d.conn == nil || d.window.open {
+		return
+	}
+	fabrics, err := d.store.ListDeviceFabrics()
+	if err != nil {
+		log.Errorf("device: list the fabrics: %v", err)
+		return
+	}
+	if len(fabrics) == 0 {
+		d.service.InstanceName = NewInstanceName()
+		if err := d.openWindowLocked(d.initialWindowTimeout, d.basicOpeningLocked(0, 0)); err != nil {
+			log.Warnf("device: reopen the commissioning window: %v", err)
+		}
+	}
+}

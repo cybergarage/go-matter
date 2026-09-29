@@ -353,6 +353,7 @@ func New(opts ...Option) (*Device, error) {
 	bi.register(d.imServer)
 	d.opCreds = newOperationalCredentials(d.store, d.failSafe, d.attestation, d.supportedFabrics)
 	d.opCreds.lookup = d.lookupSession
+	d.opCreds.onFabricRemoved = d.fabricRemoved
 	d.imServer.SetAccessChecker(d.checkAccess)
 	d.opCreds.onFabricAdded = func(sec im.SecureSession, fabricIndex uint8) {
 		d.bindFabric(sec, fabricIndex)
