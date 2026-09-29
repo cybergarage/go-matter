@@ -38,12 +38,15 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/cybergarage/go-matter/matter/credentials/testcreds"
 	"github.com/cybergarage/go-matter/matter/device"
+	"github.com/cybergarage/go-matter/matter/encoding"
+	"github.com/cybergarage/go-matter/matter/mdns"
 	"github.com/cybergarage/go-matter/matter/store"
 	"github.com/cybergarage/go-matter/matter/types"
 )
@@ -188,26 +191,35 @@ func randomUint16(t *testing.T) uint16 {
 	return binary.BigEndian.Uint16(b)
 }
 
-// TestChipToolCommissionsDevice commissions a matter/device Device with
-// chip-tool over the network, then reads an attribute over the CASE
-// session chip-tool establishes with the commissioned device.
-func TestChipToolCommissionsDevice(t *testing.T) {
-	chipTool := lookupChipTool(t)
+// chipToolDevice is a device started for chip-tool to commission, and
+// the node ID chip-tool gives it.
+type chipToolDevice struct {
+	dev           *device.Device
+	store         store.DeviceStore
+	discriminator uint16
+	nodeID        uint64
+}
 
+// startChipToolDevice starts a device with the SDK's test attestation
+// credentials. A random discriminator and node ID keep the test apart from
+// other devices, and from earlier runs, on the network.
+func startChipToolDevice(t *testing.T) *chipToolDevice {
+	t.Helper()
 	attestation, err := testcreds.AttestationProvider()
 	if err != nil {
 		t.Fatal(err)
 	}
-	// A random discriminator and node ID keep the test apart from other
-	// devices, and from earlier runs, on the network.
-	discriminator := randomUint16(t) & device.MaxDiscriminator
-	nodeID := uint64(0x10000 + uint32(randomUint16(t)))
-	deviceStore := store.NewMemDeviceStore()
-	dev, err := device.New(
-		device.WithDeviceStore(deviceStore),
+	d := &chipToolDevice{
+		dev:           nil,
+		store:         store.NewMemDeviceStore(),
+		discriminator: randomUint16(t) & device.MaxDiscriminator,
+		nodeID:        uint64(0x10000 + uint32(randomUint16(t))),
+	}
+	d.dev, err = device.New(
+		device.WithDeviceStore(d.store),
 		device.WithPasscode(types.Passcode(chipToolPasscode)),
 		device.WithAddress(":0"),
-		device.WithDiscriminator(discriminator),
+		device.WithDiscriminator(d.discriminator),
 		device.WithVendorID(testcreds.VendorID),
 		device.WithProductID(testcreds.ProductID),
 		device.WithDeviceName("go-matter test device"),
@@ -216,40 +228,129 @@ func TestChipToolCommissionsDevice(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := dev.Start(); err != nil {
+	if err := d.dev.Start(); err != nil {
 		t.Skipf("the device cannot advertise here: %v", err)
 	}
-	defer func() {
-		if err := dev.Stop(); err != nil {
+	t.Cleanup(func() {
+		if err := d.dev.Stop(); err != nil {
 			t.Errorf("Device.Stop() error = %v", err)
 		}
-	}()
-	t.Logf("device: discriminator %d, port %d, node ID 0x%X", discriminator, dev.CommissionableService().Port, nodeID)
+	})
+	t.Logf("device: discriminator %d, port %d, node ID 0x%X", d.discriminator, d.dev.CommissionableService().Port, d.nodeID)
+	return d
+}
 
-	// Discovery by the long discriminator, PASE, attestation against the
-	// SDK's test trust store, AddNOC, operational discovery, CASE and
-	// CommissioningComplete.
-	if _, err := chipTool.run(t, "pairing", "onnetwork-long",
-		fmt.Sprintf("0x%X", nodeID), fmt.Sprint(chipToolPasscode), fmt.Sprint(discriminator)); err != nil {
+func nodeArg(nodeID uint64) string {
+	return fmt.Sprintf("0x%X", nodeID)
+}
+
+// pair has chip-tool commission the device by its long discriminator:
+// discovery, PASE, attestation against the SDK's test trust store, AddNOC,
+// operational discovery, CASE and CommissioningComplete.
+func (c *chipTool) pair(t *testing.T, nodeID uint64, passcode uint32, discriminator uint16, extra ...string) {
+	t.Helper()
+	args := append([]string{"pairing", "onnetwork-long", nodeArg(nodeID), fmt.Sprint(passcode), fmt.Sprint(discriminator)}, extra...)
+	if _, err := c.run(t, args...); err != nil {
 		t.Fatalf("chip-tool pairing: %v", err)
 	}
-	fabrics, err := deviceStore.ListDeviceFabrics()
-	if err != nil || len(fabrics) != 1 {
-		t.Fatalf("the device holds (%d fabrics, %v) after chip-tool paired it, want 1", len(fabrics), err)
+}
+
+// checkFabrics checks the fabrics the device has committed.
+func (d *chipToolDevice) checkFabrics(t *testing.T, nodeIDs ...uint64) {
+	t.Helper()
+	fabrics, err := d.store.ListDeviceFabrics()
+	if err != nil || len(fabrics) != len(nodeIDs) {
+		t.Fatalf("the device holds (%d fabrics, %v), want %d", len(fabrics), err, len(nodeIDs))
 	}
-	if fabrics[0].NodeID != nodeID {
-		t.Fatalf("the device joined as node 0x%X, want 0x%X", fabrics[0].NodeID, nodeID)
+	for i, f := range fabrics {
+		if f.NodeID != nodeIDs[i] {
+			t.Fatalf("the device joined fabric %d as node 0x%X, want 0x%X", f.FabricIndex, f.NodeID, nodeIDs[i])
+		}
 	}
-	if dev.IsCommissioningWindowOpen() {
+	if d.dev.IsCommissioningWindowOpen() {
 		t.Fatal("the commissioning window is still open after chip-tool paired the device")
 	}
+}
+
+// TestChipToolCommissionsDevice commissions a matter/device Device with
+// chip-tool over the network, then reads an attribute over the CASE
+// session chip-tool establishes with the commissioned device.
+func TestChipToolCommissionsDevice(t *testing.T) {
+	chipTool := lookupChipTool(t)
+	d := startChipToolDevice(t)
+
+	chipTool.pair(t, d.nodeID, chipToolPasscode, d.discriminator)
+	d.checkFabrics(t, d.nodeID)
 
 	// A new CASE session, found by the operational service.
-	out, err := chipTool.run(t, "generalcommissioning", "read", "breadcrumb", fmt.Sprintf("0x%X", nodeID), "0")
+	out, err := chipTool.run(t, "generalcommissioning", "read", "breadcrumb", nodeArg(d.nodeID), "0")
 	if err != nil {
 		t.Fatalf("chip-tool generalcommissioning read breadcrumb: %v", err)
 	}
 	if !strings.Contains(out, "Breadcrumb: 0") {
 		t.Fatal("chip-tool did not report the Breadcrumb")
+	}
+}
+
+// manualPairingCodeRegexp finds the manual pairing code chip-tool prints
+// for a commissioning window it opened.
+var manualPairingCodeRegexp = regexp.MustCompile(`Manual pairing code: \[(\d{11}|\d{21})\]`)
+
+// TestChipToolOpensCommissioningWindow has chip-tool, as the first
+// fabric's administrator, open an enhanced commissioning window on the
+// commissioned device with the Administrator Commissioning cluster, and a
+// second chip-tool commissioner join a second fabric through it with the
+// one-time passcode.
+func TestChipToolOpensCommissioningWindow(t *testing.T) {
+	chipTool := lookupChipTool(t)
+	d := startChipToolDevice(t)
+	chipTool.pair(t, d.nodeID, chipToolPasscode, d.discriminator)
+	d.checkFabrics(t, d.nodeID)
+
+	// option 1 is the enhanced commissioning method: chip-tool generates
+	// the verifier of a one-time passcode for the window.
+	windowDiscriminator := (d.discriminator + 1) & device.MaxDiscriminator
+	out, err := chipTool.run(t, "pairing", "open-commissioning-window", nodeArg(d.nodeID), "1", "180", "1000", fmt.Sprint(windowDiscriminator))
+	if err != nil {
+		t.Fatalf("chip-tool pairing open-commissioning-window: %v", err)
+	}
+	if !d.dev.IsCommissioningWindowOpen() {
+		t.Fatal("the commissioning window did not open")
+	}
+	if svc := d.dev.CommissionableService(); svc.Discriminator != windowDiscriminator || svc.CommissioningMode != mdns.CommissioningModeDynamicPasscode {
+		t.Fatalf("the window is advertised with discriminator %d and CM=%v, want %d and CM=2", svc.Discriminator, svc.CommissioningMode, windowDiscriminator)
+	}
+	m := manualPairingCodeRegexp.FindStringSubmatch(out)
+	if m == nil {
+		t.Fatal("chip-tool did not print the manual pairing code of the window")
+	}
+	code, err := encoding.NewPairingCodeFromString(m[1])
+	if err != nil {
+		t.Fatalf("parse the manual pairing code %s: %v", m[1], err)
+	}
+	passcode := uint32(code.Passcode())
+	if passcode == chipToolPasscode {
+		t.Fatal("the enhanced window uses the device's passcode, not a one-time one")
+	}
+
+	// A second commissioner joins a second fabric through the window.
+	secondNodeID := d.nodeID + 1
+	chipTool.pair(t, secondNodeID, passcode, windowDiscriminator, "--commissioner-name", "beta")
+	d.checkFabrics(t, d.nodeID, secondNodeID)
+
+	// Both administrators reach the device on their own fabric.
+	out, err = chipTool.run(t, "operationalcredentials", "read", "commissioned-fabrics", nodeArg(d.nodeID), "0")
+	if err != nil {
+		t.Fatalf("chip-tool operationalcredentials read commissioned-fabrics: %v", err)
+	}
+	if !strings.Contains(out, "CommissionedFabrics: 2") {
+		t.Fatal("chip-tool did not report 2 commissioned fabrics")
+	}
+	out, err = chipTool.run(t, "operationalcredentials", "read", "current-fabric-index", nodeArg(secondNodeID), "0", "--commissioner-name", "beta")
+	if err != nil {
+		t.Fatalf("chip-tool operationalcredentials read current-fabric-index: %v", err)
+	}
+	if !strings.Contains(out, "CurrentFabricIndex: 2") {
+		t.Fatal("chip-tool did not report the second fabric as the current one")
 	}
 }
