@@ -88,6 +88,12 @@ func Invoke(sess SecureSession, endpointID EndpointID, clusterID ClusterID, comm
 
 // buildInvokeRequestPayload encodes the InvokeRequest TLV payload.
 func buildInvokeRequestPayload(endpointID EndpointID, clusterID ClusterID, commandID CommandID, commandFields []byte) ([]byte, error) {
+	return buildInvokeRequestPayloadTimed(endpointID, clusterID, commandID, commandFields, false)
+}
+
+// buildInvokeRequestPayloadTimed encodes the InvokeRequest TLV payload,
+// with timed-request set for an invoke in a timed interaction.
+func buildInvokeRequestPayloadTimed(endpointID EndpointID, clusterID ClusterID, commandID CommandID, commandFields []byte, timed bool) ([]byte, error) {
 	enc := tlv.NewEncoder()
 
 	// Anonymous top-level structure.
@@ -95,8 +101,8 @@ func buildInvokeRequestPayload(endpointID EndpointID, clusterID ClusterID, comma
 
 	// Tag 0: suppress-response = false.
 	enc.PutBool(tlv.NewContextTag(0), false)
-	// Tag 1: timed-request = false.
-	enc.PutBool(tlv.NewContextTag(1), false)
+	// Tag 1: timed-request.
+	enc.PutBool(tlv.NewContextTag(1), timed)
 
 	// Tag 2: invoke-requests. InvokeRequests (src/app/MessageDef/InvokeRequests.h)
 	// is an ArrayParser/ArrayBuilder, i.e. TLV type Array, not List — a real
@@ -154,14 +160,20 @@ func buildInvokeRequestPayload(endpointID EndpointID, clusterID ClusterID, comma
 // see receiveExchangeResponse.
 func buildIMProtocolHeader(opcode message.Opcode) ([]byte, message.ExchangeID, error) {
 	exchangeID := message.NewFirstExchangeID()
+	b, err := buildIMProtocolHeaderOnExchange(opcode, exchangeID)
+	return b, exchangeID, err
+}
+
+// buildIMProtocolHeaderOnExchange builds the protocol header of a message
+// this node sends as the initiator of exchangeID.
+func buildIMProtocolHeaderOnExchange(opcode message.Opcode, exchangeID message.ExchangeID) ([]byte, error) {
 	hdr := message.NewProtocolHeader(
 		message.WithHeaderExchangeFlags(message.InitiatorFlag|message.ReliabilityFlag),
 		message.WithHeaderOpcode(opcode),
 		message.WithHeaderExchangeID(exchangeID),
 		message.WithHeaderProtocolID(message.InteractionModel),
 	)
-	b, err := hdr.Bytes()
-	return b, exchangeID, err
+	return hdr.Bytes()
 }
 
 // receiveExchangeResponse reads messages from sess until one arrives whose
