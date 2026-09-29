@@ -339,6 +339,8 @@ func New(opts ...Option) (*Device, error) {
 	gc := newGeneralCommissioning(d.failSafe, d.lookupSession)
 	gc.onComplete = d.commissioningCompleted
 	gc.register(d.imServer)
+	bi := newBasicInformation(d.service.VendorID, d.service.ProductID, d.service.DeviceName, d.service.Hostname)
+	bi.register(d.imServer)
 	d.opCreds = newOperationalCredentials(d.store, d.failSafe, d.attestation, d.supportedFabrics)
 	d.opCreds.onFabricAdded = func(sec im.SecureSession, fabricIndex uint8) {
 		d.bindFabric(sec, fabricIndex)
