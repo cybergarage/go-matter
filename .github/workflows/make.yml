@@ -37,11 +37,9 @@ jobs:
 
   # chip-tool, the controller of the Matter SDK, commissions the device in
   # matter/device over the network; it discovers the device through
-  # avahi-daemon. The job does not fail the workflow until the device is
-  # complete enough for chip-tool.
+  # avahi-daemon.
   chip-tool:
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
     - uses: actions/checkout@v5
 
