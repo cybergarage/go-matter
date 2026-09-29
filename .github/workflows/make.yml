@@ -80,6 +80,15 @@ jobs:
           grep -E -- '--- (PASS|FAIL|SKIP)|chiptool_test.go|\$ chip-tool|Error|error|[Ff]ailed|FAIL|Timeout|timed out|Commissioning|Successfully' chip-tool-test.log | tail -n 150
           echo '```'
         } >> "$GITHUB_STEP_SUMMARY"
+        # The results go to a notice too, so which tests ran can be read
+        # without signing in; a chip-tool test which was skipped fails the
+        # job, since this job exists to run them.
+        results=$(grep -E -- '--- (PASS|FAIL|SKIP): TestChipTool' chip-tool-test.log | sed 's/^ *//' | awk '{printf "%s%%0A", $0}')
+        echo "::notice title=chip-tool tests::${results}"
+        if grep -q -- '--- SKIP: TestChipTool' chip-tool-test.log; then
+          echo "::error title=chip-tool test skipped::A chip-tool test was skipped"
+          exit 1
+        fi
         if grep -q -- '--- FAIL' chip-tool-test.log; then
           msg=$(grep -E 'chiptool_test.go|Error|error|[Ff]ailed|Timeout|timed out' chip-tool-test.log | tail -n 40 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
           echo "::error title=chip-tool test failed::${msg}"

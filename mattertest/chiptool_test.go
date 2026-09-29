@@ -229,6 +229,9 @@ func startChipToolDevice(t *testing.T) *chipToolDevice {
 		t.Fatal(err)
 	}
 	if err := d.dev.Start(); err != nil {
+		if isToolRequired(toolChipTool) {
+			t.Fatalf("the device cannot advertise here: %v", err)
+		}
 		t.Skipf("the device cannot advertise here: %v", err)
 	}
 	t.Cleanup(func() {
