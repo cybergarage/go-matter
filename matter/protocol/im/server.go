@@ -65,23 +65,27 @@ type CommandResult struct {
 	// command. ClusterStatus is the cluster-specific status, if any.
 	Status        Status
 	ClusterStatus *uint8
+	// AfterResponse, when not nil, is called once the response has been
+	// sent, for what must not happen before, such as closing the session
+	// the command arrived on.
+	AfterResponse func()
 }
 
 // CommandResponse returns the result which answers with response command
 // cmd and its fields.
 func CommandResponse(cmd CommandID, fields []byte) CommandResult {
-	return CommandResult{ResponseCommand: cmd, Fields: fields, HasResponse: true, Status: StatusSuccess, ClusterStatus: nil}
+	return CommandResult{ResponseCommand: cmd, Fields: fields, HasResponse: true, Status: StatusSuccess, ClusterStatus: nil, AfterResponse: nil}
 }
 
 // CommandStatus returns the result which answers with status.
 func CommandStatus(status Status) CommandResult {
-	return CommandResult{ResponseCommand: 0, Fields: nil, HasResponse: false, Status: status, ClusterStatus: nil}
+	return CommandResult{ResponseCommand: 0, Fields: nil, HasResponse: false, Status: status, ClusterStatus: nil, AfterResponse: nil}
 }
 
 // CommandClusterStatus returns the result which answers with status and a
 // cluster-specific status.
 func CommandClusterStatus(status Status, clusterStatus uint8) CommandResult {
-	return CommandResult{ResponseCommand: 0, Fields: nil, HasResponse: false, Status: status, ClusterStatus: &clusterStatus}
+	return CommandResult{ResponseCommand: 0, Fields: nil, HasResponse: false, Status: status, ClusterStatus: &clusterStatus, AfterResponse: nil}
 }
 
 // CommandHandler handles one command.
@@ -328,6 +332,13 @@ func (s *Server) serveInvoke(sess SecureSession, exchange message.ExchangeID, bo
 		}
 		results = append(results, invokeResult{path: commandPath{cmd.Endpoint, cmd.Cluster, cmd.Command}, result: result})
 	}
+	defer func() {
+		for _, r := range results {
+			if r.result.AfterResponse != nil {
+				r.result.AfterResponse()
+			}
+		}
+	}()
 	if req.suppressResponse {
 		return nil
 	}
