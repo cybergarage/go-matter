@@ -51,7 +51,7 @@ func (d *Device) checkAccess(req im.AccessRequest) bool {
 		if !subjectMatches(entry.Subjects, info.peerNodeID, info.peerCATs) {
 			continue
 		}
-		if !targetMatches(entry.Targets, req.Endpoint, req.Cluster) {
+		if !targetMatches(entry.Targets, req.Endpoint, req.Cluster, d.descriptors.hasDeviceType) {
 			continue
 		}
 		return true
@@ -87,20 +87,19 @@ func subjectMatches(subjects []uint64, nodeID uint64, cats []uint32) bool {
 
 // targetMatches reports whether an endpoint and cluster are one of an
 // entry's targets; no targets match every one (6.6.5.3). A target naming a
-// device type never matches, since the device does not describe its
-// endpoints yet.
-func targetMatches(targets []store.ACLTarget, endpoint im.EndpointID, cluster im.ClusterID) bool {
+// device type matches the endpoints of that device type.
+func targetMatches(targets []store.ACLTarget, endpoint im.EndpointID, cluster im.ClusterID, hasDeviceType func(im.EndpointID, uint32) bool) bool {
 	if len(targets) == 0 {
 		return true
 	}
 	for _, target := range targets {
-		if target.DeviceType != nil {
-			continue
-		}
 		if target.Cluster != nil && im.ClusterID(*target.Cluster) != cluster {
 			continue
 		}
 		if target.Endpoint != nil && im.EndpointID(*target.Endpoint) != endpoint {
+			continue
+		}
+		if target.DeviceType != nil && !hasDeviceType(endpoint, *target.DeviceType) {
 			continue
 		}
 		return true

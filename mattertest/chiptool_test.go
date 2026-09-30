@@ -295,6 +295,45 @@ func TestChipToolCommissionsDevice(t *testing.T) {
 	}
 }
 
+// chipToolNodeID is the node ID chip-tool commissions as by default, the
+// subject of the Administer entry AddNOC grants it.
+const chipToolNodeID = 112233
+
+// TestChipToolWritesACL has chip-tool read the ACL AddNOC made, and write
+// one with a second entry, which the SDK writes as an empty list followed
+// by the entries appended one by one.
+func TestChipToolWritesACL(t *testing.T) {
+	chipTool := lookupChipTool(t)
+	d := startChipToolDevice(t)
+	chipTool.pair(t, d.nodeID, chipToolPasscode, d.discriminator)
+
+	out, err := chipTool.run(t, "accesscontrol", "read", "acl", nodeArg(d.nodeID), "0")
+	if err != nil {
+		t.Fatalf("chip-tool accesscontrol read acl: %v", err)
+	}
+	if !strings.Contains(out, "Privilege: 5") || !strings.Contains(out, fmt.Sprint(chipToolNodeID)) {
+		t.Fatal("chip-tool did not read the Administer entry of its node")
+	}
+
+	acl := fmt.Sprintf(`[{"fabricIndex": 1, "privilege": 5, "authMode": 2, "subjects": [%d], "targets": null},`+
+		` {"fabricIndex": 1, "privilege": 1, "authMode": 2, "subjects": [4660], "targets": [{"cluster": 40, "endpoint": 0, "deviceType": null}]}]`, chipToolNodeID)
+	if _, err := chipTool.run(t, "accesscontrol", "write", "acl", acl, nodeArg(d.nodeID), "0"); err != nil {
+		t.Fatalf("chip-tool accesscontrol write acl: %v", err)
+	}
+	entries, err := d.store.LoadACL(1)
+	if err != nil || len(entries) != 2 {
+		t.Fatalf("the device holds the ACL (%+v, %v), want 2 entries", entries, err)
+	}
+	if e := entries[1]; e.Privilege != store.PrivilegeView || len(e.Subjects) != 1 || e.Subjects[0] != 4660 ||
+		len(e.Targets) != 1 || e.Targets[0].Cluster == nil || *e.Targets[0].Cluster != 40 {
+		t.Fatalf("the second entry is %+v", e)
+	}
+	out, err = chipTool.run(t, "accesscontrol", "read", "acl", nodeArg(d.nodeID), "0")
+	if err != nil || !strings.Contains(out, "ACL: 2 entries") {
+		t.Fatalf("chip-tool did not read back 2 entries: %v", err)
+	}
+}
+
 // manualPairingCodeRegexp finds the manual pairing code chip-tool prints
 // for a commissioning window it opened.
 var manualPairingCodeRegexp = regexp.MustCompile(`Manual pairing code: \[(\d{11}|\d{21})\]`)

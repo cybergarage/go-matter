@@ -62,6 +62,7 @@ func TestDescriptorOfRootEndpoint(t *testing.T) {
 	}
 	want := []uint64{
 		uint64(DescriptorClusterID),
+		uint64(AccessControlClusterID),
 		uint64(BasicInformationClusterID),
 		uint64(GeneralCommissioningClusterID),
 		uint64(AdministratorCommissioningClusterID),

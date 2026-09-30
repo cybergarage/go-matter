@@ -132,6 +132,18 @@ func (ds *descriptors) register(endpoint im.EndpointID) {
 	})
 }
 
+// hasDeviceType reports whether an endpoint is of a device type.
+func (ds *descriptors) hasDeviceType(endpoint im.EndpointID, id uint32) bool {
+	ds.mutex.Lock()
+	defer ds.mutex.Unlock()
+	for _, dt := range ds.deviceTypes[endpoint] {
+		if dt.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
 // parts returns an endpoint's PartsList: for the root endpoint every
 // other endpoint with a Descriptor, and for the others none, since the
 // device composes its endpoints flat under the root (9.5.6.4).

@@ -17,6 +17,7 @@ package device
 import (
 	"testing"
 
+	"github.com/cybergarage/go-matter/matter/protocol/im"
 	"github.com/cybergarage/go-matter/matter/store"
 )
 
@@ -47,6 +48,7 @@ func TestTargetMatches(t *testing.T) {
 	otherCluster := uint32(0x0008)
 	endpoint := uint16(1)
 	deviceType := uint32(0x0100)
+	otherDeviceType := uint32(0x010A)
 	for _, tc := range []struct {
 		name    string
 		targets []store.ACLTarget
@@ -57,9 +59,12 @@ func TestTargetMatches(t *testing.T) {
 		{"other cluster", []store.ACLTarget{{Cluster: &otherCluster, Endpoint: nil, DeviceType: nil}}, false},
 		{"endpoint", []store.ACLTarget{{Cluster: nil, Endpoint: &endpoint, DeviceType: nil}}, true},
 		{"cluster on endpoint", []store.ACLTarget{{Cluster: &cluster, Endpoint: &endpoint, DeviceType: nil}}, true},
-		{"device type", []store.ACLTarget{{Cluster: nil, Endpoint: nil, DeviceType: &deviceType}}, false},
+		{"device type", []store.ACLTarget{{Cluster: nil, Endpoint: nil, DeviceType: &deviceType}}, true},
+		{"other device type", []store.ACLTarget{{Cluster: nil, Endpoint: nil, DeviceType: &otherDeviceType}}, false},
+		{"cluster of device type", []store.ACLTarget{{Cluster: &cluster, Endpoint: nil, DeviceType: &deviceType}}, true},
 	} {
-		if got := targetMatches(tc.targets, 1, 0x0006); got != tc.want {
+		hasDeviceType := func(ep im.EndpointID, id uint32) bool { return ep == 1 && id == deviceType }
+		if got := targetMatches(tc.targets, 1, 0x0006, hasDeviceType); got != tc.want {
 			t.Errorf("targetMatches(%s) = %v, want %v", tc.name, got, tc.want)
 		}
 	}

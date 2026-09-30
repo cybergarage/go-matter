@@ -363,6 +363,7 @@ func New(opts ...Option) (*Device, error) {
 		d.requestRefresh()
 	}
 	d.opCreds.register(d.imServer)
+	(&accessControl{oc: d.opCreds}).register(d.imServer)
 	(&administratorCommissioning{device: d}).register(d.imServer)
 	d.descriptors = newDescriptors(d.imServer)
 	d.descriptors.add(rootEndpoint, RootNodeDeviceType)
