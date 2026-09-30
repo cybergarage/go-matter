@@ -25,7 +25,18 @@ jobs:
       run: sudo apt-get install bluetooth
 
     - name: Test
-      run: make test
+      run: |
+        set -o pipefail
+        make test 2>&1 | tee test.log
+
+    # Step logs can only be read signed in; annotations can be read by
+    # anyone, so the failures go there.
+    - name: Summarize test failures
+      if: failure()
+      run: |
+        test -f test.log || exit 0
+        msg=$(grep -E -- '--- FAIL|^FAIL|_test\.go:[0-9]+:|panic:' test.log | grep -v 'no test files' | tail -n 60 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+        echo "::error title=Test failures::${msg}"
 
     # Disable coverage reports because BlueZ is not available in the GitHub Actions virtual environment.
     #- name: Upload coverage reports to Codecov
@@ -90,6 +101,10 @@ jobs:
           exit 1
         fi
         if grep -q -- '--- FAIL' chip-tool-test.log; then
+          # Which addresses chip-tool resolved and used tells a network
+          # failure apart from a protocol one.
+          addrs=$(grep -E 'IP Address|Address #|[Rr]esolv|UDP:|Hostname|Port:|OnNodeDiscovered|Discovered' chip-tool-test.log | tail -n 40 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+          echo "::warning title=chip-tool addresses::${addrs}"
           msg=$(grep -E 'chiptool_test.go|Error|error|[Ff]ailed|Timeout|timed out' chip-tool-test.log | tail -n 40 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
           echo "::error title=chip-tool test failed::${msg}"
         fi
