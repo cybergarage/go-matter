@@ -36,6 +36,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `im.TimedInvoke`, which invokes a command in a timed interaction, as the commands which require one must be.
 - `pase.Verifier.Bytes` and `pase.ParseVerifier`, the serialized verifier (w0 followed by L) the Administrator Commissioning cluster carries.
 - The device serves the **Administrator Commissioning cluster**: OpenCommissioningWindow opens an enhanced window with the verifier and discriminator an administrator generated, advertised with CM=2, OpenBasicCommissioningWindow one with the device's own passcode, and RevokeCommissioning closes the window and ends a commissioning in progress; the WindowStatus, AdminFabricIndex and AdminVendorId attributes report the window. The commands need Administer and a timed interaction. `Device.OpenEnhancedCommissioningWindow` opens an enhanced window from the application.
+- `im.Server` reports the **global attributes** of each cluster from what is registered: AttributeList, AcceptedCommandList, and GeneratedCommandList from the response commands `im.WithResponseCommand` declares. `Server.Endpoints` and `Server.Clusters` list what is registered.
+- The device serves the **Descriptor cluster** on the root endpoint, as a Root Node (`device.RootNodeDeviceType`), with its ServerList and PartsList following the registered clusters and endpoints.
 - `pake.Pake1.PA`, `pake.Pake3.CA` and `pake.WithPake2MessagePrecomputed`, which the responder needs.
 - `store.PersistentCounter`, a counter that never repeats a value across restarts without persisting every increment, for the boot count and the global group message counters.
 

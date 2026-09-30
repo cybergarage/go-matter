@@ -102,9 +102,9 @@ func (gc *generalCommissioning) setBreadcrumb(v uint64) {
 // Administer (11.10.7).
 func (gc *generalCommissioning) register(srv *im.Server) {
 	administer := im.WithPrivilege(im.PrivilegeAdminister)
-	srv.HandleCommand(rootEndpoint, GeneralCommissioningClusterID, armFailSafeCommandID, gc.armFailSafe, administer)
-	srv.HandleCommand(rootEndpoint, GeneralCommissioningClusterID, setRegulatoryConfigCommandID, gc.setRegulatoryConfig, administer)
-	srv.HandleCommand(rootEndpoint, GeneralCommissioningClusterID, commissioningCompleteCommandID, gc.commissioningComplete, administer)
+	srv.HandleCommand(rootEndpoint, GeneralCommissioningClusterID, armFailSafeCommandID, gc.armFailSafe, administer, im.WithResponseCommand(armFailSafeResponseCommandID))
+	srv.HandleCommand(rootEndpoint, GeneralCommissioningClusterID, setRegulatoryConfigCommandID, gc.setRegulatoryConfig, administer, im.WithResponseCommand(setRegulatoryConfigResponseCommandID))
+	srv.HandleCommand(rootEndpoint, GeneralCommissioningClusterID, commissioningCompleteCommandID, gc.commissioningComplete, administer, im.WithResponseCommand(commissioningCompleteResponseCommandID))
 
 	srv.HandleAttribute(rootEndpoint, GeneralCommissioningClusterID, breadcrumbAttributeID, func(enc tlv.Encoder, tag tlv.Tag) im.Status {
 		gc.mutex.Lock()

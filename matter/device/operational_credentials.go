@@ -150,13 +150,13 @@ func newOperationalCredentials(s store.DeviceStore, fs *failSafe, attestation cr
 func (oc *operationalCredentials) register(srv *im.Server) {
 	// The commands, and reading the NOCs, need Administer (11.18.5, 11.18.6).
 	administer := im.WithPrivilege(im.PrivilegeAdminister)
-	srv.HandleCommand(rootEndpoint, OperationalCredentialsClusterID, attestationRequestCommandID, oc.attestationRequest, administer)
-	srv.HandleCommand(rootEndpoint, OperationalCredentialsClusterID, certificateChainRequestCommandID, oc.certificateChainRequest, administer)
-	srv.HandleCommand(rootEndpoint, OperationalCredentialsClusterID, csrRequestCommandID, oc.csrRequest, administer)
+	srv.HandleCommand(rootEndpoint, OperationalCredentialsClusterID, attestationRequestCommandID, oc.attestationRequest, administer, im.WithResponseCommand(attestationResponseCommandID))
+	srv.HandleCommand(rootEndpoint, OperationalCredentialsClusterID, certificateChainRequestCommandID, oc.certificateChainRequest, administer, im.WithResponseCommand(certificateChainResponseCommandID))
+	srv.HandleCommand(rootEndpoint, OperationalCredentialsClusterID, csrRequestCommandID, oc.csrRequest, administer, im.WithResponseCommand(csrResponseCommandID))
 	srv.HandleCommand(rootEndpoint, OperationalCredentialsClusterID, addTrustedRootCertificateCommandID, oc.addTrustedRootCertificate, administer)
-	srv.HandleCommand(rootEndpoint, OperationalCredentialsClusterID, addNOCCommandID, oc.addNOC, administer)
-	srv.HandleCommand(rootEndpoint, OperationalCredentialsClusterID, updateFabricLabelCommandID, oc.updateFabricLabel, administer)
-	srv.HandleCommand(rootEndpoint, OperationalCredentialsClusterID, removeFabricCommandID, oc.removeFabric, administer)
+	srv.HandleCommand(rootEndpoint, OperationalCredentialsClusterID, addNOCCommandID, oc.addNOC, administer, im.WithResponseCommand(nocResponseCommandID))
+	srv.HandleCommand(rootEndpoint, OperationalCredentialsClusterID, updateFabricLabelCommandID, oc.updateFabricLabel, administer, im.WithResponseCommand(nocResponseCommandID))
+	srv.HandleCommand(rootEndpoint, OperationalCredentialsClusterID, removeFabricCommandID, oc.removeFabric, administer, im.WithResponseCommand(nocResponseCommandID))
 
 	srv.HandleAttributeRead(rootEndpoint, OperationalCredentialsClusterID, nocsAttributeID, oc.readNOCs, administer)
 	srv.HandleAttributeRead(rootEndpoint, OperationalCredentialsClusterID, fabricsAttributeID, oc.readFabrics)

@@ -284,6 +284,8 @@ type Device struct {
 	cases    map[string]*peerTransport
 	sessions map[types.SessionID]*Session
 	opCreds  *operationalCredentials
+	// descriptors serves the Descriptor cluster of each endpoint.
+	descriptors *descriptors
 	// refresh asks the advertising loop to republish the operational
 	// services, which it does until refreshDone is closed.
 	refresh     chan struct{}
@@ -312,6 +314,7 @@ func New(opts ...Option) (*Device, error) {
 		cases:       map[string]*peerTransport{},
 		sessions:    map[types.SessionID]*Session{},
 		opCreds:     nil,
+		descriptors: nil,
 		refresh:     make(chan struct{}, 1),
 		refreshDone: nil,
 
@@ -361,6 +364,8 @@ func New(opts ...Option) (*Device, error) {
 	}
 	d.opCreds.register(d.imServer)
 	(&administratorCommissioning{device: d}).register(d.imServer)
+	d.descriptors = newDescriptors(d.imServer)
+	d.descriptors.add(rootEndpoint, RootNodeDeviceType)
 	return d, nil
 }
 
