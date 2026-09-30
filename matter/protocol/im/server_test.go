@@ -306,7 +306,8 @@ func TestServerReadWildcards(t *testing.T) {
 
 func TestServerAnswersUnsupportedInteractions(t *testing.T) {
 	client := startServer(t, testServer())
-	hdr, exchange, err := buildIMProtocolHeader(message.WriteRequestMessage)
+	// An opcode the server does not know.
+	hdr, exchange, err := buildIMProtocolHeader(message.Opcode(0x42))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -322,7 +323,7 @@ func TestServerAnswersUnsupportedInteractions(t *testing.T) {
 	}
 	protHdr, _ := message.NewProtocolHeaderFromBytes(raw)
 	if !protHdr.Opcode().IsStatusResponseMessage() {
-		t.Fatalf("answered a Write with opcode %#x, want StatusResponse", uint8(protHdr.Opcode()))
+		t.Fatalf("answered an unknown interaction with opcode %#x, want StatusResponse", uint8(protHdr.Opcode()))
 	}
 	hdrBytes, _ := protHdr.Bytes()
 	status, err := parseStatusResponseMessage(raw[len(hdrBytes):])
@@ -330,7 +331,7 @@ func TestServerAnswersUnsupportedInteractions(t *testing.T) {
 		t.Fatal(err)
 	}
 	if status.IMStatus != uint8(StatusInvalidAction) {
-		t.Fatalf("Write answered with status %#x, want InvalidAction", status.IMStatus)
+		t.Fatalf("an unknown interaction answered with status %#x, want InvalidAction", status.IMStatus)
 	}
 
 	// A malformed request is answered with InvalidAction, and the server

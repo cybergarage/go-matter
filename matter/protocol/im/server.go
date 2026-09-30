@@ -142,13 +142,14 @@ type AttributePath struct {
 // handlers and attribute readers registered with it (Matter Core 8).
 //
 // It answers a Read with a single ReportDataMessage, so it cannot report
-// more data than fits in one message, and it answers the other
-// interactions (Write, Subscribe) with a StatusResponse of
+// more data than fits in one message, and a Write with the status of each
+// write; it answers the other interactions with a StatusResponse of
 // StatusInvalidAction.
 type Server struct {
 	mutex      sync.RWMutex
 	commands   map[commandPath]commandEntry
 	attributes map[AttributePath]attributeEntry
+	writes     map[AttributePath]writeEntry
 	access     AccessChecker
 }
 
@@ -158,6 +159,7 @@ func NewServer() *Server {
 		mutex:      sync.RWMutex{},
 		commands:   map[commandPath]commandEntry{},
 		attributes: map[AttributePath]attributeEntry{},
+		writes:     map[AttributePath]writeEntry{},
 		access:     nil,
 	}
 }
@@ -267,6 +269,8 @@ func (s *Server) ServeOne(sess SecureSession) error {
 		return s.serveInvoke(sess, exchange, body)
 	case message.ReadRequestMessage:
 		return s.serveRead(sess, exchange, body)
+	case message.WriteRequestMessage:
+		return s.serveWrite(sess, exchange, body)
 	case message.TimedRequestMessage:
 		// The timeout is not enforced; the following request on the
 		// exchange is accepted as timed.
