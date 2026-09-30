@@ -111,5 +111,8 @@ jobs:
           for name in $(grep -oE -- '--- FAIL: TestChipTool[A-Za-z0-9_]+' chip-tool-test.log | awk '{print $3}'); do
             msg=$(awk -v name="$name" '/^=== (RUN|CONT) /{test=$3} test==name && /_test\.go:[0-9]+: [^[]/' chip-tool-test.log | sed 's/^ *//' | tail -n 30 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
             echo "::error title=${name} failed::${msg}"
+            # And what chip-tool reported going wrong in that test.
+            errs=$(awk -v name="$name" '/^=== (RUN|CONT) /{test=$3} test==name && /CHIP:[A-Z]+: / && /[Ee]rror|[Ff]ail|[Tt]imeout|timed out|[Uu]nreachable|[Rr]efused/' chip-tool-test.log | sed 's/^ *//; s/^[a-z_]*_test\.go:[0-9]*: //' | tail -n 30 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error title=${name} chip-tool errors::${errs}"
           done
         fi
