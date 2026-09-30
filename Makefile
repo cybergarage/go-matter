@@ -52,6 +52,8 @@ BIN_SRCS=\
 BINS=\
 	${BIN_ID}/${BIN_CTL}
 
+EXAMPLES_DIR=examples
+
 DOCS_ROOT_DIR=doc
 
 .PHONY: format certs vet lint test-chip-tool clean
@@ -78,7 +80,7 @@ version:
 	fi
 
 format: version
-	gofmt -s -w ${PKG_SRC_DIR} ${TEST_PKG_DIR} ${BIN_ROOT_DIR}
+	gofmt -s -w ${PKG_SRC_DIR} ${TEST_PKG_DIR} ${BIN_ROOT_DIR} ${EXAMPLES_DIR}
 
 # certs generates the administrator certificates mattertest embeds, which
 # are not committed, when they are missing, such as in a fresh checkout.
@@ -87,10 +89,10 @@ certs:
 	@if [ ! -f ${TEST_CERTS_DIR}/admin-noc.pem ]; then $(MAKE) -C ${TEST_CERTS_DIR}; fi
 
 vet: format certs
-	go vet ${PKG_ID} ${TEST_PKG_ID} ${BINS}
+	go vet ${PKG_ID} ${TEST_PKG_ID} ${BINS} ./${EXAMPLES_DIR}/...
 
 lint: vet
-	golangci-lint run ${PKG_SRC_DIR}/... ${TEST_PKG_DIR}/...
+	golangci-lint run ${PKG_SRC_DIR}/... ${TEST_PKG_DIR}/... ${EXAMPLES_DIR}/...
 
 test: lint
 	go clean -testcache
