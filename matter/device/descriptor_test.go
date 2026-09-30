@@ -77,3 +77,27 @@ func TestDescriptorOfRootEndpoint(t *testing.T) {
 		t.Fatalf("General Commissioning GeneratedCommandList = %v", got)
 	}
 }
+
+func TestBasicInformationNodeLabel(t *testing.T) {
+	_, sess := startCommissioning(t)
+	resp, err := im.WriteAttribute(sess, 0, BasicInformationClusterID, nodeLabelAttributeID, func(enc tlv.Encoder) error {
+		return enc.PutUTF8(tlv.NewContextTag(2), "kitchen light")
+	})
+	if err != nil || !resp.IsSuccess() {
+		t.Fatalf("write NodeLabel: (%+v, %v)", resp, err)
+	}
+	read, err := im.ReadAttribute(sess, 0, BasicInformationClusterID, nodeLabelAttributeID)
+	if err != nil || read.Status != nil {
+		t.Fatalf("read NodeLabel: (%+v, %v)", read, err)
+	}
+	if v, _ := read.Value.UTF8(); v != "kitchen light" {
+		t.Fatalf("NodeLabel = %q, want the label written", v)
+	}
+	resp, err = im.WriteAttribute(sess, 0, BasicInformationClusterID, vendorIDAttributeID, func(enc tlv.Encoder) error {
+		enc.PutUnsigned2(tlv.NewContextTag(2), 1)
+		return nil
+	})
+	if err != nil || resp.Status.IMStatus != uint8(im.StatusUnsupportedWrite) {
+		t.Fatalf("write VendorID: (%+v, %v), want UnsupportedWrite", resp, err)
+	}
+}

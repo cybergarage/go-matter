@@ -15,6 +15,8 @@
 package device
 
 import (
+	"sync"
+
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 	"github.com/cybergarage/go-matter/matter/protocol/im"
 )
@@ -28,6 +30,7 @@ const (
 	vendorIDAttributeID              im.AttributeID = 0x0002
 	productNameAttributeID           im.AttributeID = 0x0003
 	productIDAttributeID             im.AttributeID = 0x0004
+	nodeLabelAttributeID             im.AttributeID = 0x0005
 	hardwareVersionAttributeID       im.AttributeID = 0x0007
 	hardwareVersionStringAttributeID im.AttributeID = 0x0008
 	softwareVersionAttributeID       im.AttributeID = 0x0009
@@ -37,6 +40,9 @@ const (
 
 	basicInformationFeatureMapAttributeID      im.AttributeID = 0xFFFC
 	basicInformationClusterRevisionAttributeID im.AttributeID = 0xFFFD
+
+	// maxNodeLabelLength is the longest NodeLabel (11.1.6.6).
+	maxNodeLabelLength = 32
 
 	// dataModelRevision is the Data Model revision this device implements
 	// (11.1.6.1), Matter Core Specification Version 1.5.
@@ -51,6 +57,8 @@ const (
 // (11.1. Basic Information Cluster), sourced from the device's
 // CommissionableService.
 type basicInformation struct {
+	mutex           sync.Mutex
+	nodeLabel       string
 	vendorID        uint16
 	productID       uint16
 	deviceName      string
@@ -61,6 +69,8 @@ type basicInformation struct {
 
 func newBasicInformation(vendorID, productID uint16, deviceName, uniqueID string) *basicInformation {
 	return &basicInformation{
+		mutex:           sync.Mutex{},
+		nodeLabel:       "",
 		vendorID:        vendorID,
 		productID:       productID,
 		deviceName:      deviceName,
@@ -100,6 +110,33 @@ func (bi *basicInformation) register(srv *im.Server) {
 		enc.PutUnsigned2(tag, bi.productID)
 		return im.StatusSuccess
 	})
+	// NodeLabel is the name a user gives the node; writing it needs Manage
+	// (11.1.6.6).
+	srv.HandleAttribute(rootEndpoint, BasicInformationClusterID, nodeLabelAttributeID, func(enc tlv.Encoder, tag tlv.Tag) im.Status {
+		bi.mutex.Lock()
+		defer bi.mutex.Unlock()
+		if err := enc.PutUTF8(tag, bi.nodeLabel); err != nil {
+			return im.StatusFailure
+		}
+		return im.StatusSuccess
+	})
+	srv.HandleAttributeWrite(rootEndpoint, BasicInformationClusterID, nodeLabelAttributeID, func(req *im.AttributeWriteRequest) im.Status {
+		_, elem, err := req.Decoder()
+		if err != nil {
+			return im.StatusInvalidDataType
+		}
+		label, ok := elem.UTF8()
+		if !ok {
+			return im.StatusInvalidDataType
+		}
+		if maxNodeLabelLength < len(label) {
+			return im.StatusConstraintError
+		}
+		bi.mutex.Lock()
+		defer bi.mutex.Unlock()
+		bi.nodeLabel = label
+		return im.StatusSuccess
+	}, im.WithPrivilege(im.PrivilegeManage))
 	srv.HandleAttribute(rootEndpoint, BasicInformationClusterID, hardwareVersionAttributeID, func(enc tlv.Encoder, tag tlv.Tag) im.Status {
 		enc.PutUnsigned2(tag, bi.hardwareVersion)
 		return im.StatusSuccess
