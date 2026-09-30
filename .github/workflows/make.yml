@@ -88,7 +88,7 @@ jobs:
         {
           echo '## chip-tool test'
           echo '```'
-          grep -E -- '--- (PASS|FAIL|SKIP)|chiptool_test.go|\$ chip-tool|Error|error|[Ff]ailed|FAIL|Timeout|timed out|Commissioning|Successfully' chip-tool-test.log | tail -n 150
+          grep -E -- '--- (PASS|FAIL|SKIP)|chiptool(_light)?_test.go|\$ chip-tool|Error|error|[Ff]ailed|FAIL|Timeout|timed out|Commissioning|Successfully' chip-tool-test.log | tail -n 150
           echo '```'
         } >> "$GITHUB_STEP_SUMMARY"
         # The results go to a notice too, so which tests ran can be read
@@ -105,6 +105,11 @@ jobs:
           # failure apart from a protocol one.
           addrs=$(grep -E 'IP Address|Address #|[Rr]esolv|UDP:|Hostname|Port:|OnNodeDiscovered|Discovered' chip-tool-test.log | tail -n 40 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
           echo "::warning title=chip-tool addresses::${addrs}"
-          msg=$(grep -E 'chiptool_test.go|Error|error|[Ff]ailed|Timeout|timed out' chip-tool-test.log | tail -n 40 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
-          echo "::error title=chip-tool test failed::${msg}"
+          # The test's own lines, such as the chip-tool commands it ran
+          # and why it failed, as opposed to the chip-tool output it
+          # logged, which starts with chip-tool's "[timestamp]".
+          for name in $(grep -oE -- '--- FAIL: TestChipTool[A-Za-z0-9_]+' chip-tool-test.log | awk '{print $3}'); do
+            msg=$(awk -v name="$name" '/^=== (RUN|CONT) /{test=$3} test==name && /_test\.go:[0-9]+: [^[]/' chip-tool-test.log | sed 's/^ *//' | tail -n 30 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error title=${name} failed::${msg}"
+          done
         fi
