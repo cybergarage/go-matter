@@ -45,6 +45,10 @@ type DeviceType struct {
 // node's utility clusters (Matter Device Library 2.1).
 var RootNodeDeviceType = DeviceType{ID: 0x0016, Revision: 3}
 
+// OnOffLightDeviceType is a light that can be switched on and off, with
+// the Identify, Groups and On/Off clusters (Matter Device Library 4.1).
+var OnOffLightDeviceType = DeviceType{ID: 0x0100, Revision: 3}
+
 // descriptors keeps the device types of each endpoint and serves the
 // Descriptor cluster on it. The server and parts lists are derived from
 // what the IM server has registered, so they follow the clusters and the
@@ -63,12 +67,32 @@ func newDescriptors(server *im.Server) *descriptors {
 	}
 }
 
+// addNew registers the Descriptor cluster on endpoint with its device
+// types, unless the endpoint already has one.
+func (ds *descriptors) addNew(endpoint im.EndpointID, deviceTypes ...DeviceType) bool {
+	ds.mutex.Lock()
+	_, exists := ds.deviceTypes[endpoint]
+	if !exists {
+		ds.deviceTypes[endpoint] = append([]DeviceType(nil), deviceTypes...)
+	}
+	ds.mutex.Unlock()
+	if exists {
+		return false
+	}
+	ds.register(endpoint)
+	return true
+}
+
 // add registers the Descriptor cluster on endpoint with its device types.
 func (ds *descriptors) add(endpoint im.EndpointID, deviceTypes ...DeviceType) {
 	ds.mutex.Lock()
 	ds.deviceTypes[endpoint] = append([]DeviceType(nil), deviceTypes...)
 	ds.mutex.Unlock()
+	ds.register(endpoint)
+}
 
+// register serves the Descriptor cluster on endpoint.
+func (ds *descriptors) register(endpoint im.EndpointID) {
 	ds.server.HandleAttribute(endpoint, DescriptorClusterID, deviceTypeListAttributeID, func(enc tlv.Encoder, tag tlv.Tag) im.Status {
 		ds.mutex.Lock()
 		types := ds.deviceTypes[endpoint]
