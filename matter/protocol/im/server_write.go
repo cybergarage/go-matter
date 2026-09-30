@@ -273,9 +273,15 @@ func (s *Server) serveWrite(sess SecureSession, exchange message.ExchangeID, bod
 		return &decodeError{fmt.Errorf("im: decode WriteRequest: %w", err)}
 	}
 	reports := make([]attributeReport, 0, len(writes))
+	// The access to a path is checked once per request, so a list written
+	// in chunks, such as the ACL replaced by an empty list and then
+	// appended to, is written with the access the request started with,
+	// as the SDK's WriteHandler does, not with the access its own first
+	// chunk leaves.
+	checked := map[AttributePath]bool{}
 	for _, w := range writes {
 		path := w.path.concretePath()
-		status := s.write(sess, w, timed)
+		status := s.write(sess, w, timed, checked)
 		reports = append(reports, attributeReport{path: path, status: status, read: nil})
 	}
 	payload, err := encodeWriteResponse(reports)
@@ -285,7 +291,7 @@ func (s *Server) serveWrite(sess SecureSession, exchange message.ExchangeID, bod
 	return sendIMResponse(sess, exchange, message.WriteResponseMessage, payload)
 }
 
-func (s *Server) write(sess SecureSession, w writeRequest, timed bool) Status {
+func (s *Server) write(sess SecureSession, w writeRequest, timed bool, checked map[AttributePath]bool) Status {
 	if !w.path.concrete() {
 		return StatusInvalidAction
 	}
@@ -301,7 +307,12 @@ func (s *Server) write(sess SecureSession, w writeRequest, timed bool) Status {
 		}
 		return status
 	}
-	if !s.allowed(sess, path.Endpoint, path.Cluster, entry.privilege) {
+	allowed, ok := checked[path]
+	if !ok {
+		allowed = s.allowed(sess, path.Endpoint, path.Cluster, entry.privilege)
+		checked[path] = allowed
+	}
+	if !allowed {
 		return StatusUnsupportedAccess
 	}
 	status := entry.handler(&AttributeWriteRequest{Session: sess, Path: path, Data: w.data, Append: w.append, Timed: timed})

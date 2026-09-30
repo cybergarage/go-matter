@@ -15,8 +15,11 @@
 package im
 
 import (
+	"slices"
+	"sync/atomic"
 	"testing"
 
+	"github.com/cybergarage/go-matter/matter/encoding/message"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 )
 
@@ -120,5 +123,97 @@ func TestServerWrite(t *testing.T) {
 	}
 	if len(appended) != 2 || appended[0] != 5 || appended[1] != 3 {
 		t.Fatalf("the list handler decoded %v, want [5 3]", appended)
+	}
+}
+
+// buildChunkedListWrite encodes a WriteRequest which replaces a list
+// attribute by an empty list and appends items to it, as the SDK writes
+// lists, followed by a write of other.
+func buildChunkedListWrite(list AttributePath, items []uint8, other AttributePath) []byte {
+	enc := tlv.NewEncoder()
+	enc.BeginStructure(tlv.NewAnonymousTag())
+	enc.PutBool(tlv.NewContextTag(0), false)
+	enc.PutBool(tlv.NewContextTag(1), false)
+	enc.BeginArray(tlv.NewContextTag(2))
+	ib := func(p AttributePath, appendItem bool, data func()) {
+		enc.BeginStructure(tlv.NewAnonymousTag())
+		enc.BeginList(tlv.NewContextTag(1))
+		enc.PutUnsigned2(tlv.NewContextTag(2), uint16(p.Endpoint))
+		_ = enc.PutUnsigned(tlv.NewContextTag(3), uint64(p.Cluster))
+		_ = enc.PutUnsigned(tlv.NewContextTag(4), uint64(p.Attribute))
+		if appendItem {
+			enc.PutNull(tlv.NewContextTag(5))
+		}
+		_ = enc.EndContainer()
+		data()
+		_ = enc.EndContainer()
+	}
+	ib(list, false, func() {
+		enc.BeginArray(tlv.NewContextTag(2))
+		_ = enc.EndContainer()
+	})
+	for _, v := range items {
+		ib(list, true, func() { enc.PutUnsigned1(tlv.NewContextTag(2), v) })
+	}
+	ib(other, false, func() { enc.PutUnsigned1(tlv.NewContextTag(2), 1) })
+	_ = enc.EndContainer()
+	enc.PutUnsigned1(tlv.NewContextTag(interactionModelRevisionTag), interactionModelRevision)
+	_ = enc.EndContainer()
+	return enc.Bytes()
+}
+
+// TestServerWriteChunkedListKeepsAccess writes a list in chunks whose
+// first chunk revokes the writer's access, as replacing an ACL by an
+// empty one does: the rest of the list is still written, since access is
+// checked once per path and request, but another path is refused.
+func TestServerWriteChunkedListKeepsAccess(t *testing.T) {
+	srv := testServer()
+	var allowed atomic.Bool
+	allowed.Store(true)
+	var list []uint64
+	listPath := AttributePath{Endpoint: 0, Cluster: 0x001F, Attribute: 0x0000}
+	otherPath := AttributePath{Endpoint: 0, Cluster: 0x001F, Attribute: 0x0001}
+	srv.HandleAttributeWrite(listPath.Endpoint, listPath.Cluster, listPath.Attribute, func(req *AttributeWriteRequest) Status {
+		_, elem, err := req.Decoder()
+		if err != nil {
+			return StatusInvalidDataType
+		}
+		if !req.Append {
+			list = nil
+			allowed.Store(false) // the empty list grants nobody
+			return StatusSuccess
+		}
+		v, _ := elem.Unsigned()
+		list = append(list, v)
+		return StatusSuccess
+	})
+	srv.HandleAttributeWrite(otherPath.Endpoint, otherPath.Cluster, otherPath.Attribute, func(*AttributeWriteRequest) Status {
+		return StatusSuccess
+	})
+	srv.SetAccessChecker(func(AccessRequest) bool { return allowed.Load() })
+	client := startServer(t, srv)
+
+	exchange := message.NewFirstExchangeID()
+	if err := transmitOnExchange(client, message.WriteRequestMessage, exchange, buildChunkedListWrite(listPath, []uint8{5, 3}, otherPath)); err != nil {
+		t.Fatal(err)
+	}
+	_, body := receiveIM(t, client, message.WriteResponseMessage)
+	var statuses []uint64
+	dec := tlv.NewDecoderWithBytes(body)
+	for dec.Next() {
+		elem := dec.Element()
+		// The Status of each StatusIB is its context tag 0 inside tag 1.
+		if ct, ok := elem.Tag().(tlv.ContextTag); ok && ct.ContextNumber() == 1 && elem.Type().IsStructure() {
+			dec.Next()
+			v, _ := dec.Element().Unsigned()
+			statuses = append(statuses, v)
+		}
+	}
+	want := []uint64{uint64(StatusSuccess), uint64(StatusSuccess), uint64(StatusSuccess), uint64(StatusUnsupportedAccess)}
+	if !slices.Equal(statuses, want) {
+		t.Fatalf("write statuses = %#x, want %#x", statuses, want)
+	}
+	if !slices.Equal(list, []uint64{5, 3}) {
+		t.Fatalf("the list is %v, want [5 3]", list)
 	}
 }
