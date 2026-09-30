@@ -54,6 +54,15 @@ type HandlerOption func(*handlerOptions)
 
 type handlerOptions struct {
 	privilege Privilege
+	generated []CommandID
+}
+
+// WithResponseCommand declares the response commands a command handler
+// answers with, which the cluster's GeneratedCommandList reports.
+func WithResponseCommand(commands ...CommandID) HandlerOption {
+	return func(o *handlerOptions) {
+		o.generated = append(o.generated, commands...)
+	}
 }
 
 // WithPrivilege sets the privilege the handler requires of the subject of
@@ -65,7 +74,7 @@ func WithPrivilege(p Privilege) HandlerOption {
 }
 
 func newHandlerOptions(defaultPrivilege Privilege, opts []HandlerOption) handlerOptions {
-	o := handlerOptions{privilege: defaultPrivilege}
+	o := handlerOptions{privilege: defaultPrivilege, generated: nil}
 	for _, opt := range opts {
 		opt(&o)
 	}

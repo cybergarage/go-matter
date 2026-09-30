@@ -116,6 +116,7 @@ type AttributeReadHandler func(req *AttributeRequest, enc tlv.Encoder, tag tlv.T
 type commandEntry struct {
 	handler   CommandHandler
 	privilege Privilege
+	generated []CommandID
 }
 
 type attributeEntry struct {
@@ -177,7 +178,8 @@ func (s *Server) HandleCommand(endpoint EndpointID, cluster ClusterID, command C
 	o := newHandlerOptions(DefaultInvokePrivilege, opts)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	s.commands[commandPath{endpoint, cluster, command}] = commandEntry{handler: h, privilege: o.privilege}
+	s.commands[commandPath{endpoint, cluster, command}] = commandEntry{handler: h, privilege: o.privilege, generated: o.generated}
+	s.ensureGlobalAttributesLocked(endpoint, cluster)
 }
 
 // HandleAttribute registers r for an attribute, replacing any previous
@@ -196,6 +198,7 @@ func (s *Server) HandleAttributeRead(endpoint EndpointID, cluster ClusterID, att
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.attributes[AttributePath{Endpoint: endpoint, Cluster: cluster, Attribute: attribute}] = attributeEntry{handler: h, privilege: o.privilege}
+	s.ensureGlobalAttributesLocked(endpoint, cluster)
 }
 
 // allowed reports whether the access checker grants sess privilege on the
@@ -301,11 +304,11 @@ func (s *Server) commandHandler(p commandPath) (commandEntry, Status) {
 	}
 	switch {
 	case !endpointKnown:
-		return commandEntry{handler: nil, privilege: 0}, StatusUnsupportedEndpoint
+		return commandEntry{handler: nil, privilege: 0, generated: nil}, StatusUnsupportedEndpoint
 	case !clusterKnown:
-		return commandEntry{handler: nil, privilege: 0}, StatusUnsupportedCluster
+		return commandEntry{handler: nil, privilege: 0, generated: nil}, StatusUnsupportedCluster
 	default:
-		return commandEntry{handler: nil, privilege: 0}, StatusUnsupportedCommand
+		return commandEntry{handler: nil, privilege: 0, generated: nil}, StatusUnsupportedCommand
 	}
 }
 

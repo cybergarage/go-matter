@@ -15,6 +15,7 @@
 package im
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
@@ -88,9 +89,10 @@ func TestServerAccessControl(t *testing.T) {
 	if read.Status == nil || read.Status.IMStatus != uint8(StatusUnsupportedAccess) {
 		t.Fatalf("a read needing Administer: %+v, want UnsupportedAccess", read.Status)
 	}
-	got := reportedPaths(t, readRaw(t, client, [3]int64{0, 0x003E, -1}))
-	if len(got) != 1 || got[0] != [3]uint64{0, 0x003E, 0x0005} {
-		t.Fatalf("wildcard read reported %v, want only the attribute the subject may read", got)
+	got := reportedPaths(t, readRaw(t, client, [3]int64{0, 0x003E, 0x0000}, [3]int64{0, 0x003E, -1}))
+	want := [][3]uint64{{0, 0x003E, 0x0005}, {0, 0x003E, 0xFFF8}, {0, 0x003E, 0xFFF9}, {0, 0x003E, 0xFFFB}}
+	if !slices.Equal(got, want) {
+		t.Fatalf("wildcard read reported %v, want %v, the attributes the subject may read", got, want)
 	}
 
 	// A reader which needs the request gets the session and the filter.

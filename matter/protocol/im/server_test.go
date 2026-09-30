@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
@@ -290,8 +291,8 @@ func TestServerReadWildcards(t *testing.T) {
 
 	// Every attribute of cluster 0x0030 on any endpoint.
 	got := reportedPaths(t, readRaw(t, client, [3]int64{-1, 0x0030, -1}))
-	want := [][3]uint64{{0, 0x0030, 0x0000}, {0, 0x0030, 0x0004}}
-	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+	want := [][3]uint64{{0, 0x0030, 0x0000}, {0, 0x0030, 0x0004}, {0, 0x0030, 0xFFF8}, {0, 0x0030, 0xFFF9}, {0, 0x0030, 0xFFFB}}
+	if !slices.Equal(got, want) {
 		t.Fatalf("wildcard read reported %v, want %v", got, want)
 	}
 
