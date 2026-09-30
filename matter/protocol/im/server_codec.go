@@ -388,8 +388,18 @@ func encodeAttributePathIB(enc tlv.Encoder, tag tlv.Tag, p AttributePath) error 
 // encodeReportData encodes a ReportDataMessage (10.7.3) which answers a
 // Read in one message, so it sets SuppressResponse.
 func encodeReportData(reports []attributeReport) ([]byte, error) {
+	return encodeReportDataMessage(reports, nil, true)
+}
+
+// encodeReportDataMessage encodes a ReportDataMessage with the
+// subscription it reports for, if any, and whether the receiver answers
+// it with a StatusResponse: a subscription's reports ask it to.
+func encodeReportDataMessage(reports []attributeReport, subscriptionID *uint32, suppressResponse bool) ([]byte, error) {
 	enc := tlv.NewEncoder()
 	enc.BeginStructure(tlv.NewAnonymousTag())
+	if subscriptionID != nil {
+		enc.PutUnsigned4(tlv.NewContextTag(0), *subscriptionID)
+	}
 	enc.BeginArray(tlv.NewContextTag(1)) // attribute-reports
 	for _, r := range reports {
 		status := r.status
@@ -430,7 +440,9 @@ func encodeReportData(reports []attributeReport) ([]byte, error) {
 	if err := enc.EndContainer(); err != nil { // attribute-reports
 		return nil, err
 	}
-	enc.PutBool(tlv.NewContextTag(4), true) // suppress-response
+	if suppressResponse {
+		enc.PutBool(tlv.NewContextTag(4), true) // suppress-response
+	}
 	enc.PutUnsigned1(tlv.NewContextTag(interactionModelRevisionTag), interactionModelRevision)
 	if err := enc.EndContainer(); err != nil {
 		return nil, fmt.Errorf("im: encode ReportData: %w", err)

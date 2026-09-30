@@ -304,7 +304,12 @@ func (s *Server) write(sess SecureSession, w writeRequest, timed bool) Status {
 	if !s.allowed(sess, path.Endpoint, path.Cluster, entry.privilege) {
 		return StatusUnsupportedAccess
 	}
-	return entry.handler(&AttributeWriteRequest{Session: sess, Path: path, Data: w.data, Append: w.append, Timed: timed})
+	status := entry.handler(&AttributeWriteRequest{Session: sess, Path: path, Data: w.data, Append: w.append, Timed: timed})
+	if status == StatusSuccess {
+		// A written attribute is reported to the subscriptions covering it.
+		s.NotifyAttributeChanged(path)
+	}
+	return status
 }
 
 // encodeWriteResponse encodes a WriteResponseMessage: the status of each

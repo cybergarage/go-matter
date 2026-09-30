@@ -151,6 +151,7 @@ type Server struct {
 	attributes map[AttributePath]attributeEntry
 	writes     map[AttributePath]writeEntry
 	access     AccessChecker
+	subs       *subscriptions
 }
 
 // NewServer returns a Server with nothing registered.
@@ -161,6 +162,7 @@ func NewServer() *Server {
 		attributes: map[AttributePath]attributeEntry{},
 		writes:     map[AttributePath]writeEntry{},
 		access:     nil,
+		subs:       newSubscriptions(),
 	}
 }
 
@@ -271,13 +273,16 @@ func (s *Server) ServeOne(sess SecureSession) error {
 		return s.serveRead(sess, exchange, body)
 	case message.WriteRequestMessage:
 		return s.serveWrite(sess, exchange, body)
+	case message.SubscribeRequestMessage:
+		return s.serveSubscribe(sess, exchange, body)
 	case message.TimedRequestMessage:
 		// The timeout is not enforced; the following request on the
 		// exchange is accepted as timed.
 		return sendStatusResponse(sess, exchange, StatusSuccess)
 	case message.StatusResponseMessage:
-		// The peer's acknowledgement of a report; nothing to answer.
-		return nil
+		// Either the acknowledgement of a priming report, which completes a
+		// subscription, or of a report that needs no answer.
+		return s.serveStatusResponse(sess, exchange, body)
 	default:
 		return sendStatusResponse(sess, exchange, StatusInvalidAction)
 	}
@@ -415,14 +420,29 @@ func (s *Server) serveRead(sess SecureSession, exchange message.ExchangeID, body
 		}
 		return &decodeError{fmt.Errorf("im: decode ReadRequest: %w", err)}
 	}
+	payload, err := encodeReportData(s.readReports(sess, paths, fabricFiltered, nil))
+	if err != nil {
+		return err
+	}
+	return sendIMResponse(sess, exchange, message.ReportDataMessage, payload)
+}
+
+// readReports reads the attributes of the requested paths for sess, only
+// those filter accepts when it is not nil.
+func (s *Server) readReports(sess SecureSession, paths []requestedPath, fabricFiltered bool, filter func(AttributePath) bool) []attributeReport {
 	reports := make([]attributeReport, 0, len(paths))
 	for _, p := range paths {
 		expanded, status := s.expand(p)
 		if status != StatusSuccess {
-			reports = append(reports, attributeReport{path: p.concretePath(), status: status, read: nil})
+			if filter == nil {
+				reports = append(reports, attributeReport{path: p.concretePath(), status: status, read: nil})
+			}
 			continue
 		}
 		for _, ap := range expanded {
+			if filter != nil && !filter(ap) {
+				continue
+			}
 			entry := s.attribute(ap)
 			if !s.allowed(sess, ap.Endpoint, ap.Cluster, entry.privilege) {
 				// A wildcard read leaves out what the subject may not
@@ -438,11 +458,7 @@ func (s *Server) serveRead(sess SecureSession, exchange message.ExchangeID, body
 			reports = append(reports, attributeReport{path: ap, status: StatusSuccess, read: read})
 		}
 	}
-	payload, err := encodeReportData(reports)
-	if err != nil {
-		return err
-	}
-	return sendIMResponse(sess, exchange, message.ReportDataMessage, payload)
+	return reports
 }
 
 // sendIMResponse sends payload as a message of the given opcode on the

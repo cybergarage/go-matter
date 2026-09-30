@@ -800,6 +800,8 @@ func (d *Device) notifySession(sess *Session) {
 // not decrypt, is logged and the session keeps serving.
 func (d *Device) serveSession(sess *Session) {
 	defer d.wg.Done()
+	// A subscription lives no longer than its session (8.5).
+	defer d.imServer.EndSession(sess.secure)
 	for {
 		err := d.imServer.ServeOne(sess.secure)
 		if err == nil {
