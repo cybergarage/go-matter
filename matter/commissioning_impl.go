@@ -494,7 +494,9 @@ func establishCASESession(
 		}
 		return nil, fmt.Errorf("commissioning: CASE finalization: %w", err)
 	}
-	return session.NewSecureSession(t, keys), nil
+	// CASE runs over UDP, so the session retransmits what the device does
+	// not acknowledge (MRP).
+	return session.NewSecureSession(t, keys, session.WithRetransmission(session.DefaultActiveRetransmitInterval, session.DefaultMaxTransmissions)), nil
 }
 
 type operationalCASEPeer struct {

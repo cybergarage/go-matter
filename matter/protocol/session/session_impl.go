@@ -68,6 +68,9 @@ type secureSession struct {
 	keys       SessionKeys
 	role       Role
 	msgCounter uint32 // atomic outbound message counter
+	// retransmit, when set, retransmits the reliable messages the peer
+	// does not acknowledge (WithRetransmission).
+	retransmit *retransmitter
 }
 
 // NewSecureSession creates a SecureSession from established session keys.
@@ -82,6 +85,7 @@ func NewSecureSession(t Transport, keys SessionKeys, opts ...SecureSessionOption
 		keys:       keys,
 		role:       RoleInitiator,
 		msgCounter: uint32(message.NewMessageCounter()),
+		retransmit: nil,
 	}
 	for _, opt := range opts {
 		opt(s)
@@ -191,6 +195,11 @@ func (s *secureSession) transmitPayload(payload []byte) error {
 	wire = append(wire, ciphertextWithTag...)
 
 	log.HexDebug(wire)
+	if s.retransmit != nil {
+		if protHdr, err := message.NewProtocolHeaderFromBytes(payload); err == nil && protHdr.IsReliability() && !protHdr.Opcode().IsMRPStandaloneAck() {
+			s.retransmit.sent(s, message.MessageCounter(counter), wire)
+		}
+	}
 	return s.t.Transmit(context.Background(), wire)
 }
 
@@ -268,6 +277,13 @@ func (s *secureSession) Receive() ([]byte, error) {
 			return nil, err
 		}
 		protHdr, protHdrErr := message.NewProtocolHeaderFromBytes(plaintext)
+		if protHdrErr == nil && s.retransmit != nil {
+			// A piggybacked or standalone acknowledgement ends the
+			// retransmission of the message it acknowledges.
+			if acked, ok := protHdr.AckMessageCounter(); ok {
+				s.retransmit.acknowledged(acked)
+			}
+		}
 		if protHdrErr == nil && protHdr.Opcode().IsMRPStandaloneAck() {
 			log.Debugf("session: received standalone MRP ACK, waiting for next message")
 			continue

@@ -302,7 +302,9 @@ func (dev *mDNSDevice) Commission(ctx context.Context, payload OnboardingPayload
 		return CommissionedIdentity{}, err
 	}
 
-	sess := session.NewSecureSession(dev, sessionKeys)
+	// The session runs over UDP, so it retransmits what the device does
+	// not acknowledge (MRP).
+	sess := session.NewSecureSession(dev, sessionKeys, session.WithRetransmission(session.DefaultActiveRetransmitInterval, session.DefaultMaxTransmissions))
 	operationalCfg, _ := dev.OperationalCredentialsConfig()
 	wifiCfg, _ := dev.WiFiNetworkConfig()
 	adminCfg, _ := dev.AdministratorConfig()
