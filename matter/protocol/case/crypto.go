@@ -363,6 +363,7 @@ func deriveSessionKeys(sharedSecret, ipk, sigma1Payload, sigma2Payload, sigma3Pa
 	return newSessionKeys(
 		derived[0:cryptoSymmetricKeyLen],
 		derived[cryptoSymmetricKeyLen:2*cryptoSymmetricKeyLen],
+		derived[2*cryptoSymmetricKeyLen:3*cryptoSymmetricKeyLen],
 		initiatorSID,
 		responderSID,
 		localNodeID,
