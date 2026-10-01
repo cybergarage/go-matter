@@ -94,8 +94,8 @@ func run(passcode, discriminator uint, address, storeDir, name string) error {
 		return err
 	}
 
-	// The On/Off Light: Identify, Groups and On/Off on endpoint 1
-	// (Matter Device Library 4.1).
+	// The On/Off Light: Identify, Groups, Scenes Management and On/Off on
+	// endpoint 1 (Matter Device Library 4.1).
 	ep, err := dev.AddEndpoint(lightEndpoint, device.OnOffLightDeviceType)
 	if err != nil {
 		return err
@@ -104,13 +104,17 @@ func run(passcode, discriminator uint, address, storeDir, name string) error {
 		fmt.Printf("identify: %v\n", identifying)
 	})).Register(ep)
 	cluster.NewGroups().Register(ep)
-	cluster.NewOnOff(cluster.WithOnOffHandler(func(on bool) {
+	light := cluster.NewOnOff(cluster.WithOnOffHandler(func(on bool) {
 		if on {
 			fmt.Println("light: ON")
 		} else {
 			fmt.Println("light: OFF")
 		}
-	})).Register(ep)
+	}))
+	light.Register(ep)
+	scenes := cluster.NewScenes()
+	scenes.AddSceneHandler(cluster.OnOffClusterID, light)
+	scenes.Register(ep)
 
 	if err := dev.Start(); err != nil {
 		return err

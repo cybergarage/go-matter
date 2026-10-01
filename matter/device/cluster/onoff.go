@@ -66,6 +66,7 @@ type OnOff struct {
 	startUpOnOff       *uint8
 	delayedOff         *time.Timer
 	offGeneration      uint64
+	invalidateScene    func()
 	onChange           func(on bool)
 }
 
@@ -100,6 +101,7 @@ func NewOnOff(opts ...OnOffOption) *OnOff {
 		startUpOnOff:       nil,
 		delayedOff:         nil,
 		offGeneration:      0,
+		invalidateScene:    nil,
 		onChange:           nil,
 	}
 	for _, opt := range opts {
@@ -293,12 +295,16 @@ func (c *OnOff) update(next func(on bool) bool) {
 	}
 	ep := c.endpoint
 	handler := c.onChange
+	invalidateScene := c.invalidateScene
 	c.mutex.Unlock()
 	if !changed {
 		return
 	}
 	if handler != nil {
 		handler(on)
+	}
+	if invalidateScene != nil {
+		invalidateScene()
 	}
 	if ep != nil {
 		ep.NotifyAttributeChanged(OnOffClusterID, OnOffAttributeID)
@@ -311,4 +317,29 @@ func unsignedField(req *im.CommandRequest, tag uint8) (uint64, bool) {
 		return 0, false
 	}
 	return elem.Unsigned()
+}
+
+// SceneValues returns the OnOff attribute, which a scene stores.
+func (c *OnOff) SceneValues() []SceneAttributeValue {
+	v := uint64(0)
+	if c.On() {
+		v = 1
+	}
+	return []SceneAttributeValue{{Attribute: OnOffAttributeID, Value: v, Signed: false, Bits: 8}}
+}
+
+// RecallScene sets the OnOff attribute a scene stores; the transition
+// does not apply to switching on or off.
+func (c *OnOff) RecallScene(values []SceneAttributeValue, _ time.Duration) {
+	for _, v := range values {
+		if v.Attribute == OnOffAttributeID {
+			c.Set(v.Value != 0)
+		}
+	}
+}
+
+func (c *OnOff) setSceneInvalidator(invalidate func()) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.invalidateScene = invalidate
 }

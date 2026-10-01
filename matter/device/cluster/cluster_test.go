@@ -37,6 +37,9 @@ type cmdKey struct {
 // reports changed.
 type fakeEndpoint struct {
 	mutex    sync.Mutex
+	fabric   uint8
+	removed  []func(uint8)
+	sessions map[attrKey]im.AttributeReadHandler
 	readers  map[attrKey]im.AttributeReader
 	writers  map[attrKey]im.AttributeWriteHandler
 	commands map[cmdKey]im.CommandHandler
@@ -46,6 +49,9 @@ type fakeEndpoint struct {
 func newFakeEndpoint() *fakeEndpoint {
 	return &fakeEndpoint{
 		mutex:    sync.Mutex{},
+		fabric:   1,
+		removed:  nil,
+		sessions: map[attrKey]im.AttributeReadHandler{},
 		readers:  map[attrKey]im.AttributeReader{},
 		writers:  map[attrKey]im.AttributeWriteHandler{},
 		commands: map[cmdKey]im.CommandHandler{},
@@ -55,6 +61,18 @@ func newFakeEndpoint() *fakeEndpoint {
 
 func (ep *fakeEndpoint) HandleAttribute(c im.ClusterID, a im.AttributeID, r im.AttributeReader, _ ...im.HandlerOption) {
 	ep.readers[attrKey{c, a}] = r
+}
+
+func (ep *fakeEndpoint) HandleAttributeRead(c im.ClusterID, a im.AttributeID, h im.AttributeReadHandler, _ ...im.HandlerOption) {
+	ep.sessions[attrKey{c, a}] = h
+}
+
+func (ep *fakeEndpoint) AccessingFabric(im.SecureSession) uint8 {
+	return ep.fabric
+}
+
+func (ep *fakeEndpoint) HandleFabricRemoved(h func(uint8)) {
+	ep.removed = append(ep.removed, h)
 }
 
 func (ep *fakeEndpoint) HandleAttributeWrite(c im.ClusterID, a im.AttributeID, h im.AttributeWriteHandler, _ ...im.HandlerOption) {
@@ -110,30 +128,45 @@ func (ep *fakeEndpoint) write(t *testing.T, c im.ClusterID, a im.AttributeID, pu
 // invoke calls a command with unsigned fields by context tag.
 func (ep *fakeEndpoint) invoke(t *testing.T, c im.ClusterID, cmd im.CommandID, fields map[uint8]uint64) im.CommandResult {
 	t.Helper()
+	return ep.invokeWith(t, c, cmd, func(enc tlv.Encoder) {
+		for tag, v := range fields {
+			if err := enc.PutUnsigned(tlv.NewContextTag(tag), v); err != nil {
+				t.Fatal(err)
+			}
+		}
+	})
+}
+
+// invokeWith calls a command with the fields put encodes.
+func (ep *fakeEndpoint) invokeWith(t *testing.T, c im.ClusterID, cmd im.CommandID, put func(enc tlv.Encoder)) im.CommandResult {
+	t.Helper()
 	h, ok := ep.commands[cmdKey{c, cmd}]
 	if !ok {
 		t.Fatalf("command 0x%04X/0x%02X is not served", c, cmd)
 	}
 	enc := tlv.NewEncoder()
 	enc.BeginStructure(tlv.NewAnonymousTag())
-	for tag, v := range fields {
-		if err := enc.PutUnsigned(tlv.NewContextTag(tag), v); err != nil {
-			t.Fatal(err)
-		}
-	}
+	put(enc)
 	if err := enc.EndContainer(); err != nil {
 		t.Fatal(err)
 	}
-	req := &im.CommandRequest{Endpoint: 1, Cluster: c, Command: cmd, Fields: map[uint8]tlv.Element{}}
+	req := &im.CommandRequest{Endpoint: 1, Cluster: c, Command: cmd, Fields: map[uint8]tlv.Element{}, Data: enc.Bytes()}
 	dec := tlv.NewDecoderWithBytes(enc.Bytes())
 	dec.Next()
-	for dec.Next() {
+	depth := 1
+	for depth > 0 && dec.Next() {
 		elem := dec.Element()
-		if elem.Type().IsEndOfContainer() {
-			break
+		switch {
+		case elem.Type().IsEndOfContainer():
+			depth--
+			continue
+		case depth == 1:
+			if ct, ok := elem.Tag().(tlv.ContextTag); ok {
+				req.Fields[uint8(ct.ContextNumber())] = elem
+			}
 		}
-		if ct, ok := elem.Tag().(tlv.ContextTag); ok {
-			req.Fields[uint8(ct.ContextNumber())] = elem
+		if elem.Type().IsContainer() {
+			depth++
 		}
 	}
 	return h(req)

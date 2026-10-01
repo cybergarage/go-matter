@@ -46,7 +46,8 @@ type DeviceType struct {
 var RootNodeDeviceType = DeviceType{ID: 0x0016, Revision: 3}
 
 // OnOffLightDeviceType is a light that can be switched on and off, with
-// the Identify, Groups and On/Off clusters (Matter Device Library 4.1).
+// the Identify, Groups, Scenes Management and On/Off clusters (Matter
+// Device Library 4.1).
 var OnOffLightDeviceType = DeviceType{ID: 0x0100, Revision: 3}
 
 // descriptors keeps the device types of each endpoint and serves the

@@ -42,6 +42,9 @@ func (d *chipToolDevice) addOnOffLight(t *testing.T) *cluster.OnOff {
 	cluster.NewGroups().Register(ep)
 	light := cluster.NewOnOff()
 	light.Register(ep)
+	scenes := cluster.NewScenes()
+	scenes.AddSceneHandler(cluster.OnOffClusterID, light)
+	scenes.Register(ep)
 	return light
 }
 
@@ -98,6 +101,33 @@ func TestChipToolOperatesOnOffLight(t *testing.T) {
 	out, err = chipTool.run(t, "identify", "read", "identify-time", node, ep)
 	if err != nil || !strings.Contains(out, "IdentifyTime: ") || strings.Contains(out, "IdentifyTime: 0\n") {
 		t.Fatalf("chip-tool identify read identify-time: %v", err)
+	}
+}
+
+// TestChipToolRecallsScene has chip-tool store the light's state as a
+// scene, and recall it after the light changed.
+func TestChipToolRecallsScene(t *testing.T) {
+	chipTool := lookupChipTool(t)
+	d := startChipToolDevice(t)
+	light := d.addOnOffLight(t)
+	chipTool.pair(t, d.nodeID, chipToolPasscode, d.discriminator)
+	node := nodeArg(d.nodeID)
+	ep := "1"
+
+	light.Set(true)
+	if _, err := chipTool.run(t, "scenesmanagement", "store-scene", "0", "1", node, ep); err != nil {
+		t.Fatalf("chip-tool scenesmanagement store-scene: %v", err)
+	}
+	light.Set(false)
+	if _, err := chipTool.run(t, "scenesmanagement", "recall-scene", "0", "1", node, ep); err != nil {
+		t.Fatalf("chip-tool scenesmanagement recall-scene: %v", err)
+	}
+	if !light.On() {
+		t.Fatal("recalling the scene did not turn the light back on")
+	}
+	out, err := chipTool.run(t, "scenesmanagement", "read", "fabric-scene-info", node, ep)
+	if err != nil || !strings.Contains(out, "SceneCount: 1") {
+		t.Fatalf("chip-tool scenesmanagement read fabric-scene-info: %v", err)
 	}
 }
 
