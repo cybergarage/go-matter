@@ -43,8 +43,24 @@ type CommandRequest struct {
 	// Elements holds every element inside the command fields, nested ones
 	// included, in order, for the commands whose fields nest.
 	Elements []tlv.Element
+	// Data is the command fields as one anonymous TLV structure, which
+	// Decoder decodes, for the commands whose fields nest.
+	Data []byte
 	// Timed reports whether the command arrived in a timed interaction.
 	Timed bool
+}
+
+// Decoder returns a decoder positioned on the command fields structure,
+// whose fields the caller reads with Next until its end.
+func (r *CommandRequest) Decoder() (tlv.Decoder, error) {
+	dec := tlv.NewDecoderWithBytes(r.Data)
+	if !dec.Next() || !dec.Element().Type().IsStructure() {
+		if err := dec.Error(); err != nil {
+			return nil, err
+		}
+		return nil, errors.New("im: no command fields")
+	}
+	return dec, nil
 }
 
 // Field returns the command field with the given context tag.

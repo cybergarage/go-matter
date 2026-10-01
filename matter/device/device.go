@@ -288,6 +288,9 @@ type Device struct {
 	descriptors *descriptors
 	// diagnostics serves the General Diagnostics cluster.
 	diagnostics *generalDiagnostics
+	// fabricRemovedHandlers are the application clusters' handlers of
+	// RemoveFabric.
+	fabricRemovedHandlers []func(fabricIndex uint8)
 	// refresh asks the advertising loop to republish the operational
 	// services, which it does until refreshDone is closed.
 	refresh     chan struct{}
@@ -318,8 +321,10 @@ func New(opts ...Option) (*Device, error) {
 		opCreds:     nil,
 		descriptors: nil,
 		diagnostics: nil,
-		refresh:     make(chan struct{}, 1),
-		refreshDone: nil,
+
+		fabricRemovedHandlers: nil,
+		refresh:               make(chan struct{}, 1),
+		refreshDone:           nil,
 
 		supportedFabrics: DefaultSupportedFabrics,
 

@@ -109,7 +109,7 @@ func decodeCommandDataIBs(dec tlv.Decoder) ([]*CommandRequest, error) {
 }
 
 func decodeCommandDataIB(dec tlv.Decoder) (*CommandRequest, error) {
-	cmd := &CommandRequest{Fields: map[uint8]tlv.Element{}, Elements: nil}
+	cmd := &CommandRequest{Fields: map[uint8]tlv.Element{}, Elements: nil, Data: nil}
 	hasPath := false
 	for dec.Next() {
 		elem := dec.Element()
@@ -169,14 +169,21 @@ func decodeCommandPathIB(dec tlv.Decoder) (EndpointID, ClusterID, CommandID, err
 }
 
 // decodeCommandFields reads the command-fields structure into cmd: the
-// top-level fields by tag, and every element in order.
+// top-level fields by tag, every element in order, and the structure
+// re-encoded, for a handler to decode nested fields with.
 func decodeCommandFields(dec tlv.Decoder, cmd *CommandRequest) error {
+	enc := tlv.NewEncoder()
+	enc.BeginStructure(tlv.NewAnonymousTag())
 	depth := 1
 	for dec.Next() {
 		elem := dec.Element()
 		if elem.Type().IsEndOfContainer() {
+			if err := enc.EndContainer(); err != nil {
+				return err
+			}
 			depth--
 			if depth == 0 {
+				cmd.Data = enc.Bytes()
 				return dec.Error()
 			}
 			continue
@@ -187,7 +194,20 @@ func decodeCommandFields(dec tlv.Decoder, cmd *CommandRequest) error {
 				cmd.Fields[tag] = elem
 			}
 		}
-		if elem.Type().IsContainer() {
+		t := elem.Type()
+		switch {
+		case t.IsStructure():
+			enc.BeginStructure(elem.Tag())
+		case t.IsArray():
+			enc.BeginArray(elem.Tag())
+		case t.IsList():
+			enc.BeginList(elem.Tag())
+		default:
+			if err := copyElement(dec, elem, enc, elem.Tag()); err != nil {
+				return err
+			}
+		}
+		if t.IsContainer() {
 			depth++
 		}
 	}

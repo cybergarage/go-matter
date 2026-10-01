@@ -402,6 +402,12 @@ func (d *Device) closeSessionLocked(sess *Session) {
 // does (11.18.6.12).
 func (d *Device) fabricRemoved(fabricIndex uint8) {
 	d.mu.Lock()
+	handlers := append([]func(uint8){}, d.fabricRemovedHandlers...)
+	d.mu.Unlock()
+	for _, h := range handlers {
+		h(fabricIndex)
+	}
+	d.mu.Lock()
 	defer d.mu.Unlock()
 	for _, sess := range d.sessions {
 		if sess.fabricIndex == fabricIndex {

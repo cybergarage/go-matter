@@ -39,6 +39,7 @@ var (
 type Endpoint struct {
 	id     im.EndpointID
 	server *im.Server
+	device *Device
 }
 
 // AddEndpoint adds an application endpoint conforming to deviceTypes. The
@@ -54,7 +55,7 @@ func (d *Device) AddEndpoint(id im.EndpointID, deviceTypes ...DeviceType) (*Endp
 		return nil, fmt.Errorf("%w: %d", ErrEndpointExists, id)
 	}
 	d.imServer.NotifyAttributeChanged(im.AttributePath{Endpoint: rootEndpoint, Cluster: DescriptorClusterID, Attribute: partsListAttributeID})
-	return &Endpoint{id: id, server: d.imServer}, nil
+	return &Endpoint{id: id, server: d.imServer, device: d}, nil
 }
 
 // ID returns the endpoint's number.
@@ -89,4 +90,20 @@ func (ep *Endpoint) HandleCommand(cluster im.ClusterID, command im.CommandID, h 
 // other than by a write, such as by a command or by the hardware.
 func (ep *Endpoint) NotifyAttributeChanged(cluster im.ClusterID, attribute im.AttributeID) {
 	ep.server.NotifyAttributeChanged(im.AttributePath{Endpoint: ep.id, Cluster: cluster, Attribute: attribute})
+}
+
+// AccessingFabric returns the fabric index a session accesses the device
+// on, which a fabric-scoped command or attribute acts for, or 0 for a
+// session on no fabric yet.
+func (ep *Endpoint) AccessingFabric(sess im.SecureSession) uint8 {
+	return ep.device.lookupSession(sess).fabricIndex
+}
+
+// HandleFabricRemoved registers h to be called with the index of each
+// fabric RemoveFabric removes, for the fabric-scoped data a cluster keeps
+// to be removed with it.
+func (ep *Endpoint) HandleFabricRemoved(h func(fabricIndex uint8)) {
+	ep.device.mu.Lock()
+	defer ep.device.mu.Unlock()
+	ep.device.fabricRemovedHandlers = append(ep.device.fabricRemovedHandlers, h)
 }
