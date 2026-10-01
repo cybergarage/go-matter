@@ -288,6 +288,9 @@ type Device struct {
 	descriptors *descriptors
 	// diagnostics serves the General Diagnostics cluster.
 	diagnostics *generalDiagnostics
+	// groupKeys serves the Group Key Management cluster, and keeps the
+	// groups the application endpoints join.
+	groupKeys *groupKeyManagement
 	// fabricRemovedHandlers are the application clusters' handlers of
 	// RemoveFabric.
 	fabricRemovedHandlers []func(fabricIndex uint8)
@@ -321,6 +324,7 @@ func New(opts ...Option) (*Device, error) {
 		opCreds:     nil,
 		descriptors: nil,
 		diagnostics: nil,
+		groupKeys:   nil,
 
 		fabricRemovedHandlers: nil,
 		refresh:               make(chan struct{}, 1),
@@ -378,6 +382,8 @@ func New(opts ...Option) (*Device, error) {
 	d.opCreds.onFabricUpdated = func(uint8) { d.requestRefresh() }
 	d.opCreds.register(d.imServer)
 	(&accessControl{oc: d.opCreds}).register(d.imServer)
+	d.groupKeys = &groupKeyManagement{oc: d.opCreds}
+	d.groupKeys.register(d.imServer)
 	d.diagnostics.register(d.imServer)
 	(&administratorCommissioning{device: d}).register(d.imServer)
 	d.descriptors = newDescriptors(d.imServer)

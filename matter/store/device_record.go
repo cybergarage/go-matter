@@ -121,9 +121,19 @@ type GroupKeyMapEntry struct {
 	GroupKeySetID uint16 `json:"groupKeySetId"`
 }
 
-// GroupKeysRecord is a fabric's Group Key Management state: its key sets
-// and which group uses which set.
+// GroupRecord is a group the node's endpoints joined with the Groups
+// cluster, a GroupInfoMapStruct of the Group Key Management cluster's
+// GroupTable.
+type GroupRecord struct {
+	GroupID   uint16   `json:"groupId"`
+	Name      string   `json:"name,omitempty"`
+	Endpoints []uint16 `json:"endpoints"`
+}
+
+// GroupKeysRecord is a fabric's Group Key Management state: its key sets,
+// which group uses which set, and which endpoints are in which group.
 type GroupKeysRecord struct {
 	KeySets []GroupKeySet      `json:"keySets,omitempty"`
 	KeyMap  []GroupKeyMapEntry `json:"keyMap,omitempty"`
+	Groups  []GroupRecord      `json:"groups,omitempty"`
 }

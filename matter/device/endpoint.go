@@ -17,8 +17,10 @@ package device
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/cybergarage/go-matter/matter/protocol/im"
+	"github.com/cybergarage/go-matter/matter/store"
 )
 
 var (
@@ -106,4 +108,128 @@ func (ep *Endpoint) HandleFabricRemoved(h func(fabricIndex uint8)) {
 	ep.device.mu.Lock()
 	defer ep.device.mu.Unlock()
 	ep.device.fabricRemovedHandlers = append(ep.device.fabricRemovedHandlers, h)
+}
+
+// GroupMembership is a group an endpoint is in, with the name it was
+// added with.
+type GroupMembership struct {
+	GroupID uint16
+	Name    string
+}
+
+func (ep *Endpoint) groupTableChanged() {
+	ep.server.NotifyAttributeChanged(im.AttributePath{Endpoint: rootEndpoint, Cluster: GroupKeyManagementClusterID, Attribute: groupTableAttributeID})
+}
+
+// JoinGroup puts the endpoint in a group of a fabric, as the Groups
+// cluster's AddGroup does, or renames the group it is in already. The
+// fabric must have mapped the group to a key set (UNSUPPORTED_ACCESS
+// otherwise), and may be in MaxGroupsPerFabric groups (RESOURCE_EXHAUSTED
+// beyond).
+func (ep *Endpoint) JoinGroup(fabricIndex uint8, groupID uint16, name string) im.Status {
+	status := ep.device.groupKeys.update(fabricIndex, func(rec *store.GroupKeysRecord) im.Status {
+		if !slices.ContainsFunc(rec.KeyMap, func(e store.GroupKeyMapEntry) bool { return e.GroupID == groupID }) {
+			return im.StatusUnsupportedAccess
+		}
+		endpoint := uint16(ep.id)
+		for i := range rec.Groups {
+			if rec.Groups[i].GroupID != groupID {
+				continue
+			}
+			rec.Groups[i].Name = name
+			if !slices.Contains(rec.Groups[i].Endpoints, endpoint) {
+				rec.Groups[i].Endpoints = append(rec.Groups[i].Endpoints, endpoint)
+				slices.Sort(rec.Groups[i].Endpoints)
+			}
+			return im.StatusSuccess
+		}
+		if MaxGroupsPerFabric <= len(rec.Groups) {
+			return im.StatusResourceExhausted
+		}
+		rec.Groups = append(rec.Groups, store.GroupRecord{GroupID: groupID, Name: name, Endpoints: []uint16{endpoint}})
+		return im.StatusSuccess
+	})
+	if status == im.StatusSuccess {
+		ep.groupTableChanged()
+	}
+	return status
+}
+
+// LeaveGroup takes the endpoint out of a group of a fabric, as the Groups
+// cluster's RemoveGroup does; NOT_FOUND when it is not in it.
+func (ep *Endpoint) LeaveGroup(fabricIndex uint8, groupID uint16) im.Status {
+	status := ep.device.groupKeys.update(fabricIndex, func(rec *store.GroupKeysRecord) im.Status {
+		if !leaveGroup(rec, uint16(ep.id), func(g uint16) bool { return g == groupID }) {
+			return im.StatusNotFound
+		}
+		return im.StatusSuccess
+	})
+	if status == im.StatusSuccess {
+		ep.groupTableChanged()
+	}
+	return status
+}
+
+// LeaveAllGroups takes the endpoint out of every group of a fabric, as the
+// Groups cluster's RemoveAllGroups does, and returns the groups it left.
+func (ep *Endpoint) LeaveAllGroups(fabricIndex uint8) []uint16 {
+	groups := ep.Groups(fabricIndex)
+	left := make([]uint16, 0, len(groups))
+	for _, g := range groups {
+		left = append(left, g.GroupID)
+	}
+	if len(left) == 0 {
+		return nil
+	}
+	ep.device.groupKeys.update(fabricIndex, func(rec *store.GroupKeysRecord) im.Status {
+		leaveGroup(rec, uint16(ep.id), func(uint16) bool { return true })
+		return im.StatusSuccess
+	})
+	ep.groupTableChanged()
+	return left
+}
+
+// leaveGroup removes endpoint from the groups match selects, and the
+// groups no endpoint is left in, and reports whether it was in any.
+func leaveGroup(rec *store.GroupKeysRecord, endpoint uint16, match func(groupID uint16) bool) bool {
+	found := false
+	groups := rec.Groups[:0]
+	for _, g := range rec.Groups {
+		if match(g.GroupID) {
+			if i := slices.Index(g.Endpoints, endpoint); 0 <= i {
+				g.Endpoints = slices.Delete(g.Endpoints, i, i+1)
+				found = true
+			}
+		}
+		if 0 < len(g.Endpoints) {
+			groups = append(groups, g)
+		}
+	}
+	rec.Groups = groups
+	return found
+}
+
+// Groups returns the groups of a fabric the endpoint is in.
+func (ep *Endpoint) Groups(fabricIndex uint8) []GroupMembership {
+	rec, err := ep.device.groupKeys.load(fabricIndex)
+	if err != nil {
+		return nil
+	}
+	var groups []GroupMembership
+	for _, g := range rec.Groups {
+		if slices.Contains(g.Endpoints, uint16(ep.id)) {
+			groups = append(groups, GroupMembership{GroupID: g.GroupID, Name: g.Name})
+		}
+	}
+	return groups
+}
+
+// GroupCapacity returns how many more groups a fabric can put the
+// endpoint in.
+func (ep *Endpoint) GroupCapacity(fabricIndex uint8) int {
+	rec, err := ep.device.groupKeys.load(fabricIndex)
+	if err != nil {
+		return 0
+	}
+	return max(0, MaxGroupsPerFabric-len(rec.Groups))
 }

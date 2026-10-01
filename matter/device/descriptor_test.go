@@ -68,6 +68,7 @@ func TestDescriptorOfRootEndpoint(t *testing.T) {
 		uint64(GeneralDiagnosticsClusterID),
 		uint64(AdministratorCommissioningClusterID),
 		uint64(OperationalCredentialsClusterID),
+		uint64(GroupKeyManagementClusterID),
 	}
 	if got := readUintList(t, sess, 0, DescriptorClusterID, serverListAttributeID); !slices.Equal(got, want) {
 		t.Fatalf("ServerList = %v, want %v", got, want)
