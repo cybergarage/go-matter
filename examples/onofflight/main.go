@@ -100,10 +100,10 @@ func run(passcode, discriminator uint, address, storeDir, name string) error {
 	if err != nil {
 		return err
 	}
-	cluster.NewIdentify(cluster.IdentifyTypeLightOutput, cluster.WithIdentifyHandler(func(identifying bool) {
+	identify := cluster.NewIdentify(cluster.IdentifyTypeLightOutput, cluster.WithIdentifyHandler(func(identifying bool) {
 		fmt.Printf("identify: %v\n", identifying)
-	})).Register(ep)
-	cluster.NewGroups().Register(ep)
+	}))
+	identify.Register(ep)
 	light := cluster.NewOnOff(cluster.WithOnOffHandler(func(on bool) {
 		if on {
 			fmt.Println("light: ON")
@@ -115,6 +115,8 @@ func run(passcode, discriminator uint, address, storeDir, name string) error {
 	scenes := cluster.NewScenes()
 	scenes.AddSceneHandler(cluster.OnOffClusterID, light)
 	scenes.Register(ep)
+	// A group's scenes go when the light leaves the group.
+	cluster.NewGroups(cluster.WithGroupsIdentify(identify), cluster.WithGroupsRemovedHandler(scenes.RemoveGroups)).Register(ep)
 
 	if err := dev.Start(); err != nil {
 		return err

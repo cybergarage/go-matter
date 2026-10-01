@@ -38,13 +38,14 @@ func (d *chipToolDevice) addOnOffLight(t *testing.T) *cluster.OnOff {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cluster.NewIdentify(cluster.IdentifyTypeLightOutput).Register(ep)
-	cluster.NewGroups().Register(ep)
+	identify := cluster.NewIdentify(cluster.IdentifyTypeLightOutput)
+	identify.Register(ep)
 	light := cluster.NewOnOff()
 	light.Register(ep)
 	scenes := cluster.NewScenes()
 	scenes.AddSceneHandler(cluster.OnOffClusterID, light)
 	scenes.Register(ep)
+	cluster.NewGroups(cluster.WithGroupsIdentify(identify), cluster.WithGroupsRemovedHandler(scenes.RemoveGroups)).Register(ep)
 	return light
 }
 
@@ -128,6 +129,38 @@ func TestChipToolRecallsScene(t *testing.T) {
 	out, err := chipTool.run(t, "scenesmanagement", "read", "fabric-scene-info", node, ep)
 	if err != nil || !strings.Contains(out, "SceneCount: 1") {
 		t.Fatalf("chip-tool scenesmanagement read fabric-scene-info: %v", err)
+	}
+}
+
+// TestChipToolAddsLightToGroup has chip-tool write a group key set and
+// map a group to it with Group Key Management, and put the light in the
+// group with the Groups cluster.
+func TestChipToolAddsLightToGroup(t *testing.T) {
+	chipTool := lookupChipTool(t)
+	d := startChipToolDevice(t)
+	d.addOnOffLight(t)
+	chipTool.pair(t, d.nodeID, chipToolPasscode, d.discriminator)
+	node := nodeArg(d.nodeID)
+
+	keySet := `{"groupKeySetID": 42, "groupKeySecurityPolicy": 0, "epochKey0": "hex:d0d1d2d3d4d5d6d7d8d9dadbdcdddedf", "epochStartTime0": 2220000,` +
+		` "epochKey1": null, "epochStartTime1": null, "epochKey2": null, "epochStartTime2": null}`
+	if _, err := chipTool.run(t, "groupkeymanagement", "key-set-write", keySet, node, "0"); err != nil {
+		t.Fatalf("chip-tool groupkeymanagement key-set-write: %v", err)
+	}
+	if _, err := chipTool.run(t, "groupkeymanagement", "write", "group-key-map", `[{"groupId": 257, "groupKeySetID": 42, "fabricIndex": 1}]`, node, "0"); err != nil {
+		t.Fatalf("chip-tool groupkeymanagement write group-key-map: %v", err)
+	}
+	out, err := chipTool.run(t, "groups", "add-group", "257", "Kitchen", node, "1")
+	if err != nil || !strings.Contains(out, "status: 0") {
+		t.Fatalf("chip-tool groups add-group: %v", err)
+	}
+	out, err = chipTool.run(t, "groupkeymanagement", "read", "group-table", node, "0")
+	if err != nil || !strings.Contains(out, "GroupId: 257") {
+		t.Fatalf("chip-tool groupkeymanagement read group-table: %v", err)
+	}
+	keys, err := d.store.LoadGroupKeys(1)
+	if err != nil || len(keys.Groups) != 1 || keys.Groups[0].Name != "Kitchen" {
+		t.Fatalf("the device holds the groups (%+v, %v)", keys.Groups, err)
 	}
 }
 

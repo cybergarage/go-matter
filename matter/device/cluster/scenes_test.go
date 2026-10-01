@@ -129,6 +129,16 @@ func TestScenes(t *testing.T) {
 	if s := responseStatus(t, ep.invokeWith(t, ScenesManagementClusterID, AddSceneCommandID, putAddScene(5, 1, "", 1))); s != im.StatusInvalidCommand {
 		t.Fatalf("AddScene in a group the endpoint is not in: status %#x, want INVALID_COMMAND", uint8(s))
 	}
+	ep.mapped[5] = true
+	ep.JoinGroup(1, 5, "")
+	if s := responseStatus(t, ep.invokeWith(t, ScenesManagementClusterID, AddSceneCommandID, putAddScene(5, 1, "", 1))); s != im.StatusSuccess {
+		t.Fatalf("AddScene in a group the endpoint is in: status %#x", uint8(s))
+	}
+	scenes.RemoveGroups(1, []uint16{5})
+	if s := responseStatus(t, ep.invoke(t, ScenesManagementClusterID, ViewSceneCommandID, map[uint8]uint64{0: 5, 1: 1})); s != im.StatusNotFound {
+		t.Fatalf("ViewScene of a removed group's scene: status %#x, want NOT_FOUND", uint8(s))
+	}
+	ep.LeaveGroup(1, 5)
 	if s := responseStatus(t, ep.invokeWith(t, ScenesManagementClusterID, AddSceneCommandID, putAddScene(0, 0xFF, "", 1))); s != im.StatusConstraintError {
 		t.Fatalf("AddScene of scene 0xFF: status %#x, want CONSTRAINT_ERROR", uint8(s))
 	}

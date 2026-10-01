@@ -15,10 +15,12 @@
 package cluster
 
 import (
+	"slices"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/cybergarage/go-matter/matter/device"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 	"github.com/cybergarage/go-matter/matter/protocol/im"
 )
@@ -36,9 +38,13 @@ type cmdKey struct {
 // fakeEndpoint records what a cluster registers and which attributes it
 // reports changed.
 type fakeEndpoint struct {
-	mutex    sync.Mutex
-	fabric   uint8
-	removed  []func(uint8)
+	mutex   sync.Mutex
+	fabric  uint8
+	removed []func(uint8)
+	// mapped are the groups with a key set; groups those the endpoint is
+	// in, by name.
+	mapped   map[uint16]bool
+	groups   map[uint16]string
 	sessions map[attrKey]im.AttributeReadHandler
 	readers  map[attrKey]im.AttributeReader
 	writers  map[attrKey]im.AttributeWriteHandler
@@ -51,6 +57,8 @@ func newFakeEndpoint() *fakeEndpoint {
 		mutex:    sync.Mutex{},
 		fabric:   1,
 		removed:  nil,
+		mapped:   map[uint16]bool{},
+		groups:   map[uint16]string{},
 		sessions: map[attrKey]im.AttributeReadHandler{},
 		readers:  map[attrKey]im.AttributeReader{},
 		writers:  map[attrKey]im.AttributeWriteHandler{},
@@ -73,6 +81,47 @@ func (ep *fakeEndpoint) AccessingFabric(im.SecureSession) uint8 {
 
 func (ep *fakeEndpoint) HandleFabricRemoved(h func(uint8)) {
 	ep.removed = append(ep.removed, h)
+}
+
+func (ep *fakeEndpoint) JoinGroup(_ uint8, group uint16, name string) im.Status {
+	if !ep.mapped[group] {
+		return im.StatusUnsupportedAccess
+	}
+	if _, ok := ep.groups[group]; !ok && device.MaxGroupsPerFabric <= len(ep.groups) {
+		return im.StatusResourceExhausted
+	}
+	ep.groups[group] = name
+	return im.StatusSuccess
+}
+
+func (ep *fakeEndpoint) LeaveGroup(_ uint8, group uint16) im.Status {
+	if _, ok := ep.groups[group]; !ok {
+		return im.StatusNotFound
+	}
+	delete(ep.groups, group)
+	return im.StatusSuccess
+}
+
+func (ep *fakeEndpoint) LeaveAllGroups(uint8) []uint16 {
+	left := make([]uint16, 0, len(ep.groups))
+	for g := range ep.groups {
+		left = append(left, g)
+	}
+	clear(ep.groups)
+	return left
+}
+
+func (ep *fakeEndpoint) Groups(uint8) []device.GroupMembership {
+	groups := make([]device.GroupMembership, 0, len(ep.groups))
+	for g, name := range ep.groups {
+		groups = append(groups, device.GroupMembership{GroupID: g, Name: name})
+	}
+	slices.SortFunc(groups, func(a, b device.GroupMembership) int { return int(a.GroupID) - int(b.GroupID) })
+	return groups
+}
+
+func (ep *fakeEndpoint) GroupCapacity(uint8) int {
+	return device.MaxGroupsPerFabric - len(ep.groups)
 }
 
 func (ep *fakeEndpoint) HandleAttributeWrite(c im.ClusterID, a im.AttributeID, h im.AttributeWriteHandler, _ ...im.HandlerOption) {
@@ -300,30 +349,100 @@ func TestIdentify(t *testing.T) {
 
 func TestGroups(t *testing.T) {
 	ep := newFakeEndpoint()
-	NewGroups().Register(ep)
+	var removed []uint16
+	NewGroups(WithGroupsRemovedHandler(func(_ uint8, groups []uint16) { removed = append(removed, groups...) })).Register(ep)
+	ep.mapped[1] = true
+	ep.mapped[2] = true
 
-	for _, tc := range []struct {
-		command im.CommandID
-		group   uint64
-		want    im.Status
-	}{
-		{AddGroupCommandID, 1, im.StatusUnsupportedAccess},
-		{AddGroupCommandID, 0, im.StatusConstraintError},
-		{ViewGroupCommandID, 1, im.StatusNotFound},
-		{RemoveGroupCommandID, 1, im.StatusNotFound},
-	} {
-		r := ep.invoke(t, GroupsClusterID, tc.command, map[uint8]uint64{0: tc.group})
-		if r.ResponseCommand != tc.command {
-			t.Fatalf("command 0x%02X answered with 0x%02X", tc.command, r.ResponseCommand)
+	addGroup := func(group uint16, name string) im.CommandResult {
+		return ep.invokeWith(t, GroupsClusterID, AddGroupCommandID, func(enc tlv.Encoder) {
+			enc.PutUnsigned2(tlv.NewContextTag(0), group)
+			_ = enc.PutUTF8(tlv.NewContextTag(1), name)
+		})
+	}
+	status := func(r im.CommandResult) uint64 {
+		t.Helper()
+		if !r.HasResponse {
+			t.Fatalf("no response, status %#x", uint8(r.Status))
 		}
 		dec := tlv.NewDecoderWithBytes(r.Fields)
 		dec.Next()
 		dec.Next()
-		if v, _ := dec.Element().Unsigned(); v != uint64(tc.want) {
-			t.Fatalf("command 0x%02X group %d: status %#x, want %#x", tc.command, tc.group, v, uint8(tc.want))
+		v, _ := dec.Element().Unsigned()
+		return v
+	}
+	for _, tc := range []struct {
+		group uint16
+		name  string
+		want  im.Status
+	}{
+		{1, "Kitchen", im.StatusSuccess},
+		{0, "", im.StatusConstraintError},
+		{3, "", im.StatusUnsupportedAccess},
+		{2, "a name longer than sixteen", im.StatusConstraintError},
+	} {
+		if got := status(addGroup(tc.group, tc.name)); got != uint64(tc.want) {
+			t.Errorf("AddGroup(%d, %q): status %#x, want %#x", tc.group, tc.name, got, uint8(tc.want))
 		}
 	}
+	view := ep.invoke(t, GroupsClusterID, ViewGroupCommandID, map[uint8]uint64{0: 1})
+	if status(view) != 0 {
+		t.Fatalf("ViewGroup(1): status %#x", status(view))
+	}
+	if ep.groups[1] != "Kitchen" {
+		t.Fatalf("group 1 is named %q", ep.groups[1])
+	}
+	if s := status(ep.invoke(t, GroupsClusterID, ViewGroupCommandID, map[uint8]uint64{0: 2})); s != uint64(im.StatusNotFound) {
+		t.Fatalf("ViewGroup(2): status %#x, want NOT_FOUND", s)
+	}
+
+	membership := ep.invokeWith(t, GroupsClusterID, GetGroupMembershipCommandID, func(enc tlv.Encoder) {
+		enc.BeginArray(tlv.NewContextTag(0))
+		_ = enc.EndContainer()
+	})
+	dec := tlv.NewDecoderWithBytes(membership.Fields)
+	dec.Next()
+	dec.Next()
+	if capacity, _ := dec.Element().Unsigned(); capacity != device.MaxGroupsPerFabric-1 {
+		t.Fatalf("GetGroupMembership capacity = %d", capacity)
+	}
+	dec.Next() // GroupList
+	dec.Next()
+	if g, _ := dec.Element().Unsigned(); g != 1 {
+		t.Fatalf("GetGroupMembership lists group %d, want 1", g)
+	}
+
+	if s := status(ep.invoke(t, GroupsClusterID, RemoveGroupCommandID, map[uint8]uint64{0: 1})); s != 0 {
+		t.Fatalf("RemoveGroup(1): status %#x", s)
+	}
+	if s := status(ep.invoke(t, GroupsClusterID, RemoveGroupCommandID, map[uint8]uint64{0: 1})); s != uint64(im.StatusNotFound) {
+		t.Fatalf("RemoveGroup(1) twice: status %#x, want NOT_FOUND", s)
+	}
+	addGroup(2, "")
 	if r := ep.invoke(t, GroupsClusterID, RemoveAllGroupsCommandID, nil); r.Status != im.StatusSuccess {
 		t.Fatalf("RemoveAllGroups: status %#x", uint8(r.Status))
+	}
+	if !slices.Equal(removed, []uint16{1, 2}) || len(ep.groups) != 0 {
+		t.Fatalf("the groups removed were %v, the endpoint is left in %v", removed, ep.groups)
+	}
+
+	// AddGroupIfIdentifying adds only while identifying.
+	identify := NewIdentify(IdentifyTypeLightOutput)
+	identify.Register(ep)
+	ep2 := newFakeEndpoint()
+	ep2.mapped[1] = true
+	NewGroups(WithGroupsIdentify(identify)).Register(ep2)
+	addIfIdentifying := func() im.CommandResult {
+		return ep2.invokeWith(t, GroupsClusterID, AddGroupIfIdentifyingCommandID, func(enc tlv.Encoder) {
+			enc.PutUnsigned2(tlv.NewContextTag(0), 1)
+			_ = enc.PutUTF8(tlv.NewContextTag(1), "")
+		})
+	}
+	if r := addIfIdentifying(); r.Status != im.StatusSuccess || len(ep2.groups) != 0 {
+		t.Fatalf("AddGroupIfIdentifying while not identifying: (%#x, %v)", uint8(r.Status), ep2.groups)
+	}
+	ep.invoke(t, IdentifyClusterID, IdentifyCommandID, map[uint8]uint64{0: 10})
+	if r := addIfIdentifying(); r.Status != im.StatusSuccess || len(ep2.groups) != 1 {
+		t.Fatalf("AddGroupIfIdentifying while identifying: (%#x, %v)", uint8(r.Status), ep2.groups)
 	}
 }

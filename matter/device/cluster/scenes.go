@@ -20,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cybergarage/go-matter/matter/device"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 	"github.com/cybergarage/go-matter/matter/protocol/im"
 )
@@ -120,9 +121,8 @@ type fabricScene struct {
 
 // Scenes is the server of the Scenes Management cluster with the
 // SceneNames feature: each fabric stores the attribute values of the
-// endpoint's scene handlers as scenes, and recalls them. Scenes are
-// stored in group 0 only, since the endpoint belongs to no group, and
-// they are kept in memory.
+// endpoint's scene handlers as scenes, in group 0 or a group the endpoint
+// is in, and recalls them. Scenes are kept in memory.
 type Scenes struct {
 	mutex    sync.Mutex
 	endpoint FabricEndpoint
@@ -304,10 +304,42 @@ func (c *Scenes) sceneTarget(req *im.CommandRequest, withScene bool) (sceneKey, 
 	if key.fabric == 0 {
 		return key, im.StatusUnsupportedAccess
 	}
-	if key.group != 0 {
+	if key.group != 0 && !c.inGroup(key.fabric, key.group) {
 		return key, im.StatusInvalidCommand
 	}
 	return key, im.StatusSuccess
+}
+
+// inGroup reports whether the endpoint is in a group of a fabric.
+func (c *Scenes) inGroup(fabric uint8, group uint16) bool {
+	ep, ok := c.endpoint.(interface {
+		Groups(fabricIndex uint8) []device.GroupMembership
+	})
+	if !ok {
+		return false
+	}
+	return slices.ContainsFunc(ep.Groups(fabric), func(g device.GroupMembership) bool { return g.GroupID == group })
+}
+
+// RemoveGroups removes a fabric's scenes of groups the endpoint left, as
+// the Groups cluster's RemoveGroup and RemoveAllGroups do; it suits
+// WithGroupsRemovedHandler.
+func (c *Scenes) RemoveGroups(fabric uint8, groups []uint16) {
+	c.mutex.Lock()
+	for key := range c.table {
+		if key.fabric == fabric && slices.Contains(groups, key.group) {
+			delete(c.table, key)
+		}
+	}
+	if cur, ok := c.current[fabric]; ok && slices.Contains(groups, cur.group) {
+		cur.valid = false
+		c.current[fabric] = cur
+	}
+	ep := c.endpoint
+	c.mutex.Unlock()
+	if ep != nil {
+		ep.NotifyAttributeChanged(ScenesManagementClusterID, FabricSceneInfoAttributeID)
+	}
 }
 
 // sceneResponse encodes the {Status, GroupID[, SceneID]} fields of a
