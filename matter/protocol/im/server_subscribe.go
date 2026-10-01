@@ -212,12 +212,15 @@ func (s *Server) serveStatusResponse(sess SecureSession, exchange message.Exchan
 	if err := enc.EndContainer(); err != nil {
 		return err
 	}
-	if err := sendIMResponse(sess, exchange, message.SubscribeResponseMessage, enc.Bytes()); err != nil {
-		return err
-	}
+	// The subscription is active before the peer learns it is: a change
+	// right after the SubscribeResponse is reported, not lost.
 	s.subs.mutex.Lock()
 	s.subs.active[sub.id] = sub
 	s.subs.mutex.Unlock()
+	if err := sendIMResponse(sess, exchange, message.SubscribeResponseMessage, enc.Bytes()); err != nil {
+		s.endSubscription(sub.id)
+		return err
+	}
 	go sub.run()
 	return nil
 }
@@ -228,6 +231,11 @@ func (s *Server) NotifyAttributeChanged(path AttributePath) {
 	s.subs.mutex.Lock()
 	defer s.subs.mutex.Unlock()
 	for _, sub := range s.subs.active {
+		sub.changed(path)
+	}
+	// A change after a priming report is reported once the subscription
+	// is established.
+	for _, sub := range s.subs.pending {
 		sub.changed(path)
 	}
 }

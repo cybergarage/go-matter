@@ -273,3 +273,33 @@ func (subs *subscriptions) onlySession(t *testing.T) SecureSession {
 	}
 	return nil
 }
+
+// TestServerSubscribeReportsEarlyChange changes an attribute between the
+// priming report and the SubscribeResponse: the change is reported once
+// the subscription is established, not left for the next change.
+func TestServerSubscribeReportsEarlyChange(t *testing.T) {
+	srv := testServer()
+	var on atomic.Bool
+	srv.HandleAttribute(1, 0x0006, 0x0000, func(enc tlv.Encoder, tag tlv.Tag) Status {
+		enc.PutBool(tag, on.Load())
+		return StatusSuccess
+	})
+	client := startServer(t, srv)
+
+	exchange := message.NewFirstExchangeID()
+	if err := transmitOnExchange(client, message.SubscribeRequestMessage, exchange, buildSubscribeRequest(0, 60, 1, 0x0006)); err != nil {
+		t.Fatal(err)
+	}
+	receiveReport(t, client)
+	on.Store(true)
+	onOff := AttributePath{Endpoint: 1, Cluster: 0x0006, Attribute: 0x0000}
+	srv.NotifyAttributeChanged(onOff)
+	if err := transmitOnExchange(client, message.StatusResponseMessage, exchange, buildStatusResponse(StatusSuccess)); err != nil {
+		t.Fatal(err)
+	}
+	receiveIM(t, client, message.SubscribeResponseMessage)
+	change := receiveReport(t, client)
+	if b, _ := change.values[onOff].Bool(); !b {
+		t.Fatalf("the report after the SubscribeResponse has %v, want OnOff true", change.values)
+	}
+}
