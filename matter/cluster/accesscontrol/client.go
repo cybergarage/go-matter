@@ -19,6 +19,7 @@ package accesscontrol
 import (
 	"fmt"
 
+	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 	"github.com/cybergarage/go-matter/matter/protocol/im"
 	"github.com/cybergarage/go-matter/matter/protocol/session"
 )
@@ -74,4 +75,63 @@ func readUint16Attribute(sess session.SecureSession, endpointID im.EndpointID, a
 		return 0, fmt.Errorf("accesscontrol: %s: attribute value is not a UINT16", name)
 	}
 	return v, nil
+}
+
+// ACLAttributeID is the ACL attribute.
+const ACLAttributeID im.AttributeID = 0x0000
+
+// Privileges and authentication modes of an access control entry.
+const (
+	PrivilegeView       uint8 = 1
+	PrivilegeOperate    uint8 = 3
+	PrivilegeManage     uint8 = 4
+	PrivilegeAdminister uint8 = 5
+
+	AuthModeCASE  uint8 = 2
+	AuthModeGroup uint8 = 3
+)
+
+// Entry is an access control entry granting Privilege to Subjects (node
+// IDs or CATs for CASE, group IDs for Group), on every target.
+type Entry struct {
+	Privilege uint8
+	AuthMode  uint8
+	Subjects  []uint64
+}
+
+// WriteACL replaces the accessing fabric's ACL. The entries must keep the
+// writer's own Administer entry, or the writer loses the access to the
+// node it administers.
+func WriteACL(sess session.SecureSession, entries []Entry) error {
+	resp, err := im.WriteAttribute(sess, 0, ClusterID, ACLAttributeID, func(enc tlv.Encoder) error {
+		enc.BeginArray(tlv.NewContextTag(2))
+		for _, e := range entries {
+			enc.BeginStructure(tlv.NewAnonymousTag())
+			enc.PutUnsigned1(tlv.NewContextTag(1), e.Privilege)
+			enc.PutUnsigned1(tlv.NewContextTag(2), e.AuthMode)
+			if e.Subjects == nil {
+				enc.PutNull(tlv.NewContextTag(3))
+			} else {
+				enc.BeginArray(tlv.NewContextTag(3))
+				for _, s := range e.Subjects {
+					enc.PutUnsigned8(tlv.NewAnonymousTag(), s)
+				}
+				if err := enc.EndContainer(); err != nil {
+					return err
+				}
+			}
+			enc.PutNull(tlv.NewContextTag(4)) // every target
+			if err := enc.EndContainer(); err != nil {
+				return err
+			}
+		}
+		return enc.EndContainer()
+	})
+	if err != nil {
+		return fmt.Errorf("accesscontrol: write ACL: %w", err)
+	}
+	if !resp.IsSuccess() {
+		return fmt.Errorf("accesscontrol: write ACL failed: IM status 0x%02X", resp.Status.IMStatus)
+	}
+	return nil
 }

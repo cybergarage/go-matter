@@ -14,7 +14,12 @@
 
 package matter
 
-import "github.com/cybergarage/go-matter/matter/types"
+import (
+	"github.com/cybergarage/go-matter/matter/config"
+	caseprotocol "github.com/cybergarage/go-matter/matter/protocol/case"
+	"github.com/cybergarage/go-matter/matter/protocol/group"
+	"github.com/cybergarage/go-matter/matter/types"
+)
 
 // GroupID represents a group ID.
 // 2.5.4. Group Identifier (GID).
@@ -30,3 +35,23 @@ const (
 	ApplicationGroupIDMin         GroupID = 0x0001
 	ApplicationGroupIDMax         GroupID = 0xFEFF
 )
+
+// GroupSender sends commands and attribute writes to the groups of a
+// fabric (see group.Sender).
+type GroupSender = group.Sender
+
+// NewGroupSender returns a GroupSender which sends as the administrator of
+// adminCfg, on its fabric: the group keys are derived with the fabric's
+// compressed fabric ID, and the administrator's node ID is the source of
+// the messages.
+func NewGroupSender(adminCfg config.AdministratorConfig, opts ...group.SenderOption) (*GroupSender, error) {
+	admin, err := caseprotocol.LoadAdministratorMetadata(adminCfg)
+	if err != nil {
+		return nil, err
+	}
+	cfid, err := caseprotocol.ComputeCompressedFabricID(admin.RootPublicKey, admin.FabricID)
+	if err != nil {
+		return nil, err
+	}
+	return group.NewSender(admin.FabricID, cfid, admin.NodeID, opts...)
+}

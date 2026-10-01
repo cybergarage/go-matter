@@ -20,6 +20,7 @@ import (
 
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/encoding/message"
+	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 )
 
 // ServeGroupMessage serves a decrypted message sent to a group whose
@@ -116,4 +117,102 @@ func (s *Server) serveGroupWrite(sess SecureSession, body []byte, endpoints []En
 		}
 	}
 	return nil
+}
+
+// GroupInvokeMessage encodes the InvokeRequest of a command sent to a
+// group, with its protocol header: the path names no endpoint, as the
+// command runs on the group's endpoints, and no response is asked for. A
+// group message is not sent reliably. commandFields is built as for
+// Invoke.
+func GroupInvokeMessage(clusterID ClusterID, commandID CommandID, commandFields []byte) ([]byte, error) {
+	enc := tlv.NewEncoder()
+	enc.BeginStructure(tlv.NewAnonymousTag())
+	enc.PutBool(tlv.NewContextTag(0), true)  // suppress-response
+	enc.PutBool(tlv.NewContextTag(1), false) // timed-request
+	enc.BeginArray(tlv.NewContextTag(2))
+	enc.BeginStructure(tlv.NewAnonymousTag())
+	enc.BeginList(tlv.NewContextTag(0))
+	if err := enc.PutUnsigned(tlv.NewContextTag(1), uint64(clusterID)); err != nil {
+		return nil, err
+	}
+	if err := enc.PutUnsigned(tlv.NewContextTag(2), uint64(commandID)); err != nil {
+		return nil, err
+	}
+	if err := enc.EndContainer(); err != nil {
+		return nil, err
+	}
+	if len(commandFields) > 0 {
+		enc.Raw(commandFields)
+	} else {
+		enc.BeginStructure(tlv.NewContextTag(1))
+		if err := enc.EndContainer(); err != nil {
+			return nil, err
+		}
+	}
+	if err := enc.EndContainer(); err != nil { // command-data-IB
+		return nil, err
+	}
+	if err := enc.EndContainer(); err != nil { // invoke-requests
+		return nil, err
+	}
+	enc.PutUnsigned1(tlv.NewContextTag(interactionModelRevisionTag), interactionModelRevision)
+	if err := enc.EndContainer(); err != nil {
+		return nil, err
+	}
+	return groupMessage(message.InvokeRequestMessage, enc.Bytes())
+}
+
+// GroupWriteMessage encodes the WriteRequest of an attribute written to a
+// group, with its protocol header: the path names no endpoint, and no
+// response is asked for. encodeData puts the attribute's Data, tagged
+// ContextTag(2), as for WriteAttribute.
+func GroupWriteMessage(clusterID ClusterID, attributeID AttributeID, encodeData func(enc tlv.Encoder) error) ([]byte, error) {
+	if encodeData == nil {
+		return nil, fmt.Errorf("im: GroupWriteMessage: encodeData must not be nil")
+	}
+	enc := tlv.NewEncoder()
+	enc.BeginStructure(tlv.NewAnonymousTag())
+	enc.PutBool(tlv.NewContextTag(0), true)  // suppress-response
+	enc.PutBool(tlv.NewContextTag(1), false) // timed-request
+	enc.BeginArray(tlv.NewContextTag(2))
+	enc.BeginStructure(tlv.NewAnonymousTag())
+	enc.BeginList(tlv.NewContextTag(1))
+	if err := enc.PutUnsigned(tlv.NewContextTag(3), uint64(clusterID)); err != nil {
+		return nil, err
+	}
+	if err := enc.PutUnsigned(tlv.NewContextTag(4), uint64(attributeID)); err != nil {
+		return nil, err
+	}
+	if err := enc.EndContainer(); err != nil {
+		return nil, err
+	}
+	if err := encodeData(enc); err != nil {
+		return nil, fmt.Errorf("im: encode attribute Data: %w", err)
+	}
+	if err := enc.EndContainer(); err != nil { // attribute-data-IB
+		return nil, err
+	}
+	if err := enc.EndContainer(); err != nil { // write-requests
+		return nil, err
+	}
+	enc.PutUnsigned1(tlv.NewContextTag(interactionModelRevisionTag), interactionModelRevision)
+	if err := enc.EndContainer(); err != nil {
+		return nil, err
+	}
+	return groupMessage(message.WriteRequestMessage, enc.Bytes())
+}
+
+// groupMessage prepends the protocol header of a group message: the
+// sender initiates a new exchange and asks for no acknowledgement.
+func groupMessage(opcode message.Opcode, payload []byte) ([]byte, error) {
+	hdr, err := message.NewProtocolHeader(
+		message.WithHeaderExchangeFlags(message.InitiatorFlag),
+		message.WithHeaderOpcode(opcode),
+		message.WithHeaderExchangeID(message.NewFirstExchangeID()),
+		message.WithHeaderProtocolID(message.InteractionModel),
+	).Bytes()
+	if err != nil {
+		return nil, err
+	}
+	return append(hdr, payload...), nil
 }
