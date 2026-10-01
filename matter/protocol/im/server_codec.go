@@ -109,7 +109,7 @@ func decodeCommandDataIBs(dec tlv.Decoder) ([]*CommandRequest, error) {
 }
 
 func decodeCommandDataIB(dec tlv.Decoder) (*CommandRequest, error) {
-	cmd := &CommandRequest{Fields: map[uint8]tlv.Element{}, Elements: nil, Data: nil}
+	cmd := &CommandRequest{Fields: map[uint8]tlv.Element{}, Elements: nil, Data: nil, anyEndpoint: false}
 	hasPath := false
 	for dec.Next() {
 		elem := dec.Element()
@@ -123,7 +123,7 @@ func decodeCommandDataIB(dec tlv.Decoder) (*CommandRequest, error) {
 		switch {
 		case tag == 0 && elem.Type().IsContainer():
 			var err error
-			cmd.Endpoint, cmd.Cluster, cmd.Command, err = decodeCommandPathIB(dec)
+			cmd.Endpoint, cmd.Cluster, cmd.Command, cmd.anyEndpoint, err = decodeCommandPathIB(dec)
 			if err != nil {
 				return nil, err
 			}
@@ -141,15 +141,20 @@ func decodeCommandDataIB(dec tlv.Decoder) (*CommandRequest, error) {
 	return nil, errors.New("unterminated command-data-IB")
 }
 
-func decodeCommandPathIB(dec tlv.Decoder) (EndpointID, ClusterID, CommandID, error) {
+// decodeCommandPathIB decodes a CommandPathIB; a command sent to a group
+// names no endpoint, and runs on the group's endpoints.
+func decodeCommandPathIB(dec tlv.Decoder) (EndpointID, ClusterID, CommandID, bool, error) {
 	var endpoint, cluster, command *uint64
 	for dec.Next() {
 		elem := dec.Element()
 		if elem.Type().IsEndOfContainer() {
-			if endpoint == nil || cluster == nil || command == nil {
-				return 0, 0, 0, errors.New("command-path-IB lacks the endpoint, cluster or command")
+			if cluster == nil || command == nil {
+				return 0, 0, 0, false, errors.New("command-path-IB lacks the cluster or command")
 			}
-			return EndpointID(*endpoint), ClusterID(*cluster), CommandID(*command), dec.Error()
+			if endpoint == nil {
+				return 0, ClusterID(*cluster), CommandID(*command), true, dec.Error()
+			}
+			return EndpointID(*endpoint), ClusterID(*cluster), CommandID(*command), false, dec.Error()
 		}
 		tag, _ := contextNumber(elem)
 		v, ok := elem.Unsigned()
@@ -165,7 +170,7 @@ func decodeCommandPathIB(dec tlv.Decoder) (EndpointID, ClusterID, CommandID, err
 			command = &v
 		}
 	}
-	return 0, 0, 0, errors.New("unterminated command-path-IB")
+	return 0, 0, 0, false, errors.New("unterminated command-path-IB")
 }
 
 // decodeCommandFields reads the command-fields structure into cmd: the

@@ -48,6 +48,9 @@ type CommandRequest struct {
 	Data []byte
 	// Timed reports whether the command arrived in a timed interaction.
 	Timed bool
+	// anyEndpoint reports whether the path named no endpoint, as a command
+	// sent to a group does.
+	anyEndpoint bool
 }
 
 // Decoder returns a decoder positioned on the command fields structure,
@@ -352,6 +355,9 @@ func (s *Server) serveInvoke(sess SecureSession, exchange message.ExchangeID, bo
 		entry, status := s.commandHandler(commandPath{cmd.Endpoint, cmd.Cluster, cmd.Command})
 		result := CommandStatus(status)
 		switch {
+		case cmd.anyEndpoint:
+			// Only a command sent to a group may leave out the endpoint.
+			result = CommandStatus(StatusInvalidAction)
 		case entry.handler == nil:
 		case !s.allowed(sess, cmd.Endpoint, cmd.Cluster, entry.privilege):
 			result = CommandStatus(StatusUnsupportedAccess)
