@@ -350,7 +350,11 @@ func New(opts ...Option) (*Device, error) {
 	d.failSafe.timer = d.timer
 	d.failSafe.onExpire = d.failSafeExpired
 	d.failSafe.onRollback = func(fabricIndex uint8) {
-		d.unbindFabric(fabricIndex)
+		if fabricIndex != 0 {
+			d.unbindFabric(fabricIndex)
+		}
+		// The operational services follow the fabrics as they were,
+		// such as a node ID an UpdateNOC changed.
 		d.requestRefresh()
 	}
 	gc := newGeneralCommissioning(d.failSafe, d.lookupSession)
@@ -366,6 +370,7 @@ func New(opts ...Option) (*Device, error) {
 		d.bindFabric(sec, fabricIndex)
 		d.requestRefresh()
 	}
+	d.opCreds.onFabricUpdated = func(uint8) { d.requestRefresh() }
 	d.opCreds.register(d.imServer)
 	(&accessControl{oc: d.opCreds}).register(d.imServer)
 	d.diagnostics.register(d.imServer)

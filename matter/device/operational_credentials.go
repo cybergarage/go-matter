@@ -42,6 +42,7 @@ const (
 	csrRequestCommandID                im.CommandID = 0x04
 	csrResponseCommandID               im.CommandID = 0x05
 	addNOCCommandID                    im.CommandID = 0x06
+	updateNOCCommandID                 im.CommandID = 0x07
 	nocResponseCommandID               im.CommandID = 0x08
 	updateFabricLabelCommandID         im.CommandID = 0x09
 	removeFabricCommandID              im.CommandID = 0x0A
@@ -120,11 +121,19 @@ type operationalCredentials struct {
 	// onFabricAdded is called when AddNOC adds a fabric over sess, which
 	// is from then on bound to that fabric (11.18.6.8).
 	onFabricAdded func(sess im.SecureSession, fabricIndex uint8)
+	// onFabricUpdated is called when UpdateNOC updates a fabric's NOC.
+	onFabricUpdated func(fabricIndex uint8)
 
-	epoch       uint64
-	pendingKey  *ecdsa.PrivateKey
-	pendingRoot *credentials.OperationalCertificate
-	addedFabric uint8
+	epoch      uint64
+	pendingKey *ecdsa.PrivateKey
+	// pendingForUpdate tells whether pendingKey is for UpdateNOC, as its
+	// CSRRequest asked, rather than for AddNOC.
+	pendingForUpdate bool
+	pendingRoot      *credentials.OperationalCertificate
+	addedFabric      uint8
+	// updatedFabric is the fabric UpdateNOC updated under the fail-safe;
+	// one arming allows a single AddNOC or UpdateNOC.
+	updatedFabric uint8
 }
 
 func newOperationalCredentials(s store.DeviceStore, fs *failSafe, attestation credentials.AttestationProvider, maxFabrics uint8) *operationalCredentials {
@@ -140,9 +149,13 @@ func newOperationalCredentials(s store.DeviceStore, fs *failSafe, attestation cr
 		lookup:          nil,
 		onFabricRemoved: nil,
 		onFabricAdded:   nil,
+		onFabricUpdated: nil,
 		pendingKey:      nil,
-		pendingRoot:     nil,
-		addedFabric:     0,
+
+		pendingForUpdate: false,
+		pendingRoot:      nil,
+		addedFabric:      0,
+		updatedFabric:    0,
 	}
 }
 
@@ -155,6 +168,7 @@ func (oc *operationalCredentials) register(srv *im.Server) {
 	srv.HandleCommand(rootEndpoint, OperationalCredentialsClusterID, csrRequestCommandID, oc.csrRequest, administer, im.WithResponseCommand(csrResponseCommandID))
 	srv.HandleCommand(rootEndpoint, OperationalCredentialsClusterID, addTrustedRootCertificateCommandID, oc.addTrustedRootCertificate, administer)
 	srv.HandleCommand(rootEndpoint, OperationalCredentialsClusterID, addNOCCommandID, oc.addNOC, administer, im.WithResponseCommand(nocResponseCommandID))
+	srv.HandleCommand(rootEndpoint, OperationalCredentialsClusterID, updateNOCCommandID, oc.updateNOC, administer, im.WithResponseCommand(nocResponseCommandID))
 	srv.HandleCommand(rootEndpoint, OperationalCredentialsClusterID, updateFabricLabelCommandID, oc.updateFabricLabel, administer, im.WithResponseCommand(nocResponseCommandID))
 	srv.HandleCommand(rootEndpoint, OperationalCredentialsClusterID, removeFabricCommandID, oc.removeFabric, administer, im.WithResponseCommand(nocResponseCommandID))
 
@@ -194,8 +208,10 @@ func (oc *operationalCredentials) armedLocked() store.DeviceStoreTx {
 	if tx == nil || epoch != oc.epoch {
 		oc.epoch = epoch
 		oc.pendingKey = nil
+		oc.pendingForUpdate = false
 		oc.pendingRoot = nil
 		oc.addedFabric = 0
+		oc.updatedFabric = 0
 	}
 	return tx
 }
@@ -337,11 +353,16 @@ func (oc *operationalCredentials) csrRequest(req *im.CommandRequest) im.CommandR
 	if !ok {
 		return im.CommandStatus(im.StatusInvalidCommand)
 	}
+	forUpdate := false
 	if field, ok := req.Field(1); ok {
-		// UpdateNOC is not supported.
-		if forUpdate, ok := field.Bool(); !ok || forUpdate {
+		if forUpdate, ok = field.Bool(); !ok {
 			return im.CommandStatus(im.StatusInvalidCommand)
 		}
+	}
+	// A key for UpdateNOC is asked for over CASE, by the fabric whose NOC
+	// it replaces (11.18.6.5).
+	if forUpdate && (oc.lookup == nil || !oc.lookup(req.Session).isCASE) {
+		return im.CommandStatus(im.StatusInvalidCommand)
 	}
 	if oc.attestation == nil {
 		return im.CommandStatus(im.StatusFailure)
@@ -352,7 +373,7 @@ func (oc *operationalCredentials) csrRequest(req *im.CommandRequest) im.CommandR
 	if oc.armedLocked() == nil {
 		return im.CommandStatus(im.StatusFailsafeRequired)
 	}
-	if oc.addedFabric != 0 {
+	if oc.addedFabric != 0 || oc.updatedFabric != 0 {
 		return im.CommandStatus(im.StatusConstraintError)
 	}
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -375,6 +396,7 @@ func (oc *operationalCredentials) csrRequest(req *im.CommandRequest) im.CommandR
 	result := oc.signedResponse(req, csrResponseCommandID, elements)
 	if result.HasResponse {
 		oc.pendingKey = key
+		oc.pendingForUpdate = forUpdate
 	}
 	return result
 }
@@ -477,7 +499,7 @@ func (oc *operationalCredentials) addNOC(req *im.CommandRequest) im.CommandResul
 	if tx == nil {
 		return im.CommandStatus(im.StatusFailsafeRequired)
 	}
-	if oc.addedFabric != 0 {
+	if oc.addedFabric != 0 || oc.updatedFabric != 0 || oc.pendingForUpdate {
 		return im.CommandStatus(im.StatusConstraintError)
 	}
 	if oc.pendingKey == nil {
@@ -539,6 +561,110 @@ func (oc *operationalCredentials) addNOC(req *im.CommandRequest) im.CommandResul
 	}
 	log.Infof("device: AddNOC: joined fabric 0x%016X as node 0x%016X (fabric index %d)", noc.FabricID, noc.NodeID, index)
 	return nocResponse(NOCStatusOK, index)
+}
+
+// updateNOC handles UpdateNOC (11.18.6.9): over a CASE session of the
+// fabric which armed the fail-safe, it replaces that fabric's NOC, ICAC
+// and operational key with the ones the NOC was issued for, after a
+// CSRRequest for UpdateNOC. The change goes through the fail-safe's
+// transaction, so it lasts only if CommissioningComplete follows.
+func (oc *operationalCredentials) updateNOC(req *im.CommandRequest) im.CommandResult {
+	nocField, ok := req.Field(0)
+	if !ok {
+		return im.CommandStatus(im.StatusInvalidCommand)
+	}
+	nocTLV, ok := nocField.Bytes()
+	if !ok {
+		return im.CommandStatus(im.StatusInvalidCommand)
+	}
+	var icacTLV []byte
+	if icacField, ok := req.Field(1); ok {
+		if icacTLV, ok = icacField.Bytes(); !ok {
+			return im.CommandStatus(im.StatusInvalidCommand)
+		}
+	}
+	info := sessionInfo{known: false, isCASE: false, fabricIndex: 0, peerNodeID: 0, peerCATs: nil}
+	if oc.lookup != nil {
+		info = oc.lookup(req.Session)
+	}
+	if !info.isCASE || info.fabricIndex == 0 {
+		return im.CommandStatus(im.StatusUnsupportedAccess)
+	}
+
+	oc.mutex.Lock()
+	defer oc.mutex.Unlock()
+	tx := oc.armedLocked()
+	if tx == nil || oc.failSafe.armedFabric() != info.fabricIndex {
+		return im.CommandStatus(im.StatusFailsafeRequired)
+	}
+	if oc.addedFabric != 0 || oc.updatedFabric != 0 {
+		return im.CommandStatus(im.StatusConstraintError)
+	}
+	if oc.pendingKey == nil {
+		return nocResponse(NOCStatusMissingCsr, 0)
+	}
+	if !oc.pendingForUpdate {
+		return im.CommandStatus(im.StatusConstraintError)
+	}
+
+	rec, ok, err := tx.LoadDeviceFabric(info.fabricIndex)
+	if err != nil {
+		return im.CommandStatus(im.StatusFailure)
+	}
+	if !ok {
+		return nocResponse(NOCStatusInvalidFabricIndex, 0)
+	}
+	root, err := credentials.ParseOperationalCertificate(rec.RCAC)
+	if err != nil {
+		log.Errorf("device: UpdateNOC: the root of fabric %d: %v", info.fabricIndex, err)
+		return im.CommandStatus(im.StatusFailure)
+	}
+	noc, err := credentials.ParseOperationalCertificate(nocTLV)
+	if err != nil {
+		log.Warnf("device: UpdateNOC: %v", err)
+		return nocResponse(NOCStatusInvalidNOC, 0)
+	}
+	var icac *credentials.OperationalCertificate
+	if len(icacTLV) != 0 {
+		if icac, err = credentials.ParseOperationalCertificate(icacTLV); err != nil {
+			log.Warnf("device: UpdateNOC: ICAC: %v", err)
+			return nocResponse(NOCStatusInvalidNOC, 0)
+		}
+	}
+	if pub, err := oc.pendingKey.PublicKey.ECDH(); err != nil || !bytes.Equal(noc.PublicKey, pub.Bytes()) {
+		return nocResponse(NOCStatusInvalidPublicKey, 0)
+	}
+	if !credentials.IsOperationalNodeID(noc.NodeID) {
+		return nocResponse(NOCStatusInvalidNodeOpID, 0)
+	}
+	// The new NOC stays on the fabric: under its root, with its fabric ID.
+	if err := credentials.VerifyOperationalChain(noc, icac, root); err != nil || noc.FabricID != rec.FabricID {
+		log.Warnf("device: UpdateNOC: the NOC is not of fabric %d: %v", info.fabricIndex, err)
+		return nocResponse(NOCStatusInvalidNOC, 0)
+	}
+
+	key, err := x509.MarshalECPrivateKey(oc.pendingKey)
+	if err != nil {
+		return im.CommandStatus(im.StatusFailure)
+	}
+	rec.NodeID = noc.NodeID
+	rec.NOC = noc.TLV
+	rec.ICAC = nil
+	if icac != nil {
+		rec.ICAC = icac.TLV
+	}
+	rec.PrivateKey = key
+	rec.UpdatedAt = oc.now()
+	if err := tx.SaveDeviceFabric(rec); err != nil {
+		log.Errorf("device: UpdateNOC: write fabric %d: %v", info.fabricIndex, err)
+		return im.CommandStatus(im.StatusFailure)
+	}
+	oc.updatedFabric = info.fabricIndex
+	if oc.onFabricUpdated != nil {
+		oc.onFabricUpdated(info.fabricIndex)
+	}
+	log.Infof("device: UpdateNOC: fabric %d is now node 0x%016X", info.fabricIndex, noc.NodeID)
+	return nocResponse(NOCStatusOK, info.fabricIndex)
 }
 
 // freeFabricIndex returns the lowest fabric index fabrics, ordered by

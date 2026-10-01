@@ -59,6 +59,8 @@ const (
 	CSRRequestCommandID im.CommandID = 0x04
 	// AddNOCCommandID adds a new Node Operational Certificate to the device.
 	AddNOCCommandID im.CommandID = 0x06
+	// UpdateNOCCommandID replaces the device's NOC on the accessing fabric.
+	UpdateNOCCommandID im.CommandID = 0x07
 	// AddTrustedRootCertificateCommandID adds a trusted root certificate to the device.
 	AddTrustedRootCertificateCommandID im.CommandID = 0x0B
 )
@@ -137,7 +139,20 @@ func CertificateChainRequest(sess session.SecureSession, ep im.EndpointID, certi
 // 11.18.7.5. CSRRequest Command.
 // Returns (nocsrElementsTLV, signature, error).
 func CSRRequest(sess session.SecureSession, ep im.EndpointID, csrNonce []byte) ([]byte, []byte, error) {
-	fields, err := buildCSRRequestFields(csrNonce)
+	return csrRequest(sess, ep, csrNonce, false)
+}
+
+// CSRRequestForUpdateNOC requests a Certificate Signing Request for a new
+// operational key of the accessing fabric, which UpdateNOC then installs
+// the NOC of (IsForUpdateNOC). It is invoked over a CASE session with the
+// fail-safe armed.
+// 11.18.7.5. CSRRequest Command.
+func CSRRequestForUpdateNOC(sess session.SecureSession, ep im.EndpointID, csrNonce []byte) ([]byte, []byte, error) {
+	return csrRequest(sess, ep, csrNonce, true)
+}
+
+func csrRequest(sess session.SecureSession, ep im.EndpointID, csrNonce []byte, forUpdateNOC bool) ([]byte, []byte, error) {
+	fields, err := buildCSRRequestFields(csrNonce, forUpdateNOC)
 	if err != nil {
 		return nil, nil, fmt.Errorf("operationalcredentials: build CSRRequest fields: %w", err)
 	}
@@ -216,6 +231,47 @@ func AddNOC(sess session.SecureSession, ep im.EndpointID, nocDER, icacDER, ipk [
 	return nil
 }
 
+// UpdateNOC replaces the device's NOC (and ICAC, both DER-encoded) on the
+// accessing fabric with one issued for the key of a preceding
+// CSRRequestForUpdateNOC. It takes effect once CommissioningComplete
+// commits the armed fail-safe.
+// 11.18.7.9. UpdateNOC Command.
+func UpdateNOC(sess session.SecureSession, ep im.EndpointID, nocDER, icacDER []byte) error {
+	nocTLV, err := chipcert.DERToTLV(nocDER)
+	if err != nil {
+		return fmt.Errorf("operationalcredentials: encode NOC: %w", err)
+	}
+	enc := tlv.NewEncoder()
+	enc.BeginStructure(tlv.NewContextTag(1))
+	if err := enc.PutOctet(tlv.NewContextTag(0), nocTLV); err != nil {
+		return err
+	}
+	if len(icacDER) != 0 {
+		icacTLV, err := chipcert.DERToTLV(icacDER)
+		if err != nil {
+			return fmt.Errorf("operationalcredentials: encode ICAC: %w", err)
+		}
+		if err := enc.PutOctet(tlv.NewContextTag(1), icacTLV); err != nil {
+			return err
+		}
+	}
+	if err := enc.EndContainer(); err != nil {
+		return err
+	}
+	resp, err := im.Invoke(sess, ep, ClusterID, UpdateNOCCommandID, enc.Bytes())
+	if err != nil {
+		return fmt.Errorf("operationalcredentials: UpdateNOC: %w", err)
+	}
+	if !resp.IsSuccess() {
+		return invokeStatusError("UpdateNOC", resp)
+	}
+	if status, ok := fieldUnsigned1(resp, 0); ok && status != nocStatusOK {
+		debugText, _ := fieldUTF8(resp, 2)
+		return fmt.Errorf("operationalcredentials: UpdateNOC failed: NOCResponse status=%d %s", status, debugText)
+	}
+	return nil
+}
+
 func buildAttestationRequestFields(nonce []byte) ([]byte, error) {
 	enc := tlv.NewEncoder()
 	enc.BeginStructure(tlv.NewContextTag(1))
@@ -238,11 +294,14 @@ func buildCertificateChainRequestFields(certificateType uint8) ([]byte, error) {
 	return enc.Bytes(), nil
 }
 
-func buildCSRRequestFields(csrNonce []byte) ([]byte, error) {
+func buildCSRRequestFields(csrNonce []byte, forUpdateNOC bool) ([]byte, error) {
 	enc := tlv.NewEncoder()
 	enc.BeginStructure(tlv.NewContextTag(1))
 	if err := enc.PutOctet(tlv.NewContextTag(0), csrNonce); err != nil {
 		return nil, err
+	}
+	if forUpdateNOC {
+		enc.PutBool(tlv.NewContextTag(1), true) // IsForUpdateNOC
 	}
 	if err := enc.EndContainer(); err != nil {
 		return nil, err

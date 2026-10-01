@@ -60,9 +60,10 @@ type failSafe struct {
 	timer         timerFunc
 	maxCumulative time.Duration
 	onExpire      func()
-	// onRollback is called, with the fail-safe's lock held, when a rollback
-	// removes the fabric AddNOC added under it; it must not call back into
-	// the fail-safe.
+	// onRollback is called, with the fail-safe's lock held, on every
+	// rollback, with the fabric AddNOC added under it, or 0 when there is
+	// none, as when the rollback undoes an UpdateNOC; it must not call
+	// back into the fail-safe.
 	onRollback func(addedFabric uint8)
 
 	armed      bool
@@ -162,7 +163,7 @@ func (fs *failSafe) rollbackLocked() {
 	if err := fs.tx.Rollback(); err != nil {
 		log.Errorf("device: fail-safe: roll back: %v", err)
 	}
-	if fs.added != 0 && fs.onRollback != nil {
+	if fs.onRollback != nil {
 		fs.onRollback(fs.added)
 	}
 	fs.disarmLocked()
@@ -222,6 +223,17 @@ func (fs *failSafe) armedTransaction() (store.DeviceStoreTx, uint64) {
 	fs.mutex.Lock()
 	defer fs.mutex.Unlock()
 	return fs.tx, fs.epoch
+}
+
+// armedFabric returns the fabric the armed fail-safe is associated with,
+// 0 when it is not armed or was armed over PASE.
+func (fs *failSafe) armedFabric() uint8 {
+	fs.mutex.Lock()
+	defer fs.mutex.Unlock()
+	if !fs.armed {
+		return 0
+	}
+	return fs.fabric
 }
 
 func (fs *failSafe) isArmed() bool {
