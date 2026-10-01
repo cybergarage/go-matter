@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"os/exec"
 	"strings"
 	"testing"
@@ -26,6 +27,7 @@ import (
 
 	"github.com/cybergarage/go-matter/matter/device"
 	"github.com/cybergarage/go-matter/matter/device/cluster"
+	"github.com/cybergarage/go-matter/matter/protocol/group"
 )
 
 // lightEndpoint is the endpoint of the On/Off Light the tests add.
@@ -189,19 +191,77 @@ func TestChipToolSwitchesGroup(t *testing.T) {
 		{"groupsettings", "add-group", "Kitchen", "257"},
 		{"groupsettings", "add-keysets", "42", "0", "2220000", epochKey},
 		{"groupsettings", "bind-keyset", "257", "42"},
-		{"onoff", "on", "0xffffffffffff0101", "1"},
 	} {
 		if _, err := chipTool.run(t, args...); err != nil {
 			t.Fatalf("chip-tool %s: %v", strings.Join(args[:2], " "), err)
 		}
 	}
+	// What chip-tool sends to the group, seen by a listener of the test's
+	// own, tells a message which never reached the host apart from one
+	// the device did not accept.
+	sniffed := sniffGroup(t, d.fabricID(t), 257)
+	if _, err := chipTool.run(t, "onoff", "on", "0xffffffffffff0101", "1"); err != nil {
+		t.Fatalf("chip-tool onoff on (group): %v", err)
+	}
 	deadline := time.Now().Add(5 * time.Second)
 	for !light.On() && time.Now().Before(deadline) {
 		time.Sleep(50 * time.Millisecond)
 	}
+	select {
+	case packet := <-sniffed:
+		t.Logf("chip-tool sent the group %d bytes, header % X", len(packet), packet[:min(len(packet), 24)])
+	default:
+		t.Log("the test's listener saw no group message")
+	}
 	if !light.On() {
 		t.Fatal("the group message did not switch the light on")
 	}
+}
+
+// fabricID returns the fabric ID of the device's only fabric.
+func (d *chipToolDevice) fabricID(t *testing.T) uint64 {
+	t.Helper()
+	fabrics, err := d.store.ListDeviceFabrics()
+	if err != nil || len(fabrics) != 1 {
+		t.Fatalf("the device holds (%d fabrics, %v), want one", len(fabrics), err)
+	}
+	return fabrics[0].FabricID
+}
+
+// sniffGroup listens on a group's multicast address, on every multicast
+// interface, and delivers the first message it sees.
+func sniffGroup(t *testing.T, fabricID uint64, groupID uint16) <-chan []byte {
+	t.Helper()
+	sniffed := make(chan []byte, 1)
+	addr := &net.UDPAddr{IP: group.MulticastAddress(fabricID, groupID), Port: group.Port, Zone: ""}
+	ifis, err := net.Interfaces()
+	if err != nil {
+		t.Logf("sniff the group: %v", err)
+		return sniffed
+	}
+	for _, ifi := range ifis {
+		if ifi.Flags&net.FlagUp == 0 || ifi.Flags&net.FlagMulticast == 0 {
+			continue
+		}
+		conn, err := net.ListenMulticastUDP("udp6", &ifi, addr)
+		if err != nil {
+			t.Logf("sniff the group on %s: %v", ifi.Name, err)
+			continue
+		}
+		t.Cleanup(func() { _ = conn.Close() })
+		go func() {
+			buf := make([]byte, 1500)
+			n, _, err := conn.ReadFromUDP(buf)
+			if err != nil {
+				return
+			}
+			select {
+			case sniffed <- append([]byte(nil), buf[:n]...):
+			default:
+			}
+		}()
+	}
+	return sniffed
 }
 
 // TestChipToolSubscribesOnOffLight has chip-tool, in interactive mode,

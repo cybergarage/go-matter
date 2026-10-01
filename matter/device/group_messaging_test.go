@@ -172,12 +172,10 @@ func TestGroupMessaging(t *testing.T) {
 		waitFor(t, "the device to listen on the group's address", func() bool { return d.groups.joined(addr.IP) })
 		if conn, err := net.DialUDP("udp6", nil, addr); err == nil {
 			packet, _ := group.Encrypt(key, testAdminNodeID, 0x0101, 105, groupInvoke(t, 0x0006, 0x01))
-			if _, err := conn.Write(packet); err == nil {
-				deadline := time.Now().Add(time.Second)
-				for on.Load() != 2 && time.Now().Before(deadline) {
-					time.Sleep(10 * time.Millisecond)
-				}
-				t.Logf("a group message sent to %s ran the command %d times in all", addr.IP, on.Load())
+			if _, err := conn.Write(packet); err != nil {
+				t.Logf("no route to %s here (%v): the delivery is not checked", addr.IP, err)
+			} else {
+				waitFor(t, "a group message sent to the group's address to run the command", func() bool { return on.Load() == 2 })
 			}
 			_ = conn.Close()
 		}
