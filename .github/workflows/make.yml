@@ -65,6 +65,19 @@ jobs:
         sudo apt-get install -y avahi-daemon avahi-utils
         sudo systemctl start avahi-daemon
 
+    # chip-tool sometimes reached the device at its link-local address
+    # scoped to docker0 ("UDP:[fe80::...%docker0]: Network is
+    # unreachable"): the runner's Docker bridge is up without a carrier,
+    # and Avahi reports the device's records on it too. Taking the unused
+    # bridge down leaves Avahi only the interface the device is on.
+    - name: Take the Docker bridge down
+      run: |
+        if ip link show docker0 >/dev/null 2>&1; then
+          sudo ip link set docker0 down
+          sudo systemctl restart avahi-daemon
+        fi
+        ip -brief link
+
     - name: Set up chip-tool
       run: |
         sudo snap install chip-tool
