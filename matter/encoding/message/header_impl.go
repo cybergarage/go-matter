@@ -139,14 +139,23 @@ func NewHeaderFromReader(reader io.Reader) (Header, error) {
 		}
 		h.srcNodeID = binary.LittleEndian.Uint64(extra)
 	}
-	// Optional DestinationNodeID
-	if h.flags.HasDestinationNodeIDField() {
+	// Optional destination: a 64-bit node ID (DSIZ 1) or a 16-bit group
+	// ID (DSIZ 2) (4.4.1.1).
+	switch {
+	case h.flags.HasDestinationNodeID():
 		extra := make([]byte, 8)
 		_, err := io.ReadAtLeast(reader, extra, 8)
 		if err != nil {
 			return nil, err
 		}
 		h.destNodeID = binary.LittleEndian.Uint64(extra)
+	case h.flags.HasGroupID():
+		extra := make([]byte, 2)
+		_, err := io.ReadAtLeast(reader, extra, 2)
+		if err != nil {
+			return nil, err
+		}
+		h.destNodeID = uint64(binary.LittleEndian.Uint16(extra))
 	}
 
 	return h, nil
@@ -177,11 +186,11 @@ func (h *header) SourceNodeID() (NodeID, bool) {
 }
 
 func (h *header) DestinationNodeID() (NodeID, bool) {
-	return NodeID(h.destNodeID), h.flags.HasDestinationNodeIDField()
+	return NodeID(h.destNodeID), h.flags.HasDestinationNodeID()
 }
 
 func (h *header) GroupID() (GroupID, bool) {
-	if !h.flags.HasDestinationNodeIDField() {
+	if !h.flags.HasGroupID() {
 		return GroupID(0), false
 	}
 	groupID, err := types.NewGroupIDFrom(h.destNodeID)
@@ -196,8 +205,11 @@ func (h *header) Bytes() ([]byte, error) {
 	if h.flags.HasSourceNodeIDField() {
 		size += 8
 	}
-	if h.flags.HasDestinationNodeIDField() {
+	switch {
+	case h.flags.HasDestinationNodeID():
 		size += 8
+	case h.flags.HasGroupID():
+		size += 2
 	}
 
 	buf := make([]byte, size)
@@ -211,8 +223,11 @@ func (h *header) Bytes() ([]byte, error) {
 		binary.LittleEndian.PutUint64(buf[offset:offset+8], h.srcNodeID)
 		offset += 8
 	}
-	if h.flags.HasDestinationNodeIDField() {
+	switch {
+	case h.flags.HasDestinationNodeID():
 		binary.LittleEndian.PutUint64(buf[offset:offset+8], h.destNodeID)
+	case h.flags.HasGroupID():
+		binary.LittleEndian.PutUint16(buf[offset:offset+2], uint16(h.destNodeID)) // nolint: gosec // a group ID
 	}
 
 	return buf, nil

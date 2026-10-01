@@ -103,3 +103,33 @@ func TestHeaderEncodeDecodeRoundtrip(t *testing.T) {
 		})
 	}
 }
+
+func TestHeaderGroupDestination(t *testing.T) {
+	hdr := NewHeader(
+		WithHeaderSessionID(0xB9F7),
+		WithHeaderSecurityFlags(0x01),
+		WithHeaderMessageCounter(7),
+		WithHeaderSourceNodeID(0x1B669),
+		WithHeaderGroupID(0x0101),
+	)
+	b, err := hdr.Bytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(b) != 8+8+2 {
+		t.Fatalf("a group message header is %d bytes, want 18", len(b))
+	}
+	decoded, err := NewHeaderFromBytes(append(b, 0xAA))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gid, ok := decoded.GroupID(); !ok || gid != 0x0101 {
+		t.Fatalf("GroupID = (%d, %v)", gid, ok)
+	}
+	if _, ok := decoded.DestinationNodeID(); ok {
+		t.Fatal("a group ID read as a destination node ID")
+	}
+	if src, ok := decoded.SourceNodeID(); !ok || src != 0x1B669 {
+		t.Fatalf("SourceNodeID = (0x%X, %v)", src, ok)
+	}
+}
