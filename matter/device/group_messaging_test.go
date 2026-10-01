@@ -79,6 +79,39 @@ func groupInvoke(t *testing.T, cluster im.ClusterID, command im.CommandID) []byt
 	return append(hdr, enc.Bytes()...)
 }
 
+// groupWrite encodes a group message's WriteRequest of an unsigned
+// attribute which names no endpoint.
+func groupWrite(t *testing.T, cluster im.ClusterID, attribute im.AttributeID, value uint16) []byte {
+	t.Helper()
+	hdr, err := message.NewProtocolHeader(
+		message.WithHeaderExchangeFlags(message.InitiatorFlag),
+		message.WithHeaderOpcode(message.WriteRequestMessage),
+		message.WithHeaderExchangeID(0x1235),
+		message.WithHeaderProtocolID(message.InteractionModel),
+	).Bytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	enc := tlv.NewEncoder()
+	enc.BeginStructure(tlv.NewAnonymousTag())
+	enc.PutBool(tlv.NewContextTag(0), true)
+	enc.PutBool(tlv.NewContextTag(1), false)
+	enc.BeginArray(tlv.NewContextTag(2))
+	enc.BeginStructure(tlv.NewAnonymousTag())
+	enc.BeginList(tlv.NewContextTag(1))
+	enc.PutUnsigned4(tlv.NewContextTag(3), uint32(cluster))
+	enc.PutUnsigned4(tlv.NewContextTag(4), uint32(attribute))
+	_ = enc.EndContainer()
+	enc.PutUnsigned2(tlv.NewContextTag(2), value)
+	_ = enc.EndContainer()
+	_ = enc.EndContainer()
+	enc.PutUnsigned1(tlv.NewContextTag(0xFF), 12)
+	if err := enc.EndContainer(); err != nil {
+		t.Fatal(err)
+	}
+	return append(hdr, enc.Bytes()...)
+}
+
 func TestGroupMessaging(t *testing.T) {
 	d, adv, _, client, admin := commissionedDevice(t)
 	waitOperational(t, adv, 1)
@@ -104,6 +137,20 @@ func TestGroupMessaging(t *testing.T) {
 		}
 		on.Add(1)
 		return im.CommandStatus(im.StatusSuccess)
+	})
+	var onTime atomic.Uint32
+	ep.HandleAttribute(0x0006, 0x4001, func(enc tlv.Encoder, tag tlv.Tag) im.Status {
+		enc.PutUnsigned2(tag, uint16(onTime.Load())) // nolint: gosec // set from a uint16
+		return im.StatusSuccess
+	})
+	ep.HandleAttributeWrite(0x0006, 0x4001, func(req *im.AttributeWriteRequest) im.Status {
+		_, elem, err := req.Decoder()
+		if err != nil || req.Path.Endpoint != 1 {
+			return im.StatusInvalidDataType
+		}
+		v, _ := elem.Unsigned()
+		onTime.Store(uint32(v)) // nolint: gosec // a uint16
+		return im.StatusSuccess
 	})
 	if s := ep.JoinGroup(1, 0x0101, "Kitchen"); s != im.StatusSuccess {
 		t.Fatalf("JoinGroup: status %#x", uint8(s))
@@ -150,6 +197,16 @@ func TestGroupMessaging(t *testing.T) {
 	if n := on.Load(); n != 1 {
 		t.Fatalf("the group command ran %d times, want once", n)
 	}
+	// A group writes attributes too.
+	packet, err := group.Encrypt(key, testAdminNodeID, 0x0101, 110, groupWrite(t, 0x0006, 0x4001, 300))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := client.Transmit(context.Background(), packet); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, "the group write to set OnTime", func() bool { return onTime.Load() == 300 })
+
 	// A replay is dropped, a message to another group or under another
 	// key is not decrypted.
 	send(101)

@@ -215,7 +215,22 @@ func TestChipToolSwitchesGroup(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 	}
 	if light.On() {
-		return
+		// A group writes attributes too: OnTime, read back over CASE.
+		groupNode := fmt.Sprintf("0x%X", uint64(0xFFFFFFFFFFFF0000)|groupID)
+		if _, err := chipTool.run(t, "onoff", "write", "on-time", "300", groupNode, "1"); err != nil {
+			t.Fatalf("chip-tool onoff write on-time (group): %v", err)
+		}
+		deadline = time.Now().Add(5 * time.Second)
+		for {
+			out, err := chipTool.run(t, "onoff", "read", "on-time", node, "1")
+			if err == nil && strings.Contains(out, "OnTime: 300") {
+				return
+			}
+			if time.Now().After(deadline) {
+				t.Fatal("the group write did not set OnTime")
+			}
+			time.Sleep(200 * time.Millisecond)
+		}
 	}
 	select {
 	case packet := <-sniffed:
