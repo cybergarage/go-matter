@@ -17,6 +17,7 @@ package mattertest
 import (
 	"bufio"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net"
@@ -27,6 +28,7 @@ import (
 
 	"github.com/cybergarage/go-matter/matter/device"
 	"github.com/cybergarage/go-matter/matter/device/cluster"
+	caseprotocol "github.com/cybergarage/go-matter/matter/protocol/case"
 	"github.com/cybergarage/go-matter/matter/protocol/group"
 )
 
@@ -210,12 +212,47 @@ func TestChipToolSwitchesGroup(t *testing.T) {
 	select {
 	case packet := <-sniffed:
 		t.Logf("chip-tool sent the group %d bytes, header % X", len(packet), packet[:min(len(packet), 24)])
+		d.explainGroupMessage(t, packet, "d0d1d2d3d4d5d6d7d8d9dadbdcdddedf")
 	default:
 		t.Log("the test's listener saw no group message")
 	}
 	if !light.On() {
 		t.Fatal("the group message did not switch the light on")
 	}
+}
+
+// explainGroupMessage logs whether the device's keys decrypt a group
+// message: the group session ID they give, and the decrypted message.
+func (d *chipToolDevice) explainGroupMessage(t *testing.T, packet []byte, epochKeyHex string) {
+	t.Helper()
+	fabrics, err := d.store.ListDeviceFabrics()
+	if err != nil || len(fabrics) != 1 {
+		return
+	}
+	cfid, err := caseprotocol.ComputeCompressedFabricID(fabrics[0].RootPublicKey, fabrics[0].FabricID)
+	if err != nil {
+		t.Logf("compressed fabric ID: %v", err)
+		return
+	}
+	keys, err := d.store.LoadGroupKeys(fabrics[0].FabricIndex)
+	t.Logf("the device's group keys: %+v (%v)", keys, err)
+	acl, err := d.store.LoadACL(fabrics[0].FabricIndex)
+	t.Logf("the device's ACL: %+v (%v)", acl, err)
+	epochKey, _ := hex.DecodeString(epochKeyHex)
+	key, _ := group.OperationalKey(epochKey, cfid)
+	sid, _ := group.SessionID(key)
+	msg, err := group.Parse(packet)
+	if err != nil {
+		t.Logf("the group message does not parse: %v", err)
+		return
+	}
+	t.Logf("compressed fabric ID %016X, group session ID 0x%04X, the message's 0x%04X", cfid, sid, uint16(msg.Header.SessionID()))
+	plain, err := msg.Decrypt(key)
+	if err != nil {
+		t.Logf("the device's key does not decrypt the message: %v", err)
+		return
+	}
+	t.Logf("decrypted: % X", plain)
 }
 
 // fabricID returns the fabric ID of the device's only fabric.
