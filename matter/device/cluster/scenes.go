@@ -28,8 +28,8 @@ import (
 const (
 	ScenesManagementClusterID im.ClusterID = 0x0062
 
-	SceneTableSizeAttributeID  im.AttributeID = 0x0002
-	FabricSceneInfoAttributeID im.AttributeID = 0x0007
+	SceneTableSizeAttributeID  im.AttributeID = 0x0001
+	FabricSceneInfoAttributeID im.AttributeID = 0x0002
 
 	AddSceneCommandID           im.CommandID = 0x00
 	ViewSceneCommandID          im.CommandID = 0x01
