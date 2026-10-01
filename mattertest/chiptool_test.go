@@ -293,6 +293,16 @@ func TestChipToolCommissionsDevice(t *testing.T) {
 	if !strings.Contains(out, "Breadcrumb: 0") {
 		t.Fatal("chip-tool did not report the Breadcrumb")
 	}
+
+	// The General Diagnostics of the root node.
+	out, err = chipTool.run(t, "generaldiagnostics", "read", "reboot-count", nodeArg(d.nodeID), "0")
+	if err != nil || !strings.Contains(out, "RebootCount: 1") {
+		t.Fatalf("chip-tool generaldiagnostics read reboot-count: %v", err)
+	}
+	out, err = chipTool.run(t, "generaldiagnostics", "time-snapshot", nodeArg(d.nodeID), "0")
+	if err != nil || !strings.Contains(strings.ToLower(out), "systemtimems") {
+		t.Fatalf("chip-tool generaldiagnostics time-snapshot: %v", err)
+	}
 }
 
 // chipToolNodeID is the node ID chip-tool commissions as by default, the

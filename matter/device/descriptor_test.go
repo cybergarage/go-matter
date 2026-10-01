@@ -65,6 +65,7 @@ func TestDescriptorOfRootEndpoint(t *testing.T) {
 		uint64(AccessControlClusterID),
 		uint64(BasicInformationClusterID),
 		uint64(GeneralCommissioningClusterID),
+		uint64(GeneralDiagnosticsClusterID),
 		uint64(AdministratorCommissioningClusterID),
 		uint64(OperationalCredentialsClusterID),
 	}

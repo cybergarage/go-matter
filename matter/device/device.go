@@ -286,6 +286,8 @@ type Device struct {
 	opCreds  *operationalCredentials
 	// descriptors serves the Descriptor cluster of each endpoint.
 	descriptors *descriptors
+	// diagnostics serves the General Diagnostics cluster.
+	diagnostics *generalDiagnostics
 	// refresh asks the advertising loop to republish the operational
 	// services, which it does until refreshDone is closed.
 	refresh     chan struct{}
@@ -315,6 +317,7 @@ func New(opts ...Option) (*Device, error) {
 		sessions:    map[types.SessionID]*Session{},
 		opCreds:     nil,
 		descriptors: nil,
+		diagnostics: nil,
 		refresh:     make(chan struct{}, 1),
 		refreshDone: nil,
 
@@ -326,6 +329,7 @@ func New(opts ...Option) (*Device, error) {
 		now:                  time.Now,
 		timer:                realTimer,
 	}
+	d.diagnostics = newGeneralDiagnostics(func() time.Time { return d.now() })
 	for _, opt := range opts {
 		if err := opt(d); err != nil {
 			return nil, err
@@ -364,6 +368,7 @@ func New(opts ...Option) (*Device, error) {
 	}
 	d.opCreds.register(d.imServer)
 	(&accessControl{oc: d.opCreds}).register(d.imServer)
+	d.diagnostics.register(d.imServer)
 	(&administratorCommissioning{device: d}).register(d.imServer)
 	d.descriptors = newDescriptors(d.imServer)
 	d.descriptors.add(rootEndpoint, RootNodeDeviceType)
@@ -463,6 +468,7 @@ func (d *Device) Start() error {
 			return err
 		}
 	}
+	d.diagnostics.boot(d.store)
 	d.conn = conn
 	d.ctx, d.cancel = context.WithCancel(context.Background())
 	d.wg.Add(1)
