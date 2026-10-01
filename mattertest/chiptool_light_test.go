@@ -17,6 +17,7 @@ package mattertest
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"io"
 	"os/exec"
 	"strings"
@@ -161,6 +162,45 @@ func TestChipToolAddsLightToGroup(t *testing.T) {
 	keys, err := d.store.LoadGroupKeys(1)
 	if err != nil || len(keys.Groups) != 1 || keys.Groups[0].Name != "Kitchen" {
 		t.Fatalf("the device holds the groups (%+v, %v)", keys.Groups, err)
+	}
+}
+
+// TestChipToolSwitchesGroup has chip-tool switch the light on with a
+// message to a group the light is in: the device's group key set and
+// GroupKeyMap, the light's group membership and an ACL entry for the
+// group on the device, and the same group key set on chip-tool.
+func TestChipToolSwitchesGroup(t *testing.T) {
+	chipTool := lookupChipTool(t)
+	d := startChipToolDevice(t)
+	light := d.addOnOffLight(t)
+	chipTool.pair(t, d.nodeID, chipToolPasscode, d.discriminator)
+	node := nodeArg(d.nodeID)
+
+	const epochKey = "hex:d0d1d2d3d4d5d6d7d8d9dadbdcdddedf"
+	keySet := `{"groupKeySetID": 42, "groupKeySecurityPolicy": 0, "epochKey0": "` + epochKey + `", "epochStartTime0": 2220000,` +
+		` "epochKey1": null, "epochStartTime1": null, "epochKey2": null, "epochStartTime2": null}`
+	acl := fmt.Sprintf(`[{"fabricIndex": 1, "privilege": 5, "authMode": 2, "subjects": [%d], "targets": null},`+
+		` {"fabricIndex": 1, "privilege": 3, "authMode": 3, "subjects": [257], "targets": null}]`, chipToolNodeID)
+	for _, args := range [][]string{
+		{"groupkeymanagement", "key-set-write", keySet, node, "0"},
+		{"groupkeymanagement", "write", "group-key-map", `[{"groupId": 257, "groupKeySetID": 42, "fabricIndex": 1}]`, node, "0"},
+		{"groups", "add-group", "257", "Kitchen", node, "1"},
+		{"accesscontrol", "write", "acl", acl, node, "0"},
+		{"groupsettings", "add-group", "Kitchen", "257"},
+		{"groupsettings", "add-keysets", "42", "0", "2220000", epochKey},
+		{"groupsettings", "bind-keyset", "257", "42"},
+		{"onoff", "on", "0xffffffffffff0101", "1"},
+	} {
+		if _, err := chipTool.run(t, args...); err != nil {
+			t.Fatalf("chip-tool %s: %v", strings.Join(args[:2], " "), err)
+		}
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for !light.On() && time.Now().Before(deadline) {
+		time.Sleep(50 * time.Millisecond)
+	}
+	if !light.On() {
+		t.Fatal("the group message did not switch the light on")
 	}
 }
 

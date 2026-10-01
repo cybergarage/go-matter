@@ -583,7 +583,7 @@ func (oc *operationalCredentials) updateNOC(req *im.CommandRequest) im.CommandRe
 			return im.CommandStatus(im.StatusInvalidCommand)
 		}
 	}
-	info := sessionInfo{known: false, isCASE: false, fabricIndex: 0, peerNodeID: 0, peerCATs: nil}
+	info := sessionInfo{known: false, isCASE: false, isGroup: false, groupID: 0, fabricIndex: 0, peerNodeID: 0, peerCATs: nil}
 	if oc.lookup != nil {
 		info = oc.lookup(req.Session)
 	}

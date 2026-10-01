@@ -119,6 +119,8 @@ type GroupMembership struct {
 
 func (ep *Endpoint) groupTableChanged() {
 	ep.server.NotifyAttributeChanged(im.AttributePath{Endpoint: rootEndpoint, Cluster: GroupKeyManagementClusterID, Attribute: groupTableAttributeID})
+	// The device receives the messages of the groups its endpoints are in.
+	ep.device.requestRefresh()
 }
 
 // JoinGroup puts the endpoint in a group of a fabric, as the Groups

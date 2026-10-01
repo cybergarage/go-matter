@@ -99,6 +99,9 @@ type sessionInfo struct {
 	// known reports whether the session is one the device established.
 	known  bool
 	isCASE bool
+	// isGroup reports a message sent to groupID, rather than a session.
+	isGroup bool
+	groupID uint16
 	// fabricIndex is the accessing fabric: the CASE session's, the one a
 	// PASE session was bound to by AddNOC, or 0.
 	fabricIndex uint8
@@ -291,6 +294,8 @@ type Device struct {
 	// groupKeys serves the Group Key Management cluster, and keeps the
 	// groups the application endpoints join.
 	groupKeys *groupKeyManagement
+	// groups receives the messages sent to those groups.
+	groups *groupMessaging
 	// fabricRemovedHandlers are the application clusters' handlers of
 	// RemoveFabric.
 	fabricRemovedHandlers []func(fabricIndex uint8)
@@ -325,6 +330,7 @@ func New(opts ...Option) (*Device, error) {
 		descriptors: nil,
 		diagnostics: nil,
 		groupKeys:   nil,
+		groups:      nil,
 
 		fabricRemovedHandlers: nil,
 		refresh:               make(chan struct{}, 1),
@@ -384,6 +390,7 @@ func New(opts ...Option) (*Device, error) {
 	(&accessControl{oc: d.opCreds}).register(d.imServer)
 	d.groupKeys = &groupKeyManagement{oc: d.opCreds}
 	d.groupKeys.register(d.imServer)
+	d.groups = newGroupMessaging(d)
 	d.diagnostics.register(d.imServer)
 	(&administratorCommissioning{device: d}).register(d.imServer)
 	d.descriptors = newDescriptors(d.imServer)
@@ -404,13 +411,16 @@ func (d *Device) sessionForLocked(sec im.SecureSession) *Session {
 // lookupSession tells the clusters whether a request arrived over CASE,
 // and on which fabric.
 func (d *Device) lookupSession(sec im.SecureSession) sessionInfo {
+	if g, ok := sec.(*groupSession); ok {
+		return sessionInfo{known: true, isCASE: false, isGroup: true, groupID: g.groupID, fabricIndex: g.fabricIndex, peerNodeID: g.sourceNodeID, peerCATs: nil}
+	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	sess := d.sessionForLocked(sec)
 	if sess == nil {
-		return sessionInfo{known: false, isCASE: false, fabricIndex: 0, peerNodeID: 0, peerCATs: nil}
+		return sessionInfo{known: false, isCASE: false, isGroup: false, groupID: 0, fabricIndex: 0, peerNodeID: 0, peerCATs: nil}
 	}
-	return sessionInfo{known: true, isCASE: sess.isCASE, fabricIndex: sess.fabricIndex, peerNodeID: sess.peerNodeID, peerCATs: sess.peerCATs}
+	return sessionInfo{known: true, isCASE: sess.isCASE, isGroup: false, groupID: 0, fabricIndex: sess.fabricIndex, peerNodeID: sess.peerNodeID, peerCATs: sess.peerCATs}
 }
 
 // bindFabric binds the PASE session AddNOC arrived on to the fabric it
@@ -485,6 +495,7 @@ func (d *Device) Start() error {
 		}
 	}
 	d.diagnostics.boot(d.store)
+	d.groups.start()
 	d.conn = conn
 	d.ctx, d.cancel = context.WithCancel(context.Background())
 	d.wg.Add(1)
@@ -515,6 +526,8 @@ func (d *Device) advertiseOperational(ctx context.Context, done chan struct{}) {
 			return
 		case <-d.refresh:
 		}
+		// The groups the endpoints are in follow the fabrics too.
+		d.groups.update()
 		if d.advertiser == nil {
 			continue
 		}
@@ -581,6 +594,7 @@ func (d *Device) Stop() error {
 	d.mu.Unlock()
 	d.failSafe.close()
 	<-refreshDone
+	d.groups.stop()
 
 	var errs []error
 	if d.advertiser != nil {
@@ -645,6 +659,13 @@ func (d *Device) dispatch(conn *net.UDPConn, b []byte, peer *net.UDPAddr) {
 
 	d.mu.Lock()
 	defer d.mu.Unlock()
+
+	// A group message names a group key, not a session, by its session
+	// ID; it is decrypted with the group keys apart from the sessions.
+	if header.SecurityFlags().SessionType() == groupSessionType {
+		go d.groups.receive(b)
+		return
+	}
 
 	if sid := header.SessionID(); sid != 0 {
 		sess, ok := d.sessions[sid]

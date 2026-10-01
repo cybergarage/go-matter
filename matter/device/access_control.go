@@ -15,6 +15,8 @@
 package device
 
 import (
+	"slices"
+
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/credentials"
 	"github.com/cybergarage/go-matter/matter/protocol/im"
@@ -32,6 +34,9 @@ func (d *Device) checkAccess(req im.AccessRequest) bool {
 	info := d.lookupSession(req.Session)
 	if !info.known {
 		return false
+	}
+	if info.isGroup {
+		return d.checkGroupAccess(info, req)
 	}
 	if !info.isCASE {
 		return true
@@ -55,6 +60,28 @@ func (d *Device) checkAccess(req im.AccessRequest) bool {
 			continue
 		}
 		return true
+	}
+	return false
+}
+
+// checkGroupAccess grants a message sent to a group what an entry of the
+// fabric's ACL for Group authentication, naming the group or any subject,
+// grants (6.6.2).
+func (d *Device) checkGroupAccess(info sessionInfo, req im.AccessRequest) bool {
+	entries, err := d.opCreds.aclEntries(info.fabricIndex)
+	if err != nil {
+		return false
+	}
+	for _, entry := range entries {
+		if entry.AuthMode != store.AuthModeGroup || !im.Privilege(entry.Privilege).Grants(req.Privilege) {
+			continue
+		}
+		if len(entry.Subjects) != 0 && !slices.Contains(entry.Subjects, uint64(info.groupID)) {
+			continue
+		}
+		if targetMatches(entry.Targets, req.Endpoint, req.Cluster, d.descriptors.hasDeviceType) {
+			return true
+		}
 	}
 	return false
 }
