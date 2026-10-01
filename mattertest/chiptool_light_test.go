@@ -173,6 +173,10 @@ func TestChipToolAddsLightToGroup(t *testing.T) {
 // message to a group the light is in: the device's group key set and
 // GroupKeyMap, the light's group membership and an ACL entry for the
 // group on the device, and the same group key set on chip-tool.
+//
+// The group is 0x0601: chip-tool has test key sets of its own for groups
+// 0x0101 to 0x0103, which it encrypts their messages with whatever key set
+// it is told to bind.
 func TestChipToolSwitchesGroup(t *testing.T) {
 	chipTool := lookupChipTool(t)
 	d := startChipToolDevice(t)
@@ -180,19 +184,20 @@ func TestChipToolSwitchesGroup(t *testing.T) {
 	chipTool.pair(t, d.nodeID, chipToolPasscode, d.discriminator)
 	node := nodeArg(d.nodeID)
 
+	const groupID = 0x0601
 	const epochKey = "hex:d0d1d2d3d4d5d6d7d8d9dadbdcdddedf"
 	keySet := `{"groupKeySetID": 42, "groupKeySecurityPolicy": 0, "epochKey0": "` + epochKey + `", "epochStartTime0": 2220000,` +
 		` "epochKey1": null, "epochStartTime1": null, "epochKey2": null, "epochStartTime2": null}`
 	acl := fmt.Sprintf(`[{"fabricIndex": 1, "privilege": 5, "authMode": 2, "subjects": [%d], "targets": null},`+
-		` {"fabricIndex": 1, "privilege": 3, "authMode": 3, "subjects": [257], "targets": null}]`, chipToolNodeID)
+		` {"fabricIndex": 1, "privilege": 3, "authMode": 3, "subjects": [%d], "targets": null}]`, chipToolNodeID, groupID)
 	for _, args := range [][]string{
 		{"groupkeymanagement", "key-set-write", keySet, node, "0"},
-		{"groupkeymanagement", "write", "group-key-map", `[{"groupId": 257, "groupKeySetID": 42, "fabricIndex": 1}]`, node, "0"},
-		{"groups", "add-group", "257", "Kitchen", node, "1"},
+		{"groupkeymanagement", "write", "group-key-map", fmt.Sprintf(`[{"groupId": %d, "groupKeySetID": 42, "fabricIndex": 1}]`, groupID), node, "0"},
+		{"groups", "add-group", fmt.Sprint(groupID), "Kitchen", node, "1"},
 		{"accesscontrol", "write", "acl", acl, node, "0"},
-		{"groupsettings", "add-group", "Kitchen", "257"},
+		{"groupsettings", "add-group", "Kitchen", fmt.Sprint(groupID)},
 		{"groupsettings", "add-keysets", "42", "0", "2220000", epochKey},
-		{"groupsettings", "bind-keyset", "257", "42"},
+		{"groupsettings", "bind-keyset", fmt.Sprint(groupID), "42"},
 	} {
 		if _, err := chipTool.run(t, args...); err != nil {
 			t.Fatalf("chip-tool %s: %v", strings.Join(args[:2], " "), err)
@@ -201,24 +206,25 @@ func TestChipToolSwitchesGroup(t *testing.T) {
 	// What chip-tool sends to the group, seen by a listener of the test's
 	// own, tells a message which never reached the host apart from one
 	// the device did not accept.
-	sniffed := sniffGroup(t, d.fabricID(t), 257)
-	if _, err := chipTool.run(t, "onoff", "on", "0xffffffffffff0101", "1"); err != nil {
+	sniffed := sniffGroup(t, d.fabricID(t), groupID)
+	if _, err := chipTool.run(t, "onoff", "on", fmt.Sprintf("0x%X", uint64(0xFFFFFFFFFFFF0000)|groupID), "1"); err != nil {
 		t.Fatalf("chip-tool onoff on (group): %v", err)
 	}
 	deadline := time.Now().Add(5 * time.Second)
 	for !light.On() && time.Now().Before(deadline) {
 		time.Sleep(50 * time.Millisecond)
 	}
+	if light.On() {
+		return
+	}
 	select {
 	case packet := <-sniffed:
 		t.Logf("chip-tool sent the group %d bytes, header % X", len(packet), packet[:min(len(packet), 24)])
-		d.explainGroupMessage(t, packet, "d0d1d2d3d4d5d6d7d8d9dadbdcdddedf")
+		d.explainGroupMessage(t, packet, epochKey[len("hex:"):])
 	default:
 		t.Log("the test's listener saw no group message")
 	}
-	if !light.On() {
-		t.Fatal("the group message did not switch the light on")
-	}
+	t.Fatal("the group message did not switch the light on")
 }
 
 // explainGroupMessage logs whether the device's keys decrypt a group
