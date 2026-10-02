@@ -16,6 +16,7 @@ package device
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -25,6 +26,7 @@ import (
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 	caseprotocol "github.com/cybergarage/go-matter/matter/protocol/case"
 	"github.com/cybergarage/go-matter/matter/protocol/im"
+	"github.com/cybergarage/go-matter/matter/protocol/pase"
 	"github.com/cybergarage/go-matter/matter/protocol/session"
 )
 
@@ -336,4 +338,66 @@ func TestDeviceSessionsTakePeerMRPParameters(t *testing.T) {
 	addNOCOverPASE(t, pase, ca, testCommissioneeNode)
 	caseSession(t, client, ca.admin(t, testAdminNodeID), testCommissioneeNode)
 	checkPeerMRP(true)
+}
+
+// TestDeviceAnnouncesMRPParameters checks that a device given MRP
+// parameters announces them: in the SII, SAI and SAT TXT entries of its
+// commissionable and operational services, in its PBKDFParamResponse and
+// in its Sigma2, where a commissioner learns them.
+func TestDeviceAnnouncesMRPParameters(t *testing.T) {
+	sleepy := session.MRPParameters{IdleInterval: 15 * time.Second, ActiveInterval: 500 * time.Millisecond, ActiveThreshold: 2 * time.Second}
+	d, adv, _ := startTestDevice(t, WithAttestationProvider(testAttestationProvider(t)), WithMRPParameters(sleepy))
+	wantTXT := []string{"SII=15000", "SAI=500", "SAT=2000"}
+	hasTXT := func(what string, txt []string) {
+		t.Helper()
+		for _, want := range wantTXT {
+			if !slices.Contains(txt, want) {
+				t.Fatalf("the %s service's TXT %v lacks %s", what, txt, want)
+			}
+		}
+	}
+	hasTXT("commissionable", d.CommissionableService().TXT())
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	client := dialDevice(t, d)
+	paseInitiator := pase.NewInitiator(client, testPasscode)
+	keys, err := paseInitiator.EstablishSession(ctx)
+	if err != nil {
+		t.Fatalf("PASE: %v", err)
+	}
+	if got := paseInitiator.PeerMRPParameters(); got != sleepy {
+		t.Fatalf("the PBKDFParamResponse announced %+v, want %+v", got, sleepy)
+	}
+
+	ca := newTestCA(t, testFabricID)
+	addNOCOverPASE(t, session.NewSecureSession(client, keys), ca, testCommissioneeNode)
+	waitOperational(t, adv, 1)
+	hasTXT("operational", adv.lastOperational()[0].TXT())
+	caseInitiator := caseprotocol.NewInitiator(client, ca.admin(t, testAdminNodeID), caseprotocol.WithPeerNodeID(testCommissioneeNode), caseprotocol.WithIPK(testIPK))
+	if _, err := caseInitiator.EstablishSession(ctx); err != nil {
+		t.Fatalf("CASE: %v", err)
+	}
+	if got := caseInitiator.PeerMRPParameters(); got != sleepy {
+		t.Fatalf("the Sigma2 announced %+v, want %+v", got, sleepy)
+	}
+}
+
+func TestWithMRPParametersChecksRange(t *testing.T) {
+	for _, p := range []session.MRPParameters{
+		{IdleInterval: 2 * time.Hour},
+		{ActiveInterval: -time.Second},
+		{ActiveThreshold: 70 * time.Second},
+	} {
+		if _, err := New(WithPasscode(testPasscode), WithMRPParameters(p)); err == nil {
+			t.Errorf("New with MRP parameters %+v succeeded", p)
+		}
+	}
+	d, err := New(WithPasscode(testPasscode), WithMRPParameters(session.MRPParameters{IdleInterval: 5 * time.Second}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := d.CommissionableService().TXT(); !slices.Contains(got, "SII=5000") || !slices.Contains(got, "SAI=300") || !slices.Contains(got, "SAT=4000") {
+		t.Fatalf("TXT %v, want SII=5000 and the default SAI and SAT", got)
+	}
 }

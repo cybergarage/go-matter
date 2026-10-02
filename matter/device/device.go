@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"net"
 	"sync"
 	"time"
@@ -193,6 +194,34 @@ func WithDeviceName(name string) Option {
 	}
 }
 
+// WithMRPParameters sets the Message Reliability Protocol parameters the
+// device announces (4.12.8, 4.13.1): the intervals at which a commissioner
+// or controller retransmits to it when it is idle and active, and how
+// long it stays active after a message. A device which sleeps announces a
+// long idle interval. They go in the SII, SAI and SAT TXT entries of its
+// commissionable and operational services (4.3.4), in its
+// PBKDFParamResponse and in its Sigma2. A parameter left 0 takes its
+// default; an interval over an hour is an error. Without the option the
+// device announces nothing in its TXT entries and PBKDFParamResponse, and
+// the defaults in its Sigma2, which the peers then use.
+func WithMRPParameters(p session.MRPParameters) Option {
+	return func(d *Device) error {
+		if p.IdleInterval < 0 || p.ActiveInterval < 0 || p.ActiveThreshold < 0 ||
+			session.MaxSessionInterval < p.IdleInterval || session.MaxSessionInterval < p.ActiveInterval {
+			return fmt.Errorf("device: MRP intervals must be 0 to %v", session.MaxSessionInterval)
+		}
+		if time.Duration(math.MaxUint16)*time.Millisecond < p.ActiveThreshold {
+			return fmt.Errorf("device: MRP active threshold %v exceeds %d ms", p.ActiveThreshold, math.MaxUint16)
+		}
+		p = p.WithDefaults()
+		d.mrp = &p
+		d.service.SessionIdleInterval = uint32(p.IdleInterval / time.Millisecond)       // nolint: gosec // at most an hour
+		d.service.SessionActiveInterval = uint32(p.ActiveInterval / time.Millisecond)   // nolint: gosec // at most an hour
+		d.service.SessionActiveThreshold = uint16(p.ActiveThreshold / time.Millisecond) // nolint: gosec // checked above
+		return nil
+	}
+}
+
 // WithAdvertiser sets the Advertiser the device publishes its
 // commissionable service through, replacing the default MDNSAdvertiser.
 // nil advertises nothing, for a device a commissioner reaches by address.
@@ -255,6 +284,9 @@ type Device struct {
 	hasVerifier bool
 	service     CommissionableService
 	advertiser  Advertiser
+	// mrp are the MRP parameters the device announces
+	// (WithMRPParameters), nil when it announces none.
+	mrp         *session.MRPParameters
 	onSession   func(*Session)
 	store       store.DeviceStore
 	attestation credentials.AttestationProvider
@@ -319,6 +351,7 @@ func New(opts ...Option) (*Device, error) {
 			CommissioningMode: mdns.CommissioningModePasscode,
 		},
 		advertiser:  NewMDNSAdvertiser(),
+		mrp:         nil,
 		onSession:   nil,
 		store:       nil,
 		attestation: nil,
@@ -747,10 +780,14 @@ func (d *Device) runPASE(pt *peerTransport, sessionID types.SessionID, verifier 
 			}
 		}
 	}
-	responder = pase.NewResponder(pt, verifier,
+	opts := []pase.ResponderOption{
 		pase.WithResponderSessionID(sessionID),
 		pase.WithResponderEstablishedHandler(established),
-	)
+	}
+	if d.mrp != nil {
+		opts = append(opts, pase.WithResponderMRPParameters(*d.mrp))
+	}
+	responder = pase.NewResponder(pt, verifier, opts...)
 	_, err := responder.EstablishSession(d.ctx)
 
 	d.mu.Lock()
@@ -786,10 +823,14 @@ func (d *Device) runCASE(pt *peerTransport, sessionID types.SessionID) {
 			sess = d.addSessionLocked(pt, sessionID, es.Keys, es.PeerMRP, true, es.FabricIndex, es.PeerNodeID, es.PeerCATs)
 		}
 	}
-	responder := caseprotocol.NewResponder(pt, d.opCreds.responderFabrics,
+	opts := []caseprotocol.ResponderOption{
 		caseprotocol.WithResponderSessionID(sessionID),
 		caseprotocol.WithResponderEstablishedHandler(established),
-	)
+	}
+	if d.mrp != nil {
+		opts = append(opts, caseprotocol.WithResponderMRPParameters(*d.mrp))
+	}
+	responder := caseprotocol.NewResponder(pt, d.opCreds.responderFabrics, opts...)
 	es, err := responder.EstablishSession(d.ctx)
 
 	d.mu.Lock()

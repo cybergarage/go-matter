@@ -93,3 +93,32 @@ application already runs.
 
 A test finds a device with go-matter's own discovery by its long
 discriminator over mDNS, and establishes PASE at the discovered address.
+
+## Message reliability
+
+Over UDP a device retransmits a message its peer does not acknowledge
+(Message Reliability Protocol, Core 4.12), from the intervals the peer
+announced while establishing the session: its active interval while it is
+active, its idle interval otherwise. It drops a message it already
+received and acknowledges it again, and ends a subscription whose report
+the peer never acknowledges.
+
+`WithMRPParameters` sets the parameters the device announces, the
+intervals at which its peers retransmit to it, such as the long idle
+interval of a device which sleeps:
+
+```go
+dev, err := device.New(
+    ...
+    device.WithMRPParameters(session.MRPParameters{
+        IdleInterval:    15 * time.Second,       // SII
+        ActiveInterval:  500 * time.Millisecond, // SAI
+        ActiveThreshold: 2 * time.Second,        // SAT
+    }),
+)
+```
+
+The device announces them in the SII, SAI and SAT TXT entries of its
+commissionable and operational services, in its PBKDFParamResponse and in
+its Sigma2. Without the option its peers use the defaults, 500 ms, 300 ms
+and 4 s.
