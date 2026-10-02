@@ -235,3 +235,54 @@ func (ep *Endpoint) GroupCapacity(fabricIndex uint8) int {
 	}
 	return max(0, MaxGroupsPerFabric-len(rec.Groups))
 }
+
+// LoadScenes returns the scenes each fabric stored on the endpoint, by
+// fabric index, for a Scenes Management cluster to restore at start.
+func (ep *Endpoint) LoadScenes() (map[uint8][]store.SceneRecord, error) {
+	oc := ep.device.opCreds
+	oc.mutex.Lock()
+	defer oc.mutex.Unlock()
+	view := oc.view()
+	fabrics, err := listFabrics(view)
+	if err != nil {
+		return nil, err
+	}
+	scenes := map[uint8][]store.SceneRecord{}
+	for _, f := range fabrics {
+		recs, err := view.LoadScenes(f.FabricIndex)
+		if err != nil {
+			return nil, err
+		}
+		for _, rec := range recs {
+			if rec.Endpoint == uint16(ep.id) {
+				scenes[f.FabricIndex] = append(scenes[f.FabricIndex], rec)
+			}
+		}
+	}
+	return scenes, nil
+}
+
+// SaveScenes replaces the scenes a fabric stored on the endpoint. While
+// the fail-safe is armed they are saved with what it guards, so the
+// scenes of a fabric it rolls back go with the fabric. The scenes of a
+// fabric the device is no longer on are not saved.
+func (ep *Endpoint) SaveScenes(fabricIndex uint8, scenes []store.SceneRecord) error {
+	oc := ep.device.opCreds
+	oc.mutex.Lock()
+	defer oc.mutex.Unlock()
+	w := oc.writerLocked()
+	if _, ok, err := w.LoadDeviceFabric(fabricIndex); err != nil || !ok {
+		return err
+	}
+	stored, err := w.LoadScenes(fabricIndex)
+	if err != nil {
+		return err
+	}
+	endpoint := uint16(ep.id)
+	recs := slices.DeleteFunc(stored, func(rec store.SceneRecord) bool { return rec.Endpoint == endpoint })
+	for _, rec := range scenes {
+		rec.Endpoint = endpoint
+		recs = append(recs, rec)
+	}
+	return w.SaveScenes(fabricIndex, recs)
+}

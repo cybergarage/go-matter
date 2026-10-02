@@ -48,7 +48,7 @@ func main() {
 	passcode := flag.Uint("passcode", 20202021, "setup passcode")
 	discriminator := flag.Uint("discriminator", 3840, "12-bit discriminator")
 	address := flag.String("address", device.DefaultAddress, "UDP address to listen on")
-	storeDir := flag.String("store", "", "directory keeping the fabrics across restarts (in memory if empty)")
+	storeDir := flag.String("store", "", "directory keeping the fabrics and scenes across restarts (in memory if empty)")
 	name := flag.String("name", "go-matter On/Off Light", "product name")
 	debug := flag.Bool("debug", false, "log debug messages")
 	flag.Parse()

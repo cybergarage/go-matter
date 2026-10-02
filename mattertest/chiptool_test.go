@@ -205,20 +205,28 @@ type chipToolDevice struct {
 // other devices, and from earlier runs, on the network.
 func startChipToolDevice(t *testing.T) *chipToolDevice {
 	t.Helper()
-	attestation, err := testcreds.AttestationProvider()
-	if err != nil {
-		t.Fatal(err)
-	}
 	d := &chipToolDevice{
 		dev:           nil,
 		store:         store.NewMemDeviceStore(),
 		discriminator: randomUint16(t) & device.MaxDiscriminator,
 		nodeID:        uint64(0x10000 + uint32(randomUint16(t))),
 	}
-	d.dev, err = device.New(
+	d.start(t, ":0")
+	t.Logf("device: discriminator %d, port %d, node ID 0x%X", d.discriminator, d.dev.CommissionableService().Port, d.nodeID)
+	return d
+}
+
+// start starts a device on d's store, listening on addr.
+func (d *chipToolDevice) start(t *testing.T, addr string) {
+	t.Helper()
+	attestation, err := testcreds.AttestationProvider()
+	if err != nil {
+		t.Fatal(err)
+	}
+	dev, err := device.New(
 		device.WithDeviceStore(d.store),
 		device.WithPasscode(types.Passcode(chipToolPasscode)),
-		device.WithAddress(":0"),
+		device.WithAddress(addr),
 		device.WithDiscriminator(d.discriminator),
 		device.WithVendorID(testcreds.VendorID),
 		device.WithProductID(testcreds.ProductID),
@@ -228,19 +236,29 @@ func startChipToolDevice(t *testing.T) *chipToolDevice {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := d.dev.Start(); err != nil {
+	if err := dev.Start(); err != nil {
 		if isToolRequired(toolChipTool) {
 			t.Fatalf("the device cannot advertise here: %v", err)
 		}
 		t.Skipf("the device cannot advertise here: %v", err)
 	}
+	d.dev = dev
 	t.Cleanup(func() {
-		if err := d.dev.Stop(); err != nil {
+		if err := dev.Stop(); err != nil {
 			t.Errorf("Device.Stop() error = %v", err)
 		}
 	})
-	t.Logf("device: discriminator %d, port %d, node ID 0x%X", d.discriminator, d.dev.CommissionableService().Port, d.nodeID)
-	return d
+}
+
+// restart stops the device and starts it again on the same store and
+// port, as a device rebooting does. The caller adds its endpoints again.
+func (d *chipToolDevice) restart(t *testing.T) {
+	t.Helper()
+	port := d.dev.CommissionableService().Port
+	if err := d.dev.Stop(); err != nil {
+		t.Fatalf("Device.Stop() error = %v", err)
+	}
+	d.start(t, fmt.Sprintf(":%d", port))
 }
 
 func nodeArg(nodeID uint64) string {

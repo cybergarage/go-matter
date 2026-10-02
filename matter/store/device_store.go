@@ -25,6 +25,9 @@ type DeviceStoreReader interface {
 	// LoadGroupKeys reads the group key sets and key map of the fabric at
 	// fabricIndex. It returns an empty record when none is stored.
 	LoadGroupKeys(fabricIndex uint8) (GroupKeysRecord, error)
+	// LoadScenes reads the scenes the fabric at fabricIndex stored on the
+	// device's endpoints. It returns no scenes when none are stored.
+	LoadScenes(fabricIndex uint8) ([]SceneRecord, error)
 }
 
 // DeviceStoreWriter writes a device's per-fabric state.
@@ -38,8 +41,12 @@ type DeviceStoreWriter interface {
 	// SaveGroupKeys replaces the group key state of the fabric at
 	// fabricIndex.
 	SaveGroupKeys(fabricIndex uint8, rec GroupKeysRecord) error
+	// SaveScenes replaces the scenes of the fabric at fabricIndex, on
+	// every endpoint. An empty scenes removes them.
+	SaveScenes(fabricIndex uint8, scenes []SceneRecord) error
 	// RemoveDeviceFabric removes the fabric at fabricIndex together with
-	// its ACL and group keys, as RemoveFabric does (Matter Core 11.18.6.12).
+	// its ACL, group keys and scenes, as RemoveFabric does (Matter Core
+	// 11.18.6.12).
 	// Removing a fabric that does not exist is not an error.
 	RemoveDeviceFabric(fabricIndex uint8) error
 }
@@ -58,7 +65,7 @@ type DeviceStoreTx interface {
 
 // DeviceStore persists what a Matter device must keep across restarts:
 // the fabrics it has joined with their operational credentials, the
-// Access Control entries and the group keys of each fabric, and
+// Access Control entries, the group keys and the scenes of each fabric, and
 // persistent counters such as the boot count and the group message
 // counters.
 type DeviceStore interface {

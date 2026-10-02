@@ -137,6 +137,39 @@ func TestChipToolRecallsScene(t *testing.T) {
 	}
 }
 
+// TestChipToolRecallsSceneAfterRestart has chip-tool store a scene, then
+// restarts the light, as a power cycle does, and has chip-tool recall the
+// scene, which the light kept in its store.
+func TestChipToolRecallsSceneAfterRestart(t *testing.T) {
+	chipTool := lookupChipTool(t)
+	d := startChipToolDevice(t)
+	light := d.addOnOffLight(t)
+	chipTool.pair(t, d.nodeID, chipToolPasscode, d.discriminator)
+	node := nodeArg(d.nodeID)
+	ep := "1"
+
+	light.Set(true)
+	if _, err := chipTool.run(t, "scenesmanagement", "store-scene", "0", "1", node, ep); err != nil {
+		t.Fatalf("chip-tool scenesmanagement store-scene: %v", err)
+	}
+
+	d.restart(t)
+	light = d.addOnOffLight(t)
+	if light.On() {
+		t.Fatal("the light starts on after the restart")
+	}
+	if _, err := chipTool.run(t, "scenesmanagement", "recall-scene", "0", "1", node, ep); err != nil {
+		t.Fatalf("chip-tool scenesmanagement recall-scene after the restart: %v", err)
+	}
+	if !light.On() {
+		t.Fatal("recalling the scene stored before the restart did not turn the light on")
+	}
+	out, err := chipTool.run(t, "scenesmanagement", "read", "fabric-scene-info", node, ep)
+	if err != nil || !strings.Contains(out, "SceneCount: 1") {
+		t.Fatalf("chip-tool scenesmanagement read fabric-scene-info after the restart: %v", err)
+	}
+}
+
 // TestChipToolAddsLightToGroup has chip-tool write a group key set and
 // map a group to it with Group Key Management, and put the light in the
 // group with the Groups cluster.

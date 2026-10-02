@@ -367,6 +367,10 @@ func New(opts ...Option) (*Device, error) {
 	d.failSafe.onRollback = func(fabricIndex uint8) {
 		if fabricIndex != 0 {
 			d.unbindFabric(fabricIndex)
+			// The application clusters forget the fabric as when it is
+			// removed, such as the scenes it stored while commissioning.
+			// They are told apart from the fail-safe's lock, held here.
+			go d.notifyFabricRemoved(fabricIndex)
 		}
 		// The operational services follow the fabrics as they were,
 		// such as a node ID an UpdateNOC changed.

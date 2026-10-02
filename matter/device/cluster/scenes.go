@@ -122,13 +122,17 @@ type fabricScene struct {
 // Scenes is the server of the Scenes Management cluster with the
 // SceneNames feature: each fabric stores the attribute values of the
 // endpoint's scene handlers as scenes, in group 0 or a group the endpoint
-// is in, and recalls them. Scenes are kept in memory.
+// is in, and recalls them. The scene table lasts across restarts on an
+// endpoint which is a SceneStorage, such as a *device.Endpoint.
 type Scenes struct {
 	mutex    sync.Mutex
 	endpoint FabricEndpoint
-	handlers map[im.ClusterID]SceneHandler
-	table    map[sceneKey]sceneEntry
-	current  map[uint8]fabricScene
+	storage  SceneStorage
+	// saveMutex orders the saves of the scene table.
+	saveMutex sync.Mutex
+	handlers  map[im.ClusterID]SceneHandler
+	table     map[sceneKey]sceneEntry
+	current   map[uint8]fabricScene
 	// recalling is set while a recall sets attributes, which leaves the
 	// recalled scene valid.
 	recalling bool
@@ -139,6 +143,8 @@ func NewScenes() *Scenes {
 	return &Scenes{
 		mutex:     sync.Mutex{},
 		endpoint:  nil,
+		storage:   nil,
+		saveMutex: sync.Mutex{},
 		handlers:  map[im.ClusterID]SceneHandler{},
 		table:     map[sceneKey]sceneEntry{},
 		current:   map[uint8]fabricScene{},
@@ -184,6 +190,10 @@ func (c *Scenes) invalidate() {
 func (c *Scenes) Register(ep FabricEndpoint) {
 	c.mutex.Lock()
 	c.endpoint = ep
+	if storage, ok := ep.(SceneStorage); ok {
+		c.storage = storage
+	}
+	c.loadLocked()
 	c.mutex.Unlock()
 
 	ep.HandleAttribute(ScenesManagementClusterID, SceneTableSizeAttributeID, func(enc tlv.Encoder, tag tlv.Tag) im.Status {
@@ -337,6 +347,7 @@ func (c *Scenes) RemoveGroups(fabric uint8, groups []uint16) {
 	}
 	ep := c.endpoint
 	c.mutex.Unlock()
+	c.save(fabric)
 	if ep != nil {
 		ep.NotifyAttributeChanged(ScenesManagementClusterID, FabricSceneInfoAttributeID)
 	}
@@ -394,6 +405,7 @@ func (c *Scenes) addScene(req *im.CommandRequest) im.CommandResult {
 		c.current[key.fabric] = cur
 	}
 	c.mutex.Unlock()
+	c.save(key.fabric)
 	c.endpoint.NotifyAttributeChanged(ScenesManagementClusterID, FabricSceneInfoAttributeID)
 	return sceneResponse(AddSceneCommandID, im.StatusSuccess, key, true, nil)
 }
@@ -644,6 +656,7 @@ func (c *Scenes) removeScene(req *im.CommandRequest) im.CommandResult {
 		}
 		c.mutex.Unlock()
 		if status == im.StatusSuccess {
+			c.save(key.fabric)
 			c.endpoint.NotifyAttributeChanged(ScenesManagementClusterID, FabricSceneInfoAttributeID)
 		}
 	}
@@ -668,6 +681,7 @@ func (c *Scenes) removeAllScenes(req *im.CommandRequest) im.CommandResult {
 			c.current[key.fabric] = cur
 		}
 		c.mutex.Unlock()
+		c.save(key.fabric)
 		c.endpoint.NotifyAttributeChanged(ScenesManagementClusterID, FabricSceneInfoAttributeID)
 	}
 	return sceneResponse(RemoveAllScenesCommandID, status, key, false, nil)
@@ -701,6 +715,7 @@ func (c *Scenes) storeScene(req *im.CommandRequest) im.CommandResult {
 	c.table[key] = entry
 	c.current[key.fabric] = fabricScene{group: key.group, scene: key.scene, valid: true}
 	c.mutex.Unlock()
+	c.save(key.fabric)
 	c.endpoint.NotifyAttributeChanged(ScenesManagementClusterID, FabricSceneInfoAttributeID)
 	return sceneResponse(StoreSceneCommandID, im.StatusSuccess, key, true, nil)
 }

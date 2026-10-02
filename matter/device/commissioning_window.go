@@ -396,17 +396,22 @@ func (d *Device) closeSessionLocked(sess *Session) {
 	}
 }
 
-// fabricRemoved ends what the removed fabric leaves behind: the sessions
-// on it are closed and its operational service withdrawn, and a device
-// left on no fabric opens its commissioning window again, as a new device
-// does (11.18.6.12).
-func (d *Device) fabricRemoved(fabricIndex uint8) {
+// notifyFabricRemoved tells the application clusters a fabric is gone.
+func (d *Device) notifyFabricRemoved(fabricIndex uint8) {
 	d.mu.Lock()
 	handlers := append([]func(uint8){}, d.fabricRemovedHandlers...)
 	d.mu.Unlock()
 	for _, h := range handlers {
 		h(fabricIndex)
 	}
+}
+
+// fabricRemoved ends what the removed fabric leaves behind: the sessions
+// on it are closed and its operational service withdrawn, and a device
+// left on no fabric opens its commissioning window again, as a new device
+// does (11.18.6.12).
+func (d *Device) fabricRemoved(fabricIndex uint8) {
+	d.notifyFabricRemoved(fabricIndex)
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	for _, sess := range d.sessions {

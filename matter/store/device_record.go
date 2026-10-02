@@ -137,3 +137,31 @@ type GroupKeysRecord struct {
 	KeyMap  []GroupKeyMapEntry `json:"keyMap,omitempty"`
 	Groups  []GroupRecord      `json:"groups,omitempty"`
 }
+
+// SceneRecord is a scene a fabric stored on an endpoint, an entry of the
+// endpoint's Scenes Management scene table (Matter Application Cluster
+// 1.4.7.1).
+type SceneRecord struct {
+	Endpoint     uint16                 `json:"endpoint"`
+	GroupID      uint16                 `json:"groupId"`
+	SceneID      uint8                  `json:"sceneId"`
+	Name         string                 `json:"name,omitempty"`
+	TransitionMs uint32                 `json:"transitionMs,omitempty"`
+	Extensions   []SceneExtensionRecord `json:"extensions,omitempty"`
+}
+
+// SceneExtensionRecord is the attribute values a scene sets on one
+// cluster, an ExtensionFieldSetStruct.
+type SceneExtensionRecord struct {
+	Cluster uint32                      `json:"cluster"`
+	Values  []SceneAttributeValueRecord `json:"values,omitempty"`
+}
+
+// SceneAttributeValueRecord is the value a scene sets one attribute to,
+// an AttributeValuePairStruct: an unsigned or signed integer of Bits bits.
+type SceneAttributeValueRecord struct {
+	Attribute uint32 `json:"attribute"`
+	Value     uint64 `json:"value"`
+	Signed    bool   `json:"signed,omitempty"`
+	Bits      int    `json:"bits"`
+}

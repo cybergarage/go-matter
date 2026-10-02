@@ -3,8 +3,8 @@
 A Matter device must remember, across restarts, which fabrics it has
 joined and what each of them is allowed to do. `store.DeviceStore` in the
 [`matter/store`](../matter/store) package is the typed store for that
-state. It is the groundwork for running go-matter as a device: nothing in
-go-matter uses it yet.
+state; a [`matter/device`](device.md) Device keeps its fabrics, ACLs,
+group keys, scenes and counters in it.
 
 It is built on the same `store.KVStore` backends as the
 [Commissioner Persistent Store](commissioner-store.md), and a device and a
@@ -18,6 +18,7 @@ commissioner can share one backend, since every device key lives under
 | Fabric and operational credentials | `DeviceFabricRecord` | Operational Credentials cluster, Fabrics and NOCs lists (Core 11.18) | One per fabric |
 | Access Control entries | `[]ACLEntry` | `AccessControlEntryStruct` (Core 9.10.5) | An ordered list per fabric |
 | Group keys | `GroupKeysRecord` | `GroupKeySetStruct` and the group key map (Core 11.2.5) | One per fabric |
+| Scenes | `[]SceneRecord` | The Scenes Management scene table (Application Cluster 1.4.7.1) | A list per fabric, over its endpoints |
 | Counters | `PersistentCounter` | Global group message counters (Core 4.6.1.2), boot count | Device-wide |
 
 A fabric is addressed by its fabric index, 1 to 254 (`MinFabricIndex` to
@@ -41,14 +42,28 @@ device/
 │   └── <fabricIndex>/        two uppercase hex digits, e.g. 01, 0A, FE
 │       ├── fabric.json
 │       ├── acl.json
-│       └── groupkeys.json
+│       ├── groupkeys.json
+│       └── scenes.json
 └── counters/
     └── <name>                the counter's bound, in decimal
 ```
 
 Each fabric's records sit in their own directory, so `RemoveDeviceFabric`
-removes the fabric, its ACL and its group keys together, as the
-RemoveFabric command requires.
+removes the fabric, its ACL, its group keys and its scenes together, as
+the RemoveFabric command requires.
+
+## Scenes
+
+A `SceneRecord` is a scene a fabric stored on an endpoint: its endpoint,
+group and scene ID, name, transition time, and the attribute values it
+sets on each cluster. The Scenes Management cluster of
+[`matter/device/cluster`](../matter/device/cluster) saves its scene table
+here after every change and restores it when it is registered, through
+the `LoadScenes` and `SaveScenes` methods of `device.Endpoint`. Which scene
+is current is not saved: after a restart no scene is valid, as the
+cluster specifies. A scene saved while the fail-safe is armed is written
+through its transaction, so it goes with a fabric the fail-safe rolls
+back.
 
 ## The fail-safe
 

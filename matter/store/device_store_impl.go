@@ -31,6 +31,7 @@ const (
 	deviceFabricKeyName     = "fabric.json"
 	deviceACLKeyName        = "acl.json"
 	deviceGroupKeysKeyName  = "groupkeys.json"
+	deviceScenesKeyName     = "scenes.json"
 	deviceFabricIndexLayout = "%02X"
 )
 
@@ -192,8 +193,31 @@ func (r deviceRecords) SaveGroupKeys(fabricIndex uint8, rec GroupKeysRecord) err
 	return r.put(key, rec)
 }
 
+func (r deviceRecords) LoadScenes(fabricIndex uint8) ([]SceneRecord, error) {
+	scenes := []SceneRecord{}
+	key, err := deviceFabricKey(fabricIndex, deviceScenesKeyName)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := r.load(key, &scenes); err != nil {
+		return nil, err
+	}
+	return scenes, nil
+}
+
+func (r deviceRecords) SaveScenes(fabricIndex uint8, scenes []SceneRecord) error {
+	key, err := deviceFabricKey(fabricIndex, deviceScenesKeyName)
+	if err != nil {
+		return err
+	}
+	if len(scenes) == 0 {
+		return r.kv.Delete(key)
+	}
+	return r.put(key, scenes)
+}
+
 func (r deviceRecords) RemoveDeviceFabric(fabricIndex uint8) error {
-	for _, name := range []string{deviceACLKeyName, deviceGroupKeysKeyName, deviceFabricKeyName} {
+	for _, name := range []string{deviceACLKeyName, deviceGroupKeysKeyName, deviceScenesKeyName, deviceFabricKeyName} {
 		key, err := deviceFabricKey(fabricIndex, name)
 		if err != nil {
 			return err

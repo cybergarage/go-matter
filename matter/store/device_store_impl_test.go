@@ -171,6 +171,36 @@ func TestGroupKeysRoundTrip(t *testing.T) {
 	}
 }
 
+func TestScenesRoundTrip(t *testing.T) {
+	for name, s := range deviceStores(t) {
+		t.Run(name, func(t *testing.T) {
+			if scenes, err := s.LoadScenes(1); err != nil || len(scenes) != 0 {
+				t.Fatalf("LoadScenes(1) on an empty store = (%+v, %v), want (none, nil)", scenes, err)
+			}
+			want := []SceneRecord{
+				{Endpoint: 1, GroupID: 0, SceneID: 1, Name: "Evening", TransitionMs: 1500, Extensions: []SceneExtensionRecord{
+					{Cluster: 0x0006, Values: []SceneAttributeValueRecord{{Attribute: 0x0000, Value: 1, Bits: 8}}},
+					{Cluster: 0x0008, Values: []SceneAttributeValueRecord{{Attribute: 0x0000, Value: 0xFE, Bits: 8}}},
+				}},
+				{Endpoint: 2, GroupID: 0x0601, SceneID: 7},
+			}
+			if err := s.SaveScenes(1, want); err != nil {
+				t.Fatal(err)
+			}
+			got, err := s.LoadScenes(1)
+			if err != nil || !reflect.DeepEqual(got, want) {
+				t.Fatalf("LoadScenes(1) = (%+v, %v), want %+v", got, err, want)
+			}
+			if err := s.SaveScenes(1, nil); err != nil {
+				t.Fatal(err)
+			}
+			if scenes, err := s.LoadScenes(1); err != nil || len(scenes) != 0 {
+				t.Fatalf("LoadScenes(1) after saving none = (%+v, %v), want (none, nil)", scenes, err)
+			}
+		})
+	}
+}
+
 func TestGroupKeysValidation(t *testing.T) {
 	s := NewMemDeviceStore()
 	for _, n := range []int{0, MaxEpochKeys + 1} {
@@ -195,6 +225,9 @@ func TestRemoveDeviceFabric(t *testing.T) {
 				if err := s.SaveGroupKeys(i, GroupKeysRecord{KeyMap: []GroupKeyMapEntry{{GroupID: 1, GroupKeySetID: 1}}}); err != nil {
 					t.Fatal(err)
 				}
+				if err := s.SaveScenes(i, []SceneRecord{{Endpoint: 1, SceneID: 1}}); err != nil {
+					t.Fatal(err)
+				}
 			}
 			if err := s.RemoveDeviceFabric(1); err != nil {
 				t.Fatal(err)
@@ -211,8 +244,14 @@ func TestRemoveDeviceFabric(t *testing.T) {
 			if rec, _ := s.LoadGroupKeys(1); len(rec.KeyMap) != 0 {
 				t.Error("group keys of fabric 1 still present after RemoveDeviceFabric(1)")
 			}
+			if scenes, _ := s.LoadScenes(1); len(scenes) != 0 {
+				t.Error("scenes of fabric 1 still present after RemoveDeviceFabric(1)")
+			}
 			if _, ok, _ := s.LoadDeviceFabric(2); !ok {
 				t.Error("RemoveDeviceFabric(1) removed fabric 2")
+			}
+			if scenes, _ := s.LoadScenes(2); len(scenes) != 1 {
+				t.Error("RemoveDeviceFabric(1) removed the scenes of fabric 2")
 			}
 			if entries, _ := s.LoadACL(2); len(entries) != 1 {
 				t.Error("RemoveDeviceFabric(1) removed the ACL of fabric 2")
