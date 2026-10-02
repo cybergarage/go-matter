@@ -215,10 +215,13 @@ func (gm *groupMessaging) receive(packet []byte) {
 		if err != nil {
 			continue
 		}
-		plaintext, ok := decryptGroupMessage(msg, f, rec)
+		opened, plaintext, ok := decryptGroupMessage(msg, f, rec)
 		if !ok {
 			continue
 		}
+		// A message with privacy says who sent it to which group once
+		// opened.
+		msg = opened
 		endpoints := groupEndpoints(rec, msg.GroupID)
 		if len(endpoints) == 0 {
 			return
@@ -233,18 +236,26 @@ func (gm *groupMessaging) receive(packet []byte) {
 		}
 		return
 	}
+	if msg.Private {
+		log.Debugf("device: no key opens the message with privacy of group session 0x%04X", uint16(msg.Header.SessionID()))
+		return
+	}
 	log.Debugf("device: no key decrypts the message to group 0x%04X from node 0x%X", msg.GroupID, msg.SourceNodeID)
 }
 
 // decryptGroupMessage tries the epoch keys of the key sets a fabric maps
-// the message's group to, those whose group session ID it carries.
-func decryptGroupMessage(msg *group.Message, f store.DeviceFabricRecord, rec store.GroupKeysRecord) ([]byte, bool) {
+// the message's group to, those whose group session ID it carries, and
+// returns the message opened, with its header in clear. The group of a
+// message with privacy is known only once a key deobfuscates it, so each
+// group's keys are tried, and the group the message names must be the one
+// the key is for (4.9.3, 4.15.3).
+func decryptGroupMessage(msg *group.Message, f store.DeviceFabricRecord, rec store.GroupKeysRecord) (*group.Message, []byte, bool) {
 	cfid, err := caseprotocol.ComputeCompressedFabricID(f.RootPublicKey, f.FabricID)
 	if err != nil {
-		return nil, false
+		return nil, nil, false
 	}
 	for _, entry := range rec.KeyMap {
-		if entry.GroupID != msg.GroupID {
+		if !msg.Private && entry.GroupID != msg.GroupID {
 			continue
 		}
 		i := slices.IndexFunc(rec.KeySets, func(s store.GroupKeySet) bool { return s.GroupKeySetID == entry.GroupKeySetID })
@@ -259,12 +270,12 @@ func decryptGroupMessage(msg *group.Message, f store.DeviceFabricRecord, rec sto
 			if sid, err := group.SessionID(key); err != nil || sid != uint16(msg.Header.SessionID()) {
 				continue
 			}
-			if plaintext, err := msg.Decrypt(key); err == nil {
-				return plaintext, true
+			if opened, plaintext, err := msg.Open(key); err == nil && opened.GroupID == entry.GroupID {
+				return opened, plaintext, true
 			}
 		}
 	}
-	return nil, false
+	return nil, nil, false
 }
 
 func groupEndpoints(rec store.GroupKeysRecord, groupID uint16) []im.EndpointID {

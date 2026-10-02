@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"slices"
 
 	"github.com/cybergarage/go-matter/matter/crypto"
 	"github.com/cybergarage/go-matter/matter/encoding/message"
@@ -88,14 +89,21 @@ type Message struct {
 	Header       message.Header
 	SourceNodeID uint64
 	GroupID      uint16
+	// Private is set when the message has the P flag: its Message
+	// Counter, SourceNodeID and GroupID are obfuscated, and known only from
+	// the message Open returns.
+	Private bool
 	// Payload is the encrypted protocol header and application payload,
 	// with the MIC.
 	Payload []byte
 	// headerBytes is the header as received, the AAD.
 	headerBytes []byte
+	// packet is the message as received.
+	packet []byte
 }
 
-// Parse splits a group message into its header and encrypted payload.
+// Parse splits a group message into its header and encrypted payload. The
+// header fields of a message with privacy are obfuscated until Open.
 func Parse(packet []byte) (*Message, error) {
 	hdr, err := message.NewHeaderFromBytes(packet)
 	if err != nil {
@@ -112,8 +120,8 @@ func Parse(packet []byte) (*Message, error) {
 	if !ok {
 		return nil, ErrNotGroupMessage
 	}
-	if hdr.SecurityFlags().HasPrivacy() || hdr.SecurityFlags().HasMessageExtensions() {
-		return nil, fmt.Errorf("group: privacy and message extensions are not supported")
+	if hdr.SecurityFlags().HasMessageExtensions() {
+		return nil, fmt.Errorf("group: message extensions are not supported")
 	}
 	hdrBytes, err := hdr.Bytes()
 	if err != nil {
@@ -126,27 +134,71 @@ func Parse(packet []byte) (*Message, error) {
 		Header:       hdr,
 		SourceNodeID: uint64(src),
 		GroupID:      uint16(gid),
+		Private:      hdr.SecurityFlags().HasPrivacy(),
 		Payload:      packet[len(hdrBytes):],
 		headerBytes:  packet[:len(hdrBytes)],
+		packet:       packet,
 	}, nil
 }
 
-// Decrypt decrypts the message with an operational group key, returning
-// the protocol header and application payload.
+// Decrypt decrypts a message without privacy with an operational group
+// key, returning the protocol header and application payload.
 func (m *Message) Decrypt(operationalKey []byte) ([]byte, error) {
+	if m.Private {
+		return nil, fmt.Errorf("group: the message has privacy; use Open")
+	}
 	nonce := crypto.CryptoCCMNonce(byte(m.Header.SecurityFlags()), uint32(m.Header.MessageCounter()), m.SourceNodeID)
 	return crypto.CryptoCCMDecrypt(operationalKey, nonce, m.Payload, m.headerBytes)
+}
+
+// Open decrypts the message with an operational group key, first
+// deobfuscating the header of a message with privacy (4.9.3). It returns
+// the message with its header fields in clear, and the protocol header and
+// application payload.
+func (m *Message) Open(operationalKey []byte) (*Message, []byte, error) {
+	if !m.Private {
+		plaintext, err := m.Decrypt(operationalKey)
+		return m, plaintext, err
+	}
+	packet := slices.Clone(m.packet)
+	if err := obfuscate(operationalKey, packet); err != nil {
+		return nil, nil, err
+	}
+	opened, err := Parse(packet)
+	if err != nil {
+		return nil, nil, err
+	}
+	nonce := crypto.CryptoCCMNonce(byte(opened.Header.SecurityFlags()), uint32(opened.Header.MessageCounter()), opened.SourceNodeID)
+	plaintext, err := crypto.CryptoCCMDecrypt(operationalKey, nonce, opened.Payload, opened.headerBytes)
+	if err != nil {
+		return nil, nil, err
+	}
+	return opened, plaintext, nil
 }
 
 // Encrypt builds a group message from sourceNodeID to groupID of payload,
 // a protocol header and application payload, with an operational group
 // key and the message counter of the sender.
 func Encrypt(operationalKey []byte, sourceNodeID uint64, groupID uint16, counter uint32, payload []byte) ([]byte, error) {
+	return encrypt(operationalKey, sourceNodeID, groupID, counter, payload, false)
+}
+
+// EncryptWithPrivacy builds a group message as Encrypt does, with the P
+// flag, its Message Counter, Source Node ID and Group ID obfuscated with
+// the privacy key of the operational group key (4.9.3).
+func EncryptWithPrivacy(operationalKey []byte, sourceNodeID uint64, groupID uint16, counter uint32, payload []byte) ([]byte, error) {
+	return encrypt(operationalKey, sourceNodeID, groupID, counter, payload, true)
+}
+
+func encrypt(operationalKey []byte, sourceNodeID uint64, groupID uint16, counter uint32, payload []byte, private bool) ([]byte, error) {
 	sessionID, err := SessionID(operationalKey)
 	if err != nil {
 		return nil, err
 	}
 	secFlags := message.SecurityFlag(sessionTypeGroup)
+	if private {
+		secFlags |= message.PrivacyMask
+	}
 	hdr := message.NewHeader(
 		message.WithHeaderSessionID(message.SessionID(sessionID)),
 		message.WithHeaderSecurityFlags(secFlags),
@@ -163,5 +215,13 @@ func Encrypt(operationalKey []byte, sourceNodeID uint64, groupID uint16, counter
 	if err != nil {
 		return nil, err
 	}
-	return append(hdrBytes, sealed...), nil
+	packet := make([]byte, 0, len(hdrBytes)+len(sealed))
+	packet = append(packet, hdrBytes...)
+	packet = append(packet, sealed...)
+	if private {
+		if err := obfuscate(operationalKey, packet); err != nil {
+			return nil, err
+		}
+	}
+	return packet, nil
 }

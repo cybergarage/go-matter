@@ -36,6 +36,7 @@ type Sender struct {
 	sourceNodeID       uint64
 	nextCounter        func() (uint32, error)
 	transmit           func(addr *net.UDPAddr, packet []byte) error
+	privacy            bool
 }
 
 // SenderOption configures a Sender.
@@ -49,6 +50,16 @@ type SenderOption func(*Sender)
 func WithCounter(next func() (uint32, error)) SenderOption {
 	return func(s *Sender) {
 		s.nextCounter = next
+	}
+}
+
+// WithoutPrivacy makes a Sender send its messages without privacy, with
+// the Message Counter, Source Node ID and Group ID in clear, for receivers
+// which do not deobfuscate them. By default a Sender sends them with
+// privacy, as the Matter SDK does (4.9.3).
+func WithoutPrivacy() SenderOption {
+	return func(s *Sender) {
+		s.privacy = false
 	}
 }
 
@@ -78,6 +89,7 @@ func NewSender(fabricID, compressedFabricID, sourceNodeID uint64, opts ...Sender
 			return counter, nil
 		},
 		transmit: transmitMulticast,
+		privacy:  true,
 	}
 	for _, opt := range opts {
 		opt(s)
@@ -102,7 +114,11 @@ func (s *Sender) Send(groupID uint16, epochKey []byte, message []byte) error {
 	if err != nil {
 		return err
 	}
-	packet, err := Encrypt(key, s.sourceNodeID, groupID, counter, message)
+	encrypt := EncryptWithPrivacy
+	if !s.privacy {
+		encrypt = Encrypt
+	}
+	packet, err := encrypt(key, s.sourceNodeID, groupID, counter, message)
 	if err != nil {
 		return err
 	}

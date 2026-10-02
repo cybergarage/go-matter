@@ -239,11 +239,34 @@ func TestGroupMessaging(t *testing.T) {
 		on.Store(1)
 	}
 
+	// A message with privacy, its counter, source and group obfuscated,
+	// runs once; a replay of it, and one under another key or to another
+	// group, does not.
+	sendPrivate := func(opKey []byte, groupID uint16, counter uint32) {
+		t.Helper()
+		packet, err := group.EncryptWithPrivacy(opKey, testAdminNodeID, groupID, counter, groupInvoke(t, 0x0006, 0x01))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := client.Transmit(context.Background(), packet); err != nil {
+			t.Fatal(err)
+		}
+	}
+	sendPrivate(key, 0x0101, 120)
+	waitFor(t, "the group command with privacy to run", func() bool { return on.Load() == 2 })
+	sendPrivate(key, 0x0101, 120)
+	sendPrivate(key, 0x0202, 121)
+	sendPrivate(wrongKey, 0x0101, 122)
+	settle()
+	if n := on.Load(); n != 2 {
+		t.Fatalf("the group command ran %d times, want only the first message with privacy", n)
+	}
+
 	// The endpoint which left the group is not reached.
 	ep.LeaveGroup(1, 0x0101)
-	send(106)
+	send(126)
 	settle()
-	if n := on.Load(); n != 1 {
+	if n := on.Load(); n != 2 {
 		t.Fatalf("the command reached an endpoint out of the group (%d runs)", n)
 	}
 }

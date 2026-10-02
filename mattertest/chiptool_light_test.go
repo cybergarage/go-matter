@@ -300,13 +300,13 @@ func (d *chipToolDevice) explainGroupMessage(t *testing.T, packet []byte, epochK
 		t.Logf("the group message does not parse: %v", err)
 		return
 	}
-	t.Logf("compressed fabric ID %016X, group session ID 0x%04X, the message's 0x%04X", cfid, sid, uint16(msg.Header.SessionID()))
-	plain, err := msg.Decrypt(key)
+	t.Logf("compressed fabric ID %016X, group session ID 0x%04X, the message's 0x%04X, privacy %v", cfid, sid, uint16(msg.Header.SessionID()), msg.Private)
+	opened, plain, err := msg.Open(key)
 	if err != nil {
 		t.Logf("the device's key does not decrypt the message: %v", err)
 		return
 	}
-	t.Logf("decrypted: % X", plain)
+	t.Logf("decrypted the message of node 0x%X to group 0x%04X: % X", opened.SourceNodeID, opened.GroupID, plain)
 }
 
 // fabricID returns the fabric ID of the device's only fabric.
