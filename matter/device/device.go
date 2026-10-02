@@ -731,10 +731,11 @@ func (d *Device) runPASE(pt *peerTransport, sessionID types.SessionID, verifier 
 	// The session is set up before the responder reports success, since
 	// the commissioner sends its first request on it right away.
 	var sess *Session
+	var responder *pase.Responder
 	established := func(keys pase.SessionKeys) {
 		d.mu.Lock()
 		if d.conn != nil {
-			sess = d.addSessionLocked(pt, sessionID, keys, false, 0, 0, nil)
+			sess = d.addSessionLocked(pt, sessionID, keys, responder.PeerMRPParameters(), false, 0, 0, nil)
 			d.commissioningStartedLocked(sess)
 		}
 		d.mu.Unlock()
@@ -746,10 +747,11 @@ func (d *Device) runPASE(pt *peerTransport, sessionID types.SessionID, verifier 
 			}
 		}
 	}
-	_, err := pase.NewResponder(pt, verifier,
+	responder = pase.NewResponder(pt, verifier,
 		pase.WithResponderSessionID(sessionID),
 		pase.WithResponderEstablishedHandler(established),
-	).EstablishSession(d.ctx)
+	)
+	_, err := responder.EstablishSession(d.ctx)
 
 	d.mu.Lock()
 	d.pase = nil
@@ -781,7 +783,7 @@ func (d *Device) runCASE(pt *peerTransport, sessionID types.SessionID) {
 		d.mu.Lock()
 		defer d.mu.Unlock()
 		if d.conn != nil {
-			sess = d.addSessionLocked(pt, sessionID, es.Keys, true, es.FabricIndex, es.PeerNodeID, es.PeerCATs)
+			sess = d.addSessionLocked(pt, sessionID, es.Keys, es.PeerMRP, true, es.FabricIndex, es.PeerNodeID, es.PeerCATs)
 		}
 	}
 	responder := caseprotocol.NewResponder(pt, d.opCreds.responderFabrics,
@@ -816,7 +818,7 @@ func (d *Device) runCASE(pt *peerTransport, sessionID types.SessionID) {
 
 // addSessionLocked registers a newly established session and starts
 // serving the Interaction Model on it.
-func (d *Device) addSessionLocked(pt *peerTransport, sessionID types.SessionID, keys session.SessionKeys, isCASE bool, fabricIndex uint8, peerNodeID uint64, peerCATs []uint32) *Session {
+func (d *Device) addSessionLocked(pt *peerTransport, sessionID types.SessionID, keys session.SessionKeys, peerMRP session.MRPParameters, isCASE bool, fabricIndex uint8, peerNodeID uint64, peerCATs []uint32) *Session {
 	transport := newPeerTransport(pt.conn, pt.peer)
 	sess := &Session{
 		keys:        keys,
@@ -829,11 +831,13 @@ func (d *Device) addSessionLocked(pt *peerTransport, sessionID types.SessionID, 
 		peerCATs:    peerCATs,
 	}
 	// The device retransmits its reliable messages over UDP until the
-	// peer acknowledges them (4.12. Message Reliability Protocol), and a
+	// peer acknowledges them (4.12. Message Reliability Protocol), at the
+	// intervals the peer announced while establishing the session, and a
 	// subscription whose report the peer never takes ends.
 	sess.secure = session.NewSecureSession(transport, keys,
 		session.WithRole(session.RoleResponder),
 		session.WithRetransmission(session.DefaultActiveRetransmitInterval, session.DefaultMaxTransmissions),
+		session.WithPeerMRPParameters(peerMRP),
 		session.WithUndeliveredHandler(func(hdr message.ProtocolHeader) {
 			d.imServer.Undelivered(sess.secure, hdr)
 		}),

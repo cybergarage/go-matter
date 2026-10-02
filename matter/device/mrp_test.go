@@ -308,3 +308,32 @@ func waitForWithin(t *testing.T, timeout time.Duration, what string, cond func()
 		time.Sleep(10 * time.Millisecond)
 	}
 }
+
+// TestDeviceSessionsTakePeerMRPParameters checks that the device's PASE and
+// CASE sessions retransmit at the intervals the commissioner announced,
+// here the defaults its PBKDFParamRequest and Sigma1 carry. The PASE
+// session is checked during commissioning, before it closes.
+func TestDeviceSessionsTakePeerMRPParameters(t *testing.T) {
+	d, _, pase, client := startCommissioningWithAdvertiser(t)
+	checkPeerMRP := func(isCASE bool) {
+		t.Helper()
+		d.mu.Lock()
+		defer d.mu.Unlock()
+		for _, sess := range d.sessions {
+			if sess.isCASE != isCASE {
+				continue
+			}
+			got, ok := session.PeerMRPParameters(sess.secure)
+			if !ok || got != session.DefaultMRPParameters() {
+				t.Fatalf("the session (CASE %v) has peer parameters %+v, %v; want the commissioner's %+v", isCASE, got, ok, session.DefaultMRPParameters())
+			}
+			return
+		}
+		t.Fatalf("no session (CASE %v)", isCASE)
+	}
+	checkPeerMRP(false)
+	ca := newTestCA(t, testFabricID)
+	addNOCOverPASE(t, pase, ca, testCommissioneeNode)
+	caseSession(t, client, ca.admin(t, testAdminNodeID), testCommissioneeNode)
+	checkPeerMRP(true)
+}

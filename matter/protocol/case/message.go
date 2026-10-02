@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"fmt"
+	"time"
 
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 	"github.com/cybergarage/go-matter/matter/protocol/session"
@@ -14,6 +15,10 @@ type sigma1 struct {
 	InitiatorSessionID uint16
 	DestinationID      []byte
 	InitiatorEphPubKey []byte
+	// InitiatorMRP are the MRP parameters of the initiator's
+	// session-parameter-struct, defaults for those it leaves out. They are
+	// decoded only; encodeSigma1 sends defaultSessionParams.
+	InitiatorMRP session.MRPParameters
 }
 
 // sessionParams mirrors connectedhomeip's SessionParameters
@@ -344,6 +349,7 @@ func decodeSigma1(b []byte) (sigma1, error) {
 		InitiatorSessionID: 0,
 		DestinationID:      octets[3],
 		InitiatorEphPubKey: octets[4],
+		InitiatorMRP:       decodeMRPParameters(b, 5),
 	}
 	sessionID, ok := uints[2]
 	switch {
@@ -427,4 +433,52 @@ func decodeSigma3TBEData(b []byte) (sigma3TBEData, error) {
 		return sigma3TBEData{}, fmt.Errorf("case: Sigma3 encrypted payload missing signature")
 	}
 	return out, nil
+}
+
+// decodeMRPParameters returns the MRP parameters of the
+// session-parameter-struct at the top-level context tag of the structure
+// b, with defaults for those it leaves out or which are absent (4.13.1.
+// Session Parameters: SESSION_IDLE_INTERVAL at tag 1, SESSION_ACTIVE_INTERVAL
+// at tag 2, in milliseconds, and SESSION_ACTIVE_THRESHOLD at tag 3).
+func decodeMRPParameters(b []byte, tag uint8) session.MRPParameters {
+	var p session.MRPParameters
+	dec := tlv.NewDecoderWithBytes(b)
+	if !dec.Next() || !dec.Element().Type().IsStructure() {
+		return p.WithDefaults()
+	}
+	depth, inParams := 0, false
+	for dec.Next() {
+		elem := dec.Element()
+		if elem.Type().IsEndOfContainer() {
+			if depth == 0 {
+				break
+			}
+			depth--
+			inParams = false
+			continue
+		}
+		ct, ok := elem.Tag().(tlv.ContextTag)
+		if elem.Type().IsContainer() {
+			depth++
+			inParams = depth == 1 && ok && uint8(ct.ContextNumber()) == tag && elem.Type().IsStructure()
+			continue
+		}
+		if !inParams || depth != 1 || !ok {
+			continue
+		}
+		v, ok := elem.Unsigned()
+		if !ok {
+			continue
+		}
+		ms := time.Duration(min(v, uint64(session.MaxSessionInterval/time.Millisecond)+1)) * time.Millisecond // nolint: gosec // bounded above
+		switch ct.ContextNumber() {
+		case 1:
+			p.IdleInterval = ms
+		case 2:
+			p.ActiveInterval = ms
+		case 3:
+			p.ActiveThreshold = ms
+		}
+	}
+	return p.WithDefaults()
 }

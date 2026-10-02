@@ -93,6 +93,9 @@ type ResponderSession struct {
 	PeerNodeID uint64
 	// PeerCATs are the CASE Authenticated Tags in the initiator's NOC.
 	PeerCATs []uint32
+	// PeerMRP are the MRP parameters the initiator announced in its
+	// Sigma1, defaults for those it did not.
+	PeerMRP session.MRPParameters
 }
 
 // ResponderOption configures a Responder.
@@ -273,6 +276,7 @@ func (r *Responder) EstablishSession(ctx context.Context) (*ResponderSession, er
 		FabricIndex: fabric.FabricIndex,
 		PeerNodeID:  peer.NodeID,
 		PeerCATs:    peer.CATs,
+		PeerMRP:     s1.InitiatorMRP,
 	}
 	if r.established != nil {
 		r.established(established)

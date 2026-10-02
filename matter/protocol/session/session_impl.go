@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"sync/atomic"
+	"time"
 
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/crypto"
@@ -76,6 +77,12 @@ type secureSession struct {
 	onUndelivered func(message.ProtocolHeader)
 	// received detects the messages the peer sent again (4.6.5.3).
 	received counterWindow
+	// peerMRP are the parameters the peer announced, which set the
+	// retransmission interval (WithPeerMRPParameters).
+	peerMRP *MRPParameters
+	// lastReceived is when a message last arrived from the peer, in Unix
+	// nanoseconds: the session's establishment, then each message.
+	lastReceived atomic.Int64
 }
 
 // NewSecureSession creates a SecureSession from established session keys.
@@ -92,7 +99,10 @@ func NewSecureSession(t Transport, keys SessionKeys, opts ...SecureSessionOption
 		msgCounter: uint32(message.NewMessageCounter()),
 		retransmit: nil,
 		received:   counterWindow{},
+		peerMRP:    nil,
 	}
+	// The peer was just active, establishing the session.
+	s.lastReceived.Store(time.Now().UnixNano())
 	for _, opt := range opts {
 		opt(s)
 	}
@@ -282,6 +292,7 @@ func (s *secureSession) Receive() ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
+		s.lastReceived.Store(time.Now().UnixNano())
 		protHdr, protHdrErr := message.NewProtocolHeaderFromBytes(plaintext)
 		if protHdrErr == nil && s.retransmit != nil {
 			// A piggybacked or standalone acknowledgement ends the

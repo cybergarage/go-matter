@@ -27,6 +27,7 @@ import (
 	"github.com/cybergarage/go-matter/matter/encoding/message"
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pake"
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pbkdf"
+	securesession "github.com/cybergarage/go-matter/matter/protocol/session"
 	"github.com/cybergarage/go-matter/matter/types"
 )
 
@@ -49,6 +50,8 @@ type Responder struct {
 	verifier    Verifier
 	sessionID   SessionID
 	established func(SessionKeys)
+	// peerMRP are the MRP parameters of the PBKDFParamRequest.
+	peerMRP securesession.MRPParameters
 
 	counter message.MessageCounter
 	// lastPeerCounter and lastSent let the responder answer a retransmitted
@@ -91,6 +94,7 @@ func NewResponder(t Transport, verifier Verifier, opts ...ResponderOption) *Resp
 		verifier:        verifier,
 		sessionID:       0,
 		established:     nil,
+		peerMRP:         securesession.DefaultMRPParameters(),
 		counter:         message.NewMessageCounter(),
 		lastPeerCounter: 0,
 		hasLastPeer:     false,
@@ -131,6 +135,7 @@ func (r *Responder) EstablishSession(ctx context.Context) (SessionKeys, error) {
 		return nil, fmt.Errorf("pase: decode PBKDFParamRequest: %w", err)
 	}
 	log.Debugf("PASE responder: PBKDFParamRequest: %s", paramReq.String())
+	r.peerMRP = initiatorMRPParameters(paramReq)
 	// 4.14.1.2: passcode ID 0 is the default commissioning passcode, the
 	// only one this responder has a verifier for.
 	if id := paramReq.PasscodeID(); id != 0 {
@@ -328,4 +333,29 @@ func (r *Responder) sendStatusReport(ctx context.Context, req message.Message, g
 		log.Warnf("PASE responder: send failure StatusReport: %v", err)
 	}
 	return err
+}
+
+// PeerMRPParameters returns the MRP parameters the initiator announced in
+// its PBKDFParamRequest, defaults for those it did not. They are known by
+// the time the established handler is called.
+func (r *Responder) PeerMRPParameters() securesession.MRPParameters {
+	return r.peerMRP
+}
+
+// initiatorMRPParameters returns the MRP parameters of a PBKDFParamRequest's
+// initiatorSessionParams (4.13.1).
+func initiatorMRPParameters(req pbkdf.ParamRequestMessage) securesession.MRPParameters {
+	var p securesession.MRPParameters
+	if params, ok := req.InitiatorSessionParams(); ok {
+		if v, ok := params.SessionIdleInterval(); ok {
+			p.IdleInterval = v
+		}
+		if v, ok := params.SessionActiveInterval(); ok {
+			p.ActiveInterval = v
+		}
+		if v, ok := params.SessionActiveThreshold(); ok {
+			p.ActiveThreshold = v
+		}
+	}
+	return p.WithDefaults()
 }

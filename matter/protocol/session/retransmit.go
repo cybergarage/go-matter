@@ -91,14 +91,31 @@ type pendingMessage struct {
 	wire          []byte
 	header        message.ProtocolHeader
 	transmissions int
-	timer         *time.Timer
+	// interval is the base retransmission interval, chosen when the
+	// message was first sent.
+	interval time.Duration
+	timer    *time.Timer
+}
+
+// baseInterval returns the interval a message's retransmissions start
+// from: the peer's active interval while it is active, its idle interval
+// otherwise, when it announced its parameters, and the session's interval
+// when it did not (4.12.8).
+func (r *retransmitter) baseInterval(s *secureSession) time.Duration {
+	if s.peerMRP == nil {
+		return r.interval
+	}
+	if time.Since(time.Unix(0, s.lastReceived.Load())) < s.peerMRP.ActiveThreshold {
+		return s.peerMRP.ActiveInterval
+	}
+	return s.peerMRP.IdleInterval
 }
 
 // backoff returns the time to wait for an acknowledgement after a
-// message's transmissions-th transmission.
-func (r *retransmitter) backoff(transmissions int) time.Duration {
+// message's transmissions-th transmission, from the base interval.
+func backoff(interval time.Duration, transmissions int) time.Duration {
 	n := max(0, transmissions-1-mrpBackoffThreshold)
-	d := float64(r.interval) * mrpBackoffMargin * math.Pow(mrpBackoffBase, float64(n)) * (1 + rand.Float64()*mrpBackoffJitter) // nolint: gosec // jitter
+	d := float64(interval) * mrpBackoffMargin * math.Pow(mrpBackoffBase, float64(n)) * (1 + rand.Float64()*mrpBackoffJitter) // nolint: gosec // jitter
 	return time.Duration(d)
 }
 
@@ -110,9 +127,9 @@ func (r *retransmitter) sent(s *secureSession, counter message.MessageCounter, h
 	if r.stopped {
 		return
 	}
-	p := &pendingMessage{wire: wire, header: header, transmissions: 1, timer: nil}
+	p := &pendingMessage{wire: wire, header: header, transmissions: 1, interval: r.baseInterval(s), timer: nil}
 	r.pending[counter] = p
-	p.timer = time.AfterFunc(r.backoff(1), func() { r.expire(s, counter) })
+	p.timer = time.AfterFunc(backoff(p.interval, 1), func() { r.expire(s, counter) })
 }
 
 // expire retransmits an unacknowledged message, or gives it up after the
@@ -138,7 +155,7 @@ func (r *retransmitter) expire(s *secureSession, counter message.MessageCounter)
 	p.transmissions++
 	transmissions := p.transmissions
 	wire := p.wire
-	p.timer = time.AfterFunc(r.backoff(transmissions), func() { r.expire(s, counter) })
+	p.timer = time.AfterFunc(backoff(p.interval, transmissions), func() { r.expire(s, counter) })
 	r.mutex.Unlock()
 	log.Debugf("session: retransmitting message %d (transmission %d)", counter, transmissions)
 	if err := s.t.Transmit(context.Background(), wire); err != nil {

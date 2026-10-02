@@ -211,3 +211,80 @@ func TestStopRetransmissions(t *testing.T) {
 		t.Fatalf("%d messages were sent, want the 2 transmissions only", n)
 	}
 }
+
+// transmissionTimes records when each packet is transmitted.
+type transmissionTimes struct {
+	mutex sync.Mutex
+	times []time.Time
+}
+
+func (t *transmissionTimes) Transmit(context.Context, []byte) error {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+	t.times = append(t.times, time.Now())
+	return nil
+}
+
+func (t *transmissionTimes) Receive(ctx context.Context) ([]byte, error) {
+	<-ctx.Done()
+	return nil, ctx.Err()
+}
+
+func (t *transmissionTimes) since(start time.Time) []time.Duration {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+	var ds []time.Duration
+	for _, at := range t.times {
+		if !at.Before(start) {
+			ds = append(ds, at.Sub(start))
+		}
+	}
+	return ds
+}
+
+// TestRetransmitFollowsPeerParameters checks that retransmissions start
+// from the peer's active interval while it is active, within its active
+// threshold of the last message from it, and from its idle interval
+// after.
+func TestRetransmitFollowsPeerParameters(t *testing.T) {
+	tt := &transmissionTimes{mutex: sync.Mutex{}, times: nil}
+	keys := &stubSessionKeys{i2rKey: bytes.Repeat([]byte{1}, 16), r2iKey: bytes.Repeat([]byte{2}, 16)}
+	params := MRPParameters{IdleInterval: 400 * time.Millisecond, ActiveInterval: 40 * time.Millisecond, ActiveThreshold: 200 * time.Millisecond}
+	sess := NewSecureSession(tt, keys, WithRetransmission(time.Second, 2), WithPeerMRPParameters(params))
+	if got, ok := PeerMRPParameters(sess); !ok || got != params {
+		t.Fatalf("PeerMRPParameters = %+v, %v; want %+v", got, ok, params)
+	}
+
+	// Active: the session was just established.
+	start := time.Now()
+	if err := sess.Transmit(reliableMessage(t, 1, true)); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(150 * time.Millisecond)
+	if ds := tt.since(start); len(ds) != 2 || ds[1] < 40*time.Millisecond || 100*time.Millisecond < ds[1] {
+		t.Fatalf("an active peer's retransmission came at %v, want about 44-55ms", ds)
+	}
+
+	// Idle: nothing arrived for longer than the threshold.
+	time.Sleep(200 * time.Millisecond)
+	start = time.Now()
+	if err := sess.Transmit(reliableMessage(t, 2, true)); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(300 * time.Millisecond)
+	if ds := tt.since(start); len(ds) != 1 {
+		t.Fatalf("an idle peer's message was retransmitted at %v, before its idle interval", ds)
+	}
+	time.Sleep(400 * time.Millisecond)
+	if ds := tt.since(start); len(ds) != 2 || ds[1] < 400*time.Millisecond {
+		t.Fatalf("an idle peer's retransmission came at %v, want about 440-550ms", ds)
+	}
+}
+
+func TestMRPParametersWithDefaults(t *testing.T) {
+	got := MRPParameters{IdleInterval: 0, ActiveInterval: 2 * time.Hour, ActiveThreshold: time.Second}.WithDefaults()
+	want := MRPParameters{IdleInterval: DefaultSessionIdleInterval, ActiveInterval: DefaultSessionActiveInterval, ActiveThreshold: time.Second}
+	if got != want {
+		t.Fatalf("WithDefaults = %+v, want %+v", got, want)
+	}
+}

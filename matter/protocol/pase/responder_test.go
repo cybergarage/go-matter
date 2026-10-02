@@ -25,6 +25,7 @@ import (
 	"github.com/cybergarage/go-matter/matter/encoding/message"
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pake"
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pbkdf"
+	securesession "github.com/cybergarage/go-matter/matter/protocol/session"
 )
 
 const testPasscode = Passcode(20202021)
@@ -347,5 +348,27 @@ func TestVerifier(t *testing.T) {
 	r, err := NewRandomSaltVerifier(testPasscode, 1000)
 	if err != nil || len(r.Salt) != crypto.PBKDBFSaltMax {
 		t.Fatalf("NewRandomSaltVerifier() = (salt %d bytes, %v), want a %d-byte salt", len(r.Salt), err, crypto.PBKDBFSaltMax)
+	}
+}
+
+func TestInitiatorMRPParameters(t *testing.T) {
+	req, err := pbkdf.NewParamRequestMessage(pbkdf.WithParamRequestSessionParams(pbkdf.NewSessionParams(
+		pbkdf.WithSessionIdleInterval(6*time.Second),
+		pbkdf.WithSessionActiveInterval(800*time.Millisecond),
+	)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := req.Bytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := pbkdf.NewParamRequestMessageFromBytes(encoded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := initiatorMRPParameters(decoded)
+	if got.IdleInterval != 6*time.Second || got.ActiveInterval != 800*time.Millisecond || got.ActiveThreshold != securesession.DefaultSessionActiveThreshold {
+		t.Fatalf("initiatorMRPParameters = %+v, want 6s / 800ms / the default threshold", got)
 	}
 }
