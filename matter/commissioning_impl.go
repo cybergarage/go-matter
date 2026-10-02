@@ -495,8 +495,11 @@ func establishCASESession(
 		return nil, fmt.Errorf("commissioning: CASE finalization: %w", err)
 	}
 	// CASE runs over UDP, so the session retransmits what the device does
-	// not acknowledge (MRP).
-	return session.NewSecureSession(t, keys, session.WithRetransmission(session.DefaultActiveRetransmitInterval, session.DefaultMaxTransmissions)), nil
+	// not acknowledge (MRP), at the intervals it announced in its Sigma2.
+	return session.NewSecureSession(t, keys,
+		session.WithRetransmission(session.DefaultActiveRetransmitInterval, session.DefaultMaxTransmissions),
+		session.WithPeerMRPParameters(initiator.PeerMRPParameters()),
+	), nil
 }
 
 type operationalCASEPeer struct {

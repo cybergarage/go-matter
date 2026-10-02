@@ -351,7 +351,7 @@ func TestVerifier(t *testing.T) {
 	}
 }
 
-func TestInitiatorMRPParameters(t *testing.T) {
+func TestMRPParametersOfParamRequest(t *testing.T) {
 	req, err := pbkdf.NewParamRequestMessage(pbkdf.WithParamRequestSessionParams(pbkdf.NewSessionParams(
 		pbkdf.WithSessionIdleInterval(6*time.Second),
 		pbkdf.WithSessionActiveInterval(800*time.Millisecond),
@@ -367,8 +367,44 @@ func TestInitiatorMRPParameters(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got := initiatorMRPParameters(decoded)
+	got := mrpParameters(decoded.InitiatorSessionParams())
 	if got.IdleInterval != 6*time.Second || got.ActiveInterval != 800*time.Millisecond || got.ActiveThreshold != securesession.DefaultSessionActiveThreshold {
-		t.Fatalf("initiatorMRPParameters = %+v, want 6s / 800ms / the default threshold", got)
+		t.Fatalf("mrpParameters = %+v, want 6s / 800ms / the default threshold", got)
+	}
+}
+
+// TestInitiatorTakesResponderMRPParameters checks that the initiator learns
+// the MRP parameters the responder announces in its PBKDFParamResponse,
+// and the defaults when it announces none, and that the responder learns
+// the initiator's.
+func TestInitiatorTakesResponderMRPParameters(t *testing.T) {
+	sleepy := securesession.MRPParameters{IdleInterval: 15 * time.Second, ActiveInterval: 500 * time.Millisecond, ActiveThreshold: 2 * time.Second}
+	for name, tt := range map[string]struct {
+		opts []ResponderOption
+		want securesession.MRPParameters
+	}{
+		"announced": {[]ResponderOption{WithResponderMRPParameters(sleepy)}, sleepy},
+		"none":      {nil, securesession.DefaultMRPParameters()},
+	} {
+		t.Run(name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			initT, respT := newPipe()
+			responder := NewResponder(respT, testVerifier(t, testPasscode), tt.opts...)
+			done := runResponder(ctx, responder)
+			initiator := NewInitiator(initT, testPasscode)
+			if _, err := initiator.EstablishSession(ctx); err != nil {
+				t.Fatalf("Initiator.EstablishSession() error = %v", err)
+			}
+			if res := <-done; res.err != nil {
+				t.Fatalf("Responder.EstablishSession() error = %v", res.err)
+			}
+			if got := initiator.PeerMRPParameters(); got != tt.want {
+				t.Fatalf("Initiator.PeerMRPParameters() = %+v, want %+v", got, tt.want)
+			}
+			if got := responder.PeerMRPParameters(); got != securesession.DefaultMRPParameters() {
+				t.Fatalf("Responder.PeerMRPParameters() = %+v, want the initiator's defaults", got)
+			}
+		})
 	}
 }

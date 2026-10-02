@@ -16,6 +16,7 @@ package caseprotocol
 
 import (
 	"bytes"
+	"context"
 	"testing"
 	"time"
 
@@ -79,5 +80,36 @@ func TestDecodeSigma1MRPParameters(t *testing.T) {
 				t.Fatalf("InitiatorSessionID = 0x%04X, want 0x1234 alongside the parameters", s1.InitiatorSessionID)
 			}
 		})
+	}
+}
+
+// TestInitiatorTakesResponderMRPParameters checks that the CASE initiator
+// learns the MRP parameters the responder announces in its Sigma2, and the
+// responder those of the initiator's Sigma1.
+func TestInitiatorTakesResponderMRPParameters(t *testing.T) {
+	fabric := newTestFabric(t, testFabricID)
+	sleepy := session.MRPParameters{IdleInterval: 15 * time.Second, ActiveInterval: 500 * time.Millisecond, ActiveThreshold: 2 * time.Second}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	initiatorEnd, responderEnd := newPipe()
+	results := make(chan responderResult, 1)
+	go func() {
+		sess, err := NewResponder(responderEnd, func() ([]ResponderFabric, error) { return []ResponderFabric{fabric.device}, nil },
+			WithResponderMRPParameters(sleepy)).EstablishSession(ctx)
+		results <- responderResult{sess: sess, err: err}
+	}()
+	initiator := NewInitiator(initiatorEnd, fabric.admin, WithPeerNodeID(testDeviceNode), WithIPK(testIPK))
+	if _, err := initiator.EstablishSession(ctx); err != nil {
+		t.Fatalf("Initiator.EstablishSession() error = %v", err)
+	}
+	res := <-results
+	if res.err != nil {
+		t.Fatalf("Responder.EstablishSession() error = %v", res.err)
+	}
+	if got := initiator.PeerMRPParameters(); got != sleepy {
+		t.Fatalf("Initiator.PeerMRPParameters() = %+v, want %+v", got, sleepy)
+	}
+	if got := res.sess.PeerMRP; got != session.DefaultMRPParameters() {
+		t.Fatalf("ResponderSession.PeerMRP = %+v, want the initiator's defaults", got)
 	}
 }

@@ -98,13 +98,16 @@ type Initiator struct {
 	cfg        config.AdministratorConfig
 	peerNodeID uint64
 	ipk        []byte
+	// peerMRP are the MRP parameters of the responder's Sigma2.
+	peerMRP session.MRPParameters
 }
 
 // NewInitiator creates a new CASE initiator.
 func NewInitiator(t Transport, cfg config.AdministratorConfig, opts ...Option) *Initiator {
 	i := &Initiator{
-		t:   t,
-		cfg: cfg,
+		t:       t,
+		cfg:     cfg,
+		peerMRP: session.DefaultMRPParameters(),
 	}
 	for _, opt := range opts {
 		opt(i)
@@ -201,6 +204,7 @@ func (i *Initiator) EstablishSession(ctx context.Context) (session.SessionKeys, 
 		log.Infof("CASE Sigma2: malformed payload")
 		return nil, err
 	}
+	i.peerMRP = decodeMRPParameters(sigma2Msg.Payload(), 5)
 	log.Infof(
 		"CASE Sigma2: responder_session_id=0x%04X responder_random=%s responder_eph=%s encrypted2=%s",
 		sigma2.ResponderSessionID,
@@ -468,4 +472,12 @@ func verifyCertificateChain(leafDER, icacDER []byte, root *x509.Certificate) err
 		Intermediates: intermediates,
 	})
 	return err
+}
+
+// PeerMRPParameters returns the MRP parameters the responder announced in
+// its Sigma2, defaults for those it did not, for the session's
+// retransmissions (session.WithPeerMRPParameters). They are known once
+// EstablishSession returns.
+func (i *Initiator) PeerMRPParameters() session.MRPParameters {
+	return i.peerMRP
 }

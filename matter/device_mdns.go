@@ -303,8 +303,12 @@ func (dev *mDNSDevice) Commission(ctx context.Context, payload OnboardingPayload
 	}
 
 	// The session runs over UDP, so it retransmits what the device does
-	// not acknowledge (MRP).
-	sess := session.NewSecureSession(dev, sessionKeys, session.WithRetransmission(session.DefaultActiveRetransmitInterval, session.DefaultMaxTransmissions))
+	// not acknowledge (MRP), at the intervals it announced in its
+	// PBKDFParamResponse.
+	sess := session.NewSecureSession(dev, sessionKeys,
+		session.WithRetransmission(session.DefaultActiveRetransmitInterval, session.DefaultMaxTransmissions),
+		session.WithPeerMRPParameters(paseClient.PeerMRPParameters()),
+	)
 	operationalCfg, _ := dev.OperationalCredentialsConfig()
 	wifiCfg, _ := dev.WiFiNetworkConfig()
 	adminCfg, _ := dev.AdministratorConfig()

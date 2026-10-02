@@ -110,6 +110,16 @@ func WithResponderSessionID(id session.SessionID) ResponderOption {
 	}
 }
 
+// WithResponderMRPParameters sets the MRP parameters the responder
+// announces in its Sigma2, the intervals at which the initiator retransmits
+// to it, such as the longer idle interval of a device which sleeps. By
+// default it announces the defaults (500 / 300 / 4000 ms).
+func WithResponderMRPParameters(p session.MRPParameters) ResponderOption {
+	return func(r *Responder) {
+		r.mrp = p.WithDefaults()
+	}
+}
+
 // WithResponderEstablishedHandler sets a function called with the new
 // session just before the responder reports success to the initiator,
 // which may send its first message on the session as soon as it has the
@@ -132,6 +142,8 @@ type Responder struct {
 	fabrics     func() ([]ResponderFabric, error)
 	sessionID   session.SessionID
 	established func(*ResponderSession)
+	// mrp are the MRP parameters the responder announces in its Sigma2.
+	mrp session.MRPParameters
 
 	counter         message.MessageCounter
 	lastPeerCounter message.MessageCounter
@@ -147,6 +159,7 @@ func NewResponder(t Transport, fabrics func() ([]ResponderFabric, error), opts .
 		fabrics:         fabrics,
 		sessionID:       0,
 		established:     nil,
+		mrp:             session.DefaultMRPParameters(),
 		counter:         message.NewMessageCounter(),
 		lastPeerCounter: 0,
 		hasLastPeer:     false,
@@ -247,6 +260,7 @@ func (r *Responder) EstablishSession(ctx context.Context) (*ResponderSession, er
 		ResponderSessionID: uint16(sessionID),
 		ResponderEphPubKey: responderEphPubKey,
 		Encrypted2:         encrypted2,
+		SessionParams:      sessionParamsFor(r.mrp),
 	})
 	if err != nil {
 		return nil, err

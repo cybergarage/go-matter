@@ -52,6 +52,9 @@ type Responder struct {
 	established func(SessionKeys)
 	// peerMRP are the MRP parameters of the PBKDFParamRequest.
 	peerMRP securesession.MRPParameters
+	// mrp, when set, are the MRP parameters the responder announces in its
+	// PBKDFParamResponse.
+	mrp *securesession.MRPParameters
 
 	counter message.MessageCounter
 	// lastPeerCounter and lastSent let the responder answer a retransmitted
@@ -75,6 +78,17 @@ func WithResponderSessionID(id SessionID) ResponderOption {
 	}
 }
 
+// WithResponderMRPParameters makes the responder announce MRP parameters
+// in its PBKDFParamResponse, the intervals at which the initiator
+// retransmits to it. By default it announces none, and the initiator uses
+// the defaults.
+func WithResponderMRPParameters(p securesession.MRPParameters) ResponderOption {
+	return func(r *Responder) {
+		p = p.WithDefaults()
+		r.mrp = &p
+	}
+}
+
 // WithResponderEstablishedHandler sets a function called with the new
 // session's keys just before the responder reports success to the
 // initiator, which may send its first message on the session as soon as it
@@ -95,6 +109,7 @@ func NewResponder(t Transport, verifier Verifier, opts ...ResponderOption) *Resp
 		sessionID:       0,
 		established:     nil,
 		peerMRP:         securesession.DefaultMRPParameters(),
+		mrp:             nil,
 		counter:         message.NewMessageCounter(),
 		lastPeerCounter: 0,
 		hasLastPeer:     false,
@@ -135,7 +150,7 @@ func (r *Responder) EstablishSession(ctx context.Context) (SessionKeys, error) {
 		return nil, fmt.Errorf("pase: decode PBKDFParamRequest: %w", err)
 	}
 	log.Debugf("PASE responder: PBKDFParamRequest: %s", paramReq.String())
-	r.peerMRP = initiatorMRPParameters(paramReq)
+	r.peerMRP = mrpParameters(paramReq.InitiatorSessionParams())
 	// 4.14.1.2: passcode ID 0 is the default commissioning passcode, the
 	// only one this responder has a verifier for.
 	if id := paramReq.PasscodeID(); id != 0 {
@@ -150,7 +165,7 @@ func (r *Responder) EstablishSession(ctx context.Context) (SessionKeys, error) {
 	if sessionID == 0 {
 		sessionID = types.NewSessionIDExcept(paramReq.InitiatorSessionID())
 	}
-	paramRes, err := pbkdf.NewParamResponseMessage(
+	resOpts := []any{
 		pbkdf.WithParamResponseMessageParamRequestMessage(paramReq),
 		pbkdf.WithParamResponseResponderSessionID(sessionID),
 		pbkdf.WithParamResponsePBKDFParams(pbkdf.NewParams(
@@ -158,7 +173,15 @@ func (r *Responder) EstablishSession(ctx context.Context) (SessionKeys, error) {
 			pbkdf.WithParamsIterations(r.verifier.Iterations),
 		)),
 		message.WithHeaderMessageCounter(r.nextCounter()),
-	)
+	}
+	if r.mrp != nil {
+		resOpts = append(resOpts, pbkdf.WithParamResponseResponderSessionParams(pbkdf.NewSessionParams(
+			pbkdf.WithSessionIdleInterval(r.mrp.IdleInterval),
+			pbkdf.WithSessionActiveInterval(r.mrp.ActiveInterval),
+			pbkdf.WithSessionActiveThreshold(r.mrp.ActiveThreshold),
+		)))
+	}
+	paramRes, err := pbkdf.NewParamResponseMessage(resOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("pase: build PBKDFParamResponse: %w", err)
 	}
@@ -342,11 +365,12 @@ func (r *Responder) PeerMRPParameters() securesession.MRPParameters {
 	return r.peerMRP
 }
 
-// initiatorMRPParameters returns the MRP parameters of a PBKDFParamRequest's
-// initiatorSessionParams (4.13.1).
-func initiatorMRPParameters(req pbkdf.ParamRequestMessage) securesession.MRPParameters {
+// mrpParameters returns the MRP parameters of a PBKDFParamRequest's
+// initiatorSessionParams or a PBKDFParamResponse's responderSessionParams,
+// as their accessors return them (4.13.1).
+func mrpParameters(params pbkdf.SessionParams, ok bool) securesession.MRPParameters {
 	var p securesession.MRPParameters
-	if params, ok := req.InitiatorSessionParams(); ok {
+	if ok {
 		if v, ok := params.SessionIdleInterval(); ok {
 			p.IdleInterval = v
 		}

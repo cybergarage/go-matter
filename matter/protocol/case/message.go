@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
@@ -26,8 +27,8 @@ type sigma1 struct {
 // (tag 5, optional per spec/ParseSigma1 — but a real device only replied to
 // Sigma1 once this was present; see encodeSigma1's doc comment).
 type sessionParams struct {
-	SessionIdleInterval      uint16
-	SessionActiveInterval    uint16
+	SessionIdleInterval      uint32
+	SessionActiveInterval    uint32
 	SessionActiveThreshold   uint16
 	DataModelRevision        uint8
 	InteractionModelRevision uint8
@@ -57,6 +58,9 @@ type sigma2 struct {
 	ResponderSessionID uint16
 	ResponderEphPubKey []byte
 	Encrypted2         []byte
+	// SessionParams are the responder's session parameters encodeSigma2
+	// sends; decodeSigma2 leaves them unset.
+	SessionParams sessionParams
 }
 
 type sigma3 struct {
@@ -110,8 +114,10 @@ func encodeSigma1(v sigma1) ([]byte, error) {
 
 func encodeSessionParams(enc tlv.Encoder, tag tlv.Tag, p sessionParams) {
 	enc.BeginStructure(tag)
-	enc.PutUnsigned2(tlv.NewContextTag(1), p.SessionIdleInterval)
-	enc.PutUnsigned2(tlv.NewContextTag(2), p.SessionActiveInterval)
+	// The intervals are 32-bit, sent in as few bytes as they need, as
+	// chip-tool does: 500 and 300 ms take two.
+	_ = enc.PutUnsigned(tlv.NewContextTag(1), uint64(p.SessionIdleInterval))
+	_ = enc.PutUnsigned(tlv.NewContextTag(2), uint64(p.SessionActiveInterval))
 	enc.PutUnsigned2(tlv.NewContextTag(3), p.SessionActiveThreshold)
 	enc.PutUnsigned1(tlv.NewContextTag(4), p.DataModelRevision)
 	enc.PutUnsigned1(tlv.NewContextTag(5), p.InteractionModelRevision)
@@ -379,7 +385,7 @@ func encodeSigma2(v sigma2) ([]byte, error) {
 	if err := enc.PutOctet(tlv.NewContextTag(4), v.Encrypted2); err != nil {
 		return nil, err
 	}
-	encodeSessionParams(enc, tlv.NewContextTag(5), defaultSessionParams)
+	encodeSessionParams(enc, tlv.NewContextTag(5), v.SessionParams)
 	if err := enc.EndContainer(); err != nil {
 		return nil, err
 	}
@@ -481,4 +487,15 @@ func decodeMRPParameters(b []byte, tag uint8) session.MRPParameters {
 		}
 	}
 	return p.WithDefaults()
+}
+
+// sessionParamsFor returns defaultSessionParams with the MRP parameters of
+// p.
+func sessionParamsFor(p session.MRPParameters) sessionParams {
+	params := defaultSessionParams
+	p = p.WithDefaults()
+	params.SessionIdleInterval = uint32(p.IdleInterval / time.Millisecond)                          // nolint: gosec // at most an hour
+	params.SessionActiveInterval = uint32(p.ActiveInterval / time.Millisecond)                      // nolint: gosec // at most an hour
+	params.SessionActiveThreshold = uint16(min(p.ActiveThreshold/time.Millisecond, math.MaxUint16)) // nolint: gosec // bounded above
+	return params
 }

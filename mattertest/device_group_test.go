@@ -32,6 +32,7 @@ import (
 	"github.com/cybergarage/go-matter/matter/encoding"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 	caseprotocol "github.com/cybergarage/go-matter/matter/protocol/case"
+	"github.com/cybergarage/go-matter/matter/protocol/session"
 	"github.com/cybergarage/go-matter/matter/store"
 	"github.com/cybergarage/go-matter/matter/types"
 )
@@ -130,6 +131,11 @@ func TestGroupSenderSwitchesDevice(t *testing.T) {
 	}
 	defer node.Close()
 	sess := node.Session()
+	// The session retransmits at the intervals the device announced in
+	// its Sigma2.
+	if got, ok := session.PeerMRPParameters(sess); !ok || got != session.DefaultMRPParameters() {
+		t.Fatalf("the CASE session has peer MRP parameters %+v, %v; want the device's %+v", got, ok, session.DefaultMRPParameters())
+	}
 
 	// 4.15.3. Group Key Management, 1.3. Groups, 9.10. Access Control:
 	// the key set, the group's key, the light's membership and the

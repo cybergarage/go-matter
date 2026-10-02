@@ -27,6 +27,7 @@ import (
 	"github.com/cybergarage/go-matter/matter/io"
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pake"
 	"github.com/cybergarage/go-matter/matter/protocol/pase/pbkdf"
+	securesession "github.com/cybergarage/go-matter/matter/protocol/session"
 )
 
 // Transport represents a PASE transport.
@@ -46,6 +47,8 @@ const CryptoSymmetricKeyLen = 16
 type Initiator struct {
 	t        Transport
 	passcode Passcode
+	// peerMRP are the MRP parameters of the PBKDFParamResponse.
+	peerMRP securesession.MRPParameters
 }
 
 // NewInitiator returns a new PASE initiator with the given passcode.
@@ -53,7 +56,15 @@ func NewInitiator(t Transport, passcode Passcode) *Initiator {
 	return &Initiator{
 		t:        t,
 		passcode: passcode,
+		peerMRP:  securesession.DefaultMRPParameters(),
 	}
+}
+
+// PeerMRPParameters returns the MRP parameters the responder announced in
+// its PBKDFParamResponse, defaults for those it did not, for the session's
+// retransmissions. They are known once EstablishSession returns.
+func (i *Initiator) PeerMRPParameters() securesession.MRPParameters {
+	return i.peerMRP
 }
 
 // receiveSkipAck receives a message from the transport, silently discarding any
@@ -118,6 +129,7 @@ func (i *Initiator) EstablishSession(ctx context.Context) (SessionKeys, error) {
 		return nil, err
 	}
 	log.Infof("PBKDFParamResponse: %s", pbkdfResMsg.String())
+	i.peerMRP = mrpParameters(pbkdfResMsg.ResponderSessionParams())
 	log.HexInfo(resBytes)
 
 	// 3) Derive SPAKE2+ initiator values from the received PBKDF parameters.
