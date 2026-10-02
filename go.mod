@@ -9,8 +9,8 @@ require (
 	github.com/cybergarage/go-safecast v1.3.5
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
-	golang.org/x/crypto v0.46.0
-	golang.org/x/sys v0.39.0
+	golang.org/x/crypto v0.52.0
+	golang.org/x/sys v0.45.0
 )
 
 require (
@@ -38,7 +38,7 @@ require (
 	github.com/tinygo-org/pio v0.3.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/exp v0.0.0-20260727155853-b88d891fe743 // indirect
-	golang.org/x/text v0.32.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	tinygo.org/x/bluetooth v0.15.0 // indirect
 )
