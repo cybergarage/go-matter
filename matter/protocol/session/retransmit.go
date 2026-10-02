@@ -54,7 +54,26 @@ func WithRetransmission(interval time.Duration, maxTransmissions int) SecureSess
 			interval:         interval,
 			maxTransmissions: maxTransmissions,
 			pending:          map[message.MessageCounter]*pendingMessage{},
+			stopped:          false,
 		}
+	}
+}
+
+// WithUndeliveredHandler sets the function called with the protocol
+// header of a reliable message the peer did not acknowledge after the last
+// retransmission (4.12.8.1), as an Interaction Model server ends the
+// subscription whose report it was.
+func WithUndeliveredHandler(h func(message.ProtocolHeader)) SecureSessionOption {
+	return func(s *secureSession) {
+		s.onUndelivered = h
+	}
+}
+
+// StopRetransmissions stops retransmitting the messages sess sent, as when
+// the session closes; the messages sess sends afterwards are sent once.
+func StopRetransmissions(sess SecureSession) {
+	if s, ok := sess.(*secureSession); ok && s.retransmit != nil {
+		s.retransmit.stop()
 	}
 }
 
@@ -65,10 +84,12 @@ type retransmitter struct {
 	interval         time.Duration
 	maxTransmissions int
 	pending          map[message.MessageCounter]*pendingMessage
+	stopped          bool
 }
 
 type pendingMessage struct {
 	wire          []byte
+	header        message.ProtocolHeader
 	transmissions int
 	timer         *time.Timer
 }
@@ -83,10 +104,13 @@ func (r *retransmitter) backoff(transmissions int) time.Duration {
 
 // sent records a reliable message s sent, and schedules its
 // retransmission.
-func (r *retransmitter) sent(s *secureSession, counter message.MessageCounter, wire []byte) {
+func (r *retransmitter) sent(s *secureSession, counter message.MessageCounter, header message.ProtocolHeader, wire []byte) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
-	p := &pendingMessage{wire: wire, transmissions: 1, timer: nil}
+	if r.stopped {
+		return
+	}
+	p := &pendingMessage{wire: wire, header: header, transmissions: 1, timer: nil}
 	r.pending[counter] = p
 	p.timer = time.AfterFunc(r.backoff(1), func() { r.expire(s, counter) })
 }
@@ -104,7 +128,11 @@ func (r *retransmitter) expire(s *secureSession, counter message.MessageCounter)
 		delete(r.pending, counter)
 		transmissions := p.transmissions
 		r.mutex.Unlock()
-		log.Debugf("session: message %d was not acknowledged after %d transmissions", counter, transmissions)
+		log.Infof("session: message %d (exchange %d, opcode 0x%02X) was not acknowledged after %d transmissions",
+			counter, p.header.ExchangeID(), uint8(p.header.Opcode()), transmissions)
+		if s.onUndelivered != nil {
+			s.onUndelivered(p.header)
+		}
 		return
 	}
 	p.transmissions++
@@ -123,6 +151,17 @@ func (r *retransmitter) acknowledged(counter message.MessageCounter) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 	if p, ok := r.pending[counter]; ok {
+		p.timer.Stop()
+		delete(r.pending, counter)
+	}
+}
+
+// stop gives up every pending message, and the messages sent afterwards.
+func (r *retransmitter) stop() {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	r.stopped = true
+	for counter, p := range r.pending {
 		p.timer.Stop()
 		delete(r.pending, counter)
 	}

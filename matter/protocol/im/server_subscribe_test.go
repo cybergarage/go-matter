@@ -303,3 +303,81 @@ func TestServerSubscribeReportsEarlyChange(t *testing.T) {
 		t.Fatalf("the report after the SubscribeResponse has %v, want OnOff true", change.values)
 	}
 }
+
+func reportHeader(t *testing.T, exchange message.ExchangeID, initiator bool) message.ProtocolHeader {
+	t.Helper()
+	flags := message.ExchangeFlag(message.ReliabilityFlag)
+	if initiator {
+		flags |= message.InitiatorFlag
+	}
+	b, err := message.NewProtocolHeader(
+		message.WithHeaderExchangeFlags(flags),
+		message.WithHeaderOpcode(message.ReportDataMessage),
+		message.WithHeaderExchangeID(exchange),
+		message.WithHeaderProtocolID(message.InteractionModel),
+	).Bytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	hdr, err := message.NewProtocolHeaderFromBytes(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return hdr
+}
+
+func (subs *subscriptions) count() (int, int) {
+	subs.mutex.Lock()
+	defer subs.mutex.Unlock()
+	return len(subs.active), len(subs.pending)
+}
+
+// TestServerUndeliveredReportEndsSubscription checks that a report the
+// peer never acknowledged ends its subscription, and an undelivered
+// priming report the subscription being set up.
+func TestServerUndeliveredReportEndsSubscription(t *testing.T) {
+	srv := testServer()
+	srv.HandleAttribute(1, 0x0006, 0x0000, func(enc tlv.Encoder, tag tlv.Tag) Status {
+		enc.PutBool(tag, true)
+		return StatusSuccess
+	})
+	client := startServer(t, srv)
+
+	exchange := message.NewFirstExchangeID()
+	if err := transmitOnExchange(client, message.SubscribeRequestMessage, exchange, buildSubscribeRequest(0, 60, 1, 0x0006)); err != nil {
+		t.Fatal(err)
+	}
+	receiveReport(t, client)
+	if err := transmitOnExchange(client, message.StatusResponseMessage, exchange, buildStatusResponse(StatusSuccess)); err != nil {
+		t.Fatal(err)
+	}
+	receiveIM(t, client, message.SubscribeResponseMessage)
+	sess := srv.subs.onlySession(t)
+	srv.NotifyAttributeChanged(AttributePath{Endpoint: 1, Cluster: 0x0006, Attribute: 0x0000})
+	change := receiveReport(t, client)
+
+	// A message of another exchange, or a response, leaves it.
+	srv.Undelivered(sess, reportHeader(t, change.exchange+1, true))
+	srv.Undelivered(sess, reportHeader(t, change.exchange, false))
+	if active, _ := srv.subs.count(); active != 1 {
+		t.Fatalf("%d active subscriptions after unrelated messages, want 1", active)
+	}
+	srv.Undelivered(sess, reportHeader(t, change.exchange, true))
+	if active, _ := srv.subs.count(); active != 0 {
+		t.Fatalf("%d active subscriptions after the undelivered report, want 0", active)
+	}
+
+	// An undelivered priming report drops the subscription being set up.
+	exchange = message.NewFirstExchangeID()
+	if err := transmitOnExchange(client, message.SubscribeRequestMessage, exchange, buildSubscribeRequest(0, 60, 1, 0x0006)); err != nil {
+		t.Fatal(err)
+	}
+	receiveReport(t, client)
+	if _, pending := srv.subs.count(); pending != 1 {
+		t.Fatalf("%d pending subscriptions, want 1", pending)
+	}
+	srv.Undelivered(sess, reportHeader(t, exchange, false))
+	if _, pending := srv.subs.count(); pending != 0 {
+		t.Fatalf("%d pending subscriptions after the undelivered priming report, want 0", pending)
+	}
+}

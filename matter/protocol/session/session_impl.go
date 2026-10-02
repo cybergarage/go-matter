@@ -71,6 +71,11 @@ type secureSession struct {
 	// retransmit, when set, retransmits the reliable messages the peer
 	// does not acknowledge (WithRetransmission).
 	retransmit *retransmitter
+	// onUndelivered is called with a message retransmit gave up
+	// (WithUndeliveredHandler).
+	onUndelivered func(message.ProtocolHeader)
+	// received detects the messages the peer sent again (4.6.5.3).
+	received counterWindow
 }
 
 // NewSecureSession creates a SecureSession from established session keys.
@@ -86,6 +91,7 @@ func NewSecureSession(t Transport, keys SessionKeys, opts ...SecureSessionOption
 		role:       RoleInitiator,
 		msgCounter: uint32(message.NewMessageCounter()),
 		retransmit: nil,
+		received:   counterWindow{},
 	}
 	for _, opt := range opts {
 		opt(s)
@@ -197,7 +203,7 @@ func (s *secureSession) transmitPayload(payload []byte) error {
 	log.HexDebug(wire)
 	if s.retransmit != nil {
 		if protHdr, err := message.NewProtocolHeaderFromBytes(payload); err == nil && protHdr.IsReliability() && !protHdr.Opcode().IsMRPStandaloneAck() {
-			s.retransmit.sent(s, message.MessageCounter(counter), wire)
+			s.retransmit.sent(s, message.MessageCounter(counter), protHdr, wire)
 		}
 	}
 	return s.t.Transmit(context.Background(), wire)
@@ -283,6 +289,17 @@ func (s *secureSession) Receive() ([]byte, error) {
 			if acked, ok := protHdr.AckMessageCounter(); ok {
 				s.retransmit.acknowledged(acked)
 			}
+		}
+		// A message the peer sent again, as its ack of it was lost, is
+		// acknowledged again but not handled twice (4.6.5.3.1, 4.12.5.2.2).
+		if !s.received.accept(hdr.MessageCounter()) {
+			log.Debugf("session: duplicate message %d", hdr.MessageCounter())
+			if protHdrErr == nil && protHdr.IsReliability() {
+				if ackErr := s.sendAck(protHdr.ExchangeID(), hdr.MessageCounter(), protHdr.IsInitiator()); ackErr != nil {
+					log.Errorf("session: failed to send MRP ack: %v", ackErr)
+				}
+			}
+			continue
 		}
 		if protHdrErr == nil && protHdr.Opcode().IsMRPStandaloneAck() {
 			log.Debugf("session: received standalone MRP ACK, waiting for next message")

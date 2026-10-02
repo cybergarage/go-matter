@@ -818,12 +818,22 @@ func (d *Device) addSessionLocked(pt *peerTransport, sessionID types.SessionID, 
 		keys:        keys,
 		peer:        pt.peer,
 		transport:   transport,
-		secure:      session.NewSecureSession(transport, keys, session.WithRole(session.RoleResponder)),
+		secure:      nil,
 		isCASE:      isCASE,
 		fabricIndex: fabricIndex,
 		peerNodeID:  peerNodeID,
 		peerCATs:    peerCATs,
 	}
+	// The device retransmits its reliable messages over UDP until the
+	// peer acknowledges them (4.12. Message Reliability Protocol), and a
+	// subscription whose report the peer never takes ends.
+	sess.secure = session.NewSecureSession(transport, keys,
+		session.WithRole(session.RoleResponder),
+		session.WithRetransmission(session.DefaultActiveRetransmitInterval, session.DefaultMaxTransmissions),
+		session.WithUndeliveredHandler(func(hdr message.ProtocolHeader) {
+			d.imServer.Undelivered(sess.secure, hdr)
+		}),
+	)
 	d.sessions[sessionID] = sess
 	d.wg.Add(1)
 	go d.serveSession(sess)
@@ -846,6 +856,7 @@ func (d *Device) serveSession(sess *Session) {
 	defer d.wg.Done()
 	// A subscription lives no longer than its session (8.5).
 	defer d.imServer.EndSession(sess.secure)
+	defer session.StopRetransmissions(sess.secure)
 	for {
 		err := d.imServer.ServeOne(sess.secure)
 		if err == nil {

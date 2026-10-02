@@ -109,9 +109,11 @@ type subscription struct {
 
 	mutex sync.Mutex
 	dirty map[AttributePath]bool
-	wake  chan struct{}
-	done  chan struct{}
-	once  sync.Once
+	// exchange is the exchange of the latest report.
+	exchange message.ExchangeID
+	wake     chan struct{}
+	done     chan struct{}
+	once     sync.Once
 }
 
 type pendingKey struct {
@@ -170,6 +172,7 @@ func (s *Server) serveSubscribe(sess SecureSession, exchange message.ExchangeID,
 		maxInterval:    maxInterval,
 		mutex:          sync.Mutex{},
 		dirty:          map[AttributePath]bool{},
+		exchange:       exchange,
 		wake:           make(chan struct{}, 1),
 		done:           make(chan struct{}),
 		once:           sync.Once{},
@@ -328,7 +331,43 @@ func (sub *subscription) report(dirty map[AttributePath]bool) error {
 	if err != nil {
 		return err
 	}
-	return transmitOnExchange(sub.sess, message.ReportDataMessage, message.NewFirstExchangeID(), payload)
+	exchange := message.NewFirstExchangeID()
+	sub.mutex.Lock()
+	sub.exchange = exchange
+	sub.mutex.Unlock()
+	return transmitOnExchange(sub.sess, message.ReportDataMessage, exchange, payload)
+}
+
+// Undelivered tells the server the peer of sess did not acknowledge a
+// message the server sent it, whose protocol header is hdr. A subscription
+// whose report, or priming report, the peer did not take ends (8.5.2,
+// 4.12.8.1): the peer is gone, or has to subscribe again to learn what it
+// missed.
+func (s *Server) Undelivered(sess SecureSession, hdr message.ProtocolHeader) {
+	if hdr.ProtocolID() != message.InteractionModel || hdr.Opcode() != message.ReportDataMessage {
+		return
+	}
+	s.subs.mutex.Lock()
+	defer s.subs.mutex.Unlock()
+	if !hdr.IsInitiator() {
+		// A priming report, on the peer's exchange.
+		key := pendingKey{sess: sess, exchange: hdr.ExchangeID()}
+		if sub, ok := s.subs.pending[key]; ok {
+			log.Infof("im: subscription %d: the priming report was not delivered", sub.id)
+			delete(s.subs.pending, key)
+		}
+		return
+	}
+	for id, sub := range s.subs.active {
+		sub.mutex.Lock()
+		match := sub.sess == sess && sub.exchange == hdr.ExchangeID()
+		sub.mutex.Unlock()
+		if match {
+			log.Infof("im: subscription %d: a report was not delivered, ending it", id)
+			sub.stop()
+			delete(s.subs.active, id)
+		}
+	}
 }
 
 func (s *Server) endSubscription(id uint32) {
