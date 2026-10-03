@@ -16,6 +16,7 @@ package device
 
 import (
 	"context"
+	"errors"
 	"net"
 	"strconv"
 	"testing"
@@ -23,6 +24,7 @@ import (
 
 	"github.com/cybergarage/go-matter/matter/mdns"
 	"github.com/cybergarage/go-matter/matter/protocol/pase"
+	gomdns "github.com/cybergarage/go-mdns/mdns"
 )
 
 func TestCommissionableLocalService(t *testing.T) {
@@ -133,5 +135,145 @@ func TestDeviceIsDiscoveredAndCommissionable(t *testing.T) {
 	case <-sessions:
 	case <-ctx.Done():
 		t.Fatal("the session handler was not called")
+	}
+}
+
+// startOtherNode starts a go-mdns server which plays another node on the
+// link, and publishes svc with it.
+func startOtherNode(t *testing.T, svc *gomdns.LocalService) {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("uses mDNS on the network; skipped with -short")
+	}
+	server := gomdns.NewServer()
+	if err := server.Start(); err != nil {
+		t.Skipf("the server cannot bind the mDNS sockets here: %v", err)
+	}
+	t.Cleanup(func() { _ = server.Stop() })
+	if err := server.Register(context.Background(), svc); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// otherNodeService returns the service another node publishes with the
+// given instance name and host, on another port and address than the
+// device's.
+func otherNodeService(service, instance, host string) *gomdns.LocalService {
+	return &gomdns.LocalService{
+		Instance:  instance,
+		Service:   service,
+		Domain:    ServiceDomain,
+		Host:      host,
+		Port:      15540,
+		TXT:       []string{"D=1"},
+		Addresses: []net.IP{net.IPv4(192, 0, 2, 77)},
+	}
+}
+
+// uniqueCommissionableService returns a commissionable service with random
+// names, so that the tests on a shared link do not see each other.
+func uniqueCommissionableService() CommissionableService {
+	svc := testService()
+	svc.InstanceName = NewInstanceName()
+	svc.Hostname = NewHostname()
+	return svc
+}
+
+func TestMDNSAdvertiserRenamesCommissionableOnConflict(t *testing.T) {
+	svc := uniqueCommissionableService()
+	startOtherNode(t, otherNodeService(CommissionableServiceType, svc.InstanceName, NewHostname()))
+
+	adv := NewMDNSAdvertiser()
+	defer adv.Withdraw()
+	if err := adv.AdvertiseCommissionable(svc); err != nil {
+		t.Fatalf("AdvertiseCommissionable() = %v", err)
+	}
+	renamed, ok := adv.CommissionableInstanceName()
+	if !ok || renamed == svc.InstanceName {
+		t.Fatalf("published instance name = (%q, %v), want a new name for %q", renamed, ok, svc.InstanceName)
+	}
+
+	// The device advertises the same service again, such as after a failed
+	// commissioning attempt: the renamed instance is kept.
+	if err := adv.WithdrawCommissionable(); err != nil {
+		t.Fatal(err)
+	}
+	if err := adv.AdvertiseCommissionable(svc); err != nil {
+		t.Fatalf("AdvertiseCommissionable() again = %v", err)
+	}
+	if again, _ := adv.CommissionableInstanceName(); again != renamed {
+		t.Errorf("published instance name = %q after advertising again, want %q", again, renamed)
+	}
+}
+
+func TestMDNSAdvertiserCommissionableHostConflict(t *testing.T) {
+	svc := uniqueCommissionableService()
+	startOtherNode(t, otherNodeService("_http._tcp", NewInstanceName(), svc.Hostname))
+
+	adv := NewMDNSAdvertiser()
+	defer adv.Withdraw()
+	err := adv.AdvertiseCommissionable(svc)
+	var conflict *gomdns.ConflictError
+	if !errors.As(err, &conflict) || !conflict.IsHostConflict() {
+		t.Fatalf("AdvertiseCommissionable() = %v, want a host conflict", err)
+	}
+	if _, ok := adv.CommissionableInstanceName(); ok {
+		t.Error("the commissionable service is published after a host conflict")
+	}
+}
+
+func TestMDNSAdvertiserOperationalConflict(t *testing.T) {
+	op := testOperationalService()
+	op.NodeID = uint64(time.Now().UnixNano()) | 1
+	op.Hostname = NewHostname()
+	startOtherNode(t, otherNodeService(OperationalServiceType, op.InstanceName(), NewHostname()))
+
+	adv := NewMDNSAdvertiser()
+	defer adv.Withdraw()
+	err := adv.AdvertiseOperational([]OperationalService{op})
+	var conflict *gomdns.ConflictError
+	if !errors.As(err, &conflict) || !conflict.IsInstanceConflict() {
+		t.Fatalf("AdvertiseOperational() = %v, want an instance conflict", err)
+	}
+	if conflict.Service.Instance != op.InstanceName() {
+		t.Errorf("the operational instance was renamed to %q", conflict.Service.Instance)
+	}
+}
+
+func TestMDNSAdvertiserHandleConflict(t *testing.T) {
+	if testing.Short() {
+		t.Skip("uses mDNS on the network; skipped with -short")
+	}
+	svc := uniqueCommissionableService()
+	adv := NewMDNSAdvertiser()
+	if err := adv.AdvertiseCommissionable(svc); err != nil {
+		t.Skipf("the advertiser cannot publish here: %v", err)
+	}
+	defer adv.Withdraw()
+
+	// The responder withdraws the service on a conflict found after it is
+	// published, and calls the handler.
+	published := commissionableLocalService(svc)
+	if err := adv.server.Deregister(published); err != nil {
+		t.Fatal(err)
+	}
+	adv.HandleConflict(&gomdns.ConflictError{Service: published, Name: published.FullName()})
+	renamed, ok := adv.CommissionableInstanceName()
+	if !ok || renamed == svc.InstanceName {
+		t.Fatalf("published instance name = (%q, %v) after a conflict, want a new name", renamed, ok)
+	}
+
+	// A conflict of a service the advertiser did not publish is ignored.
+	adv.HandleConflict(&gomdns.ConflictError{Service: otherNodeService("_http._tcp", "x", "y"), Name: "x._http._tcp.local"})
+	if again, _ := adv.CommissionableInstanceName(); again != renamed {
+		t.Errorf("published instance name = %q after an unrelated conflict, want %q", again, renamed)
+	}
+
+	// A host conflict withdraws the service without renaming it.
+	current := commissionableLocalService(svc)
+	current.Instance = renamed
+	adv.HandleConflict(&gomdns.ConflictError{Service: current, Name: current.HostName()})
+	if name, ok := adv.CommissionableInstanceName(); ok {
+		t.Errorf("published instance name = %q after a host conflict, want none", name)
 	}
 }

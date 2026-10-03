@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	github.com/cybergarage/go-ble v0.9.0
 	github.com/cybergarage/go-logger v1.3.12
-	github.com/cybergarage/go-mdns v0.9.2-0.20261002060833-b831b08509e9
+	github.com/cybergarage/go-mdns v0.9.2-0.20261002164422-87e32726af15
 	github.com/cybergarage/go-safecast v1.3.5
 	github.com/gdamore/tcell/v2 v2.8.1
 	github.com/rivo/tview v0.42.0

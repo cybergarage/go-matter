@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- The `MDNSAdvertiser` handles the name conflicts the go-mdns responder now probes for (RFC 6762, 8.1 and 9). On a conflict of the commissionable instance name, it publishes the service with a new random instance name, up to `MaxInstanceNameAttempts` times, and keeps it when the device advertises the same service again; `CommissionableInstanceName` returns the published name. An operational instance name, made of the fabric and the node ID, is not renamed: `AdvertiseOperational` returns an error which wraps the `*mdns.ConflictError`. A host name conflict is an error for both. `HandleConflict` handles a conflict found after a service is published; the advertiser's own responder calls it, and an application which shares its `mdns.Server` with `NewMDNSAdvertiserWithServer` passes it to `mdns.WithServerConflictHandler`.
+
 - **A pluggable storage backend** for the persistent store. `store.KVStore` holds byte values under slash-separated keys and `store.TxKVStore` adds atomic multi-key transactions, which a device will need for the fail-safe. `store.FileKVStore` (one file per key, written atomically, transactions journaled) and `store.MemKVStore` are provided, and `store.NewStoreWithKVStore` builds the typed `Store` on any backend.
 - `matter.WithCommissionerStore` passes a `Store` to a `Commissioner` instead of the file store under `~/.{app-name}/`.
 - `store.NewMemStore`, an in-memory `Store` for tests, and `Store.DeleteCommissionee`, which forgets a device.
@@ -55,6 +57,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `device.Session` no longer has `Transport()`: the device serves the Interaction Model on it.
 - `device.Session.Keys` returns `session.SessionKeys`, since a session may now be a CASE one.
 - `device.Advertiser` has `AdvertiseOperational`, which publishes the operational services, and `WithdrawCommissionable`, which withdraws the commissionable service when the commissioning window closes.
+- go-mdns is updated to the version whose responder probes the names of a service before it publishes it, so `MDNSAdvertiser.AdvertiseCommissionable` and `AdvertiseOperational` return after about a second, when the services are published. A shared `mdns.Server` given to `NewMDNSAdvertiserWithServer` must be started before the device publishes.
 - A device already on a fabric no longer advertises itself as commissionable at Start, and a commissioned device no longer accepts PASE until its commissioning window is opened again.
 - `Store` no longer has a `Dir()` method, since a store which is not backed by a directory has none. `store.FileKVStore.Dir()` still returns it.
 - A record is written to a temporary file and renamed into place, so a crash can no longer leave a truncated JSON file. The directory layout is unchanged, and an existing `~/.{app-name}/` directory is read as it is.

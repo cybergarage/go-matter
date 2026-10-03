@@ -79,17 +79,47 @@ A test encodes these records as an mDNS response and parses them with the
 commissioner's own discovery code, so both sides agree on the format.
 
 A `Device` publishes them with an `MDNSAdvertiser`, which runs the
-[go-mdns](https://github.com/cybergarage/go-mdns) responder: it announces
-the service when the device starts, answers the commissioners' queries by
-service type and by subtype (such as `_L3840`), and sends goodbye records
-when the device stops. The host name resolves to the addresses of the
-interface each query arrives on.
+[go-mdns](https://github.com/cybergarage/go-mdns) responder: it probes the
+instance name and the host name, announces the service when the device
+starts, answers the commissioners' queries by service type and by subtype
+(such as `_L3840`), and sends goodbye records when the device stops. The
+host name resolves to the addresses of the interface each query arrives on.
+Probing takes about a second, so publishing a service returns after it.
+
+The responder does not rename a service whose name another node on the link
+holds; the advertiser decides, as Matter names the two services differently:
+
+- The commissionable instance name is 64 random bits, so on a conflict the
+  advertiser publishes the service with a new random name, up to
+  `MaxInstanceNameAttempts` times, and keeps that name when the device
+  advertises the same service again. `CommissionableInstanceName` returns
+  the name it is published with.
+- The operational instance name is the compressed fabric ID and the node ID,
+  which must not change: a conflict means another node uses the same node
+  ID on the fabric, and `AdvertiseOperational` returns an error which wraps
+  the `*mdns.ConflictError`. The service is tried again the next time the
+  device advertises its operational services.
+- A host name conflict is reported as an error for both.
+
+A conflict found after a service is published is handled the same way by
+`HandleConflict`, which the advertiser's own responder calls.
 
 `WithAdvertiser` replaces it, such as with a wrapper of the platform's
 service (Bonjour, Avahi), and `WithAdvertiser(nil)` advertises nothing, for
 a device a commissioner reaches by its address.
 `NewMDNSAdvertiserWithServer` publishes through an `mdns.Server` the
-application already runs.
+application already runs. The application starts it before the device
+starts, and passes `HandleConflict` to it with
+`mdns.WithServerConflictHandler`, so that the advertiser handles the
+conflicts found after a service is published:
+
+```go
+var adv *device.MDNSAdvertiser
+server := mdns.NewServer(mdns.WithServerConflictHandler(func(err *mdns.ConflictError) {
+	adv.HandleConflict(err)
+}))
+adv = device.NewMDNSAdvertiserWithServer(server)
+```
 
 A test finds a device with go-matter's own discovery by its long
 discriminator over mDNS, and establishes PASE at the discovered address.
