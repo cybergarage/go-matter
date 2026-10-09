@@ -18,7 +18,33 @@ import (
 	"github.com/cybergarage/go-matter/matter/datamodel/internal/zap"
 )
 
+const licenseFile = "LICENSE"
+
 const sourceSHA = "3bcdd56ba54fb88b2afb4bfef575014671df7aa7"
+
+// The audited scope is fixed; changing it requires a source/license review.
+var auditedInputs = [...]string{
+	"zcl.json", licenseFile, "access-control-definitions.xml", "chip-types.xml",
+	"door-lock-cluster.xml", "global-attributes.xml", "onoff-cluster.xml",
+	"temperature-measurement-cluster.xml", "matter-devices.xml",
+}
+
+func validateInputSet(p datamodel.Provenance) error {
+	if len(p.Inputs) != len(auditedInputs) {
+		return errors.New("incomplete audited input set")
+	}
+	expected := make(map[string]bool, len(auditedInputs))
+	for _, file := range auditedInputs {
+		expected[file] = true
+	}
+	for _, source := range p.Inputs {
+		if !expected[source.File] {
+			return errors.New("unexpected or duplicate audited input")
+		}
+		delete(expected, source.File)
+	}
+	return nil
+}
 
 func main() {
 	input := flag.String("input", "internal/upstream", "audited offline input directory")
@@ -41,6 +67,9 @@ func run(input, output string) error {
 	if p.SourceSHA != sourceSHA || p.SDKTag != "v1.6.1.0" || p.GeneratorVersion != "1" {
 		return errors.New("unsupported provenance; audit source and generator version before changing")
 	}
+	if err := validateInputSet(p); err != nil {
+		return err
+	}
 	zclData, err := os.ReadFile(filepath.Join(input, "zcl.json"))
 	if err != nil {
 		return err
@@ -58,8 +87,8 @@ func run(input, output string) error {
 		}
 		expected := "src/app/zap-templates/zcl/data-model/chip/" + source.File
 		switch source.File {
-		case "LICENSE":
-			expected = "LICENSE"
+		case licenseFile:
+			expected = licenseFile
 		case "zcl.json":
 			expected = "src/app/zap-templates/zcl/zcl.json"
 		}

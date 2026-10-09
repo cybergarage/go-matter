@@ -45,3 +45,40 @@ func TestAmbiguousIndexesAndInvalidIdentityRejected(t *testing.T) {
 		t.Fatal("duplicate cluster lookup")
 	}
 }
+
+func TestProcessingInstructionsRejected(t *testing.T) {
+	for _, input := range []string{
+		`<?future metadata?><configurator/>`,
+		`<configurator><?future metadata?></configurator>`,
+		`<configurator/><?future metadata?>`,
+	} {
+		if _, err := Parse(strings.NewReader(input)); err == nil {
+			t.Fatal("unsupported processing instruction accepted")
+		}
+	}
+	if _, err := Parse(strings.NewReader(`<?xml version="1.0" encoding="UTF-8"?><configurator/>`)); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDuplicateGlobalAttributesRejected(t *testing.T) {
+	root, err := Parse(strings.NewReader(`<configurator><global><attribute code="0xFFFD" name="Revision" type="int16u"/><attribute code="65533" name="Other" type="int16u"/></global></configurator>`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := &datamodel.Catalog{}
+	if err := AddDocument(c, "fixture", root); err != nil {
+		t.Fatal(err)
+	}
+	if Validate(c) == nil {
+		t.Fatal("ambiguous global attribute lookup accepted")
+	}
+	c.Globals = c.Globals[:1]
+	if err := Validate(c); err != nil {
+		t.Fatal(err)
+	}
+	a, ok := c.GlobalAttribute(0xFFFD)
+	if !ok || a.Name != "Revision" {
+		t.Fatal("unique global lookup lost")
+	}
+}

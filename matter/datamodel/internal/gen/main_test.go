@@ -79,3 +79,61 @@ func TestGeneratorRejectsChangedOrUnlicensedInputs(t *testing.T) {
 		t.Fatal("restricted input tree accepted")
 	}
 }
+
+func TestGeneratorRequiresCompleteUniqueAuditedInputSet(t *testing.T) {
+	manifest, err := os.ReadFile("../upstream/manifest.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var original datamodel.Provenance
+	if err := json.Unmarshal(manifest, &original); err != nil {
+		t.Fatal(err)
+	}
+	cases := map[string][]datamodel.Source{}
+	cases["empty"] = nil
+	for i, input := range original.Inputs {
+		missing := append([]datamodel.Source{}, original.Inputs[:i]...)
+		missing = append(missing, original.Inputs[i+1:]...)
+		cases["missing-"+input.File] = missing
+	}
+	duplicate := append([]datamodel.Source{}, original.Inputs...)
+	duplicate[0] = duplicate[1]
+	cases["duplicate"] = duplicate
+	unexpected := append([]datamodel.Source{}, original.Inputs...)
+	unexpected[0].File = "unaudited.xml"
+	cases["unexpected"] = unexpected
+	for name, inputs := range cases {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			entries, err := os.ReadDir("../upstream")
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, e := range entries {
+				data, err := os.ReadFile(filepath.Join("../upstream", e.Name()))
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(dir, e.Name()), data, 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			p := original
+			p.Inputs = inputs
+			data, err := json.Marshal(p)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(dir, "manifest.json"), data, 0600); err != nil {
+				t.Fatal(err)
+			}
+			out := filepath.Join(dir, "catalog.json")
+			if run(dir, out) == nil {
+				t.Fatal("invalid audited input set accepted")
+			}
+			if _, err := os.Stat(out); !os.IsNotExist(err) {
+				t.Fatal("failed generation published catalog")
+			}
+		})
+	}
+}

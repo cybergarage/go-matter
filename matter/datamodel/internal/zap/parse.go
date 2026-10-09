@@ -75,6 +75,10 @@ func Parse(r io.Reader) (datamodel.Element, error) {
 			} else if strings.TrimSpace(string(t)) != "" {
 				return datamodel.Element{}, errors.New("text outside XML root")
 			}
+		case xml.ProcInst:
+			if t.Target != "xml" {
+				return datamodel.Element{}, errors.New("XML processing instructions are unsupported")
+			}
 		case xml.Directive:
 			return datamodel.Element{}, errors.New("XML directives are unsupported")
 		}
@@ -233,6 +237,13 @@ func AddDocument(c *datamodel.Catalog, file string, root datamodel.Element) erro
 
 // Validate rejects ambiguous normalized lookups instead of selecting arbitrary definitions.
 func Validate(c *datamodel.Catalog) error {
+	globals := map[im.AttributeID]bool{}
+	for _, a := range c.Globals {
+		if globals[a.ID] {
+			return errors.New("duplicate global attribute ID")
+		}
+		globals[a.ID] = true
+	}
 	clusters := map[im.ClusterID]bool{}
 	devices := map[uint32]bool{}
 	for _, cl := range c.Clusters {
