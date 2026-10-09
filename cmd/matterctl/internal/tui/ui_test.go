@@ -467,7 +467,8 @@ func (s *failedScreen) Fini()       { s.finiCalls++ }
 func TestTerminalInitializationAndCleanupAreIdempotent(t *testing.T) {
 	raw := &failedScreen{}
 	screen := &managedScreen{Screen: raw}
-	if screen.Init() == nil || screen.Init() == nil {
+	err1, err2 := screen.Init(), screen.Init()
+	if err1 == nil || err2 == nil {
 		t.Fatal("terminal error hidden")
 	}
 	screen.Fini()

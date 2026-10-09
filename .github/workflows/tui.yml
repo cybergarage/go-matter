@@ -21,7 +21,7 @@ jobs:
       - name: Check TUI without network interfaces
         # A fresh network namespace has no host interfaces or usable network.
         # Dependencies are cached before entering it; only offline fixtures run.
-        run: sudo -E unshare --net -- sh -c 'exec su -p "$SUDO_USER" -s /bin/sh -c "make check-tui"'
+        run: sudo -E unshare --net -- setpriv --reuid="$(id -u)" --regid="$(id -g)" --init-groups env PATH="$PATH" make check-tui
   macos:
     runs-on: macos-14
     steps:
