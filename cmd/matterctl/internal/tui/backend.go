@@ -348,28 +348,35 @@ func (b *Live) Inspect(ctx context.Context, id uint64) (Result, error) {
 			for _, cl := range clusters {
 				attrs, ae := listIDs(n, ep, cl, 0xFFFB)
 				cmds, ce := listIDs(n, ep, cl, 0xFFF9)
-				if ce != nil {
-					out.Message += "\nSome AcceptedCommandLists unavailable."
-				}
-				if ae != nil {
-					out.Message += "\nSome AttributeLists unavailable."
-					continue
-				}
-				for _, a := range attrs {
-					path := Path{Endpoint: ep, Cluster: cl, Attribute: im.AttributeID(a)}
-					if cl == 6 && a == 0 && ce == nil {
-						for _, c := range cmds {
-							if c <= 2 {
-								path.Commands = append(path.Commands, im.CommandID(c))
-							}
-						}
-					}
-					out.Paths = append(out.Paths, path)
-				}
+				out.addInventory(ep, cl, attrs, ae, cmds, ce)
 			}
 		}
 		return out, nil
 	})
+}
+
+// addInventory retains readable paths even when command discovery fails.
+func (out *Result) addInventory(ep im.EndpointID, cl im.ClusterID, attrs []uint32, ae error, cmds []uint32, ce error) {
+	if ce != nil && !strings.Contains(out.Message, "Some AcceptedCommandLists unavailable.") {
+		out.Message += "\nSome AcceptedCommandLists unavailable."
+	}
+	if ae != nil {
+		if !strings.Contains(out.Message, "Some AttributeLists unavailable.") {
+			out.Message += "\nSome AttributeLists unavailable."
+		}
+		return
+	}
+	for _, a := range attrs {
+		path := Path{Endpoint: ep, Cluster: cl, Attribute: im.AttributeID(a)}
+		if cl == 6 && a == 0 && ce == nil {
+			for _, c := range cmds {
+				if c <= 2 {
+					path.Commands = append(path.Commands, im.CommandID(c))
+				}
+			}
+		}
+		out.Paths = append(out.Paths, path)
+	}
 }
 func readable(p Path) bool {
 	return p.Cluster == 6 && p.Attribute == 0 || p.Cluster == 0x28 && (p.Attribute == 1 || p.Attribute == 2 || p.Attribute == 3 || p.Attribute == 4 || p.Attribute == 7 || p.Attribute == 8)

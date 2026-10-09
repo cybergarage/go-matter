@@ -539,3 +539,27 @@ func TestBasicInformationReadableIDs(t *testing.T) {
 		}
 	}
 }
+
+func TestInventoryWarningsAggregateAndRetainReadablePaths(t *testing.T) {
+	out := Result{Message: "inspection"}
+	unavailable := errors.New("fixture unavailable")
+	for ep := im.EndpointID(1); ep <= 10; ep++ {
+		out.addInventory(ep, 6, []uint32{0}, nil, []uint32{1}, unavailable)
+		out.addInventory(ep, 0x28, nil, unavailable, nil, unavailable)
+	}
+	if strings.Count(out.Message, "Some AcceptedCommandLists unavailable.") != 1 || strings.Count(out.Message, "Some AttributeLists unavailable.") != 1 {
+		t.Fatal("warnings were not aggregated")
+	}
+	if len(out.Paths) != 10 {
+		t.Fatal("readable paths lost")
+	}
+	for _, p := range out.Paths {
+		if len(p.Commands) != 0 {
+			t.Fatal("unreadable command list exposed commands")
+		}
+	}
+	out.addInventory(11, 6, []uint32{0}, nil, []uint32{1}, nil)
+	if len(out.Paths) != 11 || len(out.Paths[10].Commands) != 1 {
+		t.Fatal("successful command list lost")
+	}
+}
