@@ -114,6 +114,7 @@ func commissionWithSession(
 	wifiCfg config.WiFiNetworkConfig,
 	adminCfg config.AdministratorConfig,
 	requireNetwork bool,
+	requestedNodeID ...uint64,
 ) (deviceOperationalIdentity, error) {
 	concurrent, err := supportsConcurrentConnectionAttribute(sess)
 	if err != nil {
@@ -123,7 +124,7 @@ func commissionWithSession(
 		return deviceOperationalIdentity{}, fmt.Errorf("commissioning: non-concurrent commissioning not yet supported")
 	}
 
-	identity, err := commissionOverPASE(sess, operationalCfg, adminCfg, wifiCfg, requireNetwork)
+	identity, err := commissionOverPASE(sess, operationalCfg, adminCfg, wifiCfg, requireNetwork, requestedNodeID...)
 	if err != nil {
 		return deviceOperationalIdentity{}, err
 	}
@@ -145,6 +146,7 @@ func commissionOverPASE(
 	adminCfg config.AdministratorConfig,
 	wifiCfg config.WiFiNetworkConfig,
 	requireNetwork bool,
+	requestedNodeID ...uint64,
 ) (deviceOperationalIdentity, error) {
 	const (
 		// armFailSafeExpiry must comfortably cover the entire commissioning
@@ -180,7 +182,7 @@ func commissionOverPASE(
 	// Matter 1.2 Core Spec 5.5 "Commissioning Flows", step 9:
 	// Commissioner SHALL install operational credentials using AddTrustedRootCertificate and AddNOC.
 	log.Infof("Commissioning: Operational Credentials")
-	identity, err := commissionOperationalCredentials(sess, operationalCfg, adminCfg, attResult)
+	identity, err := commissionOperationalCredentials(sess, operationalCfg, adminCfg, attResult, requestedNodeID...)
 	if err != nil {
 		return deviceOperationalIdentity{}, err
 	}
@@ -346,6 +348,7 @@ func commissionOperationalCredentials(
 	cfg config.OperationalCredentialsConfig,
 	adminCfg config.AdministratorConfig,
 	attResult deviceAttestationResult,
+	requestedNodeID ...uint64,
 ) (deviceOperationalIdentity, error) {
 	if cfg == nil {
 		return deviceOperationalIdentity{}, fmt.Errorf("commissioning: operational credentials config is required")
@@ -360,7 +363,19 @@ func commissionOperationalCredentials(
 		return deviceOperationalIdentity{}, err
 	}
 
-	nodeID := uint64(types.NewOperationalNodeID())
+	var nodeID uint64
+	if len(requestedNodeID) > 0 {
+		nodeID = requestedNodeID[0]
+	}
+	if nodeID == 0 {
+		nodeID, err = credentials.RandomOperationalID()
+		if err != nil {
+			return deviceOperationalIdentity{}, err
+		}
+	}
+	if !types.NodeID(nodeID).IsOperational() {
+		return deviceOperationalIdentity{}, errors.New("invalid operational node ID")
+	}
 	nocDER, err := ca.IssueNOC(attResult.csr, nodeID)
 	if err != nil {
 		return deviceOperationalIdentity{}, fmt.Errorf("commissioning: issue NOC: %w", err)

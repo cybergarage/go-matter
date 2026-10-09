@@ -136,3 +136,11 @@ clean:
 .PHONY: check-datamodel
 check-datamodel:
 	./scripts/check-datamodel.sh
+
+# Offline TUI fixture; set TUI_ARGS='--live --store-dir ...' only for deliberate live use.
+.PHONY: tui check-tui
+tui:
+	GOWORK=off go run ./cmd/matterctl tui $(TUI_ARGS)
+
+check-tui:
+	./scripts/check-tui.sh

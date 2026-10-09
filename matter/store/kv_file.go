@@ -115,6 +115,44 @@ func (s *FileKVStore) set(key string, value []byte) error {
 	return writeFileAtomic(s.path(key), value)
 }
 
+// Create publishes a fully written, synced file using an exclusive hard link.
+// Unlike rename this cannot replace an existing identity, even from another handle.
+func (s *FileKVStore) Create(key string, value []byte) error {
+	if err := ValidateKey(key); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	path := s.path(key)
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, dirMode); err != nil {
+		return err
+	}
+	f, err := os.CreateTemp(dir, tmpFilePattern)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(f.Name())
+	defer f.Close()
+	if _, err := f.Write(value); err != nil {
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	if err := os.Link(f.Name(), path); err != nil {
+		if errors.Is(err, fs.ErrExist) {
+			return ErrAlreadyExists
+		}
+		return err
+	}
+	syncDir(dir)
+	return nil
+}
+
 // Delete implements KVStore.
 func (s *FileKVStore) Delete(key string) error {
 	if err := ValidateKey(key); err != nil {
