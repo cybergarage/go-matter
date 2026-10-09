@@ -34,6 +34,7 @@ matterctl is a commissioner. Running as a Matter device is not supported.
 * [matterctl pairing]()	 - Pairing Matter devices.
 * [matterctl reset]()	 - Remove the local persistence directory.
 * [matterctl scan]()	 - Scan for Matter devices.
+* [matterctl tui]()	 - Full-screen controller (offline fixture by default)
 
 ## matterctl accesscontrol
 
@@ -894,7 +895,7 @@ Pairing Matter devices by specifying node ID and pairing code.
 Pair using node ID and pairing code.
 
 ```
-matterctl pairing code <node ID> <pairing code> [flags]
+matterctl pairing code <node ID|auto> <pairing code> [flags]
 ```
 
 ### Options
@@ -917,7 +918,7 @@ matterctl pairing code <node ID> <pairing code> [flags]
 Pair using node ID, pairing code, and WiFi credentials.
 
 ```
-matterctl pairing code-wifi <node ID> <pairing code> <WIFI SSID> <WIFI password> [flags]
+matterctl pairing code-wifi <node ID|auto> <pairing code> <WIFI SSID> <WIFI password> [flags]
 ```
 
 ### Options
@@ -1006,6 +1007,31 @@ matterctl scan [pairing code] [flags]
 
 ```
   -h, --help   help for scan
+```
+
+### Options inherited from parent commands
+
+```
+      --debug           enable debug output
+      --format string   output format: table|json|csv (default "table")
+      --verbose         enable verbose output
+```
+
+
+## matterctl tui
+
+Full-screen controller (offline fixture by default)
+
+```
+matterctl tui [flags]
+```
+
+### Options
+
+```
+  -h, --help               help for tui
+      --live               enable real operations after UI confirmation (never used in tests)
+      --store-dir string   commissioner store (default ~/.matterctl); explicit initialization; one process only
 ```
 
 ### Options inherited from parent commands
