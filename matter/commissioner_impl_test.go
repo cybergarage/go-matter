@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	blepkg "github.com/cybergarage/go-matter/matter/ble"
 	"github.com/cybergarage/go-matter/matter/config"
 	"github.com/cybergarage/go-matter/matter/encoding"
 	mdnspkg "github.com/cybergarage/go-matter/matter/mdns"
@@ -333,5 +334,35 @@ func TestCommissionNoMatchDoesNotRevealPayload(t *testing.T) {
 	_, err := (&commissioner{}).commissionMatchingDevice(context.Background(), p, nil)
 	if err == nil || strings.Contains(err.Error(), p.String()) {
 		t.Fatal("no-match error revealed onboarding payload")
+	}
+}
+
+// Commission discovery uses a child deadline so a completed scan does not
+// expire the parent budget needed for PASE/CASE. Both transports are injected.
+type noScanCentral struct{}
+
+func (noScanCentral) DiscoveredDevices() []blepkg.Device                     { return nil }
+func (noScanCentral) LookupDeviceByDiscriminator(any) (blepkg.Device, error) { return nil, ErrNotFound }
+func (noScanCentral) Scan(context.Context, ...blepkg.ScannerOption) error    { return nil }
+func TestCommissionDiscoveryHasSeparateDeadline(t *testing.T) {
+	var discoveryDeadline time.Time
+	discoverer := &capturingDiscoverer{searchFunc: func(ctx context.Context, _ mdnspkg.Query) ([]mdnspkg.CommissionableNode, error) {
+		discoveryDeadline, _ = ctx.Deadline()
+		return nil, nil
+	}}
+	cmr := NewCommissioner(WithCommissionerCentral(noScanCentral{}), WithCommissionerDiscoverer(discoverer), WithCommissionerStore(store.NewMemStore()))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	before := time.Now()
+	_, err := cmr.Commission(ctx, testPairingCode(t))
+	if !errors.Is(err, ErrNotFound) {
+		t.Fatal("unexpected empty discovery result")
+	}
+	if ctx.Err() != nil {
+		t.Fatal("discovery expired parent context")
+	}
+	budget := discoveryDeadline.Sub(before)
+	if budget < DefaultDiscoveryTimeout-time.Second || budget > DefaultDiscoveryTimeout+time.Second {
+		t.Fatal("discovery did not use a separate phase budget")
 	}
 }

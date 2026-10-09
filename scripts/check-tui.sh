@@ -9,7 +9,7 @@ test -z "$(gofmt -l cmd/matterctl matter/commissioner_impl.go matter/commissione
 go vet ./cmd/matterctl/... ./matter ./matter/cmd ./matter/store ./matter/encoding/... ./matter/protocol/im ./matter/protocol/pase ./matter/protocol/case
 golangci-lint run ./cmd/matterctl/... ./matter --timeout=5m
 go test -p 1 -race -count=1 ./cmd/matterctl/... ./matter/cmd ./matter/store ./matter/encoding/... ./matter/protocol/im ./matter/protocol/pase ./matter/protocol/case
-go test -race -count=1 ./matter -run 'Test(CommissionMatching|CommissionNoMatch|Connect|StartUsesInjected)'
+go test -race -count=1 ./matter -run 'Test(CommissionMatching|CommissionNoMatch|CommissionDiscovery|Connect|StartUsesInjected)'
 # Cross-build in a temporary directory. No binary or credential enters the repo.
 task_build_dir=$(mktemp -d)
 trap 'rm -rf "$task_build_dir"' EXIT HUP INT TERM

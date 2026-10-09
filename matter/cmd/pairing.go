@@ -16,9 +16,9 @@ package cmd
 
 import (
 	"context"
-	"time"
 
 	"github.com/cybergarage/go-logger/log"
+	"github.com/cybergarage/go-matter/matter"
 	"github.com/cybergarage/go-matter/matter/config"
 	"github.com/cybergarage/go-matter/matter/encoding"
 	"github.com/spf13/cobra"
@@ -41,10 +41,9 @@ var pairingCodeCmd = &cobra.Command{ // nolint:exhaustruct
 	Short: "Pair using node ID and pairing code.",
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		nodeID := args[0]
 		passcode := args[1]
 
-		log.Infof("Pairing nodeID=%s, passcode=%s", nodeID, passcode)
+		log.Info("Pairing requested (onboarding data omitted)")
 
 		pairingCode, err := encoding.NewPairingCodeFromString(passcode)
 		if err != nil {
@@ -52,7 +51,7 @@ var pairingCodeCmd = &cobra.Command{ // nolint:exhaustruct
 		}
 
 		cmr := SharedCommissioner()
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), matter.DefaultCommissioningTimeout)
 		defer cancel()
 
 		cme, err := cmr.Commission(ctx, pairingCode)
@@ -72,12 +71,11 @@ var pairingCodeWifiCmd = &cobra.Command{ // nolint:exhaustruct
 	Short: "Pair using node ID, pairing code, and WiFi credentials.",
 	Args:  cobra.ExactArgs(4),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		nodeID := args[0]
 		passcode := args[1]
 		wifiSSID := args[2]
 		wifiPasswd := args[3]
 
-		log.Infof("Pairing nodeID=%s, passcode=%s, ssid=%s, passwd=%s", nodeID, passcode, wifiSSID, wifiPasswd)
+		log.Info("Wi-Fi pairing requested (onboarding data omitted)")
 
 		pairingCode, err := encoding.NewPairingCodeFromString(passcode)
 		if err != nil {
@@ -85,7 +83,7 @@ var pairingCodeWifiCmd = &cobra.Command{ // nolint:exhaustruct
 		}
 
 		cmr := SharedCommissioner()
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), matter.DefaultCommissioningTimeout)
 		defer cancel()
 
 		wifiCfg := config.NewWiFiNetworkConfig(

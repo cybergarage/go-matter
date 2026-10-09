@@ -2,7 +2,7 @@
 
 This first stage adds `matterctl tui`, with tview/tcell code confined to
 `cmd/matterctl/internal/tui`. Existing CLI commands remain available. The only
-library changes preserve caller cancellation through commissioning and remove
+library changes bound discovery separately, preserve caller cancellation through commissioning and remove
 an onboarding payload from the no-matching-device error.
 
 ## Start
@@ -134,8 +134,9 @@ recovery and file modes, and TUI tests cover save failure and restart listing.
 
 Pairing/PIN/key material never enters TUI logs or screenshots. Library logging
 is disabled for the entire TUI entry, including live operations, and raw errors
-from commissioning/storage are not displayed. The earlier CLI's verbose pairing
-logging behavior is outside this change; do not use it to capture real codes.
+from commissioning/storage are not displayed. The CLI pairing commands also stop logging onboarding/Wi-Fi inputs and use the
+full commissioning timeout so the existing CLI remains compatible with caller
+cancellation.
 The store contains plaintext private keys under the library's restrictive modes;
 this draft performs no chmod, migration, OS permission grants or credential export.
 

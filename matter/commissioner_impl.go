@@ -256,7 +256,11 @@ func (cmr *commissioner) Commission(ctx context.Context, payload OnboardingPaylo
 	query := NewQuery(
 		WithQueryOnboardingPayload(payload),
 	)
-	devs, err := cmr.Discover(ctx, query)
+	// Discovery may collect advertisements until its deadline. Keep that
+	// phase deadline separate from the caller's whole-operation deadline.
+	discoveryCtx, cancelDiscovery := context.WithTimeout(ctx, DefaultDiscoveryTimeout)
+	defer cancelDiscovery()
+	devs, err := cmr.Discover(discoveryCtx, query)
 	if err != nil {
 		return nil, err
 	}
