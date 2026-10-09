@@ -1,2 +1,2 @@
 matter/datamodel/catalog.json linguist-generated=true
-matter/datamodel/internal/upstream/* linguist-vendored=true
+matter/datamodel/internal/upstream/* linguist-vendored=true whitespace=-blank-at-eol
