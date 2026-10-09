@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -309,4 +310,28 @@ func testPairingCode(t *testing.T) OnboardingPayload {
 		t.Fatalf("NewPairingCodeFromString(...) error = %v", err)
 	}
 	return payload
+}
+
+// The caller must be able to cancel the post-discovery PASE-through-CASE flow.
+type cancelAwareDevice struct{ stubCommissionableDevice }
+
+func (d *cancelAwareDevice) Commission(ctx context.Context, _ OnboardingPayload, _ ...CommissionOption) (CommissionedIdentity, error) {
+	return CommissionedIdentity{}, ctx.Err()
+}
+func TestCommissionMatchingDevicePropagatesCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	cmr := &commissioner{}
+	d := &cancelAwareDevice{stubCommissionableDevice: stubCommissionableDevice{match: true}}
+	_, err := cmr.commissionMatchingDevice(ctx, testPairingCode(t), []CommissionableDevice{d})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatal("commissioning did not preserve caller cancellation")
+	}
+}
+func TestCommissionNoMatchDoesNotRevealPayload(t *testing.T) {
+	p := testPairingCode(t)
+	_, err := (&commissioner{}).commissionMatchingDevice(context.Background(), p, nil)
+	if err == nil || strings.Contains(err.Error(), p.String()) {
+		t.Fatal("no-match error revealed onboarding payload")
+	}
 }

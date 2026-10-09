@@ -280,7 +280,7 @@ func (cmr *commissioner) commissionMatchingDevice(ctx context.Context, payload O
 		}
 		log.Infof("Trying to commission device: %s", dev.String())
 
-		ctxCommission, cancel := context.WithTimeout(context.Background(), DefaultCommissioningTimeout)
+		ctxCommission, cancel := context.WithTimeout(ctx, DefaultCommissioningTimeout)
 		defer cancel()
 
 		identity, err := dev.Commission(ctxCommission, payload, opts...)
@@ -293,7 +293,7 @@ func (cmr *commissioner) commissionMatchingDevice(ctx context.Context, payload O
 		return newCommissioneeWithIdentity(dev, identity), nil
 	}
 
-	return nil, fmt.Errorf("%w: no matching commissionable device found (payload=%s)", ErrNotFound, payload.String())
+	return nil, fmt.Errorf("%w: no matching commissionable device found", ErrNotFound)
 }
 
 // Connect reconnects to an already-commissioned node via a fresh CASE
