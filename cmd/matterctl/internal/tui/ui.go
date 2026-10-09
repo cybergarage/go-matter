@@ -79,7 +79,12 @@ func (s *managedScreen) Init() error {
 	s.initOnce.Do(func() { s.initErr = s.Screen.Init() })
 	return s.initErr
 }
-func (s *managedScreen) Fini() { s.finiOnce.Do(s.Screen.Fini) }
+func (s *managedScreen) Fini() {
+	// tcell Fini is only valid after successful Init (its quit channel may be nil).
+	if s.initErr == nil {
+		s.finiOnce.Do(s.Screen.Fini)
+	}
+}
 
 type completion struct {
 	result    Result

@@ -473,7 +473,14 @@ func TestTerminalInitializationAndCleanupAreIdempotent(t *testing.T) {
 	}
 	screen.Fini()
 	screen.Fini()
-	if raw.initCalls != 1 || raw.finiCalls != 1 {
-		t.Fatal("terminal lifecycle repeated")
+	if raw.initCalls != 1 || raw.finiCalls != 0 {
+		t.Fatal("invalid cleanup after failed initialization")
 	}
+	sim := tcell.NewSimulationScreen("UTF-8")
+	successful := &managedScreen{Screen: sim}
+	if err := successful.Init(); err != nil {
+		t.Fatal(err)
+	}
+	successful.Fini()
+	successful.Fini()
 }
