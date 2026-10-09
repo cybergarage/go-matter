@@ -177,3 +177,10 @@ $ matterctl reset
     - [Matter 1.5 Device Library Specification](https://csa-iot.org/developer-resource/specifications-download-request/)
     - [Matter 1.5 Core Specification](https://csa-iot.org/developer-resource/specifications-download-request/)
     - [Matter 1.5 Application Cluster Specification](https://csa-iot.org/developer-resource/specifications-download-request/)
+
+### Versioned metadata catalog
+
+The initial offline [`matter/datamodel`](matter/datamodel) catalog provides
+version-pinned SDK device/cluster/attribute/command metadata. See
+[source licensing, coverage, regeneration and API](doc/matter-definition-db.md).
+It does not enable new device operations or change the library's protocol target.

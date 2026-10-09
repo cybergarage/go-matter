@@ -133,6 +133,10 @@ install:
 clean:
 	go clean -i ${PKG} ${TEST_PKG} ${BINS}
 
+.PHONY: check-datamodel
+check-datamodel:
+	./scripts/check-datamodel.sh
+
 # Offline TUI fixture; set TUI_ARGS='--live --store-dir ...' only for deliberate live use.
 .PHONY: tui check-tui
 tui:
