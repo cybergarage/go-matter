@@ -132,3 +132,7 @@ install:
 
 clean:
 	go clean -i ${PKG} ${TEST_PKG} ${BINS}
+
+.PHONY: check-datamodel
+check-datamodel:
+	./scripts/check-datamodel.sh

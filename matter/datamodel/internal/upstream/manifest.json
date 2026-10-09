@@ -1,0 +1,61 @@
+{
+  "sdkTag": "v1.6.1.0",
+  "sourceSha": "3bcdd56ba54fb88b2afb4bfef575014671df7aa7",
+  "generatorVersion": "1",
+  "inputs": [
+    {
+      "file": "zcl.json",
+      "path": "src/app/zap-templates/zcl/zcl.json",
+      "sha256": "f9bab1f88cf913b06b922d111b64774821c8e6df9eb222a6e3da9de48d66a008",
+      "license": "Apache-2.0"
+    },
+    {
+      "file": "LICENSE",
+      "path": "LICENSE",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "license": "Apache-2.0"
+    },
+    {
+      "file": "access-control-definitions.xml",
+      "path": "src/app/zap-templates/zcl/data-model/chip/access-control-definitions.xml",
+      "sha256": "111d03ce8e69425a88248e2aa672c95f6ca598d4afec8b929ffc1f907a8f16a1",
+      "license": "Apache-2.0"
+    },
+    {
+      "file": "chip-types.xml",
+      "path": "src/app/zap-templates/zcl/data-model/chip/chip-types.xml",
+      "sha256": "5f21ca4ef7884691be2d7aad91831b26efde8f6257e88305ec9e6a54eba8a100",
+      "license": "Apache-2.0"
+    },
+    {
+      "file": "door-lock-cluster.xml",
+      "path": "src/app/zap-templates/zcl/data-model/chip/door-lock-cluster.xml",
+      "sha256": "66165fdc5adc311aa0875d203304f9f11ff36f452aa8256191e40a9f251a3015",
+      "license": "Apache-2.0"
+    },
+    {
+      "file": "global-attributes.xml",
+      "path": "src/app/zap-templates/zcl/data-model/chip/global-attributes.xml",
+      "sha256": "ad5885556d56c0777b995d5936fd0570d866cd2a10de5258a371a20a0d924f23",
+      "license": "Apache-2.0"
+    },
+    {
+      "file": "onoff-cluster.xml",
+      "path": "src/app/zap-templates/zcl/data-model/chip/onoff-cluster.xml",
+      "sha256": "f45404f40b0cf6ca79a7650d31c5ec88e5081206abbbd4cbe743f79d02a6b5af",
+      "license": "Apache-2.0"
+    },
+    {
+      "file": "temperature-measurement-cluster.xml",
+      "path": "src/app/zap-templates/zcl/data-model/chip/temperature-measurement-cluster.xml",
+      "sha256": "98f4a69b74cf8af87a01e5de4cb551240cc6746be719e7c4e5929ffe4e532e83",
+      "license": "Apache-2.0"
+    },
+    {
+      "file": "matter-devices.xml",
+      "path": "src/app/zap-templates/zcl/data-model/chip/matter-devices.xml",
+      "sha256": "42d9f5badfe7de600be24fbb38f1f43fb3357f2822f2845a378d88241e677dc1",
+      "license": "Apache-2.0"
+    }
+  ]
+}
