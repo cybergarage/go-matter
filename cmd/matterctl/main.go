@@ -18,11 +18,22 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/cybergarage/go-matter/cmd/matterctl/internal/tui"
 	"github.com/cybergarage/go-matter/matter"
 	"github.com/cybergarage/go-matter/matter/cmd"
 )
 
 func main() {
+	tuiCommand := tui.Command()
+	cmd.RootCommand().AddCommand(tuiCommand)
+	selected, _, findErr := cmd.RootCommand().Find(os.Args[1:])
+	if findErr == nil && selected == tuiCommand {
+		if err := cmd.RootCommand().Execute(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 	commissioner := matter.NewCommissioner(matter.WithCommissionerAppName(cmd.ProgramName))
 	if err := cmd.Execute(commissioner); err != nil {
 		fmt.Println(err)

@@ -253,10 +253,19 @@ func (cmr *commissioner) Discover(ctx context.Context, query Query) ([]Commissio
 
 // 5.5. Commissioning Flows.
 func (cmr *commissioner) Commission(ctx context.Context, payload OnboardingPayload, opts ...CommissionOption) (Commissionee, error) {
+	var err error
+	opts, err = cmr.allocateCommissionNode(cmr.commissionOptions(opts...))
+	if err != nil {
+		return nil, err
+	}
 	query := NewQuery(
 		WithQueryOnboardingPayload(payload),
 	)
-	devs, err := cmr.Discover(ctx, query)
+	// Discovery may collect advertisements until its deadline. Keep that
+	// phase deadline separate from the caller's whole-operation deadline.
+	discoveryCtx, cancelDiscovery := context.WithTimeout(ctx, DefaultDiscoveryTimeout)
+	defer cancelDiscovery()
+	devs, err := cmr.Discover(discoveryCtx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -280,7 +289,7 @@ func (cmr *commissioner) commissionMatchingDevice(ctx context.Context, payload O
 		}
 		log.Infof("Trying to commission device: %s", dev.String())
 
-		ctxCommission, cancel := context.WithTimeout(context.Background(), DefaultCommissioningTimeout)
+		ctxCommission, cancel := context.WithTimeout(ctx, DefaultCommissioningTimeout)
 		defer cancel()
 
 		identity, err := dev.Commission(ctxCommission, payload, opts...)
@@ -293,7 +302,7 @@ func (cmr *commissioner) commissionMatchingDevice(ctx context.Context, payload O
 		return newCommissioneeWithIdentity(dev, identity), nil
 	}
 
-	return nil, fmt.Errorf("%w: no matching commissionable device found (payload=%s)", ErrNotFound, payload.String())
+	return nil, fmt.Errorf("%w: no matching commissionable device found", ErrNotFound)
 }
 
 // Connect reconnects to an already-commissioned node via a fresh CASE

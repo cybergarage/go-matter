@@ -116,7 +116,8 @@ func TestGroupSenderSwitchesDevice(t *testing.T) {
 			t.Errorf("Device.Stop() error = %v", err)
 		}
 	}()
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	// The caller deadline bounds discovery and the complete PASE-through-CASE flow.
+	ctx, cancel := context.WithTimeout(context.Background(), matter.DefaultCommissioningTimeout)
 	defer cancel()
 	cme, err := cmr.Commission(ctx, pairingCode, adminCfg, opCfg)
 	if err != nil {

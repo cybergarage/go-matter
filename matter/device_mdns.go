@@ -312,7 +312,7 @@ func (dev *mDNSDevice) Commission(ctx context.Context, payload OnboardingPayload
 	operationalCfg, _ := dev.OperationalCredentialsConfig()
 	wifiCfg, _ := dev.WiFiNetworkConfig()
 	adminCfg, _ := dev.AdministratorConfig()
-	identity, err := commissionWithSession(ctx, sess, dev.discoverer, operationalCfg, wifiCfg, adminCfg, false)
+	identity, err := commissionWithSession(ctx, sess, dev.discoverer, operationalCfg, wifiCfg, adminCfg, false, dev.nodeID)
 	if err != nil {
 		log.Errorf("Commissioning failed for mDNS device (%s): %v", dev.String(), err)
 		return CommissionedIdentity{}, err

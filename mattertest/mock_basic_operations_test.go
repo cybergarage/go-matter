@@ -146,11 +146,9 @@ func TestMockBasicOperations(t *testing.T) {
 		}
 	}()
 
-	// See TestMockCommissioning's matching comment: the fake discoverer
-	// answers immediately, so a short deadline is enough for discovery; the
-	// commissioning phase itself is governed by
-	// matter.DefaultCommissioningTimeout, not this ctx.
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	// The injected discovery returns immediately. The parent deadline also
+	// bounds all commissioning exchanges, rather than discovery alone.
+	ctx, cancel := context.WithTimeout(context.Background(), matter.DefaultCommissioningTimeout)
 	defer cancel()
 	cme, err := cmr.Commission(ctx, pairingCode, adminCfg, opCfg)
 	if err != nil {

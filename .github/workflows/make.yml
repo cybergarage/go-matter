@@ -22,7 +22,9 @@ jobs:
       run: sudo snap install golangci-lint --classic
 
     - name: Set up bluez
-      run: sudo apt-get install bluetooth
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y bluetooth
 
     - name: Test
       run: |

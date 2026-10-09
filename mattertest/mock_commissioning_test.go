@@ -97,6 +97,7 @@ func TestMockCommissioning(t *testing.T) {
 	storeDir := t.TempDir()
 	cmr := matter.NewCommissioner(
 		matter.WithCommissionerDiscoverer(mockdevice.NewFakeDiscoverer(dev)),
+		matter.WithCommissionerCentral(noopBLECentral{}),
 		matter.WithCommissionerStoreDir(storeDir),
 	)
 	if err := cmr.Start(); err != nil {
@@ -108,16 +109,9 @@ func TestMockCommissioning(t *testing.T) {
 		}
 	}()
 
-	// Commissioner.Discover (matter/commissioner_impl.go) runs BLE scanning
-	// and mDNS discovery in parallel and waits for both, using this ctx's
-	// own deadline verbatim once it has one (it only falls back to its own
-	// shorter DefaultDiscoveryTimeout when ctx has none) — so a generous
-	// deadline here would make this test block for that long on a machine
-	// with no real BLE adapter to satisfy the scan. The fake discoverer
-	// this test injects answers immediately, so a short deadline is enough;
-	// the commissioning phase itself that follows discovery is governed by
-	// matter.DefaultCommissioningTimeout, not this ctx.
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	// Discovery is fully injected; no physical BLE scanner participates. The
+	// parent deadline also bounds the complete commissioning exchange.
+	ctx, cancel := context.WithTimeout(context.Background(), matter.DefaultCommissioningTimeout)
 	defer cancel()
 	cme, err := cmr.Commission(ctx, pairingCode, adminCfg, opCfg)
 	if err != nil {

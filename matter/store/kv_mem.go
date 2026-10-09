@@ -55,6 +55,20 @@ func (s *memKVStore) Set(key string, value []byte) error {
 	return nil
 }
 
+// Create atomically inserts a value without overwriting an existing key.
+func (s *memKVStore) Create(key string, value []byte) error {
+	if err := ValidateKey(key); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.data[key]; ok {
+		return ErrAlreadyExists
+	}
+	s.data[key] = append([]byte{}, value...)
+	return nil
+}
+
 func (s *memKVStore) Delete(key string) error {
 	if err := ValidateKey(key); err != nil {
 		return err
