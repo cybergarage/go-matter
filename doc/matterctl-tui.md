@@ -1,9 +1,9 @@
 # matterctl full-screen controller (initial draft)
 
 This first stage adds `matterctl tui`, with tview/tcell code confined to
-`cmd/matterctl/internal/tui`. Existing CLI commands remain available. The only
-library changes bound discovery separately, preserve caller cancellation through commissioning and remove
-an onboarding payload from the no-matching-device error.
+`cmd/matterctl/internal/tui`. Existing CLI commands remain available. Library changes add explicit local identity generation/validation and exclusive initial
+store creation, honor requested commissioning Node IDs, bound discovery separately,
+and preserve caller cancellation through commissioning.
 
 ## Start
 
@@ -21,25 +21,30 @@ credentials, starts no BLE/mDNS transport and performs no device operations.
 The pairing form still validates public test payloads and exercises a fixture
 success/failure flow. Fixture state is discarded on exit.
 
-For later use with an **existing go-matter commissioner fabric**, opt in:
+For live use with a new or existing go-matter commissioner fabric, opt in:
 
 ```sh
 GOWORK=off go run ./cmd/matterctl tui --live
-# Or select an existing compatible store:
-GOWORK=off go run ./cmd/matterctl tui --live --store-dir /path/to/existing/store
+# Or select a compatible store location:
+GOWORK=off go run ./cmd/matterctl tui --live --store-dir /path/to/controller/store
 ```
 
 The default live store is `~/.matterctl`,
-matching the CLI. The directory must already exist. Opening a file store can
+matching the CLI. An absent directory stays absent at startup. Choose **Create new
+fabric** and enter an administrator vendor ID (assigned ID, or 0xFFF1–0xFFF4 for
+development). Validate, then explicitly confirm. Fabric/controller Node IDs,
+P-256 keys, a self-signed root, controller NOC and 16-byte IPK are generated
+locally; no network is started and no device is registered. Opening a file store can
 recover its existing journal; use only one process per store. Opening the UI
 lists local records without calling `Commissioner.Start`. The first confirmed
 network operation starts the commissioner. Neither OS permissions nor existing
 key permissions are changed. Transport permission failures are shown without
-printing underlying logs. No live mode was exercised for this work.
+printing underlying logs. Only temporary isolated stores and fake commissioners were exercised for this work.
 
 ![Full-screen fictional controller](images/tui.png)
 
-[Pairing form](images/tui-pair.png) · [Compact layout](images/tui-compact.png).
+[Pairing form](images/tui-pair.png) · [Compact layout](images/tui-compact.png) ·
+[First Fabric](images/tui-fabric.png) · [Create form](images/tui-fabric-create.png).
 Screenshots are actual tcell simulation-screen cell output rasterized with a
 monospace font, using fictional values and an empty masked pairing field.
 
@@ -79,6 +84,10 @@ can clip labels. Arrow keys scroll lists/results. Mouse is disabled.
 
 ## Implemented scope
 
+- Fabric overview: public Fabric ID, compressed Fabric ID, administrator Node ID,
+  vendor ID, local validation state and saved-node count. No key/IPK/certificate
+  body is displayed. The initial generator uses a direct root-signed identity;
+  intermediate-backed identities are currently blocked by the TUI.
 - Local saved-device list, searchable by name/ID. `saved / unverified` is not a
   connectivity claim. Results describe the last operation; the CASE session is
   closed after each operation. There is no continuously monitored connected state.
@@ -98,14 +107,29 @@ can clip labels. Arrow keys scroll lists/results. Mouse is disabled.
   cluster controls are implemented in the initial TUI. The existing CLI retains
   its numeric read/write/invoke functionality.
 - Pairing: the existing commissioner PASE → attestation → AddNOC → CASE flow with
-  an existing complete fabric. The TUI does not create a new fabric identity,
-  generate real credentials, provision Wi-Fi/Thread, or choose a requested node
-  ID. The library assigns the actual node ID. Devices must already have an
+  a validated local fabric. The TUI does not provision Wi-Fi/Thread or ask for
+  a requested device Node ID. The commissioner automatically assigns an unused
+  operational ID, avoiding the administrator and saved IDs. The existing CLI
+  keeps `pairing code <node ID|auto> <pairing code>`: decimal or explicit `0x`
+  numeric IDs are honored, `auto` requests allocation, and reserved/duplicate IDs
+  are rejected. Numeric arguments were previously silently ignored; callers
+  relying on that defect should use `auto`. The code-wifi node argument has the
+  same validation/forwarding contract; no Wi-Fi implementation was added. Devices must already have an
   operational IP network path; BLE may be used for the commissioning exchange,
   subject to the library and OS support. Unsupported transport/cluster failures
   remain failures. Library attestation limitations still apply.
 
 ## Persistence, cancellation and duplicates
+
+New identity creation uses a synced temporary file and an exclusive hard link
+to publish `fabric.json` without replacing any existing file, including corrupt
+records. Unsupported filesystems/backends fail rather than fall back to unsafe
+replacement. A failed pre-publication save leaves no partial identity; a crash
+after publication leaves the complete identity. Cancel before publication stops
+creation; publication itself cannot be undone, so reload before retrying an
+uncertain result. Existing orphaned node records block bootstrap. Restart loads
+and validates the same identity, and first network use restores it in Start.
+Other shared-store operations still require one process per directory.
 
 The backend supplies the same `matter/store.Store` to the commissioner and the
 UI. Existing fabric configuration is loaded by Start; successful commissioning
@@ -126,8 +150,9 @@ save needs deliberate recovery using the existing store/device administrator.
 Store identity is compressedFabricID + nodeID: saving the same identity replaces
 one record. A manual code does not identify a physical device uniquely, so the
 TUI cannot reliably pre-detect commissioning the same physical device twice.
-Stores containing the same node ID under different fabric identities are refused
-to avoid routing an operation to an ambiguous selection.
+Only records matching the active Fabric ID and compressed Fabric ID are selectable.
+There is one active Fabric per store and no multi-Fabric selector. Duplicate IDs
+within that selection are refused; records without a Fabric cannot be operated.
 The offline fixture rejects its duplicate pairing; this is not a live-device
 identity guarantee. Existing store tests cover atomic writes, rollback, journal
 recovery and file modes, and TUI tests cover save failure and restart listing.
@@ -159,20 +184,20 @@ fabric. No Apple Home device was discovered, paired or operated for this work.
 make check-tui
 ```
 
-Checks use fictional backends, synthetic non-key byte fixtures and in-memory
-protocol tests. They cover masked forms, invalid code/checksum, manual/QR parsing,
+Checks use fictional backends, temporary/in-memory stores and ephemeral test
+identities. Test private keys/IPKs are never printed or committed. They are
+discarded with each test directory; no real controller store is initialized. They cover masked forms, invalid code/checksum, manual/QR parsing,
 confirmation cancellation, Tab/search/resize, async cancel/timeout, screen exit,
 command allowlisting, acknowledgement versus readback failure, persistence failure,
 identity replacement/restart listing, commissioning context cancellation, and
 existing CLI parser/cluster-command regressions. The darwin/arm64 binary is built on macOS with CGO/CoreBluetooth; linux/arm64
 is cross-built with CGO disabled. Linux CI runs TUI checks in a fresh network
 namespace; macOS uses only the same offline fixture tests. TUI checks never start BLE/mDNS, household LAN discovery,
-advertisements, physical pairing, or real credential creation.
+advertisements, physical pairing, or persistent user-credential creation.
 
 Full repository integration and chip-tool jobs continue to run in their existing
 CI runner environment. Do not run `make test` on a household network for this TUI
-check: other packages contain network/BLE integration tests. New-fabric bootstrap,
-Wi-Fi/Thread forms, more cluster controls, stage-level progress, full commissioning
+check: other packages contain network/BLE integration tests. Wi-Fi/Thread forms, more cluster controls, stage-level progress, full commissioning
 rollback/atomic persistence, concurrent store locking and physical-device testing
 remain follow-up work. This is a reviewable initial controller, not a tested
 replacement for a certified controller.

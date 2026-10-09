@@ -253,6 +253,11 @@ func (cmr *commissioner) Discover(ctx context.Context, query Query) ([]Commissio
 
 // 5.5. Commissioning Flows.
 func (cmr *commissioner) Commission(ctx context.Context, payload OnboardingPayload, opts ...CommissionOption) (Commissionee, error) {
+	var err error
+	opts, err = cmr.allocateCommissionNode(cmr.commissionOptions(opts...))
+	if err != nil {
+		return nil, err
+	}
 	query := NewQuery(
 		WithQueryOnboardingPayload(payload),
 	)

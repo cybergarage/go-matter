@@ -122,11 +122,11 @@ func TestCommissionOperationalCredentialsIssuesNOCAndInstallsIt(t *testing.T) {
 	opCfg := validOperationalCredentialsConfig()
 	csr := generateTestCSR(t)
 
-	identity, err := commissionOperationalCredentials(stubSecureSession{}, opCfg, adminCfg, deviceAttestationResult{csr: csr})
+	identity, err := commissionOperationalCredentials(stubSecureSession{}, opCfg, adminCfg, deviceAttestationResult{csr: csr}, 0x123456789)
 	if err != nil {
 		t.Fatalf("commissionOperationalCredentials(...) error = %v, want nil", err)
 	}
-	if identity.nodeID == 0 {
+	if identity.nodeID != 0x123456789 {
 		t.Error("identity.nodeID = 0, want a non-zero assigned node ID")
 	}
 	if len(gotRootDER) == 0 {

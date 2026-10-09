@@ -24,6 +24,9 @@ import (
 // stored under the requested key.
 var ErrNotFound = errors.New("store: key not found")
 
+// ErrAlreadyExists is returned by atomic Create when a key is already present.
+var ErrAlreadyExists = errors.New("store: key already exists")
+
 // ErrTxDone is returned by a Tx method called after Commit or Rollback.
 var ErrTxDone = errors.New("store: transaction already committed or rolled back")
 

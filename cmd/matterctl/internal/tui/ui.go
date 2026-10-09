@@ -14,7 +14,6 @@ import (
 
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/protocol/im"
-	"github.com/cybergarage/go-matter/matter/store"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 	"github.com/spf13/cobra"
@@ -38,16 +37,11 @@ func Command() *cobra.Command {
 					}
 					dir = filepath.Join(home, ".matterctl")
 				}
-				// Require an existing store. Do not silently create a controller identity.
-				info, err := os.Stat(dir)
-				if err != nil || !info.IsDir() {
-					return errors.New("live mode requires an existing commissioner store directory")
-				}
-				st, err := store.NewStore(dir)
+				b, err := openLiveDirectory(dir)
 				if err != nil {
-					return errors.New("cannot open commissioner store")
+					return err
 				}
-				backend = NewLive(st)
+				backend = b
 				mode = "LIVE — saved devices / network only after confirmation"
 			}
 			screen, err := tcell.NewScreen()
@@ -63,7 +57,7 @@ func Command() *cobra.Command {
 			return NewUI(backend, mode, managed).Run()
 		}}
 	command.Flags().BoolVar(&live, "live", false, "enable real operations after UI confirmation (never used in tests)")
-	command.Flags().StringVar(&dir, "store-dir", "", "existing commissioner store (default ~/.matterctl); one process only")
+	command.Flags().StringVar(&dir, "store-dir", "", "commissioner store (default ~/.matterctl); explicit initialization; one process only")
 	return command
 }
 
@@ -142,6 +136,14 @@ func NewUI(backend Backend, mode string, screen tcell.Screen) *UI {
 	u.app.SetRoot(u.pages, true).EnableMouse(false).SetInputCapture(u.key)
 	u.app.SetBeforeDrawFunc(func(s tcell.Screen) bool { u.drain(); w, _ := s.Size(); u.layout(w); return false })
 	u.reload()
+	if f, ok := backend.(fabricBackend); ok {
+		summary, err := f.Overview()
+		if err != nil {
+			u.detail.SetText(err.Error())
+		} else {
+			u.detail.SetText(summary.String())
+		}
+	}
 	u.updateActions()
 	u.setFocus(0)
 	return u
@@ -220,7 +222,26 @@ func (u *UI) updateActions() {
 		if !u.busy {
 			u.reload()
 		}
-	}).AddItem("Pair device (manual / QR)", "", 0, u.pairForm)
+	})
+	if f, ok := u.backend.(fabricBackend); ok {
+		u.actions.AddItem("Fabric overview", "", 0, func() {
+			summary, err := f.Overview()
+			if err != nil {
+				u.detail.SetText(err.Error())
+			} else {
+				u.detail.SetText(summary.String())
+			}
+		})
+		summary, err := f.Overview()
+		if err == nil && !summary.Present {
+			u.actions.AddItem("Create new fabric", "", 0, u.fabricForm)
+		}
+		if err == nil && summary.Valid {
+			u.actions.AddItem("Pair device (manual / QR)", "", 0, u.pairForm)
+		}
+	} else {
+		u.actions.AddItem("Pair device (manual / QR)", "", 0, u.pairForm)
+	}
 	if d, ok := u.device(); ok {
 		u.actions.AddItem("Reconnect / inspect", "", 0, func() {
 			u.confirm("Connect to selected node and read Descriptor inventory?", func() {
@@ -313,7 +334,7 @@ func (u *UI) start(inventory bool, timeout time.Duration, fn func(context.Contex
 	u.cancel = cancel
 	u.workDone = make(chan struct{})
 	done := u.workDone
-	u.detail.SetText("WORKING: transport exchange in progress (no per-stage API).\nEsc requests cancellation. No automatic retries.\nPairing may have changed device state before cancellation.")
+	u.detail.SetText("WORKING: operation in progress (no per-stage API).\nEsc requests cancellation. No automatic retries.\nPairing may have changed device state before cancellation.")
 	go func() {
 		defer close(done)
 		defer cancel()
@@ -339,6 +360,8 @@ func (u *UI) drain() {
 			}
 			return
 		}
+		u.reload()
+		u.updateActions()
 		u.detail.SetText(c.result.Message)
 		if c.inventory {
 			u.inventory = c.result.Paths
@@ -408,4 +431,34 @@ func (u *UI) key(e *tcell.EventKey) *tcell.EventKey {
 		return nil
 	}
 	return e
+}
+
+func (u *UI) fabricForm() {
+	if u.busy {
+		return
+	}
+	backend, ok := u.backend.(fabricBackend)
+	if !ok {
+		return
+	}
+	field := tview.NewInputField().SetLabel("Admin vendor ID: ").SetFieldWidth(12)
+	note := tview.NewTextView().SetText("Create a local controller identity; no network operation.\nIDs are automatic. Existing identity is never replaced.\nEnter your assigned vendor ID; 0xFFF1–0xFFF4 are development test IDs.\nKeys/IPK are stored locally, never displayed. Keep the store private.")
+	form := tview.NewForm().AddFormItem(field)
+	form.AddButton("Cancel", u.closeDialog).AddButton("Validate", func() {
+		vendor, err := parseVendor(field.GetText())
+		if err != nil {
+			note.SetText(err.Error())
+			return
+		}
+		u.closeDialog()
+		u.confirm("Generate and save a NEW local fabric identity?\nNo existing identity will be overwritten. No device is registered.\nThe store contains private keys in plaintext (0600 files).", func() {
+			u.start(false, 30*time.Second, func(ctx context.Context) (Result, error) { return backend.CreateFabric(ctx, vendor) })
+		})
+	})
+	form.SetFocus(1)
+	box := tview.NewFlex().SetDirection(tview.FlexRow).AddItem(note, 6, 0, false).AddItem(form, 0, 1, true)
+	box.SetBorder(true).SetTitle(" Create local fabric ")
+	u.dialog = true
+	u.pages.AddPage("dialog", box, true, true)
+	u.app.SetFocus(form)
 }

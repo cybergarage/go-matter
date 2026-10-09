@@ -34,6 +34,23 @@ the same records can be kept in memory or in any other storage (see
   at `0600`, since `fabric.json` holds private key material in plaintext
   (see [Security](#security)).
 
+## Explicit controller initialization
+
+`credentials.GenerateControllerIdentity()` generates P-256 root/controller keys,
+root/controller certificates, random Fabric/controller IDs and an IPK in memory.
+It never writes files or contacts a device. `ValidateControllerIdentity` checks
+keys, certificate chain, identity binding and validity before use. Never log or
+format the returned identity. This initial helper uses direct root signing.
+
+`store.CreateFabric(st, rec)` is optional for custom stores/backends, and fails
+if atomic creation is unsupported. File and memory backends install the first
+identity exclusively; an existing `fabric.json` is never overwritten. The file
+backend publishes a complete synced temporary file by hard link, so a crash sees
+a complete identity or no identity. An unsupported filesystem fails safely.
+The regular `SaveFabric` replacement API remains for existing callers.
+`matterctl tui --live` exposes creation only as an explicit, confirmed action.
+Startup does not generate keys or create an absent store directory.
+
 ## `fabric.json` — fabric-wide identity
 
 One record, shared by every device on the fabric. It's the union of what

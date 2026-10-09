@@ -58,6 +58,29 @@ func NewStoreWithKVStore(kv KVStore) Store {
 	return &kvStore{kv: kv}
 }
 
+// CreateFabric atomically installs a first identity; existing or corrupt records are never replaced.
+// Custom stores must implement CreateFabric explicitly; no unsafe load/save fallback is used.
+func CreateFabric(st Store, rec FabricRecord) error {
+	creator, ok := st.(interface{ CreateFabric(FabricRecord) error })
+	if !ok {
+		return errors.New("store: atomic fabric creation unsupported")
+	}
+	return creator.CreateFabric(rec)
+}
+
+func (s *kvStore) CreateFabric(rec FabricRecord) error {
+	creator, ok := s.kv.(interface{ Create(string, []byte) error })
+	if !ok {
+		return errors.New("store: atomic creation unsupported by backend")
+	}
+	// Identity persistence intentionally contains private key material in a protected store.
+	b, err := json.MarshalIndent(rec, "", "  ") //nolint:gosec
+	if err != nil {
+		return err
+	}
+	return creator.Create(fabricKey, b)
+}
+
 func (s *kvStore) SaveFabric(rec FabricRecord) error {
 	return s.put(fabricKey, rec)
 }

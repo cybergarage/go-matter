@@ -5,16 +5,24 @@ package tui
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/cybergarage/go-matter/matter"
 	"github.com/cybergarage/go-matter/matter/cluster/descriptor"
+	"github.com/cybergarage/go-matter/matter/credentials"
 	"github.com/cybergarage/go-matter/matter/encoding"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
+	caseprotocol "github.com/cybergarage/go-matter/matter/protocol/case"
 	"github.com/cybergarage/go-matter/matter/protocol/im"
 	"github.com/cybergarage/go-matter/matter/store"
 )
@@ -111,20 +119,145 @@ type Live struct {
 	cmr     matter.Commissioner
 	st      *trackingStore
 	started bool
+	dir     string
 }
 
 func NewLive(st store.Store) *Live {
 	tracked := &trackingStore{Store: st}
 	return &Live{cmr: matter.NewCommissioner(matter.WithCommissionerStore(tracked)), st: tracked}
 }
+func openLiveDirectory(dir string) (*Live, error) {
+	b := NewLive(store.NewMemStore())
+	b.dir = dir
+	if _, err := os.Lstat(dir); errors.Is(err, os.ErrNotExist) {
+		return b, nil
+	} else if err != nil {
+		return nil, errors.New("cannot inspect store directory")
+	}
+	st, err := store.NewStore(dir)
+	if err != nil {
+		return nil, errors.New("cannot open commissioner store")
+	}
+	b = NewLive(st)
+	b.dir = dir
+	return b, nil
+}
+func fabricCompressedID(r store.FabricRecord) (uint64, error) {
+	der := r.RootCertificate
+	if block, _ := pem.Decode(der); block != nil {
+		der = block.Bytes
+	}
+	cert, err := x509.ParseCertificate(der)
+	if err != nil {
+		return 0, errors.New("cannot parse root certificate")
+	}
+	pub, ok := cert.PublicKey.(*ecdsa.PublicKey)
+	if !ok || pub.Curve != elliptic.P256() {
+		return 0, errors.New("invalid root public key")
+	}
+	return caseprotocol.ComputeCompressedFabricID(elliptic.Marshal(pub.Curve, pub.X, pub.Y), r.FabricID)
+}
+func (b *Live) Overview() (FabricSummary, error) {
+	r, ok, err := b.st.LoadFabric()
+	if err != nil {
+		return FabricSummary{}, errors.New("cannot read fabric identity; existing data will not be overwritten")
+	}
+	if !ok {
+		return FabricSummary{}, nil
+	}
+	summary := FabricSummary{Present: true, FabricID: r.FabricID, AdminNodeID: r.AdminNodeID, VendorID: r.AdminVendorID}
+	summary.Valid = validFabric(r) == nil
+	if !summary.Valid {
+		return summary, nil
+	}
+	compressed, err := fabricCompressedID(r)
+	if err != nil {
+		return summary, err
+	}
+	summary.CompressedFabricID = compressed
+	summary.Valid = true
+	ds, err := b.List()
+	if err != nil {
+		return summary, err
+	}
+	summary.Saved = len(ds)
+	return summary, nil
+}
+func (b *Live) CreateFabric(ctx context.Context, vendor uint16) (Result, error) {
+	if err := ctx.Err(); err != nil {
+		return Result{}, err
+	}
+	if vendor == 0 || vendor > 0xFFF4 {
+		return Result{}, errors.New("invalid administrator vendor ID")
+	}
+	if b.started {
+		return Result{}, errors.New("commissioner already started; restart before identity initialization")
+	}
+	// Reopen a previously absent directory to detect identities created since startup.
+	st := b.st.Store
+	if b.dir != "" {
+		var err error
+		st, err = store.NewStore(b.dir)
+		if err != nil {
+			return Result{}, errors.New("cannot open store for initialization")
+		}
+	}
+	if _, ok, err := st.LoadFabric(); err != nil || ok {
+		return Result{}, errors.New("existing or unreadable fabric identity will not be overwritten")
+	}
+	nodes, err := st.ListCommissionees()
+	if err != nil || len(nodes) != 0 {
+		return Result{}, errors.New("store contains orphaned or unreadable device records; initialization refused")
+	}
+	if err := ctx.Err(); err != nil {
+		return Result{}, err
+	}
+	id, err := credentials.GenerateControllerIdentity()
+	if err != nil {
+		return Result{}, errors.New("cannot generate controller identity")
+	}
+	rec := store.FabricRecord{FabricID: id.FabricID, AdminNodeID: id.NodeID, AdminVendorID: vendor, RootCertificate: id.RootCertificate, RootPrivateKey: id.RootPrivateKey, NOC: id.NOC, PrivateKey: id.PrivateKey, IPK: id.IPK, UpdatedAt: time.Now().UTC()}
+	if err := validFabric(rec); err != nil {
+		return Result{}, errors.New("generated identity validation failed")
+	}
+	if err := ctx.Err(); err != nil {
+		return Result{}, err
+	}
+	if err := store.CreateFabric(st, rec); err != nil {
+		return Result{}, errors.New("identity was not initialized: existing data or atomic save failure; reload before retrying")
+	}
+	// Replace the unused lazy commissioner so its next Start restores the new identity.
+	next := NewLive(st)
+	b.cmr = next.cmr
+	b.st = next.st
+	return Result{Message: "FABRIC CREATED / SAVED locally. No device has been commissioned. Reloaded identity is ready for confirmed pairing."}, nil
+}
 func (b *Live) List() ([]Device, error) {
 	records, err := b.st.ListCommissionees()
 	if err != nil {
 		return nil, errors.New("cannot read commissioned device records")
 	}
+	fabric, ok, err := b.st.LoadFabric()
+	if err != nil {
+		return nil, errors.New("cannot read fabric identity")
+	}
+	if !ok {
+		if len(records) > 0 {
+			return nil, errors.New("orphaned device records; fabric identity is missing")
+		}
+		return nil, nil
+	}
+	// Validate identity separately in overview/operations. Inventory uses IDs from the selected local fabric.
+	compressed, err := fabricCompressedID(fabric)
+	if err != nil {
+		return nil, err
+	}
 	var ds []Device
 	seen := make(map[uint64]bool)
 	for _, r := range records {
+		if r.FabricID != fabric.FabricID || r.CompressedFabricID != compressed {
+			continue
+		}
 		if seen[r.NodeID] {
 			return nil, errors.New("ambiguous node IDs across stored fabrics; use a single-fabric store")
 		}
@@ -137,6 +270,10 @@ func (b *Live) List() ([]Device, error) {
 func (b *Live) start() error {
 	if b.started {
 		return nil
+	}
+	rec, ok, err := b.st.LoadFabric()
+	if err != nil || !ok || validFabric(rec) != nil {
+		return errors.New("a valid supported fabric is required; create one explicitly or check the existing store")
 	}
 	if err := b.cmr.Start(); err != nil {
 		_ = b.cmr.Stop()
@@ -284,8 +421,8 @@ func (b *Live) Invoke(ctx context.Context, id uint64, p Path, c im.CommandID) (R
 }
 func (b *Live) Pair(ctx context.Context, p encoding.OnboardingPayload) (Result, error) {
 	rec, ok, err := b.st.LoadFabric()
-	if err != nil || !ok || len(rec.RootPrivateKey) == 0 || len(rec.PrivateKey) == 0 || len(rec.NOC) == 0 || len(rec.RootCertificate) == 0 || len(rec.IPK) != 16 {
-		return Result{}, errors.New("pairing requires an existing complete fabric in this store; new fabric creation is not implemented")
+	if err != nil || !ok || validFabric(rec) != nil {
+		return Result{}, errors.New("pairing requires a valid fabric in this store; choose Create new fabric when absent")
 	}
 	if err := ctx.Err(); err != nil {
 		return Result{}, err

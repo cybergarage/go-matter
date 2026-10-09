@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/cybergarage/go-matter/matter"
+	"github.com/cybergarage/go-matter/matter/credentials"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 	"github.com/cybergarage/go-matter/matter/protocol/im"
 	"github.com/cybergarage/go-matter/matter/store"
@@ -233,8 +234,9 @@ func (c *fakeCommissioner) Commission(_ context.Context, _ matter.OnboardingPayl
 	if c.fail {
 		return nil, errors.New("fixture failure")
 	}
-	_ = c.st.SaveFabric(store.FabricRecord{FabricID: 1})
-	_ = c.st.SaveCommissionee(store.CommissioneeRecord{NodeID: 42, FabricID: 1, CompressedFabricID: 1})
+	rec, _, _ := c.st.LoadFabric()
+	compressed, _ := fabricCompressedID(rec)
+	_ = c.st.SaveCommissionee(store.CommissioneeRecord{NodeID: 42, FabricID: rec.FabricID, CompressedFabricID: compressed})
 	return fakeCommissionee{}, nil
 }
 
@@ -249,7 +251,11 @@ func (failStore) SaveCommissionee(store.CommissioneeRecord) error {
 }
 func seedStore(t *testing.T, st store.Store) {
 	t.Helper()
-	if err := st.SaveFabric(store.FabricRecord{FabricID: 1, RootPrivateKey: []byte("fictional"), PrivateKey: []byte("fictional"), RootCertificate: []byte("fictional"), NOC: []byte("fictional"), IPK: make([]byte, 16)}); err != nil {
+	id, err := credentials.GenerateControllerIdentity()
+	if err != nil {
+		t.Fatal("isolated fixture identity generation failed")
+	}
+	if err := st.SaveFabric(store.FabricRecord{FabricID: id.FabricID, AdminNodeID: id.NodeID, AdminVendorID: 0xFFF1, RootPrivateKey: id.RootPrivateKey, PrivateKey: id.PrivateKey, RootCertificate: id.RootCertificate, NOC: id.NOC, IPK: id.IPK}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -272,14 +278,15 @@ func TestPairPersistenceFailureAndReload(t *testing.T) {
 		t.Fatal("restart list")
 	}
 	// Re-saving one identity must replace the record rather than append duplicates.
-	if err := st.SaveCommissionee(store.CommissioneeRecord{NodeID: 42, CompressedFabricID: 1}); err != nil {
+	rec, _, _ := st.LoadFabric()
+	compressed, _ := fabricCompressedID(rec)
+	if err := st.SaveCommissionee(store.CommissioneeRecord{NodeID: 42, FabricID: rec.FabricID, CompressedFabricID: compressed}); err != nil {
 		t.Fatal(err)
 	}
 	ds, _ = b.List()
 	if len(ds) != 1 {
 		t.Fatal("duplicate record")
 	}
-	seedStore(t, st)
 	b = NewLive(failStore{Store: st})
 	b.cmr = &fakeCommissioner{st: b.st}
 	r, err = b.Pair(context.Background(), p)
@@ -357,6 +364,15 @@ func TestFictionalScreenshots(t *testing.T) {
 	press(u, tcell.KeyEscape, 0)
 	s.SetSize(60, 24)
 	screenshot(t, u, s, "tui-compact")
+	u.closeDialog()
+	s.SetSize(110, 32)
+	u.backend = NewLive(store.NewMemStore())
+	u.reload()
+	u.updateActions()
+	u.detail.SetText(FabricSummary{}.String())
+	screenshot(t, u, s, "tui-fabric")
+	u.fabricForm()
+	screenshot(t, u, s, "tui-fabric-create")
 }
 
 type blockingNode struct {
@@ -387,6 +403,7 @@ func TestLiveReadDeadlineClosesTransport(t *testing.T) {
 	n := &blockingNode{closed: make(chan struct{})}
 	c := &connectFixture{node: n}
 	b := NewLive(store.NewMemStore())
+	seedStore(t, b.st.Store)
 	b.cmr = c
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancel()
@@ -407,7 +424,9 @@ func TestLiveReadDeadlineClosesTransport(t *testing.T) {
 func TestFailedPairPreservesExistingRecords(t *testing.T) {
 	st := store.NewMemStore()
 	seedStore(t, st)
-	if err := st.SaveCommissionee(store.CommissioneeRecord{NodeID: 7, CompressedFabricID: 1}); err != nil {
+	rec, _, _ := st.LoadFabric()
+	compressed, _ := fabricCompressedID(rec)
+	if err := st.SaveCommissionee(store.CommissioneeRecord{NodeID: 7, FabricID: rec.FabricID, CompressedFabricID: compressed}); err != nil {
 		t.Fatal(err)
 	}
 	b := NewLive(st)

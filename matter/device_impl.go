@@ -24,6 +24,7 @@ type baseDevice struct {
 	wifiConfig          config.WiFiNetworkConfig
 	operationCredConfig config.OperationalCredentialsConfig
 	adminConfig         config.AdministratorConfig
+	nodeID              uint64
 }
 
 func newBaseDevice() *baseDevice {
@@ -35,8 +36,15 @@ func newBaseDevice() *baseDevice {
 }
 
 func (baseDev *baseDevice) parseCommissionOptions(opts ...CommissionOption) error {
+	nodeID, err := commissionNodeID(opts)
+	if err != nil {
+		return err
+	}
+	baseDev.nodeID = nodeID
 	for _, opt := range opts {
 		switch o := opt.(type) {
+		case CommissionNodeID:
+		// Validated above.
 		case config.WiFiNetworkConfig:
 			baseDev.wifiConfig = o
 		case config.OperationalCredentialsConfig:
