@@ -510,6 +510,10 @@ func TestFilterDropsPreviousDeviceInventory(t *testing.T) {
 	u.filter("")
 	u.inventory = []Path{{Endpoint: 1, Cluster: 6, Attribute: 0, Commands: []im.CommandID{1}}}
 	u.paths.AddItem("previous inventory", "", 0, nil)
+	u.filter("no matching device")
+	if len(u.inventory) != 0 || u.paths.GetItemCount() != 0 {
+		t.Fatal("inventory retained after all devices were filtered out")
+	}
 	u.filter("second")
 	d, ok := u.device()
 	if !ok || d.ID != 2 {
