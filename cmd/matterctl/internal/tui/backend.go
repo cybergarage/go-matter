@@ -160,7 +160,7 @@ func (b *Live) withNode(ctx context.Context, id uint64, fn func(matter.Node) (Re
 		if ctx.Err() != nil {
 			return Result{}, ctx.Err()
 		}
-		return Result{}, errors.New("cASE connection failed; retry Reconnect / inspect")
+		return Result{}, errors.New("CASE connection failed; retry Reconnect / inspect")
 	}
 	if err := ctx.Err(); err != nil {
 		_ = n.Close()

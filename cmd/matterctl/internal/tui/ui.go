@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cybergarage/go-logger/log"
@@ -53,12 +54,32 @@ func Command() *cobra.Command {
 			if err != nil {
 				return errors.New("a supported terminal is required")
 			}
-			return NewUI(backend, mode, screen).Run()
+			managed := &managedScreen{Screen: screen}
+			if err := managed.Init(); err != nil {
+				managed.Fini()
+				return errors.New("cannot initialize terminal")
+			}
+			defer managed.Fini()
+			return NewUI(backend, mode, managed).Run()
 		}}
 	command.Flags().BoolVar(&live, "live", false, "enable real operations after UI confirmation (never used in tests)")
 	command.Flags().StringVar(&dir, "store-dir", "", "existing commissioner store (default ~/.matterctl); one process only")
 	return command
 }
+
+// tview.SetScreen ignores Init errors. Initialize explicitly, and make lifecycle
+// calls idempotent so both tview shutdown and command cleanup restore safely.
+type managedScreen struct {
+	tcell.Screen
+	initOnce, finiOnce sync.Once
+	initErr            error
+}
+
+func (s *managedScreen) Init() error {
+	s.initOnce.Do(func() { s.initErr = s.Screen.Init() })
+	return s.initErr
+}
+func (s *managedScreen) Fini() { s.finiOnce.Do(s.Screen.Fini) }
 
 type completion struct {
 	result    Result

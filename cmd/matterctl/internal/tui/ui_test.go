@@ -456,3 +456,23 @@ func TestAmbiguousNodeIDsAreNotSelectable(t *testing.T) {
 		t.Fatal("ambiguous stored identities were selectable")
 	}
 }
+
+type failedScreen struct {
+	tcell.Screen
+	initCalls, finiCalls int
+}
+
+func (s *failedScreen) Init() error { s.initCalls++; return errors.New("synthetic terminal failure") }
+func (s *failedScreen) Fini()       { s.finiCalls++ }
+func TestTerminalInitializationAndCleanupAreIdempotent(t *testing.T) {
+	raw := &failedScreen{}
+	screen := &managedScreen{Screen: raw}
+	if screen.Init() == nil || screen.Init() == nil {
+		t.Fatal("terminal error hidden")
+	}
+	screen.Fini()
+	screen.Fini()
+	if raw.initCalls != 1 || raw.finiCalls != 1 {
+		t.Fatal("terminal lifecycle repeated")
+	}
+}
