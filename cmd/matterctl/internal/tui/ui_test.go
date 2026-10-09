@@ -503,3 +503,63 @@ func TestTerminalInitializationAndCleanupAreIdempotent(t *testing.T) {
 	successful.Fini()
 	successful.Fini()
 }
+
+func TestFilterDropsPreviousDeviceInventory(t *testing.T) {
+	u, _ := newTestUI(t)
+	u.records = []Device{{ID: 1, Name: "first"}, {ID: 2, Name: "second"}}
+	u.filter("")
+	u.inventory = []Path{{Endpoint: 1, Cluster: 6, Attribute: 0, Commands: []im.CommandID{1}}}
+	u.paths.AddItem("previous inventory", "", 0, nil)
+	u.filter("no matching device")
+	if len(u.inventory) != 0 || u.paths.GetItemCount() != 0 {
+		t.Fatal("inventory retained after all devices were filtered out")
+	}
+	u.filter("second")
+	d, ok := u.device()
+	if !ok || d.ID != 2 {
+		t.Fatal("filter did not switch device")
+	}
+	if len(u.inventory) != 0 || u.paths.GetItemCount() != 0 {
+		t.Fatal("previous device capabilities retained")
+	}
+	if _, ok := u.path(); ok {
+		t.Fatal("previous device path still selectable")
+	}
+}
+
+func TestBasicInformationReadableIDs(t *testing.T) {
+	for _, id := range []im.AttributeID{1, 2, 3, 4, 7, 8} {
+		if !readable(Path{Cluster: 0x28, Attribute: id}) {
+			t.Fatal("supported Basic Information attribute missing")
+		}
+	}
+	for _, id := range []im.AttributeID{5, 9} {
+		if readable(Path{Cluster: 0x28, Attribute: id}) {
+			t.Fatal("unsupported attribute exposed")
+		}
+	}
+}
+
+func TestInventoryWarningsAggregateAndRetainReadablePaths(t *testing.T) {
+	out := Result{Message: "inspection"}
+	unavailable := errors.New("fixture unavailable")
+	for ep := im.EndpointID(1); ep <= 10; ep++ {
+		out.addInventory(ep, 6, []uint32{0}, nil, []uint32{1}, unavailable)
+		out.addInventory(ep, 0x28, nil, unavailable, nil, unavailable)
+	}
+	if strings.Count(out.Message, "Some AcceptedCommandLists unavailable.") != 1 || strings.Count(out.Message, "Some AttributeLists unavailable.") != 1 {
+		t.Fatal("warnings were not aggregated")
+	}
+	if len(out.Paths) != 10 {
+		t.Fatal("readable paths lost")
+	}
+	for _, p := range out.Paths {
+		if len(p.Commands) != 0 {
+			t.Fatal("unreadable command list exposed commands")
+		}
+	}
+	out.addInventory(11, 6, []uint32{0}, nil, []uint32{1}, nil)
+	if len(out.Paths) != 11 || len(out.Paths[10].Commands) != 1 {
+		t.Fatal("successful command list lost")
+	}
+}

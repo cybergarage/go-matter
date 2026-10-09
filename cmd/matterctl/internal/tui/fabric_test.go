@@ -107,3 +107,32 @@ func TestFabricFormValidationConfirmationAndCancel(t *testing.T) {
 	s.SetSize(60, 24)
 	u.layout(60)
 }
+
+func TestRestoredReservedVendorBlocksStartup(t *testing.T) {
+	b := NewLive(store.NewMemStore())
+	if _, err := b.CreateFabric(context.Background(), 0xFFF4); err != nil {
+		t.Fatal(err)
+	}
+	r, _, err := b.st.LoadFabric()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for vendor := uint16(0xFFF5); ; vendor++ {
+		r.AdminVendorID = vendor
+		if err := b.st.SaveFabric(r); err != nil {
+			t.Fatal(err)
+		}
+		summary, err := b.Overview()
+		if err != nil || summary.Valid {
+			t.Fatal("reserved vendor marked valid")
+		}
+		f := &fakeCommissioner{}
+		b.cmr = f
+		if err := b.start(); err == nil || f.starts != 0 {
+			t.Fatal("reserved vendor reached transport startup")
+		}
+		if vendor == 0xFFFF {
+			break
+		}
+	}
+}

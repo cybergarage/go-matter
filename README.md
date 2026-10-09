@@ -17,8 +17,9 @@ Matter is an open-source connectivity standard for smart home and IoT (Internet 
 ## Full-screen controller
 
 Run `make tui` for the fictional offline `matterctl tui` dashboard. Live mode
-requires an explicit `--live` option, an existing commissioner fabric, and UI
-confirmation before network operations. This initial draft supports saved-device
+requires an explicit `--live` option and a valid commissioner fabric, restored
+from the selected store or explicitly created in the UI. Network operations
+require UI confirmation. This initial draft supports saved-device
 menus, manual/QR pairing forms, Descriptor inspection and selected read/On-Off
 controls. See [scope, keys, screenshots and verification](doc/matterctl-tui.md).
 No physical device was commissioned or operated for this implementation.

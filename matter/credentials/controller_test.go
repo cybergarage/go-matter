@@ -3,6 +3,10 @@
 package credentials
 
 import (
+	"bytes"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/sha1"
 	"crypto/x509"
 	"testing"
 
@@ -53,6 +57,38 @@ func TestControllerIdentityIsolatedGenerationAndValidation(t *testing.T) {
 	for _, bad := range cases {
 		if ValidateControllerIdentity(bad) == nil {
 			t.Fatal("corrupt identity accepted")
+		}
+	}
+}
+
+// RFC 5280 section 4.2.1.2 method 1 identifies keys; it does not sign certificates.
+func TestControllerCertificateIdentifiersAndStrongSignatures(t *testing.T) {
+	id, err := GenerateControllerIdentity()
+	if err != nil {
+		t.Fatal("isolated generation failed")
+	}
+	root, err := x509.ParseCertificate(id.RootCertificate)
+	if err != nil {
+		t.Fatal("root parse failed")
+	}
+	pub := root.PublicKey.(*ecdsa.PublicKey)
+	identifier := sha1.Sum(elliptic.Marshal(pub.Curve, pub.X, pub.Y))
+	if !bytes.Equal(root.SubjectKeyId, identifier[:]) || !bytes.Equal(root.AuthorityKeyId, identifier[:]) {
+		t.Fatal("root key identifier mismatch")
+	}
+	for _, der := range [][]byte{id.RootCertificate, id.NOC} {
+		cert, err := x509.ParseCertificate(der)
+		if err != nil {
+			t.Fatal("certificate parse failed")
+		}
+		if cert.SignatureAlgorithm != x509.ECDSAWithSHA256 {
+			t.Fatal("unexpected certificate signature algorithm")
+		}
+		if !bytes.Equal(cert.AuthorityKeyId, root.SubjectKeyId) {
+			t.Fatal("issuer key identifier mismatch")
+		}
+		if err := cert.CheckSignatureFrom(root); err != nil {
+			t.Fatal("signature verification failed")
 		}
 	}
 }
