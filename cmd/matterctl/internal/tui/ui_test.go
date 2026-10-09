@@ -503,3 +503,35 @@ func TestTerminalInitializationAndCleanupAreIdempotent(t *testing.T) {
 	successful.Fini()
 	successful.Fini()
 }
+
+func TestFilterDropsPreviousDeviceInventory(t *testing.T) {
+	u, _ := newTestUI(t)
+	u.records = []Device{{ID: 1, Name: "first"}, {ID: 2, Name: "second"}}
+	u.filter("")
+	u.inventory = []Path{{Endpoint: 1, Cluster: 6, Attribute: 0, Commands: []im.CommandID{1}}}
+	u.paths.AddItem("previous inventory", "", 0, nil)
+	u.filter("second")
+	d, ok := u.device()
+	if !ok || d.ID != 2 {
+		t.Fatal("filter did not switch device")
+	}
+	if len(u.inventory) != 0 || u.paths.GetItemCount() != 0 {
+		t.Fatal("previous device capabilities retained")
+	}
+	if _, ok := u.path(); ok {
+		t.Fatal("previous device path still selectable")
+	}
+}
+
+func TestBasicInformationReadableIDs(t *testing.T) {
+	for _, id := range []im.AttributeID{1, 2, 3, 4, 7, 8} {
+		if !readable(Path{Cluster: 0x28, Attribute: id}) {
+			t.Fatal("supported Basic Information attribute missing")
+		}
+	}
+	for _, id := range []im.AttributeID{5, 9} {
+		if readable(Path{Cluster: 0x28, Attribute: id}) {
+			t.Fatal("unsupported attribute exposed")
+		}
+	}
+}

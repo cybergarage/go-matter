@@ -41,7 +41,7 @@ func identityFromRecord(r store.FabricRecord) credentials.ControllerIdentity {
 }
 func validFabric(r store.FabricRecord) error {
 	// The commissioner CA currently signs directly with the root; intermediate-backed bootstrap is unsupported.
-	if r.AdminVendorID == 0 || len(r.ICAC) != 0 {
+	if r.AdminVendorID == 0 || r.AdminVendorID > 0xFFF4 || len(r.ICAC) != 0 {
 		return errors.New("unsupported controller vendor or intermediate identity")
 	}
 	return credentials.ValidateControllerIdentity(identityFromRecord(r))

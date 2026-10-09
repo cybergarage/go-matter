@@ -97,8 +97,8 @@ can clip labels. Arrow keys scroll lists/results. Mouse is disabled.
   invented. Invoke is offered only for advertised On/Off Off/On/Toggle commands
   associated with an advertised OnOff attribute.
 - Read: OnOff attribute 0x0000 of cluster 0x0006; Basic Information cluster 0x0028
-  attributes VendorName (1), VendorID (2), ProductName (4), ProductID (5),
-  HardwareVersion (8), HardwareVersionString (9). Other attributes have no TUI
+  attributes VendorName (1), VendorID (2), ProductName (3), ProductID (4),
+  HardwareVersion (7), HardwareVersionString (8). Other attributes have no TUI
   read action in this stage. No arbitrary security/key-bearing attribute display.
 - On/Off invoke: acknowledged response and a subsequent fresh OnOff read are
   separately labelled. Failed readback means value unknown, even after a successful

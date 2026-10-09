@@ -348,6 +348,9 @@ func (b *Live) Inspect(ctx context.Context, id uint64) (Result, error) {
 			for _, cl := range clusters {
 				attrs, ae := listIDs(n, ep, cl, 0xFFFB)
 				cmds, ce := listIDs(n, ep, cl, 0xFFF9)
+				if ce != nil {
+					out.Message += "\nSome AcceptedCommandLists unavailable."
+				}
 				if ae != nil {
 					out.Message += "\nSome AttributeLists unavailable."
 					continue
@@ -369,7 +372,7 @@ func (b *Live) Inspect(ctx context.Context, id uint64) (Result, error) {
 	})
 }
 func readable(p Path) bool {
-	return p.Cluster == 6 && p.Attribute == 0 || p.Cluster == 0x28 && (p.Attribute == 1 || p.Attribute == 2 || p.Attribute == 4 || p.Attribute == 5 || p.Attribute == 8 || p.Attribute == 9)
+	return p.Cluster == 6 && p.Attribute == 0 || p.Cluster == 0x28 && (p.Attribute == 1 || p.Attribute == 2 || p.Attribute == 3 || p.Attribute == 4 || p.Attribute == 7 || p.Attribute == 8)
 }
 func readNode(n matter.Node, p Path) (Result, error) {
 	if !readable(p) {

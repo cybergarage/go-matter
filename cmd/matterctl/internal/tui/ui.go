@@ -187,6 +187,8 @@ func (u *UI) filter(s string) {
 	if d, ok := u.device(); ok {
 		selected = d.ID
 	}
+	u.inventory = nil
+	u.paths.Clear()
 	u.devices.Clear()
 	u.visible = nil
 	for _, d := range u.records {
