@@ -22,3 +22,10 @@ Copyright notices by input:
 
 
 The upstream `zcl.json` manifest and root LICENSE are included with checksums. This audited subset does not include a separate upstream NOTICE file. Each additional input requires an individual license/provenance review; the root repository license is not a substitute for that review.
+
+Additional audited SDK ZAP inputs for TUI inventory display:
+
+- `descriptor-cluster.xml`: Copyright (c) 2021-2025 Project CHIP Authors
+- `basic-information-cluster.xml`: Copyright (c) 2021-2026 Project CHIP Authors
+
+Original Apache-2.0 headers and source bytes are retained at the same SDK tag/SHA.

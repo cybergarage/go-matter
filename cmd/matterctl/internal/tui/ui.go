@@ -81,32 +81,36 @@ func (s *managedScreen) Fini() {
 }
 
 type completion struct {
-	result    Result
-	err       error
-	inventory bool
+	result     Result
+	err        error
+	inventory  bool
+	generation uint64
+	node       uint64
 }
 type UI struct {
-	app                     *tview.Application
-	screen                  tcell.Screen
-	backend                 Backend
-	pages                   *tview.Pages
-	devices, paths, actions *tview.List
-	detail                  *tview.TextView
-	search                  *tview.InputField
-	status                  *tview.TextView
-	body                    *tview.Flex
-	records                 []Device
-	visible                 []Device
-	inventory               []Path
-	focus                   int
-	dialog                  bool
-	busy                    bool
-	rootCtx                 context.Context
-	rootCancel              context.CancelFunc
-	cancel                  context.CancelFunc
-	results                 chan completion
-	workDone                chan struct{}
-	mode                    string
+	app                          *tview.Application
+	screen                       tcell.Screen
+	backend                      Backend
+	pages                        *tview.Pages
+	devices, paths, actions      *tview.List
+	detail                       *tview.TextView
+	search                       *tview.InputField
+	status                       *tview.TextView
+	body                         *tview.Flex
+	records                      []Device
+	visible                      []Device
+	inventory                    []Path
+	focus                        int
+	dialog                       bool
+	busy                         bool
+	rootCtx                      context.Context
+	rootCancel                   context.CancelFunc
+	cancel                       context.CancelFunc
+	results                      chan completion
+	workDone                     chan struct{}
+	selectedDevice, selectedPath int
+	generation                   uint64
+	mode                         string
 }
 
 func NewUI(backend Backend, mode string, screen tcell.Screen) *UI {
@@ -126,13 +130,23 @@ func NewUI(backend Backend, mode string, screen tcell.Screen) *UI {
 	u.body = tview.NewFlex()
 	root := tview.NewFlex().SetDirection(tview.FlexRow).AddItem(u.status, 3, 0, false).AddItem(u.search, 1, 0, false).AddItem(u.body, 0, 1, true)
 	u.pages = tview.NewPages().AddPage("main", root, true, true)
-	u.devices.SetChangedFunc(func(_ int, _ string, _ string, _ rune) {
-		u.inventory = nil
-		u.paths.Clear()
+	u.devices.SetChangedFunc(func(index int, _ string, _ string, _ rune) {
+		u.selectedDevice = index
+		u.clearSelection()
 		u.detail.SetText("Saved / unverified node selected. Reconnect / inspect to query it.\nNo ongoing connection or subscription.")
 		u.updateActions()
 	}).SetSelectedFunc(func(_ int, _ string, _ string, _ rune) { u.setFocus(2) })
-	u.paths.SetChangedFunc(func(_ int, _ string, _ string, _ rune) { u.updateActions() }).SetSelectedFunc(func(_ int, _ string, _ string, _ rune) { u.setFocus(2) })
+	u.paths.SetChangedFunc(func(index int, _ string, _ string, _ rune) {
+		u.selectedPath = index
+		u.generation++
+		if u.cancel != nil {
+			u.cancel()
+		}
+		if p, ok := u.path(); ok {
+			u.detail.SetText(pathDetail(p))
+		}
+		u.updateActions()
+	}).SetSelectedFunc(func(_ int, _ string, _ string, _ rune) { u.setFocus(2) })
 	u.app.SetRoot(u.pages, true).EnableMouse(false).SetInputCapture(u.key)
 	u.app.SetBeforeDrawFunc(func(s tcell.Screen) bool { u.drain(); w, _ := s.Size(); u.layout(w); return false })
 	u.reload()
@@ -174,9 +188,14 @@ func (u *UI) layout(width int) {
 	}
 }
 func (u *UI) reload() {
+	u.clearSelection()
+	u.records = nil
+	u.visible = nil
+	u.devices.Clear()
 	records, err := u.backend.List()
 	if err != nil {
-		u.detail.SetText(err.Error())
+		u.detail.SetText("ERROR loading saved devices; inventory and values cleared.")
+		u.updateActions()
 		return
 	}
 	u.records = records
@@ -187,8 +206,7 @@ func (u *UI) filter(s string) {
 	if d, ok := u.device(); ok {
 		selected = d.ID
 	}
-	u.inventory = nil
-	u.paths.Clear()
+	u.clearSelection()
 	u.devices.Clear()
 	u.visible = nil
 	for _, d := range u.records {
@@ -204,15 +222,25 @@ func (u *UI) filter(s string) {
 	}
 	u.updateActions()
 }
+func (u *UI) clearSelection() {
+	u.generation++
+	if u.cancel != nil {
+		u.cancel()
+	}
+	u.inventory = nil
+	u.selectedPath = -1
+	u.paths.Clear()
+	u.detail.SetText("Value: NOT FETCHED. Inventory unknown; inspect the selected node.")
+}
 func (u *UI) device() (Device, bool) {
-	i := u.devices.GetCurrentItem()
+	i := u.selectedDevice
 	if i < 0 || i >= len(u.visible) {
 		return Device{}, false
 	}
 	return u.visible[i], true
 }
 func (u *UI) path() (Path, bool) {
-	i := u.paths.GetCurrentItem()
+	i := u.selectedPath
 	if i < 0 || i >= len(u.inventory) {
 		return Path{}, false
 	}
@@ -290,9 +318,10 @@ func (u *UI) confirm(text string, fn func()) {
 		u.detail.SetText("Operation in progress. Esc requests cancellation; wait for completion.")
 		return
 	}
+	generation := u.generation
 	modal := tview.NewModal().SetText(text).AddButtons([]string{"Cancel", "Confirm"}).SetDoneFunc(func(i int, _ string) {
 		u.closeDialog()
-		if i == 1 {
+		if i == 1 && generation == u.generation {
 			fn()
 		}
 	})
@@ -332,6 +361,14 @@ func (u *UI) start(inventory bool, timeout time.Duration, fn func(context.Contex
 		return
 	}
 	u.busy = true
+	if inventory {
+		u.clearSelection()
+	}
+	generation := u.generation
+	var node uint64
+	if d, ok := u.device(); ok {
+		node = d.ID
+	}
 	ctx, cancel := context.WithTimeout(u.rootCtx, timeout)
 	u.cancel = cancel
 	u.workDone = make(chan struct{})
@@ -342,7 +379,7 @@ func (u *UI) start(inventory bool, timeout time.Duration, fn func(context.Contex
 		defer cancel()
 		r, e := fn(ctx)
 		select {
-		case u.results <- completion{result: r, err: e, inventory: inventory}:
+		case u.results <- completion{result: r, err: e, inventory: inventory, generation: generation, node: node}:
 		case <-u.rootCtx.Done():
 			return
 		}
@@ -354,6 +391,10 @@ func (u *UI) drain() {
 	case c := <-u.results:
 		u.busy = false
 		u.cancel = nil
+		d, selected := u.device()
+		if c.generation != u.generation || (c.node != 0 && (!selected || d.ID != c.node)) {
+			return
+		}
 		if c.err != nil {
 			if errors.Is(c.err, context.Canceled) || errors.Is(c.err, context.DeadlineExceeded) {
 				u.detail.SetText("CANCELED / TIMEOUT: outcome may be uncertain. Read or reload before retrying.")
@@ -362,7 +403,9 @@ func (u *UI) drain() {
 			}
 			return
 		}
-		u.reload()
+		if c.node == 0 {
+			u.reload()
+		}
 		u.updateActions()
 		u.detail.SetText(c.result.Message)
 		if c.inventory {
