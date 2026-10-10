@@ -124,3 +124,19 @@ Additional clusters and complete license/input coverage, conformance evaluation,
 fully resolved cross-cluster types/device requirements, unit presentation and TUI
 forms remain follow-up work. Door Lock schema presence does not add lock/unlock or
 credential-management actions to matterctl.
+
+## Swift consumer contract (schemaVersion 1)
+
+The top-level `schemaVersion` is independent of the SDK and generator versions.
+`Load` and `Decode` reject missing or unsupported versions. Existing lookup APIs
+remain source-compatible; `Catalog.Attribute` prefers local cluster metadata
+before globals. Numeric IDs remain numbers and unresolved references remain in
+the ordered source tree. Consumers must not interpret SDK metadata as observed
+support or permission. The schema is a partial catalog, not a complete Matter DB.
+
+`testdata/swift-golden.json` is a synthetic subset of the audited catalog with
+intentional local/global collisions. ConciergeCore consumes a byte-identical
+fixture to verify schema, lookup precedence, command direction and unresolved
+references. Its vendored production JSON must match this generator output exactly.
+Updating the SDK input or JSON contract requires regenerating and reviewing both
+consumers; no Go runtime or transport is needed in Swift.
