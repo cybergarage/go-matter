@@ -13,10 +13,10 @@ func TestCatalogCoverageAndProvenance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.Provenance.SDKTag != "v1.6.1.0" || c.Provenance.SourceSHA != "3bcdd56ba54fb88b2afb4bfef575014671df7aa7" || len(c.Provenance.Inputs) != 9 {
+	if c.Provenance.SDKTag != "v1.6.1.0" || c.Provenance.SourceSHA != "3bcdd56ba54fb88b2afb4bfef575014671df7aa7" || len(c.Provenance.Inputs) != 11 {
 		t.Fatal("unexpected provenance")
 	}
-	if len(c.Clusters) != 3 || len(c.DeviceTypes) != 98 || len(c.Types) != 121 || len(c.Globals) != 5 {
+	if len(c.Clusters) != 5 || len(c.DeviceTypes) != 98 || len(c.Types) != 126 || len(c.Globals) != 5 {
 		t.Fatal("coverage changed without fixture review")
 	}
 	if _, ok := c.Cluster(0x9999); ok {
@@ -122,5 +122,54 @@ func TestDoorLockTimedAndTemperatureConstraintsPreserved(t *testing.T) {
 	}
 	if again.Clusters[0].Name == "changed" {
 		t.Fatal("consumer mutation affected embedded catalog")
+	}
+}
+
+func TestInventoryClusterDefinitionsAndConformanceRetention(t *testing.T) {
+	c, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	descriptor, ok := c.Cluster(0x1D)
+	if !ok || descriptor.Revision != 3 {
+		t.Fatal("descriptor definition missing")
+	}
+	a, ok := descriptor.Attribute(0)
+	if !ok || a.Type != "array" || a.Definition.Property("entryType") != "DeviceTypeStruct" {
+		t.Fatal("device type list shape lost")
+	}
+	features, ok := descriptor.Definition.Child("features")
+	if !ok {
+		t.Fatal("feature metadata lost")
+	}
+	children := features.NamedChildren("feature")
+	if len(children) == 0 {
+		t.Fatal("descriptor features missing")
+	}
+	if _, ok := children[0].Child("describedConform"); !ok {
+		t.Fatal("described conformance lost")
+	}
+	basic, ok := c.Cluster(0x28)
+	if !ok || basic.Revision != 6 {
+		t.Fatal("basic definition missing")
+	}
+	vendor, ok := basic.Attribute(1)
+	if !ok || vendor.Name != "VendorName" || vendor.Type != "char_string" {
+		t.Fatal("vendor definition missing")
+	}
+	unique, ok := basic.Attribute(18)
+	if !ok {
+		t.Fatal("unique ID missing")
+	}
+	otherwise, ok := unique.Definition.Child("otherwiseConform")
+	if !ok {
+		t.Fatal("revision conformance lost")
+	}
+	mandatory, ok := otherwise.Child("mandatoryConform")
+	if !ok {
+		t.Fatal("mandatory conformance lost")
+	}
+	if _, ok := mandatory.Child("greaterOrEqualTerm"); !ok {
+		t.Fatal("revision comparison lost")
 	}
 }

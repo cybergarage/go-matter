@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/cybergarage/go-matter/matter"
-	"github.com/cybergarage/go-matter/matter/cluster/descriptor"
 	"github.com/cybergarage/go-matter/matter/credentials"
 	"github.com/cybergarage/go-matter/matter/encoding"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
@@ -36,10 +35,15 @@ type Path struct {
 	Cluster   im.ClusterID
 	Attribute im.AttributeID
 	Commands  []im.CommandID
+	Kind      string
+	Role      string
+	Command   im.CommandID
+	Direction string
+	Inventory string
 }
 
 func (p Path) String() string {
-	return fmt.Sprintf("EP %d / cluster 0x%04X / attr 0x%04X", p.Endpoint, p.Cluster, p.Attribute)
+	return pathLabel(p)
 }
 
 type Result struct {
@@ -322,37 +326,16 @@ func listIDs(n matter.Node, ep im.EndpointID, cl im.ClusterID, attr im.Attribute
 		ids = append(ids, uint32(v))
 		return nil
 	})
-	if err != nil || status != nil {
-		return nil, errors.New("descriptor/global list unavailable")
+	if err != nil {
+		return nil, errors.New("list read ERROR")
+	}
+	if status != nil {
+		return nil, errors.New(statusLabel(status))
 	}
 	return ids, nil
 }
 func (b *Live) Inspect(ctx context.Context, id uint64) (Result, error) {
-	return b.withNode(ctx, id, func(n matter.Node) (Result, error) {
-		eps, err := descriptor.PartsList(n.Session(), 0)
-		if err != nil {
-			return Result{}, errors.New("descriptor PartsList unavailable")
-		}
-		eps = append([]im.EndpointID{0}, eps...)
-		out := Result{Message: "CASE succeeded; session closed after inspection. Values are not monitored."}
-		seen := map[im.EndpointID]bool{}
-		for _, ep := range eps {
-			if seen[ep] {
-				continue
-			}
-			seen[ep] = true
-			clusters, err := descriptor.ServerList(n.Session(), ep)
-			if err != nil {
-				return Result{}, errors.New("descriptor ServerList unavailable")
-			}
-			for _, cl := range clusters {
-				attrs, ae := listIDs(n, ep, cl, 0xFFFB)
-				cmds, ce := listIDs(n, ep, cl, 0xFFF9)
-				out.addInventory(ep, cl, attrs, ae, cmds, ce)
-			}
-		}
-		return out, nil
-	})
+	return b.withNode(ctx, id, func(n matter.Node) (Result, error) { return inspectInventory(nodeInventoryReader{n}) })
 }
 
 // addInventory retains readable paths even when command discovery fails.
@@ -378,26 +361,49 @@ func (out *Result) addInventory(ep im.EndpointID, cl im.ClusterID, attrs []uint3
 		out.Paths = append(out.Paths, path)
 	}
 }
-func readable(p Path) bool {
-	return p.Cluster == 6 && p.Attribute == 0 || p.Cluster == 0x28 && (p.Attribute == 1 || p.Attribute == 2 || p.Attribute == 3 || p.Attribute == 4 || p.Attribute == 7 || p.Attribute == 8)
-}
+func readable(p Path) bool { return p.Kind == "" }
 func readNode(n matter.Node, p Path) (Result, error) {
 	if !readable(p) {
-		return Result{}, errors.New("read not implemented for this attribute in the initial TUI")
+		return Result{}, errors.New("selected row is metadata, not an attribute")
+	}
+	if a, ok := attributeDefinition(p); ok && a.Type == "array" {
+		var values []string
+		status, err := im.ReadListAttribute(n.Session(), p.Endpoint, p.Cluster, p.Attribute, func(dec tlv.Decoder, e tlv.Element) error {
+			v, e2 := listValue(dec, e, 0)
+			if e2 != nil {
+				return e2
+			}
+			values = append(values, v)
+			if len(values) > 4096 {
+				return errors.New("list exceeds display limit")
+			}
+			return nil
+		})
+		if err != nil {
+			return Result{}, errors.New("ERROR: list read failed; value unknown")
+		}
+		if status != nil {
+			return Result{}, errors.New(statusLabel(status))
+		}
+		raw := "[" + strings.Join(values, ", ") + "]"
+		return Result{Message: observationMessage(p, raw, raw, "FRESH READ (list)", time.Now())}, nil
 	}
 	r, err := n.ReadAttribute(p.Endpoint, p.Cluster, p.Attribute)
-	if err != nil || r == nil || r.Status != nil || r.Value == nil {
-		return Result{}, errors.New("attribute read failed / rejected")
+	if err != nil || r == nil {
+		return Result{}, errors.New("ERROR: attribute read failed; value unknown")
 	}
-	value := "unsupported value type"
-	if v, ok := r.Value.Bool(); ok {
-		value = fmt.Sprint(v)
-	} else if v, ok := r.Value.Unsigned(); ok {
-		value = fmt.Sprint(v)
-	} else if v, ok := r.Value.UTF8(); ok {
-		value = v
+	if r.Status != nil {
+		return Result{}, errors.New(statusLabel(r.Status))
 	}
-	return Result{Message: "FRESH READ: " + p.String() + " = " + value + "\nSession closed; no subscription."}, nil
+	if r.Value == nil {
+		return Result{}, errors.New("ERROR: attribute value missing")
+	}
+	value, raw, ok := scalarValue(r.Value, p)
+	status := "FRESH READ"
+	if !ok {
+		status = "UNSUPPORTED decoding; value unavailable"
+	}
+	return Result{Message: observationMessage(p, value, raw, status, time.Now())}, nil
 }
 func (b *Live) Read(ctx context.Context, id uint64, p Path) (Result, error) {
 	return b.withNode(ctx, id, func(n matter.Node) (Result, error) { return readNode(n, p) })
@@ -486,14 +492,46 @@ func (b *Demo) List() ([]Device, error) {
 	return ds, nil
 }
 func (b *Demo) Inspect(ctx context.Context, _ uint64) (Result, error) {
-	return Result{Message: "OFFLINE FIXTURE: simulated inventory; no session or network.", Paths: []Path{{Endpoint: 1, Cluster: 6, Attribute: 0, Commands: []im.CommandID{0, 1, 2}}, {Endpoint: 0, Cluster: 0x28, Attribute: 1}}}, ctx.Err()
+	if err := ctx.Err(); err != nil {
+		return Result{}, err
+	}
+	out, err := inspectInventory(simulatedInventory{})
+	out.Message = "OFFLINE FIXTURE: simulated inventory; no session or network.\n" + out.Message
+	return out, err
 }
 func (b *Demo) Read(ctx context.Context, _ uint64, p Path) (Result, error) {
-	value := fmt.Sprint(b.on)
-	if p.Cluster == 0x28 {
-		value = "Fictional vendor"
+	if err := ctx.Err(); err != nil {
+		return Result{}, err
 	}
-	return Result{Message: fmt.Sprintf("OFFLINE FIXTURE / FRESH READ: %s = %s", p.String(), value)}, ctx.Err()
+	if !readable(p) {
+		return Result{}, errors.New("metadata row is not an attribute")
+	}
+	enc := tlv.NewEncoder()
+	switch p.Cluster {
+	case 6:
+		if p.Attribute == 0 {
+			enc.PutBool(tlv.NewAnonymousTag(), b.on)
+		} else {
+			enc.PutUnsigned1(tlv.NewAnonymousTag(), 1)
+		}
+	case 0x28:
+		if p.Attribute == 1 || p.Attribute == 3 {
+			_ = enc.PutUTF8(tlv.NewAnonymousTag(), "Fictional vendor/product")
+		} else {
+			enc.PutUnsigned2(tlv.NewAnonymousTag(), 1)
+		}
+	case 0x402:
+		enc.PutSigned2(tlv.NewAnonymousTag(), -500)
+	case 0x1D:
+		value := "[fictional Descriptor list]"
+		return Result{Message: observationMessage(p, value, value, "OFFLINE FIXTURE / FRESH READ", time.Now())}, nil
+	default:
+		enc.PutUnsigned4(tlv.NewAnonymousTag(), 0xDEAD)
+	}
+	dec := tlv.NewDecoderWithBytes(enc.Bytes())
+	dec.Next()
+	value, raw, _ := scalarValue(dec.Element(), p)
+	return Result{Message: observationMessage(p, value, raw, "OFFLINE FIXTURE / FRESH READ", time.Now())}, nil
 }
 func (b *Demo) Invoke(ctx context.Context, id uint64, p Path, c im.CommandID) (Result, error) {
 	if err := ctx.Err(); err != nil {
