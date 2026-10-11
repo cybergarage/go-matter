@@ -122,24 +122,6 @@ func TestTypedRawObservationsAndErrors(t *testing.T) {
 		t.Fatal("error treated as value")
 	}
 }
-func TestNestedListPreservesFieldsAndRejectsTruncation(t *testing.T) {
-	enc := tlv.NewEncoder()
-	enc.BeginStructure(tlv.NewAnonymousTag())
-	enc.PutUnsigned4(tlv.NewContextTag(0), 0x100)
-	enc.PutUnsigned2(tlv.NewContextTag(1), 3)
-	_ = enc.EndContainer()
-	dec := tlv.NewDecoderWithBytes(enc.Bytes())
-	dec.Next()
-	value, err := listValue(dec, dec.Element(), 0)
-	if err != nil || !strings.Contains(value, "256") || !strings.Contains(value, "3") {
-		t.Fatalf("list fields lost: %s %v", value, err)
-	}
-	dec = tlv.NewDecoderWithBytes(enc.Bytes()[:len(enc.Bytes())-1])
-	dec.Next()
-	if _, err = listValue(dec, dec.Element(), 0); err == nil {
-		t.Fatal("truncated struct accepted")
-	}
-}
 
 type twoDevices struct {
 	Demo

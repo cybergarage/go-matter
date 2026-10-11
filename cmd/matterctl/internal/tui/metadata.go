@@ -90,8 +90,8 @@ func pathDetail(p Path) string {
 	return text + "Partial SDK dictionary; conditions and access privileges are not evaluated."
 }
 
-// scalarValue retains a decoded raw value without manufacturing a unit or scale.
-func scalarValue(e tlv.Element, p Path) (string, string, bool) {
+// rawScalarValue retains decoded data without a unit, scale or metadata label.
+func rawScalarValue(e tlv.Element) (string, string, bool) {
 	raw := e.String()
 	value := ""
 	switch {
@@ -115,6 +115,13 @@ func scalarValue(e tlv.Element, p Path) (string, string, bool) {
 	}
 	if value == "" {
 		return "UNSUPPORTED container/value (use list decoder when defined)", raw, false
+	}
+	return value, raw, true
+}
+func scalarValue(e tlv.Element, p Path) (string, string, bool) {
+	value, raw, ok := rawScalarValue(e)
+	if !ok {
+		return value, raw, false
 	}
 	if a, ok := attributeDefinition(p); ok {
 		if t, found := dictionary.Type(a.Type, p.Cluster); found {
@@ -140,36 +147,57 @@ func observationMessage(p Path, value, raw, status string, at time.Time) string 
 	}
 	return fmt.Sprintf("%s\n%s\nType: %s\nValue: %s\nRaw decoded TLV value: %s\nReceived at: %s\nSession closed; no subscription. Presence does not grant ACL permission.", status, pathLabel(p), typ, value, raw, at.UTC().Format(time.RFC3339Nano))
 }
-func listValue(dec tlv.Decoder, e tlv.Element, depth int) (string, error) {
-	if depth > 16 {
-		return "", fmt.Errorf("value nesting exceeds display limit")
-	}
-	if e.Type() == tlv.Structure || e.Type() == tlv.Array || e.Type() == tlv.List {
-		var values []string
-		for dec.Next() {
-			child := dec.Element()
-			if child.Type().IsEndOfContainer() {
-				return "[" + strings.Join(values, ", ") + "]", nil
-			}
-			v, err := listValue(dec, child, depth+1)
-			if err != nil {
-				return "", err
-			}
-			values = append(values, fmt.Sprintf("%s=%s", child.Tag(), v))
-			if len(values) > 4096 {
-				return "", fmt.Errorf("value exceeds display limit")
+
+// structuredValue annotates only wire-observed fields. Missing optional fields
+// and SDK defaults are never synthesized. Cluster-scoped types take precedence.
+func structuredValue(v *im.AttributeValue, cluster im.ClusterID, typeName, entryType string, labels bool) string {
+	e := v.Element
+	prefix := fmt.Sprintf("%s (%s)", e.Tag(), e.Type())
+	if !e.Type().IsContainer() {
+		value, _, _ := rawScalarValue(e)
+		if labels && dictionary != nil {
+			if typ, ok := dictionary.Type(typeName, cluster); ok && typ.Kind == "enum" {
+				if n, ok := e.Unsigned(); ok {
+					for _, item := range typ.Definition.NamedChildren("item") {
+						id, err := strconv.ParseUint(item.Property("value"), 0, 64)
+						if err == nil && id == n {
+							value += " (" + item.Property("name") + ")"
+							break
+						}
+					}
+				}
 			}
 		}
-		if err := dec.Error(); err != nil {
-			return "", err
+		return prefix + "=" + value
+	}
+	var typ datamodel.TypeDefinition
+	if labels && dictionary != nil {
+		typ, _ = dictionary.Type(typeName, cluster)
+	}
+	var children []string
+	for _, child := range v.Children {
+		name, childType, childEntry := "", "", ""
+		if e.Type().IsArray() || e.Type().IsList() {
+			childType = entryType
 		}
-		return "", fmt.Errorf("unterminated container")
+		if e.Type().IsStructure() && typ.Kind == "struct" {
+			if tag, ok := child.Element.Tag().(tlv.ContextTag); ok {
+				for _, item := range typ.Definition.NamedChildren("item") {
+					id, err := strconv.ParseUint(item.Property("fieldId"), 0, 8)
+					if err == nil && uint8(id) == uint8(tag.ContextNumber()) {
+						name = item.Property("name") + " "
+						childType, childEntry = item.Property("type"), item.Property("entryType")
+						break
+					}
+				}
+			}
+		}
+		if labels && e.Type().IsStructure() && name == "" {
+			name = "Unknown field "
+		}
+		children = append(children, name+structuredValue(child, cluster, childType, childEntry, labels))
 	}
-	v, _, ok := scalarValue(e, Path{})
-	if !ok {
-		return "", fmt.Errorf("unsupported list value")
-	}
-	return v, nil
+	return prefix + "={" + strings.Join(children, ", ") + "}"
 }
 
 func statusLabel(s *im.InvokeStatus) string {

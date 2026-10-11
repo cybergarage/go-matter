@@ -50,3 +50,9 @@ type Node interface {
 	// Close closes the underlying CASE session's transport.
 	Close() error
 }
+
+// ValueAttributeReader is an optional extension implemented by nodes returned
+// by this library. Keeping it separate preserves existing Node implementations.
+type ValueAttributeReader interface {
+	ReadValueAttribute(endpointID im.EndpointID, clusterID im.ClusterID, attributeID im.AttributeID) (*im.ValueReadResponse, error)
+}

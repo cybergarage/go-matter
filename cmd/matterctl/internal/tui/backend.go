@@ -373,27 +373,24 @@ func readNode(n matter.Node, p Path) (Result, error) {
 	if !readable(p) {
 		return Result{}, errors.New("selected row is metadata, not an attribute")
 	}
-	if a, ok := attributeDefinition(p); ok && a.Type == "array" {
-		var values []string
-		status, err := im.ReadListAttribute(n.Session(), p.Endpoint, p.Cluster, p.Attribute, func(dec tlv.Decoder, e tlv.Element) error {
-			v, e2 := listValue(dec, e, 0)
-			if e2 != nil {
-				return e2
-			}
-			values = append(values, v)
-			if len(values) > 4096 {
-				return errors.New("list exceeds display limit")
-			}
-			return nil
-		})
+	if reader, ok := n.(matter.ValueAttributeReader); ok {
+		r, err := reader.ReadValueAttribute(p.Endpoint, p.Cluster, p.Attribute)
 		if err != nil {
-			return Result{}, errors.New("ERROR: list read failed; value unknown")
+			return Result{}, fmt.Errorf("ERROR: complete attribute read failed; value unknown: %w", err)
 		}
-		if status != nil {
-			return Result{}, errors.New(statusLabel(status))
+		if r == nil {
+			return Result{}, errors.New("ERROR: complete attribute read missing; value unknown")
 		}
-		raw := "[" + strings.Join(values, ", ") + "]"
-		return Result{Message: observationMessage(p, raw, raw, "FRESH READ (list)", time.Now())}, nil
+		if r.Status != nil {
+			return Result{}, errors.New(statusLabel(r.Status))
+		}
+		if r.Value == nil {
+			return Result{}, errors.New("ERROR: attribute value missing")
+		}
+		a, _ := attributeDefinition(p)
+		value := structuredValue(r.Value, p.Cluster, a.Type, a.Definition.Property("entryType"), true)
+		raw := structuredValue(r.Value, p.Cluster, "", "", false)
+		return Result{Message: observationMessage(p, value, raw, "FRESH READ", time.Now())}, nil
 	}
 	r, err := n.ReadAttribute(p.Endpoint, p.Cluster, p.Attribute)
 	if errors.Is(err, im.ErrNonScalarAttribute) {

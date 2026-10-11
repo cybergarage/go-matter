@@ -228,11 +228,19 @@ stage-1 vendored snapshot remains pinned to its existing three-cluster producer.
 
 Each observed attribute row allows an explicitly confirmed read attempt. Scalar
 bool, signed/unsigned integer, float, UTF-8, octet and null values show the
-metadata type, decoded raw value and acquisition timestamp. Known arrays use
-the existing IM list reader and preserve nested field tags. The scalar IM reader
-explicitly rejects Structure/List/Array Data with `ErrNonScalarAttribute`.
-The TUI shows UNSUPPORTED / value unknown; nested field tag 2 cannot become an
-attribute-wide FRESH READ value. Direct Structure decoding remains unsupported.
+metadata type, decoded raw value and acquisition timestamp. Live nodes use
+`ReadValueAttribute` for scalar, null, Structure, List and Array values, retaining
+wire types, tags and ordered nesting. Known struct fields use cluster-scoped SDK
+names; unknown fields retain their numeric tags and TLV types. No absent fields
+or defaults are synthesized. The legacy scalar `ReadAttribute` still rejects
+containers with `ErrNonScalarAttribute`.
+
+The new reader validates the complete message, exact requested path and status
+before returning an observation. It rejects truncation, invalid lengths, duplicate
+structure/path fields and trailing bytes. Limits are 1 MiB per decrypted response,
+32 levels from the root and 4096 elements (including envelope/unknown fields).
+Same-message list appends require an explicit Null ListIndex. Cross-message
+chunking and indexed updates remain unsupported and never produce a FRESH READ.
 IM status distinguishes unsupported and access-denied results. A listed
 attribute is not a promise that its read will succeed.
 
