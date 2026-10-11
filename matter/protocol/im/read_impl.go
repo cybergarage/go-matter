@@ -25,9 +25,9 @@ import (
 // ReadAttribute reads a single attribute over the Interaction Model,
 // returning the decoded value as a tlv.Element so callers can extract
 // whichever scalar type applies (UTF8()/Unsigned2()/Unsigned4()/...). It
-// cannot represent a List/Array-typed attribute's value — a Decoder cannot
-// buffer a whole list behind a single self-contained tlv.Element — use
-// ReadListAttribute for those (see read_list_impl.go).
+// rejects Structure/List/Array values: a tlv.Element cannot retain container
+// contents. Use ReadListAttribute for List/Array values (read_list_impl.go).
+// Structure values are unsupported by this scalar API.
 func ReadAttribute(sess SecureSession, endpointID EndpointID, clusterID ClusterID, attributeID AttributeID) (*ReadResponse, error) {
 	responseRaw, err := doReadRequest(sess, endpointID, clusterID, attributeID)
 	if err != nil {
@@ -160,6 +160,11 @@ func buildReadRequestPayload(endpointID EndpointID, clusterID ClusterID, attribu
 func parseReadResponse(data []byte) (*ReadResponse, error) {
 	resp := &ReadResponse{}
 	status, err := parseReadResponseCore(data, func(dec tlv.Decoder, elem tlv.Element) error {
+		// 10.6.3 AttributeDataIB: Data is the whole value. Leaving a
+		// container unconsumed would reinterpret its nested tag 2 as Data.
+		if elem.Type().IsContainer() {
+			return fmt.Errorf("%w (%v)", ErrNonScalarAttribute, elem.Type())
+		}
 		resp.Value = elem
 		return nil
 	})

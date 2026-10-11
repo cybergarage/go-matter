@@ -229,9 +229,11 @@ stage-1 vendored snapshot remains pinned to its existing three-cluster producer.
 Each observed attribute row allows an explicitly confirmed read attempt. Scalar
 bool, signed/unsigned integer, float, UTF-8, octet and null values show the
 metadata type, decoded raw value and acquisition timestamp. Known arrays use
-the existing IM list reader and preserve nested field tags. Unsupported scalar
-container decoding is labelled, without treating a container marker as its
-value. IM status distinguishes unsupported and access-denied results. A listed
+the existing IM list reader and preserve nested field tags. The scalar IM reader
+explicitly rejects Structure/List/Array Data with `ErrNonScalarAttribute`.
+The TUI shows UNSUPPORTED / value unknown; nested field tag 2 cannot become an
+attribute-wide FRESH READ value. Direct Structure decoding remains unsupported.
+IM status distinguishes unsupported and access-denied results. A listed
 attribute is not a promise that its read will succeed.
 
 Units are shown only when explicitly declared in the imported definition; no

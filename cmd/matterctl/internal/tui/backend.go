@@ -396,6 +396,9 @@ func readNode(n matter.Node, p Path) (Result, error) {
 		return Result{Message: observationMessage(p, raw, raw, "FRESH READ (list)", time.Now())}, nil
 	}
 	r, err := n.ReadAttribute(p.Endpoint, p.Cluster, p.Attribute)
+	if errors.Is(err, im.ErrNonScalarAttribute) {
+		return Result{}, errors.New("UNSUPPORTED: container attribute requires a container-aware reader; value unknown")
+	}
 	if err != nil || r == nil {
 		return Result{}, errors.New("ERROR: attribute read failed; value unknown")
 	}
