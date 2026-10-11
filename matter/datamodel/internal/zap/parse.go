@@ -16,9 +16,9 @@ import (
 	"github.com/cybergarage/go-matter/matter/protocol/im"
 )
 
-// Names/attributes audited in the pinned seven-file input set. Preserve the full
+// Names/attributes audited in the pinned nine-file input set. Preserve the full
 // metadata tree; future schema requires review, not an automatic interpretation.
-const tags = "access accessControl andTerm arg atomic attribute bitmap class client cluster clusters code command compositionType condition configurator define description deviceId deviceType disallowConform domain endpoint endpointComposition enum event feature features field global globalAttribute include item mandatoryConform modifier name notTerm operation optionalConform orTerm otherwiseConform profileId provisionalConform requireAttribute requireCommand requireEvent revision role scope server struct superset tag type typeName"
+const tags = "access accessControl andTerm arg atomic attribute bitmap class client cluster clusters code command compositionType describedConform greaterOrEqualTerm condition configurator define description deviceId deviceType disallowConform domain endpoint endpointComposition enum event feature features field global globalAttribute include item mandatoryConform modifier name notTerm operation optionalConform orTerm otherwiseConform profileId provisionalConform requireAttribute requireCommand requireEvent revision role scope server struct superset tag type typeName"
 const attrs = "analog apiMaturity array bit client clientLocked cluster code composite conformance constraint default define description disableDefaultResponse discrete editable entryType fieldId id init isNullable length lockOthers mask max min minLength mustUseTimedInvoke name op optional priority privilege response role server serverLocked side signed size source summary tick type value writable"
 
 func known(list, name string) bool { return strings.Contains(" "+list+" ", " "+name+" ") }

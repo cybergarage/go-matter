@@ -137,10 +137,16 @@ func TestAsyncCancelAndReadback(t *testing.T) {
 	}
 	u.start(true, time.Second, func(ctx context.Context) (Result, error) { return u.backend.Inspect(ctx, 0x101) })
 	waitWork(t, u)
-	if len(u.inventory) != 2 {
+	if len(u.inventory) < 2 {
 		t.Fatal("inventory")
 	}
-	p := u.inventory[0]
+	var p Path
+	for _, v := range u.inventory {
+		if v.Kind == "" && v.Cluster == 6 && v.Attribute == 0 {
+			p = v
+			break
+		}
+	}
 	u.start(false, time.Second, func(ctx context.Context) (Result, error) { return u.backend.Invoke(ctx, 0x101, p, 1) })
 	waitWork(t, u)
 	text := u.detail.GetText(false)
@@ -354,6 +360,13 @@ func TestFictionalScreenshots(t *testing.T) {
 		u.paths.AddItem(p.String(), "", 0, nil)
 	}
 	u.updateActions()
+	for i, p := range u.inventory {
+		if p.Cluster == 6 && p.Attribute == 0 && p.Kind == "" {
+			u.paths.SetCurrentItem(i)
+			break
+		}
+	}
+	u.updateActions()
 	if u.actions.GetItemCount() < 7 {
 		t.Fatalf("missing fixture read/invoke menus: device=%v paths=%d menu=%d", u.visible, len(u.inventory), u.actions.GetItemCount())
 	}
@@ -527,15 +540,15 @@ func TestFilterDropsPreviousDeviceInventory(t *testing.T) {
 	}
 }
 
-func TestBasicInformationReadableIDs(t *testing.T) {
+func TestObservedAttributeRowsHaveReadAttempts(t *testing.T) {
 	for _, id := range []im.AttributeID{1, 2, 3, 4, 7, 8} {
 		if !readable(Path{Cluster: 0x28, Attribute: id}) {
 			t.Fatal("supported Basic Information attribute missing")
 		}
 	}
-	for _, id := range []im.AttributeID{5, 9} {
-		if readable(Path{Cluster: 0x28, Attribute: id}) {
-			t.Fatal("unsupported attribute exposed")
+	for _, kind := range []string{"cluster", "command", "endpoint"} {
+		if readable(Path{Kind: kind}) {
+			t.Fatal("metadata row exposed read")
 		}
 	}
 }

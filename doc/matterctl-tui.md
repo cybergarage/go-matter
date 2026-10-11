@@ -206,3 +206,58 @@ UI dependencies: tview v0.42.0 (MIT), tcell v2.8.1 (Apache-2.0). See
 [third-party notices](tui-third-party-notices.md). Navigation follows the public
 [uecho-simulator controller](https://github.com/cybergarage/uecho-simulator/blob/main/README.md);
 no simulator code or assets were copied.
+
+## Definition-backed display and read (stage 2)
+
+Inventory now combines only observed Descriptor/device-global IDs with the
+partial offline `datamodel` catalog. Rows include DeviceTypeList with observed
+and dictionary revisions, server and client cluster roles, attributes, accepted
+commands (`client` request schemas) and generated commands (`server` response
+schemas). Labels retain numeric IDs even when metadata is missing. Dictionary
+presence never creates rows or implies device support, conformance or ACL access.
+Client clusters do not gain server attribute reads. Missing lists stay visible
+as unavailable/error, rather than becoming empty observed lists.
+
+Server cluster details show AttributeList, AcceptedCommandList,
+GeneratedCommandList, FeatureMap raw bits, ClusterRevision and acquisition time.
+Revision differences are labelled; feature/conformance expressions are not
+interpreted. Descriptor and Basic Information ZAP inputs were individually
+reviewed as Apache-2.0 at the existing pinned SDK commit. Coverage expands only
+to 5 clusters / 126 types; device profiles and globals remain 98 / 5. Swift's
+stage-1 vendored snapshot remains pinned to its existing three-cluster producer.
+
+Each observed attribute row allows an explicitly confirmed read attempt. Scalar
+bool, signed/unsigned integer, float, UTF-8, octet and null values show the
+metadata type, decoded raw value and acquisition timestamp. Known arrays use
+the existing IM list reader and preserve nested field tags. Unsupported scalar
+container decoding is labelled, without treating a container marker as its
+value. IM status distinguishes unsupported and access-denied results. A listed
+attribute is not a promise that its read will succeed.
+
+Units are shown only when explicitly declared in the imported definition; no
+unit, scale or default is guessed. For example `temperature` in these ZAP inputs
+has no declared unit/scale, so `-500` remains the raw signed value. Raw display
+means decoded TLV values, not an exact wire-packet dump. Conditions, constraints,
+privileges and nullable information remain metadata, not authorization.
+
+Changing node, filtering/reloading or starting a fresh inspection clears prior
+inventory and observations. Attribute selection clears the previous value.
+Generation checks discard late results and stale confirmation callbacks.
+Successful reads preserve the selected node's inventory. Failed reads show no
+previous value; failed reloads keep no previously saved-node routes.
+
+![Definition metadata, fictional inventory](images/tui-metadata.png)
+![Typed observation, fictional value](images/tui-observation.png)
+[60×24 compact observation](images/tui-metadata-compact.png).
+
+These are actual tcell SimulationScreen captures rendered from cells with a
+monospace font. Both layouts remain scrollable via focus and arrow keys; a small
+terminal cannot show every metadata line simultaneously. Tests use only Demo,
+fake nodes and read-only fake inventory sources. No physical device, discovery,
+Fabric, permission or signing operation was performed for this stage. SET and
+new Invoke forms remain stage 3; existing confirmed On/Off Invoke is unchanged.
+
+This PR is based on main and does not depend on the stage-1 schema-contract PR
+#14. If both producer changes merge, combine generator changes and regenerate
+catalog JSON so the schemaVersion field and these extra inputs are both retained.
+The homekit-ios #6 pin is not updated by this display change.
