@@ -229,9 +229,11 @@ stage-1 vendored snapshot remains pinned to its existing three-cluster producer.
 Each observed attribute row allows an explicitly confirmed read attempt. Scalar
 bool, signed/unsigned integer, float, UTF-8, octet and null values show the
 metadata type, decoded raw value and acquisition timestamp. Known arrays use
-the existing IM list reader and preserve nested field tags. Unsupported scalar
-container decoding is labelled, without treating a container marker as its
-value. IM status distinguishes unsupported and access-denied results. A listed
+the existing IM list reader and preserve nested field tags. The scalar IM reader
+explicitly rejects Structure/List/Array Data with `ErrNonScalarAttribute`.
+The TUI shows UNSUPPORTED / value unknown; nested field tag 2 cannot become an
+attribute-wide FRESH READ value. Direct Structure decoding remains unsupported.
+IM status distinguishes unsupported and access-denied results. A listed
 attribute is not a promise that its read will succeed.
 
 Units are shown only when explicitly declared in the imported definition; no
@@ -257,7 +259,65 @@ fake nodes and read-only fake inventory sources. No physical device, discovery,
 Fabric, permission or signing operation was performed for this stage. SET and
 new Invoke forms remain stage 3; existing confirmed On/Off Invoke is unchanged.
 
-This PR is based on main and does not depend on the stage-1 schema-contract PR
-#14. If both producer changes merge, combine generator changes and regenerate
-catalog JSON so the schemaVersion field and these extra inputs are both retained.
+Stage-1 PR #14 and stage-2 PR #15 are merged into main. Their combined
+generated catalog retains schemaVersion=1 and the additional inventory inputs.
 The homekit-ios #6 pin is not updated by this display change.
+
+## Limited DB-driven SET (stage 3)
+
+The SET editor is separate from power Invoke. Initial physical targets are only
+On/Off `OnTime` (0x4001), `OffWaitTime` (0x4002), and nullable `StartUpOnOff`
+(0x4003). Writing the readonly `OnOff` value is forbidden. StartUpOnOff changes
+startup policy, not current power. Door Lock, credentials and other configuration
+clusters are outside the initial allowlist; no Level Control inputs were added.
+
+Input schemas derive declared enum entries, nullable permission, integer storage
+widths and explicit min/max bounds from the DB. The scalar engine supports bool,
+bounded signed/unsigned integers and known enums/null. This subset has unsigned
+and enum physical targets; bool/signed processing is tested with synthetic
+metadata without adding riskier device targets. String/float/bitmap/structure/
+list writes, unknown constraints and TimedWrite are unavailable with a reason.
+
+Only the audited single Lighting (`LT`) conformance term is evaluated. The
+observed cluster revision must exactly match the dictionary, Lighting must be
+present, OffOnly must be absent, and unknown feature bits/unevaluated conditions
+block SET. The selected attribute must be observed. Immediately before Write,
+AttributeList, FeatureMap and ClusterRevision are fetched again using the same
+fresh CASE session. Presence is not ACL permission: the device can reject Write
+or subsequent Read, and the status is displayed explicitly.
+
+One editor shows node, endpoint, cluster, attribute and allowed values, with
+selection and direct input together. Initial focus is the input; Enter there
+sends once, Esc cancels before submission. There is no second confirmation.
+While work is pending duplicate Enter cannot transmit again. Selection epoch
+checks reject stale editors and late results. Settings in Demo are scoped by
+node/endpoint/cluster/attribute and are discarded on exit.
+
+WRITE ACK is separate from a subsequent freshly requested GET:
+
+- MATCH: the typed value agrees with the requested value.
+- MISMATCH: a fresh value exists and differs (including a type difference).
+- UNKNOWN: read failed, was rejected, timed out, was canceled or could not decode.
+
+A missing Write response is an unknown outcome, not rejection or verified
+success. An explicit device rejection is shown with its IM/cluster status.
+Cancellation after ACK retains the ACK evidence. No automatic retry, rollback,
+subscription or persistent operation resume is implemented.
+
+![Single SET editor, fictional input](images/tui-set-editor.png)
+[60×24 editor](images/tui-set-editor-compact.png).
+![Write ACK and fresh GET match, fictional state](images/tui-set-match.png)
+
+Tests cover range/enum/null validation, bool/signed TLV processing, exact-target
+fixture storage, failed/changed fresh advertisement, unknown conditions, device
+rejection, ACK versus readback, stale editor/result, duplicate Enter, Esc and
+timeout. All visual captures use tcell SimulationScreen and fictional values.
+No household device or real transport was accessed in this implementation work.
+
+Integration: #14 and #15 were squash-merged into main at
+`99260bc5042b465dfd5bc85968a0d0942fc63b8a`. The stage-3 branch merges that
+main without rewriting its published history; its remaining diff is SET only.
+The combined catalog matches main byte-for-byte.
+A combined fixture test requires schemaVersion=1, Descriptor/Basic Information,
+98 profiles / 5 clusters / 126 types / 5 globals. No rewrite of #15 is necessary.
+homekit-ios #6's original pinned snapshot remains unchanged.

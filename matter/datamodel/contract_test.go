@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"os"
 	"testing"
+
+	"github.com/cybergarage/go-matter/matter/protocol/im"
 )
 
 // The identical fixture is consumed by ConciergeCoreTests in homekit-ios.
@@ -73,5 +75,20 @@ func TestDecodeSchemaVersion(t *testing.T) {
 	}
 	if _, err := Decode(data); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestCombinedSchemaAndInventoryCoverage(t *testing.T) {
+	c, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.SchemaVersion != 1 || len(c.Clusters) != 5 || len(c.Types) != 126 || len(c.DeviceTypes) != 98 || len(c.Globals) != 5 {
+		t.Fatal("combined contract or inventory coverage lost")
+	}
+	for _, id := range []im.ClusterID{0x1D, 0x28} {
+		if _, ok := c.Cluster(id); !ok {
+			t.Fatal("inventory definition lost")
+		}
 	}
 }

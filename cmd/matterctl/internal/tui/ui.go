@@ -109,6 +109,8 @@ type UI struct {
 	results                      chan completion
 	workDone                     chan struct{}
 	selectedDevice, selectedPath int
+	editorInput                  *tview.InputField
+	editorSubmit                 func()
 	generation                   uint64
 	mode                         string
 }
@@ -286,6 +288,14 @@ func (u *UI) updateActions() {
 					})
 				})
 			}
+			if _, enabled := u.backend.(setBackend); enabled && p.Kind == "" {
+				if _, err := writableSchema(p); err == nil {
+					u.actions.AddItem("SET selected attribute", "", 0, u.setForm)
+				} else {
+					reason := err.Error()
+					u.actions.AddItem("SET unavailable: "+reason, "", 0, func() { u.detail.SetText("SET disabled: " + reason) })
+				}
+			}
 			for _, c := range p.Commands {
 				name := map[im.CommandID]string{0: "Off", 1: "On", 2: "Toggle"}[c]
 				if name == "" {
@@ -312,7 +322,13 @@ func (u *UI) setFocus(i int) {
 		l.SetBorderColor(color)
 	}
 }
-func (u *UI) closeDialog() { u.pages.RemovePage("dialog"); u.dialog = false; u.setFocus(u.focus) }
+func (u *UI) closeDialog() {
+	u.editorInput = nil
+	u.editorSubmit = nil
+	u.pages.RemovePage("dialog")
+	u.dialog = false
+	u.setFocus(u.focus)
+}
 func (u *UI) confirm(text string, fn func()) {
 	if u.busy {
 		u.detail.SetText("Operation in progress. Esc requests cancellation; wait for completion.")
@@ -373,7 +389,7 @@ func (u *UI) start(inventory bool, timeout time.Duration, fn func(context.Contex
 	u.cancel = cancel
 	u.workDone = make(chan struct{})
 	done := u.workDone
-	u.detail.SetText("WORKING: operation in progress (no per-stage API).\nEsc requests cancellation. No automatic retries.\nPairing may have changed device state before cancellation.")
+	u.detail.SetText("WORKING: operation in progress (no per-stage API).\nEsc requests cancellation. No automatic retries.\nOperation may have changed device state before cancellation.")
 	go func() {
 		defer close(done)
 		defer cancel()
@@ -451,6 +467,9 @@ func (u *UI) key(e *tcell.EventKey) *tcell.EventKey {
 		}
 	}
 	if u.busy {
+		return nil
+	}
+	if u.editorKey(e) {
 		return nil
 	}
 	if u.dialog || u.app.GetFocus() == u.search {

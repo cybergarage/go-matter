@@ -14,7 +14,15 @@
 
 package im
 
-import "github.com/cybergarage/go-matter/matter/encoding/tlv"
+import (
+	"errors"
+
+	"github.com/cybergarage/go-matter/matter/encoding/tlv"
+)
+
+// ErrNonScalarAttribute means ReadAttribute cannot retain a container's contents.
+// List/Array values require ReadListAttribute; Structure values are unsupported.
+var ErrNonScalarAttribute = errors.New("im: ReadAttribute: container value unsupported by scalar reader")
 
 // ReadResponse is the parsed result of a ReadResponse (ReportDataMessage) IM
 // message for a single requested attribute path.
