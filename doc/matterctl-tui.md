@@ -257,9 +257,8 @@ fake nodes and read-only fake inventory sources. No physical device, discovery,
 Fabric, permission or signing operation was performed for this stage. SET and
 new Invoke forms remain stage 3; existing confirmed On/Off Invoke is unchanged.
 
-Stage-2 PR #15 is based on main and does not depend on the stage-1 schema-contract PR
-#14. If both producer changes merge, combine generator changes and regenerate
-catalog JSON so the schemaVersion field and these extra inputs are both retained.
+Stage-1 PR #14 and stage-2 PR #15 are merged into main. Their combined
+generated catalog retains schemaVersion=1 and the additional inventory inputs.
 The homekit-ios #6 pin is not updated by this display change.
 
 ## Limited DB-driven SET (stage 3)
@@ -313,9 +312,10 @@ rejection, ACK versus readback, stale editor/result, duplicate Enter, Esc and
 timeout. All visual captures use tcell SimulationScreen and fictional values.
 No household device or real transport was accessed in this implementation work.
 
-Integration: #14 and #15 merge without conflicts, and regenerated JSON matches
-that merge byte-for-byte. Both existing public heads were checked and retained.
-The stage-3 branch contains their non-destructive merge, followed by SET changes.
+Integration: #14 and #15 were squash-merged into main at
+`99260bc5042b465dfd5bc85968a0d0942fc63b8a`. The stage-3 branch merges that
+main without rewriting its published history; its remaining diff is SET only.
+The combined catalog matches main byte-for-byte.
 A combined fixture test requires schemaVersion=1, Descriptor/Basic Information,
 98 profiles / 5 clusters / 126 types / 5 globals. No rewrite of #15 is necessary.
 homekit-ios #6's original pinned snapshot remains unchanged.
