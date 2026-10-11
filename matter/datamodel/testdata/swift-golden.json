@@ -1,0 +1,2036 @@
+{
+  "schemaVersion": 1,
+  "provenance": {
+    "sdkTag": "v1.6.1.0",
+    "sourceSha": "3bcdd56ba54fb88b2afb4bfef575014671df7aa7",
+    "generatorVersion": "1",
+    "inputs": [
+      {
+        "file": "zcl.json",
+        "path": "src/app/zap-templates/zcl/zcl.json",
+        "sha256": "f9bab1f88cf913b06b922d111b64774821c8e6df9eb222a6e3da9de48d66a008",
+        "license": "Apache-2.0"
+      },
+      {
+        "file": "LICENSE",
+        "path": "LICENSE",
+        "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+        "license": "Apache-2.0"
+      },
+      {
+        "file": "access-control-definitions.xml",
+        "path": "src/app/zap-templates/zcl/data-model/chip/access-control-definitions.xml",
+        "sha256": "111d03ce8e69425a88248e2aa672c95f6ca598d4afec8b929ffc1f907a8f16a1",
+        "license": "Apache-2.0"
+      },
+      {
+        "file": "chip-types.xml",
+        "path": "src/app/zap-templates/zcl/data-model/chip/chip-types.xml",
+        "sha256": "5f21ca4ef7884691be2d7aad91831b26efde8f6257e88305ec9e6a54eba8a100",
+        "license": "Apache-2.0"
+      },
+      {
+        "file": "door-lock-cluster.xml",
+        "path": "src/app/zap-templates/zcl/data-model/chip/door-lock-cluster.xml",
+        "sha256": "66165fdc5adc311aa0875d203304f9f11ff36f452aa8256191e40a9f251a3015",
+        "license": "Apache-2.0"
+      },
+      {
+        "file": "global-attributes.xml",
+        "path": "src/app/zap-templates/zcl/data-model/chip/global-attributes.xml",
+        "sha256": "ad5885556d56c0777b995d5936fd0570d866cd2a10de5258a371a20a0d924f23",
+        "license": "Apache-2.0"
+      },
+      {
+        "file": "onoff-cluster.xml",
+        "path": "src/app/zap-templates/zcl/data-model/chip/onoff-cluster.xml",
+        "sha256": "f45404f40b0cf6ca79a7650d31c5ec88e5081206abbbd4cbe743f79d02a6b5af",
+        "license": "Apache-2.0"
+      },
+      {
+        "file": "temperature-measurement-cluster.xml",
+        "path": "src/app/zap-templates/zcl/data-model/chip/temperature-measurement-cluster.xml",
+        "sha256": "98f4a69b74cf8af87a01e5de4cb551240cc6746be719e7c4e5929ffe4e532e83",
+        "license": "Apache-2.0"
+      },
+      {
+        "file": "matter-devices.xml",
+        "path": "src/app/zap-templates/zcl/data-model/chip/matter-devices.xml",
+        "sha256": "42d9f5badfe7de600be24fbb38f1f43fb3357f2822f2845a378d88241e677dc1",
+        "license": "Apache-2.0"
+      }
+    ]
+  },
+  "documents": [],
+  "clusters": [
+    {
+      "id": 6,
+      "name": "On/Off",
+      "revision": 6,
+      "source": "onoff-cluster.xml",
+      "definition": {
+        "name": "cluster",
+        "children": [
+          {
+            "name": "name",
+            "text": "On/Off"
+          },
+          {
+            "name": "domain",
+            "text": "General"
+          },
+          {
+            "name": "code",
+            "text": "0x0006"
+          },
+          {
+            "name": "define",
+            "text": "ON_OFF_CLUSTER"
+          },
+          {
+            "name": "description",
+            "text": "Attributes and commands for switching devices between 'On' and 'Off' states."
+          },
+          {
+            "name": "client",
+            "attributes": [
+              {
+                "name": "init",
+                "value": "false"
+              },
+              {
+                "name": "tick",
+                "value": "false"
+              }
+            ],
+            "text": "true"
+          },
+          {
+            "name": "server",
+            "attributes": [
+              {
+                "name": "init",
+                "value": "false"
+              },
+              {
+                "name": "tick",
+                "value": "false"
+              }
+            ],
+            "text": "true"
+          },
+          {
+            "name": "globalAttribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "either"
+              },
+              {
+                "name": "code",
+                "value": "0xFFFD"
+              },
+              {
+                "name": "value",
+                "value": "6"
+              }
+            ]
+          },
+          {
+            "name": "features",
+            "children": [
+              {
+                "name": "feature",
+                "attributes": [
+                  {
+                    "name": "bit",
+                    "value": "0"
+                  },
+                  {
+                    "name": "code",
+                    "value": "LT"
+                  },
+                  {
+                    "name": "name",
+                    "value": "Lighting"
+                  },
+                  {
+                    "name": "summary",
+                    "value": "Behavior that supports lighting applications."
+                  }
+                ],
+                "children": [
+                  {
+                    "name": "optionalConform",
+                    "children": [
+                      {
+                        "name": "notTerm",
+                        "children": [
+                          {
+                            "name": "feature",
+                            "attributes": [
+                              {
+                                "name": "name",
+                                "value": "OFFONLY"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "feature",
+                "attributes": [
+                  {
+                    "name": "bit",
+                    "value": "1"
+                  },
+                  {
+                    "name": "code",
+                    "value": "DF"
+                  },
+                  {
+                    "name": "name",
+                    "value": "DeadFrontBehavior"
+                  },
+                  {
+                    "name": "summary",
+                    "value": "Device has Dead Front behavior"
+                  }
+                ],
+                "children": [
+                  {
+                    "name": "optionalConform",
+                    "children": [
+                      {
+                        "name": "notTerm",
+                        "children": [
+                          {
+                            "name": "feature",
+                            "attributes": [
+                              {
+                                "name": "name",
+                                "value": "OFFONLY"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "feature",
+                "attributes": [
+                  {
+                    "name": "bit",
+                    "value": "2"
+                  },
+                  {
+                    "name": "code",
+                    "value": "OFFONLY"
+                  },
+                  {
+                    "name": "name",
+                    "value": "OffOnly"
+                  },
+                  {
+                    "name": "summary",
+                    "value": "Device supports the OffOnly Feature feature"
+                  }
+                ],
+                "children": [
+                  {
+                    "name": "optionalConform",
+                    "children": [
+                      {
+                        "name": "notTerm",
+                        "children": [
+                          {
+                            "name": "orTerm",
+                            "children": [
+                              {
+                                "name": "feature",
+                                "attributes": [
+                                  {
+                                    "name": "name",
+                                    "value": "LT"
+                                  }
+                                ]
+                              },
+                              {
+                                "name": "feature",
+                                "attributes": [
+                                  {
+                                    "name": "name",
+                                    "value": "DF"
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "0x0000"
+              },
+              {
+                "name": "name",
+                "value": "OnOff"
+              },
+              {
+                "name": "define",
+                "value": "ON_OFF"
+              },
+              {
+                "name": "type",
+                "value": "boolean"
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "0x4000"
+              },
+              {
+                "name": "name",
+                "value": "GlobalSceneControl"
+              },
+              {
+                "name": "define",
+                "value": "GLOBAL_SCENE_CONTROL"
+              },
+              {
+                "name": "type",
+                "value": "boolean"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "mandatoryConform",
+                "children": [
+                  {
+                    "name": "feature",
+                    "attributes": [
+                      {
+                        "name": "name",
+                        "value": "LT"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "0x4001"
+              },
+              {
+                "name": "name",
+                "value": "OnTime"
+              },
+              {
+                "name": "define",
+                "value": "ON_TIME"
+              },
+              {
+                "name": "type",
+                "value": "int16u"
+              },
+              {
+                "name": "writable",
+                "value": "true"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "mandatoryConform",
+                "children": [
+                  {
+                    "name": "feature",
+                    "attributes": [
+                      {
+                        "name": "name",
+                        "value": "LT"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "0x4002"
+              },
+              {
+                "name": "name",
+                "value": "OffWaitTime"
+              },
+              {
+                "name": "define",
+                "value": "OFF_WAIT_TIME"
+              },
+              {
+                "name": "type",
+                "value": "int16u"
+              },
+              {
+                "name": "writable",
+                "value": "true"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "mandatoryConform",
+                "children": [
+                  {
+                    "name": "feature",
+                    "attributes": [
+                      {
+                        "name": "name",
+                        "value": "LT"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "0x4003"
+              },
+              {
+                "name": "name",
+                "value": "StartUpOnOff"
+              },
+              {
+                "name": "define",
+                "value": "START_UP_ON_OFF"
+              },
+              {
+                "name": "type",
+                "value": "StartUpOnOffEnum"
+              },
+              {
+                "name": "max",
+                "value": "2"
+              },
+              {
+                "name": "isNullable",
+                "value": "true"
+              },
+              {
+                "name": "writable",
+                "value": "true"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "access",
+                "attributes": [
+                  {
+                    "name": "op",
+                    "value": "write"
+                  },
+                  {
+                    "name": "privilege",
+                    "value": "manage"
+                  }
+                ]
+              },
+              {
+                "name": "mandatoryConform",
+                "children": [
+                  {
+                    "name": "feature",
+                    "attributes": [
+                      {
+                        "name": "name",
+                        "value": "LT"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "command",
+            "attributes": [
+              {
+                "name": "source",
+                "value": "client"
+              },
+              {
+                "name": "code",
+                "value": "0x00"
+              },
+              {
+                "name": "name",
+                "value": "Off"
+              }
+            ],
+            "children": [
+              {
+                "name": "description",
+                "text": "On receipt of this command, a device SHALL enter its \u2018Off\u2019 state. This state is device dependent, but it is recommended that it is used for power off or similar functions. On receipt of the Off command, the OnTime attribute SHALL be set to 0."
+              }
+            ]
+          },
+          {
+            "name": "command",
+            "attributes": [
+              {
+                "name": "source",
+                "value": "client"
+              },
+              {
+                "name": "code",
+                "value": "0x01"
+              },
+              {
+                "name": "name",
+                "value": "On"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "description",
+                "text": "On receipt of this command, a device SHALL enter its \u2018On\u2019 state. This state is device dependent, but it is recommended that it is used for power on or similar functions. On receipt of the On command, if the value of the OnTime attribute is equal to 0, the device SHALL set the OffWaitTime attribute to 0."
+              },
+              {
+                "name": "mandatoryConform",
+                "children": [
+                  {
+                    "name": "notTerm",
+                    "children": [
+                      {
+                        "name": "feature",
+                        "attributes": [
+                          {
+                            "name": "name",
+                            "value": "OFFONLY"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "command",
+            "attributes": [
+              {
+                "name": "source",
+                "value": "client"
+              },
+              {
+                "name": "code",
+                "value": "0x02"
+              },
+              {
+                "name": "name",
+                "value": "Toggle"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "description",
+                "text": "On receipt of this command, if a device is in its \u2018Off\u2019 state it SHALL enter its \u2018On\u2019 state. Otherwise, if it is in its \u2018On\u2019 state it SHALL enter its \u2018Off\u2019 state. On receipt of the Toggle command, if the value of the OnOff attribute is equal to FALSE and if the value of the OnTime attribute is equal to 0, the device SHALL set the OffWaitTime attribute to 0. If the value of the OnOff attribute is equal to TRUE, the OnTime attribute SHALL be set to 0."
+              },
+              {
+                "name": "mandatoryConform",
+                "children": [
+                  {
+                    "name": "notTerm",
+                    "children": [
+                      {
+                        "name": "feature",
+                        "attributes": [
+                          {
+                            "name": "name",
+                            "value": "OFFONLY"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "command",
+            "attributes": [
+              {
+                "name": "source",
+                "value": "client"
+              },
+              {
+                "name": "code",
+                "value": "0x40"
+              },
+              {
+                "name": "name",
+                "value": "OffWithEffect"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "description",
+                "text": "The OffWithEffect command allows devices to be turned off using enhanced ways of fading."
+              },
+              {
+                "name": "arg",
+                "attributes": [
+                  {
+                    "name": "id",
+                    "value": "0"
+                  },
+                  {
+                    "name": "name",
+                    "value": "EffectIdentifier"
+                  },
+                  {
+                    "name": "type",
+                    "value": "EffectIdentifierEnum"
+                  },
+                  {
+                    "name": "max",
+                    "value": "0x01"
+                  }
+                ]
+              },
+              {
+                "name": "arg",
+                "attributes": [
+                  {
+                    "name": "id",
+                    "value": "1"
+                  },
+                  {
+                    "name": "name",
+                    "value": "EffectVariant"
+                  },
+                  {
+                    "name": "type",
+                    "value": "enum8"
+                  }
+                ]
+              },
+              {
+                "name": "mandatoryConform",
+                "children": [
+                  {
+                    "name": "feature",
+                    "attributes": [
+                      {
+                        "name": "name",
+                        "value": "LT"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "command",
+            "attributes": [
+              {
+                "name": "source",
+                "value": "client"
+              },
+              {
+                "name": "code",
+                "value": "0x41"
+              },
+              {
+                "name": "name",
+                "value": "OnWithRecallGlobalScene"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "description",
+                "text": "This command allows the recall of the settings when the device was turned off."
+              },
+              {
+                "name": "mandatoryConform",
+                "children": [
+                  {
+                    "name": "feature",
+                    "attributes": [
+                      {
+                        "name": "name",
+                        "value": "LT"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "command",
+            "attributes": [
+              {
+                "name": "source",
+                "value": "client"
+              },
+              {
+                "name": "code",
+                "value": "0x42"
+              },
+              {
+                "name": "name",
+                "value": "OnWithTimedOff"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "description",
+                "text": "This command allows devices to be turned on for a specific duration with a guarded off duration so that SHOULD the device be subsequently turned off, further OnWithTimedOff commands, received during this time, are prevented from turning the devices back on."
+              },
+              {
+                "name": "arg",
+                "attributes": [
+                  {
+                    "name": "id",
+                    "value": "0"
+                  },
+                  {
+                    "name": "name",
+                    "value": "OnOffControl"
+                  },
+                  {
+                    "name": "type",
+                    "value": "OnOffControlBitmap"
+                  },
+                  {
+                    "name": "max",
+                    "value": "1"
+                  }
+                ]
+              },
+              {
+                "name": "arg",
+                "attributes": [
+                  {
+                    "name": "id",
+                    "value": "1"
+                  },
+                  {
+                    "name": "name",
+                    "value": "OnTime"
+                  },
+                  {
+                    "name": "type",
+                    "value": "int16u"
+                  },
+                  {
+                    "name": "max",
+                    "value": "0xFFFE"
+                  }
+                ]
+              },
+              {
+                "name": "arg",
+                "attributes": [
+                  {
+                    "name": "id",
+                    "value": "2"
+                  },
+                  {
+                    "name": "name",
+                    "value": "OffWaitTime"
+                  },
+                  {
+                    "name": "type",
+                    "value": "int16u"
+                  },
+                  {
+                    "name": "max",
+                    "value": "0xFFFE"
+                  }
+                ]
+              },
+              {
+                "name": "mandatoryConform",
+                "children": [
+                  {
+                    "name": "feature",
+                    "attributes": [
+                      {
+                        "name": "name",
+                        "value": "LT"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "attributes": [
+        {
+          "id": 0,
+          "name": "OnOff",
+          "type": "boolean",
+          "writable": false,
+          "nullable": false,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "0x0000"
+              },
+              {
+                "name": "name",
+                "value": "OnOff"
+              },
+              {
+                "name": "define",
+                "value": "ON_OFF"
+              },
+              {
+                "name": "type",
+                "value": "boolean"
+              }
+            ]
+          }
+        },
+        {
+          "id": 16384,
+          "name": "GlobalSceneControl",
+          "type": "boolean",
+          "writable": false,
+          "nullable": false,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "0x4000"
+              },
+              {
+                "name": "name",
+                "value": "GlobalSceneControl"
+              },
+              {
+                "name": "define",
+                "value": "GLOBAL_SCENE_CONTROL"
+              },
+              {
+                "name": "type",
+                "value": "boolean"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "mandatoryConform",
+                "children": [
+                  {
+                    "name": "feature",
+                    "attributes": [
+                      {
+                        "name": "name",
+                        "value": "LT"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": 16385,
+          "name": "OnTime",
+          "type": "int16u",
+          "writable": true,
+          "nullable": false,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "0x4001"
+              },
+              {
+                "name": "name",
+                "value": "OnTime"
+              },
+              {
+                "name": "define",
+                "value": "ON_TIME"
+              },
+              {
+                "name": "type",
+                "value": "int16u"
+              },
+              {
+                "name": "writable",
+                "value": "true"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "mandatoryConform",
+                "children": [
+                  {
+                    "name": "feature",
+                    "attributes": [
+                      {
+                        "name": "name",
+                        "value": "LT"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": 16386,
+          "name": "OffWaitTime",
+          "type": "int16u",
+          "writable": true,
+          "nullable": false,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "0x4002"
+              },
+              {
+                "name": "name",
+                "value": "OffWaitTime"
+              },
+              {
+                "name": "define",
+                "value": "OFF_WAIT_TIME"
+              },
+              {
+                "name": "type",
+                "value": "int16u"
+              },
+              {
+                "name": "writable",
+                "value": "true"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "mandatoryConform",
+                "children": [
+                  {
+                    "name": "feature",
+                    "attributes": [
+                      {
+                        "name": "name",
+                        "value": "LT"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": 16387,
+          "name": "StartUpOnOff",
+          "type": "StartUpOnOffEnum",
+          "writable": true,
+          "nullable": true,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "0x4003"
+              },
+              {
+                "name": "name",
+                "value": "StartUpOnOff"
+              },
+              {
+                "name": "define",
+                "value": "START_UP_ON_OFF"
+              },
+              {
+                "name": "type",
+                "value": "StartUpOnOffEnum"
+              },
+              {
+                "name": "max",
+                "value": "2"
+              },
+              {
+                "name": "isNullable",
+                "value": "true"
+              },
+              {
+                "name": "writable",
+                "value": "true"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "access",
+                "attributes": [
+                  {
+                    "name": "op",
+                    "value": "write"
+                  },
+                  {
+                    "name": "privilege",
+                    "value": "manage"
+                  }
+                ]
+              },
+              {
+                "name": "mandatoryConform",
+                "children": [
+                  {
+                    "name": "feature",
+                    "attributes": [
+                      {
+                        "name": "name",
+                        "value": "LT"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "commands": [
+        {
+          "id": 0,
+          "name": "Off",
+          "source": "client",
+          "timed": false,
+          "definition": {
+            "name": "command",
+            "attributes": [
+              {
+                "name": "source",
+                "value": "client"
+              },
+              {
+                "name": "code",
+                "value": "0x00"
+              },
+              {
+                "name": "name",
+                "value": "Off"
+              }
+            ],
+            "children": [
+              {
+                "name": "description",
+                "text": "On receipt of this command, a device SHALL enter its \u2018Off\u2019 state. This state is device dependent, but it is recommended that it is used for power off or similar functions. On receipt of the Off command, the OnTime attribute SHALL be set to 0."
+              }
+            ]
+          }
+        },
+        {
+          "id": 1,
+          "name": "On",
+          "source": "client",
+          "timed": false,
+          "definition": {
+            "name": "command",
+            "attributes": [
+              {
+                "name": "source",
+                "value": "client"
+              },
+              {
+                "name": "code",
+                "value": "0x01"
+              },
+              {
+                "name": "name",
+                "value": "On"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "description",
+                "text": "On receipt of this command, a device SHALL enter its \u2018On\u2019 state. This state is device dependent, but it is recommended that it is used for power on or similar functions. On receipt of the On command, if the value of the OnTime attribute is equal to 0, the device SHALL set the OffWaitTime attribute to 0."
+              },
+              {
+                "name": "mandatoryConform",
+                "children": [
+                  {
+                    "name": "notTerm",
+                    "children": [
+                      {
+                        "name": "feature",
+                        "attributes": [
+                          {
+                            "name": "name",
+                            "value": "OFFONLY"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": 2,
+          "name": "Toggle",
+          "source": "client",
+          "timed": false,
+          "definition": {
+            "name": "command",
+            "attributes": [
+              {
+                "name": "source",
+                "value": "client"
+              },
+              {
+                "name": "code",
+                "value": "0x02"
+              },
+              {
+                "name": "name",
+                "value": "Toggle"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "description",
+                "text": "On receipt of this command, if a device is in its \u2018Off\u2019 state it SHALL enter its \u2018On\u2019 state. Otherwise, if it is in its \u2018On\u2019 state it SHALL enter its \u2018Off\u2019 state. On receipt of the Toggle command, if the value of the OnOff attribute is equal to FALSE and if the value of the OnTime attribute is equal to 0, the device SHALL set the OffWaitTime attribute to 0. If the value of the OnOff attribute is equal to TRUE, the OnTime attribute SHALL be set to 0."
+              },
+              {
+                "name": "mandatoryConform",
+                "children": [
+                  {
+                    "name": "notTerm",
+                    "children": [
+                      {
+                        "name": "feature",
+                        "attributes": [
+                          {
+                            "name": "name",
+                            "value": "OFFONLY"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": 64,
+          "name": "OffWithEffect",
+          "source": "client",
+          "timed": false,
+          "definition": {
+            "name": "command",
+            "attributes": [
+              {
+                "name": "source",
+                "value": "client"
+              },
+              {
+                "name": "code",
+                "value": "0x40"
+              },
+              {
+                "name": "name",
+                "value": "OffWithEffect"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "description",
+                "text": "The OffWithEffect command allows devices to be turned off using enhanced ways of fading."
+              },
+              {
+                "name": "arg",
+                "attributes": [
+                  {
+                    "name": "id",
+                    "value": "0"
+                  },
+                  {
+                    "name": "name",
+                    "value": "EffectIdentifier"
+                  },
+                  {
+                    "name": "type",
+                    "value": "EffectIdentifierEnum"
+                  },
+                  {
+                    "name": "max",
+                    "value": "0x01"
+                  }
+                ]
+              },
+              {
+                "name": "arg",
+                "attributes": [
+                  {
+                    "name": "id",
+                    "value": "1"
+                  },
+                  {
+                    "name": "name",
+                    "value": "EffectVariant"
+                  },
+                  {
+                    "name": "type",
+                    "value": "enum8"
+                  }
+                ]
+              },
+              {
+                "name": "mandatoryConform",
+                "children": [
+                  {
+                    "name": "feature",
+                    "attributes": [
+                      {
+                        "name": "name",
+                        "value": "LT"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": 65,
+          "name": "OnWithRecallGlobalScene",
+          "source": "client",
+          "timed": false,
+          "definition": {
+            "name": "command",
+            "attributes": [
+              {
+                "name": "source",
+                "value": "client"
+              },
+              {
+                "name": "code",
+                "value": "0x41"
+              },
+              {
+                "name": "name",
+                "value": "OnWithRecallGlobalScene"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "description",
+                "text": "This command allows the recall of the settings when the device was turned off."
+              },
+              {
+                "name": "mandatoryConform",
+                "children": [
+                  {
+                    "name": "feature",
+                    "attributes": [
+                      {
+                        "name": "name",
+                        "value": "LT"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": 66,
+          "name": "OnWithTimedOff",
+          "source": "client",
+          "timed": false,
+          "definition": {
+            "name": "command",
+            "attributes": [
+              {
+                "name": "source",
+                "value": "client"
+              },
+              {
+                "name": "code",
+                "value": "0x42"
+              },
+              {
+                "name": "name",
+                "value": "OnWithTimedOff"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "description",
+                "text": "This command allows devices to be turned on for a specific duration with a guarded off duration so that SHOULD the device be subsequently turned off, further OnWithTimedOff commands, received during this time, are prevented from turning the devices back on."
+              },
+              {
+                "name": "arg",
+                "attributes": [
+                  {
+                    "name": "id",
+                    "value": "0"
+                  },
+                  {
+                    "name": "name",
+                    "value": "OnOffControl"
+                  },
+                  {
+                    "name": "type",
+                    "value": "OnOffControlBitmap"
+                  },
+                  {
+                    "name": "max",
+                    "value": "1"
+                  }
+                ]
+              },
+              {
+                "name": "arg",
+                "attributes": [
+                  {
+                    "name": "id",
+                    "value": "1"
+                  },
+                  {
+                    "name": "name",
+                    "value": "OnTime"
+                  },
+                  {
+                    "name": "type",
+                    "value": "int16u"
+                  },
+                  {
+                    "name": "max",
+                    "value": "0xFFFE"
+                  }
+                ]
+              },
+              {
+                "name": "arg",
+                "attributes": [
+                  {
+                    "name": "id",
+                    "value": "2"
+                  },
+                  {
+                    "name": "name",
+                    "value": "OffWaitTime"
+                  },
+                  {
+                    "name": "type",
+                    "value": "int16u"
+                  },
+                  {
+                    "name": "max",
+                    "value": "0xFFFE"
+                  }
+                ]
+              },
+              {
+                "name": "mandatoryConform",
+                "children": [
+                  {
+                    "name": "feature",
+                    "attributes": [
+                      {
+                        "name": "name",
+                        "value": "LT"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "deviceTypes": [
+    {
+      "id": 10,
+      "name": "Door Lock",
+      "revision": 3,
+      "vendorSpecific": false,
+      "definition": {
+        "name": "deviceType",
+        "children": [
+          {
+            "name": "name",
+            "text": "MA-doorlock"
+          },
+          {
+            "name": "domain",
+            "text": "CHIP"
+          },
+          {
+            "name": "typeName",
+            "text": "Door Lock"
+          },
+          {
+            "name": "profileId",
+            "attributes": [
+              {
+                "name": "editable",
+                "value": "false"
+              }
+            ],
+            "text": "0x0103"
+          },
+          {
+            "name": "deviceId",
+            "attributes": [
+              {
+                "name": "editable",
+                "value": "false"
+              }
+            ],
+            "text": "0x000A"
+          },
+          {
+            "name": "revision",
+            "attributes": [
+              {
+                "name": "editable",
+                "value": "false"
+              }
+            ],
+            "text": "3"
+          },
+          {
+            "name": "class",
+            "text": "Simple"
+          },
+          {
+            "name": "scope",
+            "text": "Endpoint"
+          },
+          {
+            "name": "clusters",
+            "attributes": [
+              {
+                "name": "lockOthers",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "include",
+                "attributes": [
+                  {
+                    "name": "cluster",
+                    "value": "Identify"
+                  },
+                  {
+                    "name": "client",
+                    "value": "false"
+                  },
+                  {
+                    "name": "server",
+                    "value": "true"
+                  },
+                  {
+                    "name": "clientLocked",
+                    "value": "true"
+                  },
+                  {
+                    "name": "serverLocked",
+                    "value": "true"
+                  }
+                ],
+                "children": [
+                  {
+                    "name": "requireAttribute",
+                    "text": "IDENTIFY_TIME"
+                  },
+                  {
+                    "name": "requireAttribute",
+                    "text": "IDENTIFY_TYPE"
+                  },
+                  {
+                    "name": "requireCommand",
+                    "text": "Identify"
+                  },
+                  {
+                    "name": "requireCommand",
+                    "text": "IdentifyQuery"
+                  },
+                  {
+                    "name": "requireCommand",
+                    "text": "TriggerEffect"
+                  }
+                ]
+              },
+              {
+                "name": "include",
+                "attributes": [
+                  {
+                    "name": "cluster",
+                    "value": "Descriptor"
+                  },
+                  {
+                    "name": "client",
+                    "value": "false"
+                  },
+                  {
+                    "name": "server",
+                    "value": "true"
+                  },
+                  {
+                    "name": "clientLocked",
+                    "value": "true"
+                  },
+                  {
+                    "name": "serverLocked",
+                    "value": "true"
+                  }
+                ],
+                "children": [
+                  {
+                    "name": "requireAttribute",
+                    "text": "DEVICE_TYPE_LIST"
+                  },
+                  {
+                    "name": "requireAttribute",
+                    "text": "SERVER_LIST"
+                  },
+                  {
+                    "name": "requireAttribute",
+                    "text": "CLIENT_LIST"
+                  },
+                  {
+                    "name": "requireAttribute",
+                    "text": "PARTS_LIST"
+                  }
+                ]
+              },
+              {
+                "name": "include",
+                "attributes": [
+                  {
+                    "name": "cluster",
+                    "value": "Door Lock"
+                  },
+                  {
+                    "name": "client",
+                    "value": "false"
+                  },
+                  {
+                    "name": "server",
+                    "value": "true"
+                  },
+                  {
+                    "name": "clientLocked",
+                    "value": "true"
+                  },
+                  {
+                    "name": "serverLocked",
+                    "value": "true"
+                  }
+                ],
+                "children": [
+                  {
+                    "name": "features",
+                    "children": [
+                      {
+                        "name": "feature",
+                        "attributes": [
+                          {
+                            "name": "code",
+                            "value": "USR"
+                          },
+                          {
+                            "name": "name",
+                            "value": "User"
+                          }
+                        ],
+                        "children": [
+                          {
+                            "name": "mandatoryConform",
+                            "children": [
+                              {
+                                "name": "andTerm",
+                                "children": [
+                                  {
+                                    "name": "condition",
+                                    "attributes": [
+                                      {
+                                        "name": "name",
+                                        "value": "Matter"
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "name": "orTerm",
+                                    "children": [
+                                      {
+                                        "name": "feature",
+                                        "attributes": [
+                                          {
+                                            "name": "name",
+                                            "value": "PIN"
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "name": "feature",
+                                        "attributes": [
+                                          {
+                                            "name": "name",
+                                            "value": "RID"
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "name": "feature",
+                                        "attributes": [
+                                          {
+                                            "name": "name",
+                                            "value": "FPG"
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "name": "feature",
+                                        "attributes": [
+                                          {
+                                            "name": "name",
+                                            "value": "FACE"
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "name": "feature",
+                        "attributes": [
+                          {
+                            "name": "code",
+                            "value": ""
+                          },
+                          {
+                            "name": "name",
+                            "value": "RFIDCredential"
+                          }
+                        ],
+                        "children": [
+                          {
+                            "name": "otherwiseConform",
+                            "children": [
+                              {
+                                "name": "provisionalConform"
+                              },
+                              {
+                                "name": "optionalConform"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "types": [
+    {
+      "name": "ScopeTest",
+      "kind": "enum",
+      "source": "golden",
+      "definition": {
+        "name": "enum",
+        "text": "global"
+      }
+    },
+    {
+      "name": "ScopeTest",
+      "kind": "enum",
+      "source": "golden",
+      "clusters": [
+        6
+      ],
+      "definition": {
+        "name": "enum",
+        "text": "cluster"
+      }
+    }
+  ],
+  "globals": [
+    {
+      "id": 0,
+      "name": "GlobalCollision",
+      "type": "boolean",
+      "writable": false,
+      "nullable": false,
+      "definition": {
+        "name": "attribute",
+        "attributes": [
+          {
+            "name": "side",
+            "value": "server"
+          },
+          {
+            "name": "code",
+            "value": "0x0000"
+          },
+          {
+            "name": "name",
+            "value": "OnOff"
+          },
+          {
+            "name": "define",
+            "value": "ON_OFF"
+          },
+          {
+            "name": "type",
+            "value": "boolean"
+          }
+        ]
+      }
+    },
+    {
+      "id": 65533,
+      "name": "ClusterRevision",
+      "type": "int16u",
+      "writable": false,
+      "nullable": false,
+      "definition": {
+        "name": "attribute",
+        "attributes": [
+          {
+            "name": "side",
+            "value": "server"
+          },
+          {
+            "name": "code",
+            "value": "0xFFFD"
+          },
+          {
+            "name": "define",
+            "value": "CLUSTER_REVISION_SERVER"
+          },
+          {
+            "name": "type",
+            "value": "int16u"
+          },
+          {
+            "name": "default",
+            "value": "1"
+          }
+        ],
+        "text": "ClusterRevision"
+      }
+    },
+    {
+      "id": 65532,
+      "name": "FeatureMap",
+      "type": "bitmap32",
+      "writable": false,
+      "nullable": false,
+      "definition": {
+        "name": "attribute",
+        "attributes": [
+          {
+            "name": "side",
+            "value": "server"
+          },
+          {
+            "name": "code",
+            "value": "0xFFFC"
+          },
+          {
+            "name": "define",
+            "value": "FEATURE_MAP_SERVER"
+          },
+          {
+            "name": "type",
+            "value": "bitmap32"
+          },
+          {
+            "name": "default",
+            "value": "0"
+          }
+        ],
+        "text": "FeatureMap"
+      }
+    },
+    {
+      "id": 65531,
+      "name": "AttributeList",
+      "type": "array",
+      "writable": false,
+      "nullable": false,
+      "definition": {
+        "name": "attribute",
+        "attributes": [
+          {
+            "name": "side",
+            "value": "server"
+          },
+          {
+            "name": "code",
+            "value": "0xFFFB"
+          },
+          {
+            "name": "define",
+            "value": "ATTRIBUTE_LIST_SERVER"
+          },
+          {
+            "name": "type",
+            "value": "array"
+          },
+          {
+            "name": "entryType",
+            "value": "attrib_id"
+          }
+        ],
+        "text": "AttributeList"
+      }
+    },
+    {
+      "id": 65529,
+      "name": "AcceptedCommandList",
+      "type": "array",
+      "writable": false,
+      "nullable": false,
+      "definition": {
+        "name": "attribute",
+        "attributes": [
+          {
+            "name": "side",
+            "value": "server"
+          },
+          {
+            "name": "code",
+            "value": "0xFFF9"
+          },
+          {
+            "name": "define",
+            "value": "ACCEPTED_COMMAND_LIST"
+          },
+          {
+            "name": "type",
+            "value": "array"
+          },
+          {
+            "name": "entryType",
+            "value": "command_id"
+          }
+        ],
+        "text": "AcceptedCommandList"
+      }
+    },
+    {
+      "id": 65528,
+      "name": "GeneratedCommandList",
+      "type": "array",
+      "writable": false,
+      "nullable": false,
+      "definition": {
+        "name": "attribute",
+        "attributes": [
+          {
+            "name": "side",
+            "value": "server"
+          },
+          {
+            "name": "code",
+            "value": "0xFFF8"
+          },
+          {
+            "name": "define",
+            "value": "GENERATED_COMMAND_LIST"
+          },
+          {
+            "name": "type",
+            "value": "array"
+          },
+          {
+            "name": "entryType",
+            "value": "command_id"
+          }
+        ],
+        "text": "GeneratedCommandList"
+      }
+    }
+  ]
+}

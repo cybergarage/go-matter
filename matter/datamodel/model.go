@@ -72,15 +72,19 @@ type Document struct {
 	Root Element `json:"root"`
 }
 
+// SchemaVersion identifies the language-independent JSON consumer contract.
+const SchemaVersion = 1
+
 // Catalog is caller-owned metadata, loaded independently each time. Mutating it
 // cannot alter another consumer's catalog. Unknown numeric IDs return found=false.
 type Catalog struct {
-	Provenance  Provenance       `json:"provenance"`
-	Documents   []Document       `json:"documents"`
-	Clusters    []Cluster        `json:"clusters"`
-	DeviceTypes []DeviceType     `json:"deviceTypes"`
-	Types       []TypeDefinition `json:"types"`
-	Globals     []Attribute      `json:"globals"`
+	SchemaVersion int              `json:"schemaVersion"`
+	Provenance    Provenance       `json:"provenance"`
+	Documents     []Document       `json:"documents"`
+	Clusters      []Cluster        `json:"clusters"`
+	DeviceTypes   []DeviceType     `json:"deviceTypes"`
+	Types         []TypeDefinition `json:"types"`
+	Globals       []Attribute      `json:"globals"`
 }
 type Cluster struct {
 	ID         im.ClusterID `json:"id"`
@@ -185,4 +189,15 @@ func (c *Catalog) GlobalAttribute(id im.AttributeID) (Attribute, bool) {
 		}
 	}
 	return Attribute{}, false
+}
+
+// Attribute prefers a cluster definition before falling back to a global attribute.
+// It does not imply that the device advertises or permits access to the attribute.
+func (c *Catalog) Attribute(id im.AttributeID, clusterID im.ClusterID) (Attribute, bool) {
+	if cluster, ok := c.Cluster(clusterID); ok {
+		if attribute, found := cluster.Attribute(id); found {
+			return attribute, true
+		}
+	}
+	return c.GlobalAttribute(id)
 }
