@@ -17,6 +17,12 @@ import (
 
 type partialInventory struct{ simulatedInventory }
 
+func (partialInventory) scalar(ep im.EndpointID, cl im.ClusterID, a im.AttributeID) (uint64, error) {
+	if cl == 6 && a == 0xFFFD {
+		return 5, nil
+	}
+	return simulatedInventory{}.scalar(ep, cl, a)
+}
 func (partialInventory) ids(ep im.EndpointID, cl im.ClusterID, a im.AttributeID) ([]uint32, error) {
 	if cl == 6 && a == 0xFFF9 {
 		return nil, errors.New("fictional command list denied")

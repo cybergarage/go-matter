@@ -31,15 +31,17 @@ type Device struct {
 	Name string
 }
 type Path struct {
-	Endpoint  im.EndpointID
-	Cluster   im.ClusterID
-	Attribute im.AttributeID
-	Commands  []im.CommandID
-	Kind      string
-	Role      string
-	Command   im.CommandID
-	Direction string
-	Inventory string
+	Endpoint         im.EndpointID
+	Cluster          im.ClusterID
+	Attribute        im.AttributeID
+	Commands         []im.CommandID
+	Kind             string
+	Role             string
+	Command          im.CommandID
+	Direction        string
+	Inventory        string
+	ObservedRevision *uint16
+	ObservedFeatures *uint32
 }
 
 func (p Path) String() string {
@@ -47,8 +49,9 @@ func (p Path) String() string {
 }
 
 type Result struct {
-	Message string
-	Paths   []Path
+	Message      string
+	Acknowledged bool
+	Paths        []Path
 }
 type Backend interface {
 	List() ([]Device, error)
@@ -312,6 +315,10 @@ func (b *Live) withNode(ctx context.Context, id uint64, fn func(matter.Node) (Re
 	defer n.Close()
 	result, err := fn(n)
 	if ctx.Err() != nil {
+		if result.Acknowledged {
+			result.Message += "\nCANCELED / TIMEOUT after WRITE ACK; no automatic retry or rollback"
+			return result, nil
+		}
 		return Result{}, ctx.Err()
 	}
 	return result, err
@@ -480,8 +487,9 @@ func (b *Live) Close() error {
 
 // Demo is explicitly fictional, keeps no credentials, and never opens a transport.
 type Demo struct {
-	on     bool
-	paired bool
+	on       bool
+	paired   bool
+	settings map[settingKey]editValue
 }
 
 func (b *Demo) List() ([]Device, error) {
@@ -499,12 +507,20 @@ func (b *Demo) Inspect(ctx context.Context, _ uint64) (Result, error) {
 	out.Message = "OFFLINE FIXTURE: simulated inventory; no session or network.\n" + out.Message
 	return out, err
 }
-func (b *Demo) Read(ctx context.Context, _ uint64, p Path) (Result, error) {
+func (b *Demo) Read(ctx context.Context, id uint64, p Path) (Result, error) {
 	if err := ctx.Err(); err != nil {
 		return Result{}, err
 	}
 	if !readable(p) {
 		return Result{}, errors.New("metadata row is not an attribute")
+	}
+	if value, ok := b.settings[settingKey{node: id, endpoint: p.Endpoint, cluster: p.Cluster, attribute: p.Attribute}]; ok && p.Cluster == 6 {
+		enc := tlv.NewEncoder()
+		_ = value.encode(enc)
+		dec := tlv.NewDecoderWithBytes(enc.Bytes())
+		dec.Next()
+		actual, raw, _ := scalarValue(dec.Element(), p)
+		return Result{Message: observationMessage(p, actual, raw, "OFFLINE FIXTURE / FRESH READ", time.Now())}, nil
 	}
 	enc := tlv.NewEncoder()
 	switch p.Cluster {

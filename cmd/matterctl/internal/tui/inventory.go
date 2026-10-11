@@ -115,11 +115,15 @@ func inspectInventory(n inventoryReader) (Result, error) {
 				revision, re := n.scalar(ep, cl, 0xFFFD)
 				p.Inventory += "\n" + listState("AttributeList", attrs, ae) + "\n" + listState("AcceptedCommandList", accepted, ace) + "\n" + listState("GeneratedCommandList", generated, gce)
 				if fe == nil && feature <= 0xFFFFFFFF {
+					observed := uint32(feature)
+					p.ObservedFeatures = &observed
 					p.Inventory += fmt.Sprintf("\nFeatureMap OBSERVED: 0x%08X (raw %d)", feature, feature)
 				} else {
 					p.Inventory += "\nFeatureMap: UNAVAILABLE / ERROR"
 				}
 				if re == nil && revision <= 0xFFFF {
+					observed := uint16(revision)
+					p.ObservedRevision = &observed
 					p.Inventory += fmt.Sprintf("\nClusterRevision OBSERVED: %d", revision)
 					if dictionary != nil {
 						if d, ok := dictionary.Cluster(cl); ok {
@@ -138,6 +142,8 @@ func inspectInventory(n inventoryReader) (Result, error) {
 				out.addInventory(ep, cl, attrs, ae, accepted, ace)
 				for i := start; i < len(out.Paths); i++ {
 					out.Paths[i].Inventory = p.Inventory
+					out.Paths[i].ObservedFeatures = p.ObservedFeatures
+					out.Paths[i].ObservedRevision = p.ObservedRevision
 				}
 				for _, group := range []struct {
 					ids       []uint32
@@ -186,7 +192,7 @@ func (simulatedInventory) ids(_ im.EndpointID, cl im.ClusterID, a im.AttributeID
 		case 0x28:
 			return []uint32{1, 2, 3, 4, 7, 8, 0xFFFD}, nil
 		case 6:
-			return []uint32{0, 0x4003, 0xFFFC, 0xFFFD}, nil
+			return []uint32{0, 0x4001, 0x4002, 0x4003, 0xFFFC, 0xFFFD}, nil
 		case 0x402:
 			return []uint32{0, 1, 2}, nil
 		default:
@@ -209,7 +215,7 @@ func (simulatedInventory) scalar(_ im.EndpointID, cl im.ClusterID, a im.Attribut
 	}
 	switch cl {
 	case 6:
-		return 5, nil
+		return 6, nil
 	case 0x1D:
 		return 3, nil
 	case 0x28:
