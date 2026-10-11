@@ -80,7 +80,7 @@ func run(input, output string) error {
 	if err := json.Unmarshal(zclData, &zcl); err != nil {
 		return err
 	}
-	catalog := datamodel.Catalog{Provenance: p}
+	catalog := datamodel.Catalog{SchemaVersion: datamodel.SchemaVersion, Provenance: p}
 	for _, source := range p.Inputs {
 		if filepath.Base(source.File) != source.File || source.License != "Apache-2.0" {
 			return errors.New("unsupported input/license")
