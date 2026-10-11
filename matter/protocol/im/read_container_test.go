@@ -22,7 +22,7 @@ func scalarReportFixture(t *testing.T, put func(tlv.Encoder)) []byte {
 			t.Fatal(err)
 		}
 		put(e)
-		for i := 0; i < 2; i++ {
+		for range 2 {
 			if err := e.EndContainer(); err != nil {
 				t.Fatal(err)
 			}
@@ -113,7 +113,7 @@ func TestScalarReadKeepsScalarNullAndSkipsNestedSiblingTags(t *testing.T) {
 			e.BeginStructure(tlv.NewContextTag(3)) // Unknown sibling field, not Data.
 			e.BeginList(tlv.NewContextTag(2))
 			e.PutUnsigned2(tlv.NewContextTag(2), 99)
-			for i := 0; i < 2; i++ {
+			for range 2 {
 				if err := e.EndContainer(); err != nil {
 					t.Fatal(err)
 				}

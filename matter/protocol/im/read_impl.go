@@ -27,7 +27,7 @@ import (
 // whichever scalar type applies (UTF8()/Unsigned2()/Unsigned4()/...). It
 // rejects Structure/List/Array values: a tlv.Element cannot retain container
 // contents. Use ReadListAttribute for List/Array values (read_list_impl.go).
-// Structure values are unsupported by this scalar API.
+// Use ReadValueAttribute to retain Structure/List/Array contents.
 func ReadAttribute(sess SecureSession, endpointID EndpointID, clusterID ClusterID, attributeID AttributeID) (*ReadResponse, error) {
 	responseRaw, err := doReadRequest(sess, endpointID, clusterID, attributeID)
 	if err != nil {

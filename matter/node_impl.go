@@ -77,3 +77,11 @@ func (n *nodeImpl) Close() error {
 	}
 	return nil
 }
+
+// ReadValueAttribute retains complete structured or scalar attribute Data.
+// 10.6.3 AttributeDataIB.
+func (n *nodeImpl) ReadValueAttribute(ep im.EndpointID, cl im.ClusterID, attr im.AttributeID) (*im.ValueReadResponse, error) {
+	return im.ReadValueAttribute(n.sess, ep, cl, attr)
+}
+
+var _ ValueAttributeReader = (*nodeImpl)(nil)

@@ -21,7 +21,7 @@ import (
 )
 
 // ErrNonScalarAttribute means ReadAttribute cannot retain a container's contents.
-// List/Array values require ReadListAttribute; Structure values are unsupported.
+// Use ReadValueAttribute to retain containers, or ReadListAttribute to stream lists.
 var ErrNonScalarAttribute = errors.New("im: ReadAttribute: container value unsupported by scalar reader")
 
 // ReadResponse is the parsed result of a ReadResponse (ReportDataMessage) IM
