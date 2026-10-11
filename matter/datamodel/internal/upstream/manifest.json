@@ -56,6 +56,18 @@
       "path": "src/app/zap-templates/zcl/data-model/chip/matter-devices.xml",
       "sha256": "42d9f5badfe7de600be24fbb38f1f43fb3357f2822f2845a378d88241e677dc1",
       "license": "Apache-2.0"
+    },
+    {
+      "file": "descriptor-cluster.xml",
+      "path": "src/app/zap-templates/zcl/data-model/chip/descriptor-cluster.xml",
+      "sha256": "c3b24170321f13583f1404db03e964341c4325c4e3a7946759541048cafce152",
+      "license": "Apache-2.0"
+    },
+    {
+      "file": "basic-information-cluster.xml",
+      "path": "src/app/zap-templates/zcl/data-model/chip/basic-information-cluster.xml",
+      "sha256": "9c8c85b265ccddeccc14c3fbb8a5627f4ba8c832e49c97ff9cd42e2a163cc635",
+      "license": "Apache-2.0"
     }
   ]
 }

@@ -1,4 +1,5 @@
 {
+  "schemaVersion": 1,
   "provenance": {
     "sdkTag": "v1.6.1.0",
     "sourceSha": "3bcdd56ba54fb88b2afb4bfef575014671df7aa7",
@@ -56,6 +57,18 @@
         "file": "matter-devices.xml",
         "path": "src/app/zap-templates/zcl/data-model/chip/matter-devices.xml",
         "sha256": "42d9f5badfe7de600be24fbb38f1f43fb3357f2822f2845a378d88241e677dc1",
+        "license": "Apache-2.0"
+      },
+      {
+        "file": "descriptor-cluster.xml",
+        "path": "src/app/zap-templates/zcl/data-model/chip/descriptor-cluster.xml",
+        "sha256": "c3b24170321f13583f1404db03e964341c4325c4e3a7946759541048cafce152",
+        "license": "Apache-2.0"
+      },
+      {
+        "file": "basic-information-cluster.xml",
+        "path": "src/app/zap-templates/zcl/data-model/chip/basic-information-cluster.xml",
+        "sha256": "9c8c85b265ccddeccc14c3fbb8a5627f4ba8c832e49c97ff9cd42e2a163cc635",
         "license": "Apache-2.0"
       }
     ]
@@ -41878,6 +41891,2486 @@
           }
         ]
       }
+    },
+    {
+      "file": "descriptor-cluster.xml",
+      "root": {
+        "name": "configurator",
+        "attributes": [
+          {
+            "name": "xsi",
+            "namespace": "xmlns",
+            "value": "http://www.w3.org/2001/XMLSchema-instance"
+          },
+          {
+            "name": "noNamespaceSchemaLocation",
+            "namespace": "http://www.w3.org/2001/XMLSchema-instance",
+            "value": "../../zcl.xsd"
+          }
+        ],
+        "children": [
+          {
+            "name": "domain",
+            "attributes": [
+              {
+                "name": "name",
+                "value": "CHIP"
+              }
+            ]
+          },
+          {
+            "name": "struct",
+            "attributes": [
+              {
+                "name": "name",
+                "value": "DeviceTypeStruct"
+              }
+            ],
+            "children": [
+              {
+                "name": "cluster",
+                "attributes": [
+                  {
+                    "name": "code",
+                    "value": "0x001d"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "fieldId",
+                    "value": "0"
+                  },
+                  {
+                    "name": "name",
+                    "value": "DeviceType"
+                  },
+                  {
+                    "name": "type",
+                    "value": "devtype_id"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "fieldId",
+                    "value": "1"
+                  },
+                  {
+                    "name": "name",
+                    "value": "Revision"
+                  },
+                  {
+                    "name": "type",
+                    "value": "int16u"
+                  },
+                  {
+                    "name": "min",
+                    "value": "1"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "cluster",
+            "children": [
+              {
+                "name": "domain",
+                "text": "General"
+              },
+              {
+                "name": "name",
+                "text": "Descriptor"
+              },
+              {
+                "name": "code",
+                "text": "0x001d"
+              },
+              {
+                "name": "define",
+                "text": "DESCRIPTOR_CLUSTER"
+              },
+              {
+                "name": "description",
+                "text": "The Descriptor Cluster is meant to replace the support from the Zigbee Device Object (ZDO) for describing a node, its endpoints and clusters."
+              },
+              {
+                "name": "client",
+                "attributes": [
+                  {
+                    "name": "init",
+                    "value": "false"
+                  },
+                  {
+                    "name": "tick",
+                    "value": "false"
+                  }
+                ],
+                "text": "true"
+              },
+              {
+                "name": "server",
+                "attributes": [
+                  {
+                    "name": "init",
+                    "value": "false"
+                  },
+                  {
+                    "name": "tick",
+                    "value": "false"
+                  }
+                ],
+                "text": "true"
+              },
+              {
+                "name": "globalAttribute",
+                "attributes": [
+                  {
+                    "name": "side",
+                    "value": "either"
+                  },
+                  {
+                    "name": "code",
+                    "value": "0xFFFD"
+                  },
+                  {
+                    "name": "value",
+                    "value": "3"
+                  }
+                ]
+              },
+              {
+                "name": "features",
+                "children": [
+                  {
+                    "name": "feature",
+                    "attributes": [
+                      {
+                        "name": "bit",
+                        "value": "0"
+                      },
+                      {
+                        "name": "code",
+                        "value": "TAGLIST"
+                      },
+                      {
+                        "name": "name",
+                        "value": "TagList"
+                      },
+                      {
+                        "name": "summary",
+                        "value": "The TagList attribute is present"
+                      }
+                    ],
+                    "children": [
+                      {
+                        "name": "describedConform"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "attribute",
+                "attributes": [
+                  {
+                    "name": "side",
+                    "value": "server"
+                  },
+                  {
+                    "name": "code",
+                    "value": "0x0000"
+                  },
+                  {
+                    "name": "name",
+                    "value": "DeviceTypeList"
+                  },
+                  {
+                    "name": "define",
+                    "value": "DEVICE_LIST"
+                  },
+                  {
+                    "name": "type",
+                    "value": "array"
+                  },
+                  {
+                    "name": "entryType",
+                    "value": "DeviceTypeStruct"
+                  },
+                  {
+                    "name": "minLength",
+                    "value": "1"
+                  }
+                ]
+              },
+              {
+                "name": "attribute",
+                "attributes": [
+                  {
+                    "name": "side",
+                    "value": "server"
+                  },
+                  {
+                    "name": "code",
+                    "value": "0x0001"
+                  },
+                  {
+                    "name": "name",
+                    "value": "ServerList"
+                  },
+                  {
+                    "name": "define",
+                    "value": "SERVER_LIST"
+                  },
+                  {
+                    "name": "type",
+                    "value": "array"
+                  },
+                  {
+                    "name": "entryType",
+                    "value": "cluster_id"
+                  }
+                ]
+              },
+              {
+                "name": "attribute",
+                "attributes": [
+                  {
+                    "name": "side",
+                    "value": "server"
+                  },
+                  {
+                    "name": "code",
+                    "value": "0x0002"
+                  },
+                  {
+                    "name": "name",
+                    "value": "ClientList"
+                  },
+                  {
+                    "name": "define",
+                    "value": "CLIENT_LIST"
+                  },
+                  {
+                    "name": "type",
+                    "value": "array"
+                  },
+                  {
+                    "name": "entryType",
+                    "value": "cluster_id"
+                  }
+                ]
+              },
+              {
+                "name": "attribute",
+                "attributes": [
+                  {
+                    "name": "side",
+                    "value": "server"
+                  },
+                  {
+                    "name": "code",
+                    "value": "0x0003"
+                  },
+                  {
+                    "name": "name",
+                    "value": "PartsList"
+                  },
+                  {
+                    "name": "define",
+                    "value": "PARTS_LIST"
+                  },
+                  {
+                    "name": "type",
+                    "value": "array"
+                  },
+                  {
+                    "name": "entryType",
+                    "value": "endpoint_no"
+                  }
+                ]
+              },
+              {
+                "name": "attribute",
+                "attributes": [
+                  {
+                    "name": "side",
+                    "value": "server"
+                  },
+                  {
+                    "name": "code",
+                    "value": "0x0004"
+                  },
+                  {
+                    "name": "name",
+                    "value": "TagList"
+                  },
+                  {
+                    "name": "define",
+                    "value": "TAG_LIST"
+                  },
+                  {
+                    "name": "type",
+                    "value": "array"
+                  },
+                  {
+                    "name": "entryType",
+                    "value": "SemanticTagStruct"
+                  },
+                  {
+                    "name": "optional",
+                    "value": "true"
+                  },
+                  {
+                    "name": "length",
+                    "value": "6"
+                  },
+                  {
+                    "name": "minLength",
+                    "value": "1"
+                  }
+                ],
+                "children": [
+                  {
+                    "name": "mandatoryConform",
+                    "children": [
+                      {
+                        "name": "feature",
+                        "attributes": [
+                          {
+                            "name": "name",
+                            "value": "TAGLIST"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "attribute",
+                "attributes": [
+                  {
+                    "name": "side",
+                    "value": "server"
+                  },
+                  {
+                    "name": "code",
+                    "value": "0x0005"
+                  },
+                  {
+                    "name": "name",
+                    "value": "EndpointUniqueID"
+                  },
+                  {
+                    "name": "define",
+                    "value": "END_POINT_UNIQUE_ID"
+                  },
+                  {
+                    "name": "type",
+                    "value": "char_string"
+                  },
+                  {
+                    "name": "optional",
+                    "value": "true"
+                  },
+                  {
+                    "name": "length",
+                    "value": "32"
+                  }
+                ],
+                "children": [
+                  {
+                    "name": "otherwiseConform",
+                    "children": [
+                      {
+                        "name": "provisionalConform"
+                      },
+                      {
+                        "name": "optionalConform"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "file": "basic-information-cluster.xml",
+      "root": {
+        "name": "configurator",
+        "attributes": [
+          {
+            "name": "xsi",
+            "namespace": "xmlns",
+            "value": "http://www.w3.org/2001/XMLSchema-instance"
+          },
+          {
+            "name": "noNamespaceSchemaLocation",
+            "namespace": "http://www.w3.org/2001/XMLSchema-instance",
+            "value": "../../zcl.xsd"
+          }
+        ],
+        "children": [
+          {
+            "name": "domain",
+            "attributes": [
+              {
+                "name": "name",
+                "value": "CHIP"
+              }
+            ]
+          },
+          {
+            "name": "struct",
+            "attributes": [
+              {
+                "name": "name",
+                "value": "CapabilityMinimaStruct"
+              }
+            ],
+            "children": [
+              {
+                "name": "cluster",
+                "attributes": [
+                  {
+                    "name": "code",
+                    "value": "0x0028"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "fieldId",
+                    "value": "0"
+                  },
+                  {
+                    "name": "name",
+                    "value": "CaseSessionsPerFabric"
+                  },
+                  {
+                    "name": "type",
+                    "value": "int16u"
+                  },
+                  {
+                    "name": "writable",
+                    "value": "false"
+                  },
+                  {
+                    "name": "default",
+                    "value": "3"
+                  },
+                  {
+                    "name": "min",
+                    "value": "3"
+                  },
+                  {
+                    "name": "max",
+                    "value": "10000"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "fieldId",
+                    "value": "1"
+                  },
+                  {
+                    "name": "name",
+                    "value": "SubscriptionsPerFabric"
+                  },
+                  {
+                    "name": "type",
+                    "value": "int16u"
+                  },
+                  {
+                    "name": "writable",
+                    "value": "false"
+                  },
+                  {
+                    "name": "default",
+                    "value": "3"
+                  },
+                  {
+                    "name": "min",
+                    "value": "3"
+                  },
+                  {
+                    "name": "max",
+                    "value": "10000"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "fieldId",
+                    "value": "2"
+                  },
+                  {
+                    "name": "name",
+                    "value": "SimultaneousInvocationsSupported"
+                  },
+                  {
+                    "name": "type",
+                    "value": "int16u"
+                  },
+                  {
+                    "name": "optional",
+                    "value": "true"
+                  },
+                  {
+                    "name": "min",
+                    "value": "1"
+                  },
+                  {
+                    "name": "max",
+                    "value": "10000"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "fieldId",
+                    "value": "3"
+                  },
+                  {
+                    "name": "name",
+                    "value": "SimultaneousWritesSupported"
+                  },
+                  {
+                    "name": "type",
+                    "value": "int16u"
+                  },
+                  {
+                    "name": "optional",
+                    "value": "true"
+                  },
+                  {
+                    "name": "min",
+                    "value": "1"
+                  },
+                  {
+                    "name": "max",
+                    "value": "10000"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "fieldId",
+                    "value": "4"
+                  },
+                  {
+                    "name": "name",
+                    "value": "ReadPathsSupported"
+                  },
+                  {
+                    "name": "type",
+                    "value": "int16u"
+                  },
+                  {
+                    "name": "optional",
+                    "value": "true"
+                  },
+                  {
+                    "name": "min",
+                    "value": "9"
+                  },
+                  {
+                    "name": "max",
+                    "value": "10000"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "fieldId",
+                    "value": "5"
+                  },
+                  {
+                    "name": "name",
+                    "value": "SubscribePathsSupported"
+                  },
+                  {
+                    "name": "type",
+                    "value": "int16u"
+                  },
+                  {
+                    "name": "optional",
+                    "value": "true"
+                  },
+                  {
+                    "name": "min",
+                    "value": "3"
+                  },
+                  {
+                    "name": "max",
+                    "value": "10000"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "enum",
+            "attributes": [
+              {
+                "name": "name",
+                "value": "ProductFinishEnum"
+              },
+              {
+                "name": "type",
+                "value": "enum8"
+              }
+            ],
+            "children": [
+              {
+                "name": "cluster",
+                "attributes": [
+                  {
+                    "name": "code",
+                    "value": "0x0028"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "name",
+                    "value": "Other"
+                  },
+                  {
+                    "name": "value",
+                    "value": "0"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "name",
+                    "value": "Matte"
+                  },
+                  {
+                    "name": "value",
+                    "value": "1"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "name",
+                    "value": "Satin"
+                  },
+                  {
+                    "name": "value",
+                    "value": "2"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "name",
+                    "value": "Polished"
+                  },
+                  {
+                    "name": "value",
+                    "value": "3"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "name",
+                    "value": "Rugged"
+                  },
+                  {
+                    "name": "value",
+                    "value": "4"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "name",
+                    "value": "Fabric"
+                  },
+                  {
+                    "name": "value",
+                    "value": "5"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "enum",
+            "attributes": [
+              {
+                "name": "name",
+                "value": "ColorEnum"
+              },
+              {
+                "name": "type",
+                "value": "enum8"
+              }
+            ],
+            "children": [
+              {
+                "name": "cluster",
+                "attributes": [
+                  {
+                    "name": "code",
+                    "value": "0x0028"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "name",
+                    "value": "Black"
+                  },
+                  {
+                    "name": "value",
+                    "value": "0"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "name",
+                    "value": "Navy"
+                  },
+                  {
+                    "name": "value",
+                    "value": "1"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "name",
+                    "value": "Green"
+                  },
+                  {
+                    "name": "value",
+                    "value": "2"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "name",
+                    "value": "Teal"
+                  },
+                  {
+                    "name": "value",
+                    "value": "3"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "name",
+                    "value": "Maroon"
+                  },
+                  {
+                    "name": "value",
+                    "value": "4"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "name",
+                    "value": "Purple"
+                  },
+                  {
+                    "name": "value",
+                    "value": "5"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "name",
+                    "value": "Olive"
+                  },
+                  {
+                    "name": "value",
+                    "value": "6"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "name",
+                    "value": "Gray"
+                  },
+                  {
+                    "name": "value",
+                    "value": "7"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "name",
+                    "value": "Blue"
+                  },
+                  {
+                    "name": "value",
+                    "value": "8"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "name",
+                    "value": "Lime"
+                  },
+                  {
+                    "name": "value",
+                    "value": "9"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "name",
+                    "value": "Aqua"
+                  },
+                  {
+                    "name": "value",
+                    "value": "10"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "name",
+                    "value": "Red"
+                  },
+                  {
+                    "name": "value",
+                    "value": "11"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "name",
+                    "value": "Fuchsia"
+                  },
+                  {
+                    "name": "value",
+                    "value": "12"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "name",
+                    "value": "Yellow"
+                  },
+                  {
+                    "name": "value",
+                    "value": "13"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "name",
+                    "value": "White"
+                  },
+                  {
+                    "name": "value",
+                    "value": "14"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "name",
+                    "value": "Nickel"
+                  },
+                  {
+                    "name": "value",
+                    "value": "15"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "name",
+                    "value": "Chrome"
+                  },
+                  {
+                    "name": "value",
+                    "value": "16"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "name",
+                    "value": "Brass"
+                  },
+                  {
+                    "name": "value",
+                    "value": "17"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "name",
+                    "value": "Copper"
+                  },
+                  {
+                    "name": "value",
+                    "value": "18"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "name",
+                    "value": "Silver"
+                  },
+                  {
+                    "name": "value",
+                    "value": "19"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "name",
+                    "value": "Gold"
+                  },
+                  {
+                    "name": "value",
+                    "value": "20"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "struct",
+            "attributes": [
+              {
+                "name": "name",
+                "value": "ProductAppearanceStruct"
+              }
+            ],
+            "children": [
+              {
+                "name": "cluster",
+                "attributes": [
+                  {
+                    "name": "code",
+                    "value": "0x0028"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "fieldId",
+                    "value": "0"
+                  },
+                  {
+                    "name": "name",
+                    "value": "Finish"
+                  },
+                  {
+                    "name": "type",
+                    "value": "ProductFinishEnum"
+                  },
+                  {
+                    "name": "max",
+                    "value": "0x05"
+                  }
+                ]
+              },
+              {
+                "name": "item",
+                "attributes": [
+                  {
+                    "name": "fieldId",
+                    "value": "1"
+                  },
+                  {
+                    "name": "name",
+                    "value": "PrimaryColor"
+                  },
+                  {
+                    "name": "type",
+                    "value": "ColorEnum"
+                  },
+                  {
+                    "name": "isNullable",
+                    "value": "true"
+                  },
+                  {
+                    "name": "max",
+                    "value": "0x14"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "cluster",
+            "children": [
+              {
+                "name": "name",
+                "text": "Basic Information"
+              },
+              {
+                "name": "domain",
+                "text": "General"
+              },
+              {
+                "name": "code",
+                "text": "0x0028"
+              },
+              {
+                "name": "define",
+                "text": "BASIC_INFORMATION_CLUSTER"
+              },
+              {
+                "name": "description",
+                "text": "This cluster provides attributes and events for determining basic information about Nodes, which supports both\n      Commissioning and operational determination of Node characteristics, such as Vendor ID, Product ID and serial number,\n      which apply to the whole Node. Also allows setting user device information such as location."
+              },
+              {
+                "name": "client",
+                "attributes": [
+                  {
+                    "name": "init",
+                    "value": "false"
+                  },
+                  {
+                    "name": "tick",
+                    "value": "false"
+                  }
+                ],
+                "text": "true"
+              },
+              {
+                "name": "server",
+                "attributes": [
+                  {
+                    "name": "init",
+                    "value": "false"
+                  },
+                  {
+                    "name": "tick",
+                    "value": "false"
+                  }
+                ],
+                "text": "true"
+              },
+              {
+                "name": "globalAttribute",
+                "attributes": [
+                  {
+                    "name": "side",
+                    "value": "either"
+                  },
+                  {
+                    "name": "code",
+                    "value": "0xFFFD"
+                  },
+                  {
+                    "name": "value",
+                    "value": "6"
+                  }
+                ]
+              },
+              {
+                "name": "attribute",
+                "attributes": [
+                  {
+                    "name": "side",
+                    "value": "server"
+                  },
+                  {
+                    "name": "code",
+                    "value": "0"
+                  },
+                  {
+                    "name": "name",
+                    "value": "DataModelRevision"
+                  },
+                  {
+                    "name": "define",
+                    "value": "DATA_MODEL_REVISION"
+                  },
+                  {
+                    "name": "type",
+                    "value": "int16u"
+                  }
+                ]
+              },
+              {
+                "name": "attribute",
+                "attributes": [
+                  {
+                    "name": "side",
+                    "value": "server"
+                  },
+                  {
+                    "name": "code",
+                    "value": "1"
+                  },
+                  {
+                    "name": "name",
+                    "value": "VendorName"
+                  },
+                  {
+                    "name": "define",
+                    "value": "VENDOR_NAME"
+                  },
+                  {
+                    "name": "type",
+                    "value": "char_string"
+                  },
+                  {
+                    "name": "length",
+                    "value": "32"
+                  }
+                ]
+              },
+              {
+                "name": "attribute",
+                "attributes": [
+                  {
+                    "name": "side",
+                    "value": "server"
+                  },
+                  {
+                    "name": "code",
+                    "value": "2"
+                  },
+                  {
+                    "name": "name",
+                    "value": "VendorID"
+                  },
+                  {
+                    "name": "define",
+                    "value": "VENDOR_ID"
+                  },
+                  {
+                    "name": "type",
+                    "value": "vendor_id"
+                  }
+                ]
+              },
+              {
+                "name": "attribute",
+                "attributes": [
+                  {
+                    "name": "side",
+                    "value": "server"
+                  },
+                  {
+                    "name": "code",
+                    "value": "3"
+                  },
+                  {
+                    "name": "name",
+                    "value": "ProductName"
+                  },
+                  {
+                    "name": "define",
+                    "value": "PRODUCT_NAME"
+                  },
+                  {
+                    "name": "type",
+                    "value": "char_string"
+                  },
+                  {
+                    "name": "length",
+                    "value": "32"
+                  }
+                ]
+              },
+              {
+                "name": "attribute",
+                "attributes": [
+                  {
+                    "name": "side",
+                    "value": "server"
+                  },
+                  {
+                    "name": "code",
+                    "value": "4"
+                  },
+                  {
+                    "name": "name",
+                    "value": "ProductID"
+                  },
+                  {
+                    "name": "define",
+                    "value": "PRODUCT_ID"
+                  },
+                  {
+                    "name": "type",
+                    "value": "int16u"
+                  }
+                ]
+              },
+              {
+                "name": "attribute",
+                "attributes": [
+                  {
+                    "name": "side",
+                    "value": "server"
+                  },
+                  {
+                    "name": "code",
+                    "value": "5"
+                  },
+                  {
+                    "name": "name",
+                    "value": "NodeLabel"
+                  },
+                  {
+                    "name": "define",
+                    "value": "NODE_LABEL"
+                  },
+                  {
+                    "name": "type",
+                    "value": "char_string"
+                  },
+                  {
+                    "name": "length",
+                    "value": "32"
+                  },
+                  {
+                    "name": "writable",
+                    "value": "true"
+                  }
+                ],
+                "children": [
+                  {
+                    "name": "access",
+                    "attributes": [
+                      {
+                        "name": "op",
+                        "value": "write"
+                      },
+                      {
+                        "name": "privilege",
+                        "value": "manage"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "attribute",
+                "attributes": [
+                  {
+                    "name": "side",
+                    "value": "server"
+                  },
+                  {
+                    "name": "code",
+                    "value": "6"
+                  },
+                  {
+                    "name": "name",
+                    "value": "Location"
+                  },
+                  {
+                    "name": "define",
+                    "value": "LOCATION"
+                  },
+                  {
+                    "name": "type",
+                    "value": "char_string"
+                  },
+                  {
+                    "name": "length",
+                    "value": "2"
+                  },
+                  {
+                    "name": "writable",
+                    "value": "true"
+                  },
+                  {
+                    "name": "minLength",
+                    "value": "2"
+                  }
+                ],
+                "children": [
+                  {
+                    "name": "access",
+                    "attributes": [
+                      {
+                        "name": "op",
+                        "value": "write"
+                      },
+                      {
+                        "name": "privilege",
+                        "value": "administer"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "attribute",
+                "attributes": [
+                  {
+                    "name": "side",
+                    "value": "server"
+                  },
+                  {
+                    "name": "code",
+                    "value": "7"
+                  },
+                  {
+                    "name": "name",
+                    "value": "HardwareVersion"
+                  },
+                  {
+                    "name": "define",
+                    "value": "HARDWARE_VERSION"
+                  },
+                  {
+                    "name": "type",
+                    "value": "int16u"
+                  },
+                  {
+                    "name": "default",
+                    "value": "0"
+                  }
+                ]
+              },
+              {
+                "name": "attribute",
+                "attributes": [
+                  {
+                    "name": "side",
+                    "value": "server"
+                  },
+                  {
+                    "name": "code",
+                    "value": "8"
+                  },
+                  {
+                    "name": "name",
+                    "value": "HardwareVersionString"
+                  },
+                  {
+                    "name": "define",
+                    "value": "HARDWARE_VERSION_STRING"
+                  },
+                  {
+                    "name": "type",
+                    "value": "char_string"
+                  },
+                  {
+                    "name": "minLength",
+                    "value": "1"
+                  },
+                  {
+                    "name": "length",
+                    "value": "64"
+                  }
+                ]
+              },
+              {
+                "name": "attribute",
+                "attributes": [
+                  {
+                    "name": "side",
+                    "value": "server"
+                  },
+                  {
+                    "name": "code",
+                    "value": "9"
+                  },
+                  {
+                    "name": "name",
+                    "value": "SoftwareVersion"
+                  },
+                  {
+                    "name": "define",
+                    "value": "SOFTWARE_VERSION"
+                  },
+                  {
+                    "name": "type",
+                    "value": "int32u"
+                  },
+                  {
+                    "name": "default",
+                    "value": "0"
+                  }
+                ]
+              },
+              {
+                "name": "attribute",
+                "attributes": [
+                  {
+                    "name": "side",
+                    "value": "server"
+                  },
+                  {
+                    "name": "code",
+                    "value": "10"
+                  },
+                  {
+                    "name": "name",
+                    "value": "SoftwareVersionString"
+                  },
+                  {
+                    "name": "define",
+                    "value": "SOFTWARE_VERSION_STRING"
+                  },
+                  {
+                    "name": "type",
+                    "value": "char_string"
+                  },
+                  {
+                    "name": "minLength",
+                    "value": "1"
+                  },
+                  {
+                    "name": "length",
+                    "value": "64"
+                  }
+                ]
+              },
+              {
+                "name": "attribute",
+                "attributes": [
+                  {
+                    "name": "side",
+                    "value": "server"
+                  },
+                  {
+                    "name": "code",
+                    "value": "11"
+                  },
+                  {
+                    "name": "name",
+                    "value": "ManufacturingDate"
+                  },
+                  {
+                    "name": "define",
+                    "value": "MANUFACTURING_DATE"
+                  },
+                  {
+                    "name": "type",
+                    "value": "char_string"
+                  },
+                  {
+                    "name": "minLength",
+                    "value": "8"
+                  },
+                  {
+                    "name": "length",
+                    "value": "16"
+                  },
+                  {
+                    "name": "optional",
+                    "value": "true"
+                  }
+                ],
+                "children": [
+                  {
+                    "name": "optionalConform"
+                  }
+                ]
+              },
+              {
+                "name": "attribute",
+                "attributes": [
+                  {
+                    "name": "side",
+                    "value": "server"
+                  },
+                  {
+                    "name": "code",
+                    "value": "12"
+                  },
+                  {
+                    "name": "name",
+                    "value": "PartNumber"
+                  },
+                  {
+                    "name": "define",
+                    "value": "PART_NUMBER"
+                  },
+                  {
+                    "name": "type",
+                    "value": "char_string"
+                  },
+                  {
+                    "name": "length",
+                    "value": "32"
+                  },
+                  {
+                    "name": "optional",
+                    "value": "true"
+                  }
+                ],
+                "children": [
+                  {
+                    "name": "optionalConform"
+                  }
+                ]
+              },
+              {
+                "name": "attribute",
+                "attributes": [
+                  {
+                    "name": "side",
+                    "value": "server"
+                  },
+                  {
+                    "name": "code",
+                    "value": "13"
+                  },
+                  {
+                    "name": "name",
+                    "value": "ProductURL"
+                  },
+                  {
+                    "name": "define",
+                    "value": "PRODUCT_URL"
+                  },
+                  {
+                    "name": "type",
+                    "value": "long_char_string"
+                  },
+                  {
+                    "name": "length",
+                    "value": "256"
+                  },
+                  {
+                    "name": "optional",
+                    "value": "true"
+                  }
+                ],
+                "children": [
+                  {
+                    "name": "optionalConform"
+                  }
+                ]
+              },
+              {
+                "name": "attribute",
+                "attributes": [
+                  {
+                    "name": "side",
+                    "value": "server"
+                  },
+                  {
+                    "name": "code",
+                    "value": "14"
+                  },
+                  {
+                    "name": "name",
+                    "value": "ProductLabel"
+                  },
+                  {
+                    "name": "define",
+                    "value": "PRODUCT_LABEL"
+                  },
+                  {
+                    "name": "type",
+                    "value": "char_string"
+                  },
+                  {
+                    "name": "length",
+                    "value": "64"
+                  },
+                  {
+                    "name": "optional",
+                    "value": "true"
+                  }
+                ],
+                "children": [
+                  {
+                    "name": "optionalConform"
+                  }
+                ]
+              },
+              {
+                "name": "attribute",
+                "attributes": [
+                  {
+                    "name": "side",
+                    "value": "server"
+                  },
+                  {
+                    "name": "code",
+                    "value": "15"
+                  },
+                  {
+                    "name": "name",
+                    "value": "SerialNumber"
+                  },
+                  {
+                    "name": "define",
+                    "value": "SERIAL_NUMBER"
+                  },
+                  {
+                    "name": "type",
+                    "value": "char_string"
+                  },
+                  {
+                    "name": "length",
+                    "value": "32"
+                  },
+                  {
+                    "name": "optional",
+                    "value": "true"
+                  }
+                ],
+                "children": [
+                  {
+                    "name": "optionalConform"
+                  }
+                ]
+              },
+              {
+                "name": "attribute",
+                "attributes": [
+                  {
+                    "name": "side",
+                    "value": "server"
+                  },
+                  {
+                    "name": "code",
+                    "value": "16"
+                  },
+                  {
+                    "name": "name",
+                    "value": "LocalConfigDisabled"
+                  },
+                  {
+                    "name": "define",
+                    "value": "LOCAL_CONFIG_DISABLED"
+                  },
+                  {
+                    "name": "type",
+                    "value": "boolean"
+                  },
+                  {
+                    "name": "default",
+                    "value": "0"
+                  },
+                  {
+                    "name": "writable",
+                    "value": "true"
+                  },
+                  {
+                    "name": "optional",
+                    "value": "true"
+                  }
+                ],
+                "children": [
+                  {
+                    "name": "access",
+                    "attributes": [
+                      {
+                        "name": "op",
+                        "value": "write"
+                      },
+                      {
+                        "name": "privilege",
+                        "value": "manage"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "optionalConform"
+                  }
+                ]
+              },
+              {
+                "name": "attribute",
+                "attributes": [
+                  {
+                    "name": "side",
+                    "value": "server"
+                  },
+                  {
+                    "name": "code",
+                    "value": "17"
+                  },
+                  {
+                    "name": "name",
+                    "value": "Reachable"
+                  },
+                  {
+                    "name": "define",
+                    "value": "REACHABLE"
+                  },
+                  {
+                    "name": "type",
+                    "value": "boolean"
+                  },
+                  {
+                    "name": "default",
+                    "value": "1"
+                  },
+                  {
+                    "name": "optional",
+                    "value": "true"
+                  }
+                ],
+                "children": [
+                  {
+                    "name": "optionalConform"
+                  }
+                ]
+              },
+              {
+                "name": "attribute",
+                "attributes": [
+                  {
+                    "name": "side",
+                    "value": "server"
+                  },
+                  {
+                    "name": "code",
+                    "value": "18"
+                  },
+                  {
+                    "name": "name",
+                    "value": "UniqueID"
+                  },
+                  {
+                    "name": "define",
+                    "value": "UNIQUE_ID"
+                  },
+                  {
+                    "name": "type",
+                    "value": "char_string"
+                  },
+                  {
+                    "name": "length",
+                    "value": "32"
+                  },
+                  {
+                    "name": "optional",
+                    "value": "true"
+                  }
+                ],
+                "children": [
+                  {
+                    "name": "otherwiseConform",
+                    "children": [
+                      {
+                        "name": "mandatoryConform",
+                        "children": [
+                          {
+                            "name": "greaterOrEqualTerm",
+                            "children": [
+                              {
+                                "name": "revision",
+                                "attributes": [
+                                  {
+                                    "name": "value",
+                                    "value": "current"
+                                  }
+                                ]
+                              },
+                              {
+                                "name": "revision",
+                                "attributes": [
+                                  {
+                                    "name": "value",
+                                    "value": "4"
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "name": "optionalConform"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "attribute",
+                "attributes": [
+                  {
+                    "name": "side",
+                    "value": "server"
+                  },
+                  {
+                    "name": "code",
+                    "value": "19"
+                  },
+                  {
+                    "name": "name",
+                    "value": "CapabilityMinima"
+                  },
+                  {
+                    "name": "define",
+                    "value": "CAPABILITY_MINIMA"
+                  },
+                  {
+                    "name": "type",
+                    "value": "CapabilityMinimaStruct"
+                  }
+                ]
+              },
+              {
+                "name": "attribute",
+                "attributes": [
+                  {
+                    "name": "side",
+                    "value": "server"
+                  },
+                  {
+                    "name": "code",
+                    "value": "20"
+                  },
+                  {
+                    "name": "name",
+                    "value": "ProductAppearance"
+                  },
+                  {
+                    "name": "define",
+                    "value": "PRODUCT_APPEARANCE"
+                  },
+                  {
+                    "name": "type",
+                    "value": "ProductAppearanceStruct"
+                  },
+                  {
+                    "name": "optional",
+                    "value": "true"
+                  }
+                ],
+                "children": [
+                  {
+                    "name": "optionalConform",
+                    "children": [
+                      {
+                        "name": "greaterOrEqualTerm",
+                        "children": [
+                          {
+                            "name": "revision",
+                            "attributes": [
+                              {
+                                "name": "value",
+                                "value": "current"
+                              }
+                            ]
+                          },
+                          {
+                            "name": "revision",
+                            "attributes": [
+                              {
+                                "name": "value",
+                                "value": "2"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "attribute",
+                "attributes": [
+                  {
+                    "name": "side",
+                    "value": "server"
+                  },
+                  {
+                    "name": "code",
+                    "value": "21"
+                  },
+                  {
+                    "name": "name",
+                    "value": "SpecificationVersion"
+                  },
+                  {
+                    "name": "define",
+                    "value": "SPECIFICATION_VERSION"
+                  },
+                  {
+                    "name": "type",
+                    "value": "int32u"
+                  },
+                  {
+                    "name": "default",
+                    "value": "0"
+                  },
+                  {
+                    "name": "optional",
+                    "value": "true"
+                  }
+                ],
+                "children": [
+                  {
+                    "name": "mandatoryConform",
+                    "children": [
+                      {
+                        "name": "greaterOrEqualTerm",
+                        "children": [
+                          {
+                            "name": "revision",
+                            "attributes": [
+                              {
+                                "name": "value",
+                                "value": "current"
+                              }
+                            ]
+                          },
+                          {
+                            "name": "revision",
+                            "attributes": [
+                              {
+                                "name": "value",
+                                "value": "3"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "attribute",
+                "attributes": [
+                  {
+                    "name": "side",
+                    "value": "server"
+                  },
+                  {
+                    "name": "code",
+                    "value": "22"
+                  },
+                  {
+                    "name": "name",
+                    "value": "MaxPathsPerInvoke"
+                  },
+                  {
+                    "name": "define",
+                    "value": "MAX_PATHS_PER_INVOKE"
+                  },
+                  {
+                    "name": "type",
+                    "value": "int16u"
+                  },
+                  {
+                    "name": "min",
+                    "value": "1"
+                  },
+                  {
+                    "name": "default",
+                    "value": "1"
+                  },
+                  {
+                    "name": "optional",
+                    "value": "true"
+                  }
+                ],
+                "children": [
+                  {
+                    "name": "mandatoryConform",
+                    "children": [
+                      {
+                        "name": "greaterOrEqualTerm",
+                        "children": [
+                          {
+                            "name": "revision",
+                            "attributes": [
+                              {
+                                "name": "value",
+                                "value": "current"
+                              }
+                            ]
+                          },
+                          {
+                            "name": "revision",
+                            "attributes": [
+                              {
+                                "name": "value",
+                                "value": "3"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "attribute",
+                "attributes": [
+                  {
+                    "name": "code",
+                    "value": "0x0017"
+                  },
+                  {
+                    "name": "side",
+                    "value": "server"
+                  },
+                  {
+                    "name": "name",
+                    "value": "DeviceLocation"
+                  },
+                  {
+                    "name": "define",
+                    "value": "DEVICE_LOCATION"
+                  },
+                  {
+                    "name": "type",
+                    "value": "LocationDescriptorStruct"
+                  },
+                  {
+                    "name": "optional",
+                    "value": "true"
+                  },
+                  {
+                    "name": "isNullable",
+                    "value": "true"
+                  },
+                  {
+                    "name": "writable",
+                    "value": "true"
+                  }
+                ],
+                "children": [
+                  {
+                    "name": "access",
+                    "attributes": [
+                      {
+                        "name": "op",
+                        "value": "write"
+                      },
+                      {
+                        "name": "privilege",
+                        "value": "administer"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "otherwiseConform",
+                    "children": [
+                      {
+                        "name": "provisionalConform"
+                      },
+                      {
+                        "name": "optionalConform",
+                        "children": [
+                          {
+                            "name": "greaterOrEqualTerm",
+                            "children": [
+                              {
+                                "name": "revision",
+                                "attributes": [
+                                  {
+                                    "name": "value",
+                                    "value": "current"
+                                  }
+                                ]
+                              },
+                              {
+                                "name": "revision",
+                                "attributes": [
+                                  {
+                                    "name": "value",
+                                    "value": "6"
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "attribute",
+                "attributes": [
+                  {
+                    "name": "code",
+                    "value": "0x0018"
+                  },
+                  {
+                    "name": "side",
+                    "value": "server"
+                  },
+                  {
+                    "name": "name",
+                    "value": "ConfigurationVersion"
+                  },
+                  {
+                    "name": "define",
+                    "value": "CONFIGURATION_VERSION"
+                  },
+                  {
+                    "name": "type",
+                    "value": "int32u"
+                  },
+                  {
+                    "name": "min",
+                    "value": "1"
+                  },
+                  {
+                    "name": "default",
+                    "value": "1"
+                  },
+                  {
+                    "name": "optional",
+                    "value": "true"
+                  }
+                ],
+                "children": [
+                  {
+                    "name": "otherwiseConform",
+                    "children": [
+                      {
+                        "name": "provisionalConform"
+                      },
+                      {
+                        "name": "mandatoryConform",
+                        "children": [
+                          {
+                            "name": "greaterOrEqualTerm",
+                            "children": [
+                              {
+                                "name": "revision",
+                                "attributes": [
+                                  {
+                                    "name": "value",
+                                    "value": "current"
+                                  }
+                                ]
+                              },
+                              {
+                                "name": "revision",
+                                "attributes": [
+                                  {
+                                    "name": "value",
+                                    "value": "5"
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "event",
+                "attributes": [
+                  {
+                    "name": "side",
+                    "value": "server"
+                  },
+                  {
+                    "name": "code",
+                    "value": "0x00"
+                  },
+                  {
+                    "name": "name",
+                    "value": "StartUp"
+                  },
+                  {
+                    "name": "priority",
+                    "value": "critical"
+                  }
+                ],
+                "children": [
+                  {
+                    "name": "description",
+                    "text": "The StartUp event SHALL be generated by a Node as soon as reasonable after completing a boot or reboot process."
+                  },
+                  {
+                    "name": "field",
+                    "attributes": [
+                      {
+                        "name": "id",
+                        "value": "0"
+                      },
+                      {
+                        "name": "fieldId",
+                        "value": "0"
+                      },
+                      {
+                        "name": "name",
+                        "value": "SoftwareVersion"
+                      },
+                      {
+                        "name": "type",
+                        "value": "int32u"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "event",
+                "attributes": [
+                  {
+                    "name": "side",
+                    "value": "server"
+                  },
+                  {
+                    "name": "code",
+                    "value": "0x01"
+                  },
+                  {
+                    "name": "name",
+                    "value": "ShutDown"
+                  },
+                  {
+                    "name": "priority",
+                    "value": "critical"
+                  },
+                  {
+                    "name": "optional",
+                    "value": "true"
+                  }
+                ],
+                "children": [
+                  {
+                    "name": "description",
+                    "text": "The ShutDown event SHOULD be generated by a Node prior to any orderly shutdown sequence on a best-effort basis."
+                  },
+                  {
+                    "name": "optionalConform"
+                  }
+                ]
+              },
+              {
+                "name": "event",
+                "attributes": [
+                  {
+                    "name": "side",
+                    "value": "server"
+                  },
+                  {
+                    "name": "code",
+                    "value": "0x02"
+                  },
+                  {
+                    "name": "name",
+                    "value": "Leave"
+                  },
+                  {
+                    "name": "priority",
+                    "value": "info"
+                  },
+                  {
+                    "name": "optional",
+                    "value": "true"
+                  }
+                ],
+                "children": [
+                  {
+                    "name": "description",
+                    "text": "The Leave event SHOULD be generated by a Node prior to permanently leaving a given Fabric, such as when the RemoveFabric command is invoked for a given fabric, or triggered by factory reset or some other manufacturer specific action to disable or reset the operational data in the Node."
+                  },
+                  {
+                    "name": "field",
+                    "attributes": [
+                      {
+                        "name": "id",
+                        "value": "0"
+                      },
+                      {
+                        "name": "fieldId",
+                        "value": "0"
+                      },
+                      {
+                        "name": "name",
+                        "value": "FabricIndex"
+                      },
+                      {
+                        "name": "type",
+                        "value": "fabric_idx"
+                      },
+                      {
+                        "name": "min",
+                        "value": "1"
+                      },
+                      {
+                        "name": "max",
+                        "value": "254"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "optionalConform"
+                  }
+                ]
+              },
+              {
+                "name": "event",
+                "attributes": [
+                  {
+                    "name": "side",
+                    "value": "server"
+                  },
+                  {
+                    "name": "code",
+                    "value": "0x03"
+                  },
+                  {
+                    "name": "name",
+                    "value": "ReachableChanged"
+                  },
+                  {
+                    "name": "priority",
+                    "value": "info"
+                  },
+                  {
+                    "name": "optional",
+                    "value": "true"
+                  }
+                ],
+                "children": [
+                  {
+                    "name": "description",
+                    "text": "This event (when supported) SHALL be generated when there is a change in the Reachable attribute."
+                  },
+                  {
+                    "name": "field",
+                    "attributes": [
+                      {
+                        "name": "id",
+                        "value": "0"
+                      },
+                      {
+                        "name": "fieldId",
+                        "value": "0"
+                      },
+                      {
+                        "name": "name",
+                        "value": "ReachableNewValue"
+                      },
+                      {
+                        "name": "type",
+                        "value": "boolean"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "mandatoryConform",
+                    "children": [
+                      {
+                        "name": "attribute",
+                        "attributes": [
+                          {
+                            "name": "name",
+                            "value": "Reachable"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "clusters": [
@@ -43330,6 +45823,3253 @@
           }
         }
       ]
+    },
+    {
+      "id": 29,
+      "name": "Descriptor",
+      "revision": 3,
+      "source": "descriptor-cluster.xml",
+      "definition": {
+        "name": "cluster",
+        "children": [
+          {
+            "name": "domain",
+            "text": "General"
+          },
+          {
+            "name": "name",
+            "text": "Descriptor"
+          },
+          {
+            "name": "code",
+            "text": "0x001d"
+          },
+          {
+            "name": "define",
+            "text": "DESCRIPTOR_CLUSTER"
+          },
+          {
+            "name": "description",
+            "text": "The Descriptor Cluster is meant to replace the support from the Zigbee Device Object (ZDO) for describing a node, its endpoints and clusters."
+          },
+          {
+            "name": "client",
+            "attributes": [
+              {
+                "name": "init",
+                "value": "false"
+              },
+              {
+                "name": "tick",
+                "value": "false"
+              }
+            ],
+            "text": "true"
+          },
+          {
+            "name": "server",
+            "attributes": [
+              {
+                "name": "init",
+                "value": "false"
+              },
+              {
+                "name": "tick",
+                "value": "false"
+              }
+            ],
+            "text": "true"
+          },
+          {
+            "name": "globalAttribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "either"
+              },
+              {
+                "name": "code",
+                "value": "0xFFFD"
+              },
+              {
+                "name": "value",
+                "value": "3"
+              }
+            ]
+          },
+          {
+            "name": "features",
+            "children": [
+              {
+                "name": "feature",
+                "attributes": [
+                  {
+                    "name": "bit",
+                    "value": "0"
+                  },
+                  {
+                    "name": "code",
+                    "value": "TAGLIST"
+                  },
+                  {
+                    "name": "name",
+                    "value": "TagList"
+                  },
+                  {
+                    "name": "summary",
+                    "value": "The TagList attribute is present"
+                  }
+                ],
+                "children": [
+                  {
+                    "name": "describedConform"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "0x0000"
+              },
+              {
+                "name": "name",
+                "value": "DeviceTypeList"
+              },
+              {
+                "name": "define",
+                "value": "DEVICE_LIST"
+              },
+              {
+                "name": "type",
+                "value": "array"
+              },
+              {
+                "name": "entryType",
+                "value": "DeviceTypeStruct"
+              },
+              {
+                "name": "minLength",
+                "value": "1"
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "0x0001"
+              },
+              {
+                "name": "name",
+                "value": "ServerList"
+              },
+              {
+                "name": "define",
+                "value": "SERVER_LIST"
+              },
+              {
+                "name": "type",
+                "value": "array"
+              },
+              {
+                "name": "entryType",
+                "value": "cluster_id"
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "0x0002"
+              },
+              {
+                "name": "name",
+                "value": "ClientList"
+              },
+              {
+                "name": "define",
+                "value": "CLIENT_LIST"
+              },
+              {
+                "name": "type",
+                "value": "array"
+              },
+              {
+                "name": "entryType",
+                "value": "cluster_id"
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "0x0003"
+              },
+              {
+                "name": "name",
+                "value": "PartsList"
+              },
+              {
+                "name": "define",
+                "value": "PARTS_LIST"
+              },
+              {
+                "name": "type",
+                "value": "array"
+              },
+              {
+                "name": "entryType",
+                "value": "endpoint_no"
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "0x0004"
+              },
+              {
+                "name": "name",
+                "value": "TagList"
+              },
+              {
+                "name": "define",
+                "value": "TAG_LIST"
+              },
+              {
+                "name": "type",
+                "value": "array"
+              },
+              {
+                "name": "entryType",
+                "value": "SemanticTagStruct"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              },
+              {
+                "name": "length",
+                "value": "6"
+              },
+              {
+                "name": "minLength",
+                "value": "1"
+              }
+            ],
+            "children": [
+              {
+                "name": "mandatoryConform",
+                "children": [
+                  {
+                    "name": "feature",
+                    "attributes": [
+                      {
+                        "name": "name",
+                        "value": "TAGLIST"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "0x0005"
+              },
+              {
+                "name": "name",
+                "value": "EndpointUniqueID"
+              },
+              {
+                "name": "define",
+                "value": "END_POINT_UNIQUE_ID"
+              },
+              {
+                "name": "type",
+                "value": "char_string"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              },
+              {
+                "name": "length",
+                "value": "32"
+              }
+            ],
+            "children": [
+              {
+                "name": "otherwiseConform",
+                "children": [
+                  {
+                    "name": "provisionalConform"
+                  },
+                  {
+                    "name": "optionalConform"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "attributes": [
+        {
+          "id": 0,
+          "name": "DeviceTypeList",
+          "type": "array",
+          "writable": false,
+          "nullable": false,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "0x0000"
+              },
+              {
+                "name": "name",
+                "value": "DeviceTypeList"
+              },
+              {
+                "name": "define",
+                "value": "DEVICE_LIST"
+              },
+              {
+                "name": "type",
+                "value": "array"
+              },
+              {
+                "name": "entryType",
+                "value": "DeviceTypeStruct"
+              },
+              {
+                "name": "minLength",
+                "value": "1"
+              }
+            ]
+          }
+        },
+        {
+          "id": 1,
+          "name": "ServerList",
+          "type": "array",
+          "writable": false,
+          "nullable": false,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "0x0001"
+              },
+              {
+                "name": "name",
+                "value": "ServerList"
+              },
+              {
+                "name": "define",
+                "value": "SERVER_LIST"
+              },
+              {
+                "name": "type",
+                "value": "array"
+              },
+              {
+                "name": "entryType",
+                "value": "cluster_id"
+              }
+            ]
+          }
+        },
+        {
+          "id": 2,
+          "name": "ClientList",
+          "type": "array",
+          "writable": false,
+          "nullable": false,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "0x0002"
+              },
+              {
+                "name": "name",
+                "value": "ClientList"
+              },
+              {
+                "name": "define",
+                "value": "CLIENT_LIST"
+              },
+              {
+                "name": "type",
+                "value": "array"
+              },
+              {
+                "name": "entryType",
+                "value": "cluster_id"
+              }
+            ]
+          }
+        },
+        {
+          "id": 3,
+          "name": "PartsList",
+          "type": "array",
+          "writable": false,
+          "nullable": false,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "0x0003"
+              },
+              {
+                "name": "name",
+                "value": "PartsList"
+              },
+              {
+                "name": "define",
+                "value": "PARTS_LIST"
+              },
+              {
+                "name": "type",
+                "value": "array"
+              },
+              {
+                "name": "entryType",
+                "value": "endpoint_no"
+              }
+            ]
+          }
+        },
+        {
+          "id": 4,
+          "name": "TagList",
+          "type": "array",
+          "writable": false,
+          "nullable": false,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "0x0004"
+              },
+              {
+                "name": "name",
+                "value": "TagList"
+              },
+              {
+                "name": "define",
+                "value": "TAG_LIST"
+              },
+              {
+                "name": "type",
+                "value": "array"
+              },
+              {
+                "name": "entryType",
+                "value": "SemanticTagStruct"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              },
+              {
+                "name": "length",
+                "value": "6"
+              },
+              {
+                "name": "minLength",
+                "value": "1"
+              }
+            ],
+            "children": [
+              {
+                "name": "mandatoryConform",
+                "children": [
+                  {
+                    "name": "feature",
+                    "attributes": [
+                      {
+                        "name": "name",
+                        "value": "TAGLIST"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": 5,
+          "name": "EndpointUniqueID",
+          "type": "char_string",
+          "writable": false,
+          "nullable": false,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "0x0005"
+              },
+              {
+                "name": "name",
+                "value": "EndpointUniqueID"
+              },
+              {
+                "name": "define",
+                "value": "END_POINT_UNIQUE_ID"
+              },
+              {
+                "name": "type",
+                "value": "char_string"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              },
+              {
+                "name": "length",
+                "value": "32"
+              }
+            ],
+            "children": [
+              {
+                "name": "otherwiseConform",
+                "children": [
+                  {
+                    "name": "provisionalConform"
+                  },
+                  {
+                    "name": "optionalConform"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "commands": null
+    },
+    {
+      "id": 40,
+      "name": "Basic Information",
+      "revision": 6,
+      "source": "basic-information-cluster.xml",
+      "definition": {
+        "name": "cluster",
+        "children": [
+          {
+            "name": "name",
+            "text": "Basic Information"
+          },
+          {
+            "name": "domain",
+            "text": "General"
+          },
+          {
+            "name": "code",
+            "text": "0x0028"
+          },
+          {
+            "name": "define",
+            "text": "BASIC_INFORMATION_CLUSTER"
+          },
+          {
+            "name": "description",
+            "text": "This cluster provides attributes and events for determining basic information about Nodes, which supports both\n      Commissioning and operational determination of Node characteristics, such as Vendor ID, Product ID and serial number,\n      which apply to the whole Node. Also allows setting user device information such as location."
+          },
+          {
+            "name": "client",
+            "attributes": [
+              {
+                "name": "init",
+                "value": "false"
+              },
+              {
+                "name": "tick",
+                "value": "false"
+              }
+            ],
+            "text": "true"
+          },
+          {
+            "name": "server",
+            "attributes": [
+              {
+                "name": "init",
+                "value": "false"
+              },
+              {
+                "name": "tick",
+                "value": "false"
+              }
+            ],
+            "text": "true"
+          },
+          {
+            "name": "globalAttribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "either"
+              },
+              {
+                "name": "code",
+                "value": "0xFFFD"
+              },
+              {
+                "name": "value",
+                "value": "6"
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "0"
+              },
+              {
+                "name": "name",
+                "value": "DataModelRevision"
+              },
+              {
+                "name": "define",
+                "value": "DATA_MODEL_REVISION"
+              },
+              {
+                "name": "type",
+                "value": "int16u"
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "1"
+              },
+              {
+                "name": "name",
+                "value": "VendorName"
+              },
+              {
+                "name": "define",
+                "value": "VENDOR_NAME"
+              },
+              {
+                "name": "type",
+                "value": "char_string"
+              },
+              {
+                "name": "length",
+                "value": "32"
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "2"
+              },
+              {
+                "name": "name",
+                "value": "VendorID"
+              },
+              {
+                "name": "define",
+                "value": "VENDOR_ID"
+              },
+              {
+                "name": "type",
+                "value": "vendor_id"
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "3"
+              },
+              {
+                "name": "name",
+                "value": "ProductName"
+              },
+              {
+                "name": "define",
+                "value": "PRODUCT_NAME"
+              },
+              {
+                "name": "type",
+                "value": "char_string"
+              },
+              {
+                "name": "length",
+                "value": "32"
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "4"
+              },
+              {
+                "name": "name",
+                "value": "ProductID"
+              },
+              {
+                "name": "define",
+                "value": "PRODUCT_ID"
+              },
+              {
+                "name": "type",
+                "value": "int16u"
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "5"
+              },
+              {
+                "name": "name",
+                "value": "NodeLabel"
+              },
+              {
+                "name": "define",
+                "value": "NODE_LABEL"
+              },
+              {
+                "name": "type",
+                "value": "char_string"
+              },
+              {
+                "name": "length",
+                "value": "32"
+              },
+              {
+                "name": "writable",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "access",
+                "attributes": [
+                  {
+                    "name": "op",
+                    "value": "write"
+                  },
+                  {
+                    "name": "privilege",
+                    "value": "manage"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "6"
+              },
+              {
+                "name": "name",
+                "value": "Location"
+              },
+              {
+                "name": "define",
+                "value": "LOCATION"
+              },
+              {
+                "name": "type",
+                "value": "char_string"
+              },
+              {
+                "name": "length",
+                "value": "2"
+              },
+              {
+                "name": "writable",
+                "value": "true"
+              },
+              {
+                "name": "minLength",
+                "value": "2"
+              }
+            ],
+            "children": [
+              {
+                "name": "access",
+                "attributes": [
+                  {
+                    "name": "op",
+                    "value": "write"
+                  },
+                  {
+                    "name": "privilege",
+                    "value": "administer"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "7"
+              },
+              {
+                "name": "name",
+                "value": "HardwareVersion"
+              },
+              {
+                "name": "define",
+                "value": "HARDWARE_VERSION"
+              },
+              {
+                "name": "type",
+                "value": "int16u"
+              },
+              {
+                "name": "default",
+                "value": "0"
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "8"
+              },
+              {
+                "name": "name",
+                "value": "HardwareVersionString"
+              },
+              {
+                "name": "define",
+                "value": "HARDWARE_VERSION_STRING"
+              },
+              {
+                "name": "type",
+                "value": "char_string"
+              },
+              {
+                "name": "minLength",
+                "value": "1"
+              },
+              {
+                "name": "length",
+                "value": "64"
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "9"
+              },
+              {
+                "name": "name",
+                "value": "SoftwareVersion"
+              },
+              {
+                "name": "define",
+                "value": "SOFTWARE_VERSION"
+              },
+              {
+                "name": "type",
+                "value": "int32u"
+              },
+              {
+                "name": "default",
+                "value": "0"
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "10"
+              },
+              {
+                "name": "name",
+                "value": "SoftwareVersionString"
+              },
+              {
+                "name": "define",
+                "value": "SOFTWARE_VERSION_STRING"
+              },
+              {
+                "name": "type",
+                "value": "char_string"
+              },
+              {
+                "name": "minLength",
+                "value": "1"
+              },
+              {
+                "name": "length",
+                "value": "64"
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "11"
+              },
+              {
+                "name": "name",
+                "value": "ManufacturingDate"
+              },
+              {
+                "name": "define",
+                "value": "MANUFACTURING_DATE"
+              },
+              {
+                "name": "type",
+                "value": "char_string"
+              },
+              {
+                "name": "minLength",
+                "value": "8"
+              },
+              {
+                "name": "length",
+                "value": "16"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "optionalConform"
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "12"
+              },
+              {
+                "name": "name",
+                "value": "PartNumber"
+              },
+              {
+                "name": "define",
+                "value": "PART_NUMBER"
+              },
+              {
+                "name": "type",
+                "value": "char_string"
+              },
+              {
+                "name": "length",
+                "value": "32"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "optionalConform"
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "13"
+              },
+              {
+                "name": "name",
+                "value": "ProductURL"
+              },
+              {
+                "name": "define",
+                "value": "PRODUCT_URL"
+              },
+              {
+                "name": "type",
+                "value": "long_char_string"
+              },
+              {
+                "name": "length",
+                "value": "256"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "optionalConform"
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "14"
+              },
+              {
+                "name": "name",
+                "value": "ProductLabel"
+              },
+              {
+                "name": "define",
+                "value": "PRODUCT_LABEL"
+              },
+              {
+                "name": "type",
+                "value": "char_string"
+              },
+              {
+                "name": "length",
+                "value": "64"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "optionalConform"
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "15"
+              },
+              {
+                "name": "name",
+                "value": "SerialNumber"
+              },
+              {
+                "name": "define",
+                "value": "SERIAL_NUMBER"
+              },
+              {
+                "name": "type",
+                "value": "char_string"
+              },
+              {
+                "name": "length",
+                "value": "32"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "optionalConform"
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "16"
+              },
+              {
+                "name": "name",
+                "value": "LocalConfigDisabled"
+              },
+              {
+                "name": "define",
+                "value": "LOCAL_CONFIG_DISABLED"
+              },
+              {
+                "name": "type",
+                "value": "boolean"
+              },
+              {
+                "name": "default",
+                "value": "0"
+              },
+              {
+                "name": "writable",
+                "value": "true"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "access",
+                "attributes": [
+                  {
+                    "name": "op",
+                    "value": "write"
+                  },
+                  {
+                    "name": "privilege",
+                    "value": "manage"
+                  }
+                ]
+              },
+              {
+                "name": "optionalConform"
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "17"
+              },
+              {
+                "name": "name",
+                "value": "Reachable"
+              },
+              {
+                "name": "define",
+                "value": "REACHABLE"
+              },
+              {
+                "name": "type",
+                "value": "boolean"
+              },
+              {
+                "name": "default",
+                "value": "1"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "optionalConform"
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "18"
+              },
+              {
+                "name": "name",
+                "value": "UniqueID"
+              },
+              {
+                "name": "define",
+                "value": "UNIQUE_ID"
+              },
+              {
+                "name": "type",
+                "value": "char_string"
+              },
+              {
+                "name": "length",
+                "value": "32"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "otherwiseConform",
+                "children": [
+                  {
+                    "name": "mandatoryConform",
+                    "children": [
+                      {
+                        "name": "greaterOrEqualTerm",
+                        "children": [
+                          {
+                            "name": "revision",
+                            "attributes": [
+                              {
+                                "name": "value",
+                                "value": "current"
+                              }
+                            ]
+                          },
+                          {
+                            "name": "revision",
+                            "attributes": [
+                              {
+                                "name": "value",
+                                "value": "4"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "name": "optionalConform"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "19"
+              },
+              {
+                "name": "name",
+                "value": "CapabilityMinima"
+              },
+              {
+                "name": "define",
+                "value": "CAPABILITY_MINIMA"
+              },
+              {
+                "name": "type",
+                "value": "CapabilityMinimaStruct"
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "20"
+              },
+              {
+                "name": "name",
+                "value": "ProductAppearance"
+              },
+              {
+                "name": "define",
+                "value": "PRODUCT_APPEARANCE"
+              },
+              {
+                "name": "type",
+                "value": "ProductAppearanceStruct"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "optionalConform",
+                "children": [
+                  {
+                    "name": "greaterOrEqualTerm",
+                    "children": [
+                      {
+                        "name": "revision",
+                        "attributes": [
+                          {
+                            "name": "value",
+                            "value": "current"
+                          }
+                        ]
+                      },
+                      {
+                        "name": "revision",
+                        "attributes": [
+                          {
+                            "name": "value",
+                            "value": "2"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "21"
+              },
+              {
+                "name": "name",
+                "value": "SpecificationVersion"
+              },
+              {
+                "name": "define",
+                "value": "SPECIFICATION_VERSION"
+              },
+              {
+                "name": "type",
+                "value": "int32u"
+              },
+              {
+                "name": "default",
+                "value": "0"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "mandatoryConform",
+                "children": [
+                  {
+                    "name": "greaterOrEqualTerm",
+                    "children": [
+                      {
+                        "name": "revision",
+                        "attributes": [
+                          {
+                            "name": "value",
+                            "value": "current"
+                          }
+                        ]
+                      },
+                      {
+                        "name": "revision",
+                        "attributes": [
+                          {
+                            "name": "value",
+                            "value": "3"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "22"
+              },
+              {
+                "name": "name",
+                "value": "MaxPathsPerInvoke"
+              },
+              {
+                "name": "define",
+                "value": "MAX_PATHS_PER_INVOKE"
+              },
+              {
+                "name": "type",
+                "value": "int16u"
+              },
+              {
+                "name": "min",
+                "value": "1"
+              },
+              {
+                "name": "default",
+                "value": "1"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "mandatoryConform",
+                "children": [
+                  {
+                    "name": "greaterOrEqualTerm",
+                    "children": [
+                      {
+                        "name": "revision",
+                        "attributes": [
+                          {
+                            "name": "value",
+                            "value": "current"
+                          }
+                        ]
+                      },
+                      {
+                        "name": "revision",
+                        "attributes": [
+                          {
+                            "name": "value",
+                            "value": "3"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "code",
+                "value": "0x0017"
+              },
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "name",
+                "value": "DeviceLocation"
+              },
+              {
+                "name": "define",
+                "value": "DEVICE_LOCATION"
+              },
+              {
+                "name": "type",
+                "value": "LocationDescriptorStruct"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              },
+              {
+                "name": "isNullable",
+                "value": "true"
+              },
+              {
+                "name": "writable",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "access",
+                "attributes": [
+                  {
+                    "name": "op",
+                    "value": "write"
+                  },
+                  {
+                    "name": "privilege",
+                    "value": "administer"
+                  }
+                ]
+              },
+              {
+                "name": "otherwiseConform",
+                "children": [
+                  {
+                    "name": "provisionalConform"
+                  },
+                  {
+                    "name": "optionalConform",
+                    "children": [
+                      {
+                        "name": "greaterOrEqualTerm",
+                        "children": [
+                          {
+                            "name": "revision",
+                            "attributes": [
+                              {
+                                "name": "value",
+                                "value": "current"
+                              }
+                            ]
+                          },
+                          {
+                            "name": "revision",
+                            "attributes": [
+                              {
+                                "name": "value",
+                                "value": "6"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "code",
+                "value": "0x0018"
+              },
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "name",
+                "value": "ConfigurationVersion"
+              },
+              {
+                "name": "define",
+                "value": "CONFIGURATION_VERSION"
+              },
+              {
+                "name": "type",
+                "value": "int32u"
+              },
+              {
+                "name": "min",
+                "value": "1"
+              },
+              {
+                "name": "default",
+                "value": "1"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "otherwiseConform",
+                "children": [
+                  {
+                    "name": "provisionalConform"
+                  },
+                  {
+                    "name": "mandatoryConform",
+                    "children": [
+                      {
+                        "name": "greaterOrEqualTerm",
+                        "children": [
+                          {
+                            "name": "revision",
+                            "attributes": [
+                              {
+                                "name": "value",
+                                "value": "current"
+                              }
+                            ]
+                          },
+                          {
+                            "name": "revision",
+                            "attributes": [
+                              {
+                                "name": "value",
+                                "value": "5"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "event",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "0x00"
+              },
+              {
+                "name": "name",
+                "value": "StartUp"
+              },
+              {
+                "name": "priority",
+                "value": "critical"
+              }
+            ],
+            "children": [
+              {
+                "name": "description",
+                "text": "The StartUp event SHALL be generated by a Node as soon as reasonable after completing a boot or reboot process."
+              },
+              {
+                "name": "field",
+                "attributes": [
+                  {
+                    "name": "id",
+                    "value": "0"
+                  },
+                  {
+                    "name": "fieldId",
+                    "value": "0"
+                  },
+                  {
+                    "name": "name",
+                    "value": "SoftwareVersion"
+                  },
+                  {
+                    "name": "type",
+                    "value": "int32u"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "event",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "0x01"
+              },
+              {
+                "name": "name",
+                "value": "ShutDown"
+              },
+              {
+                "name": "priority",
+                "value": "critical"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "description",
+                "text": "The ShutDown event SHOULD be generated by a Node prior to any orderly shutdown sequence on a best-effort basis."
+              },
+              {
+                "name": "optionalConform"
+              }
+            ]
+          },
+          {
+            "name": "event",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "0x02"
+              },
+              {
+                "name": "name",
+                "value": "Leave"
+              },
+              {
+                "name": "priority",
+                "value": "info"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "description",
+                "text": "The Leave event SHOULD be generated by a Node prior to permanently leaving a given Fabric, such as when the RemoveFabric command is invoked for a given fabric, or triggered by factory reset or some other manufacturer specific action to disable or reset the operational data in the Node."
+              },
+              {
+                "name": "field",
+                "attributes": [
+                  {
+                    "name": "id",
+                    "value": "0"
+                  },
+                  {
+                    "name": "fieldId",
+                    "value": "0"
+                  },
+                  {
+                    "name": "name",
+                    "value": "FabricIndex"
+                  },
+                  {
+                    "name": "type",
+                    "value": "fabric_idx"
+                  },
+                  {
+                    "name": "min",
+                    "value": "1"
+                  },
+                  {
+                    "name": "max",
+                    "value": "254"
+                  }
+                ]
+              },
+              {
+                "name": "optionalConform"
+              }
+            ]
+          },
+          {
+            "name": "event",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "0x03"
+              },
+              {
+                "name": "name",
+                "value": "ReachableChanged"
+              },
+              {
+                "name": "priority",
+                "value": "info"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "description",
+                "text": "This event (when supported) SHALL be generated when there is a change in the Reachable attribute."
+              },
+              {
+                "name": "field",
+                "attributes": [
+                  {
+                    "name": "id",
+                    "value": "0"
+                  },
+                  {
+                    "name": "fieldId",
+                    "value": "0"
+                  },
+                  {
+                    "name": "name",
+                    "value": "ReachableNewValue"
+                  },
+                  {
+                    "name": "type",
+                    "value": "boolean"
+                  }
+                ]
+              },
+              {
+                "name": "mandatoryConform",
+                "children": [
+                  {
+                    "name": "attribute",
+                    "attributes": [
+                      {
+                        "name": "name",
+                        "value": "Reachable"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "attributes": [
+        {
+          "id": 0,
+          "name": "DataModelRevision",
+          "type": "int16u",
+          "writable": false,
+          "nullable": false,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "0"
+              },
+              {
+                "name": "name",
+                "value": "DataModelRevision"
+              },
+              {
+                "name": "define",
+                "value": "DATA_MODEL_REVISION"
+              },
+              {
+                "name": "type",
+                "value": "int16u"
+              }
+            ]
+          }
+        },
+        {
+          "id": 1,
+          "name": "VendorName",
+          "type": "char_string",
+          "writable": false,
+          "nullable": false,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "1"
+              },
+              {
+                "name": "name",
+                "value": "VendorName"
+              },
+              {
+                "name": "define",
+                "value": "VENDOR_NAME"
+              },
+              {
+                "name": "type",
+                "value": "char_string"
+              },
+              {
+                "name": "length",
+                "value": "32"
+              }
+            ]
+          }
+        },
+        {
+          "id": 2,
+          "name": "VendorID",
+          "type": "vendor_id",
+          "writable": false,
+          "nullable": false,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "2"
+              },
+              {
+                "name": "name",
+                "value": "VendorID"
+              },
+              {
+                "name": "define",
+                "value": "VENDOR_ID"
+              },
+              {
+                "name": "type",
+                "value": "vendor_id"
+              }
+            ]
+          }
+        },
+        {
+          "id": 3,
+          "name": "ProductName",
+          "type": "char_string",
+          "writable": false,
+          "nullable": false,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "3"
+              },
+              {
+                "name": "name",
+                "value": "ProductName"
+              },
+              {
+                "name": "define",
+                "value": "PRODUCT_NAME"
+              },
+              {
+                "name": "type",
+                "value": "char_string"
+              },
+              {
+                "name": "length",
+                "value": "32"
+              }
+            ]
+          }
+        },
+        {
+          "id": 4,
+          "name": "ProductID",
+          "type": "int16u",
+          "writable": false,
+          "nullable": false,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "4"
+              },
+              {
+                "name": "name",
+                "value": "ProductID"
+              },
+              {
+                "name": "define",
+                "value": "PRODUCT_ID"
+              },
+              {
+                "name": "type",
+                "value": "int16u"
+              }
+            ]
+          }
+        },
+        {
+          "id": 5,
+          "name": "NodeLabel",
+          "type": "char_string",
+          "writable": true,
+          "nullable": false,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "5"
+              },
+              {
+                "name": "name",
+                "value": "NodeLabel"
+              },
+              {
+                "name": "define",
+                "value": "NODE_LABEL"
+              },
+              {
+                "name": "type",
+                "value": "char_string"
+              },
+              {
+                "name": "length",
+                "value": "32"
+              },
+              {
+                "name": "writable",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "access",
+                "attributes": [
+                  {
+                    "name": "op",
+                    "value": "write"
+                  },
+                  {
+                    "name": "privilege",
+                    "value": "manage"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": 6,
+          "name": "Location",
+          "type": "char_string",
+          "writable": true,
+          "nullable": false,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "6"
+              },
+              {
+                "name": "name",
+                "value": "Location"
+              },
+              {
+                "name": "define",
+                "value": "LOCATION"
+              },
+              {
+                "name": "type",
+                "value": "char_string"
+              },
+              {
+                "name": "length",
+                "value": "2"
+              },
+              {
+                "name": "writable",
+                "value": "true"
+              },
+              {
+                "name": "minLength",
+                "value": "2"
+              }
+            ],
+            "children": [
+              {
+                "name": "access",
+                "attributes": [
+                  {
+                    "name": "op",
+                    "value": "write"
+                  },
+                  {
+                    "name": "privilege",
+                    "value": "administer"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": 7,
+          "name": "HardwareVersion",
+          "type": "int16u",
+          "writable": false,
+          "nullable": false,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "7"
+              },
+              {
+                "name": "name",
+                "value": "HardwareVersion"
+              },
+              {
+                "name": "define",
+                "value": "HARDWARE_VERSION"
+              },
+              {
+                "name": "type",
+                "value": "int16u"
+              },
+              {
+                "name": "default",
+                "value": "0"
+              }
+            ]
+          }
+        },
+        {
+          "id": 8,
+          "name": "HardwareVersionString",
+          "type": "char_string",
+          "writable": false,
+          "nullable": false,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "8"
+              },
+              {
+                "name": "name",
+                "value": "HardwareVersionString"
+              },
+              {
+                "name": "define",
+                "value": "HARDWARE_VERSION_STRING"
+              },
+              {
+                "name": "type",
+                "value": "char_string"
+              },
+              {
+                "name": "minLength",
+                "value": "1"
+              },
+              {
+                "name": "length",
+                "value": "64"
+              }
+            ]
+          }
+        },
+        {
+          "id": 9,
+          "name": "SoftwareVersion",
+          "type": "int32u",
+          "writable": false,
+          "nullable": false,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "9"
+              },
+              {
+                "name": "name",
+                "value": "SoftwareVersion"
+              },
+              {
+                "name": "define",
+                "value": "SOFTWARE_VERSION"
+              },
+              {
+                "name": "type",
+                "value": "int32u"
+              },
+              {
+                "name": "default",
+                "value": "0"
+              }
+            ]
+          }
+        },
+        {
+          "id": 10,
+          "name": "SoftwareVersionString",
+          "type": "char_string",
+          "writable": false,
+          "nullable": false,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "10"
+              },
+              {
+                "name": "name",
+                "value": "SoftwareVersionString"
+              },
+              {
+                "name": "define",
+                "value": "SOFTWARE_VERSION_STRING"
+              },
+              {
+                "name": "type",
+                "value": "char_string"
+              },
+              {
+                "name": "minLength",
+                "value": "1"
+              },
+              {
+                "name": "length",
+                "value": "64"
+              }
+            ]
+          }
+        },
+        {
+          "id": 11,
+          "name": "ManufacturingDate",
+          "type": "char_string",
+          "writable": false,
+          "nullable": false,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "11"
+              },
+              {
+                "name": "name",
+                "value": "ManufacturingDate"
+              },
+              {
+                "name": "define",
+                "value": "MANUFACTURING_DATE"
+              },
+              {
+                "name": "type",
+                "value": "char_string"
+              },
+              {
+                "name": "minLength",
+                "value": "8"
+              },
+              {
+                "name": "length",
+                "value": "16"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "optionalConform"
+              }
+            ]
+          }
+        },
+        {
+          "id": 12,
+          "name": "PartNumber",
+          "type": "char_string",
+          "writable": false,
+          "nullable": false,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "12"
+              },
+              {
+                "name": "name",
+                "value": "PartNumber"
+              },
+              {
+                "name": "define",
+                "value": "PART_NUMBER"
+              },
+              {
+                "name": "type",
+                "value": "char_string"
+              },
+              {
+                "name": "length",
+                "value": "32"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "optionalConform"
+              }
+            ]
+          }
+        },
+        {
+          "id": 13,
+          "name": "ProductURL",
+          "type": "long_char_string",
+          "writable": false,
+          "nullable": false,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "13"
+              },
+              {
+                "name": "name",
+                "value": "ProductURL"
+              },
+              {
+                "name": "define",
+                "value": "PRODUCT_URL"
+              },
+              {
+                "name": "type",
+                "value": "long_char_string"
+              },
+              {
+                "name": "length",
+                "value": "256"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "optionalConform"
+              }
+            ]
+          }
+        },
+        {
+          "id": 14,
+          "name": "ProductLabel",
+          "type": "char_string",
+          "writable": false,
+          "nullable": false,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "14"
+              },
+              {
+                "name": "name",
+                "value": "ProductLabel"
+              },
+              {
+                "name": "define",
+                "value": "PRODUCT_LABEL"
+              },
+              {
+                "name": "type",
+                "value": "char_string"
+              },
+              {
+                "name": "length",
+                "value": "64"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "optionalConform"
+              }
+            ]
+          }
+        },
+        {
+          "id": 15,
+          "name": "SerialNumber",
+          "type": "char_string",
+          "writable": false,
+          "nullable": false,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "15"
+              },
+              {
+                "name": "name",
+                "value": "SerialNumber"
+              },
+              {
+                "name": "define",
+                "value": "SERIAL_NUMBER"
+              },
+              {
+                "name": "type",
+                "value": "char_string"
+              },
+              {
+                "name": "length",
+                "value": "32"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "optionalConform"
+              }
+            ]
+          }
+        },
+        {
+          "id": 16,
+          "name": "LocalConfigDisabled",
+          "type": "boolean",
+          "writable": true,
+          "nullable": false,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "16"
+              },
+              {
+                "name": "name",
+                "value": "LocalConfigDisabled"
+              },
+              {
+                "name": "define",
+                "value": "LOCAL_CONFIG_DISABLED"
+              },
+              {
+                "name": "type",
+                "value": "boolean"
+              },
+              {
+                "name": "default",
+                "value": "0"
+              },
+              {
+                "name": "writable",
+                "value": "true"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "access",
+                "attributes": [
+                  {
+                    "name": "op",
+                    "value": "write"
+                  },
+                  {
+                    "name": "privilege",
+                    "value": "manage"
+                  }
+                ]
+              },
+              {
+                "name": "optionalConform"
+              }
+            ]
+          }
+        },
+        {
+          "id": 17,
+          "name": "Reachable",
+          "type": "boolean",
+          "writable": false,
+          "nullable": false,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "17"
+              },
+              {
+                "name": "name",
+                "value": "Reachable"
+              },
+              {
+                "name": "define",
+                "value": "REACHABLE"
+              },
+              {
+                "name": "type",
+                "value": "boolean"
+              },
+              {
+                "name": "default",
+                "value": "1"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "optionalConform"
+              }
+            ]
+          }
+        },
+        {
+          "id": 18,
+          "name": "UniqueID",
+          "type": "char_string",
+          "writable": false,
+          "nullable": false,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "18"
+              },
+              {
+                "name": "name",
+                "value": "UniqueID"
+              },
+              {
+                "name": "define",
+                "value": "UNIQUE_ID"
+              },
+              {
+                "name": "type",
+                "value": "char_string"
+              },
+              {
+                "name": "length",
+                "value": "32"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "otherwiseConform",
+                "children": [
+                  {
+                    "name": "mandatoryConform",
+                    "children": [
+                      {
+                        "name": "greaterOrEqualTerm",
+                        "children": [
+                          {
+                            "name": "revision",
+                            "attributes": [
+                              {
+                                "name": "value",
+                                "value": "current"
+                              }
+                            ]
+                          },
+                          {
+                            "name": "revision",
+                            "attributes": [
+                              {
+                                "name": "value",
+                                "value": "4"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "name": "optionalConform"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": 19,
+          "name": "CapabilityMinima",
+          "type": "CapabilityMinimaStruct",
+          "writable": false,
+          "nullable": false,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "19"
+              },
+              {
+                "name": "name",
+                "value": "CapabilityMinima"
+              },
+              {
+                "name": "define",
+                "value": "CAPABILITY_MINIMA"
+              },
+              {
+                "name": "type",
+                "value": "CapabilityMinimaStruct"
+              }
+            ]
+          }
+        },
+        {
+          "id": 20,
+          "name": "ProductAppearance",
+          "type": "ProductAppearanceStruct",
+          "writable": false,
+          "nullable": false,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "20"
+              },
+              {
+                "name": "name",
+                "value": "ProductAppearance"
+              },
+              {
+                "name": "define",
+                "value": "PRODUCT_APPEARANCE"
+              },
+              {
+                "name": "type",
+                "value": "ProductAppearanceStruct"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "optionalConform",
+                "children": [
+                  {
+                    "name": "greaterOrEqualTerm",
+                    "children": [
+                      {
+                        "name": "revision",
+                        "attributes": [
+                          {
+                            "name": "value",
+                            "value": "current"
+                          }
+                        ]
+                      },
+                      {
+                        "name": "revision",
+                        "attributes": [
+                          {
+                            "name": "value",
+                            "value": "2"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": 21,
+          "name": "SpecificationVersion",
+          "type": "int32u",
+          "writable": false,
+          "nullable": false,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "21"
+              },
+              {
+                "name": "name",
+                "value": "SpecificationVersion"
+              },
+              {
+                "name": "define",
+                "value": "SPECIFICATION_VERSION"
+              },
+              {
+                "name": "type",
+                "value": "int32u"
+              },
+              {
+                "name": "default",
+                "value": "0"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "mandatoryConform",
+                "children": [
+                  {
+                    "name": "greaterOrEqualTerm",
+                    "children": [
+                      {
+                        "name": "revision",
+                        "attributes": [
+                          {
+                            "name": "value",
+                            "value": "current"
+                          }
+                        ]
+                      },
+                      {
+                        "name": "revision",
+                        "attributes": [
+                          {
+                            "name": "value",
+                            "value": "3"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": 22,
+          "name": "MaxPathsPerInvoke",
+          "type": "int16u",
+          "writable": false,
+          "nullable": false,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "code",
+                "value": "22"
+              },
+              {
+                "name": "name",
+                "value": "MaxPathsPerInvoke"
+              },
+              {
+                "name": "define",
+                "value": "MAX_PATHS_PER_INVOKE"
+              },
+              {
+                "name": "type",
+                "value": "int16u"
+              },
+              {
+                "name": "min",
+                "value": "1"
+              },
+              {
+                "name": "default",
+                "value": "1"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "mandatoryConform",
+                "children": [
+                  {
+                    "name": "greaterOrEqualTerm",
+                    "children": [
+                      {
+                        "name": "revision",
+                        "attributes": [
+                          {
+                            "name": "value",
+                            "value": "current"
+                          }
+                        ]
+                      },
+                      {
+                        "name": "revision",
+                        "attributes": [
+                          {
+                            "name": "value",
+                            "value": "3"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": 23,
+          "name": "DeviceLocation",
+          "type": "LocationDescriptorStruct",
+          "writable": true,
+          "nullable": true,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "code",
+                "value": "0x0017"
+              },
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "name",
+                "value": "DeviceLocation"
+              },
+              {
+                "name": "define",
+                "value": "DEVICE_LOCATION"
+              },
+              {
+                "name": "type",
+                "value": "LocationDescriptorStruct"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              },
+              {
+                "name": "isNullable",
+                "value": "true"
+              },
+              {
+                "name": "writable",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "access",
+                "attributes": [
+                  {
+                    "name": "op",
+                    "value": "write"
+                  },
+                  {
+                    "name": "privilege",
+                    "value": "administer"
+                  }
+                ]
+              },
+              {
+                "name": "otherwiseConform",
+                "children": [
+                  {
+                    "name": "provisionalConform"
+                  },
+                  {
+                    "name": "optionalConform",
+                    "children": [
+                      {
+                        "name": "greaterOrEqualTerm",
+                        "children": [
+                          {
+                            "name": "revision",
+                            "attributes": [
+                              {
+                                "name": "value",
+                                "value": "current"
+                              }
+                            ]
+                          },
+                          {
+                            "name": "revision",
+                            "attributes": [
+                              {
+                                "name": "value",
+                                "value": "6"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": 24,
+          "name": "ConfigurationVersion",
+          "type": "int32u",
+          "writable": false,
+          "nullable": false,
+          "definition": {
+            "name": "attribute",
+            "attributes": [
+              {
+                "name": "code",
+                "value": "0x0018"
+              },
+              {
+                "name": "side",
+                "value": "server"
+              },
+              {
+                "name": "name",
+                "value": "ConfigurationVersion"
+              },
+              {
+                "name": "define",
+                "value": "CONFIGURATION_VERSION"
+              },
+              {
+                "name": "type",
+                "value": "int32u"
+              },
+              {
+                "name": "min",
+                "value": "1"
+              },
+              {
+                "name": "default",
+                "value": "1"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              }
+            ],
+            "children": [
+              {
+                "name": "otherwiseConform",
+                "children": [
+                  {
+                    "name": "provisionalConform"
+                  },
+                  {
+                    "name": "mandatoryConform",
+                    "children": [
+                      {
+                        "name": "greaterOrEqualTerm",
+                        "children": [
+                          {
+                            "name": "revision",
+                            "attributes": [
+                              {
+                                "name": "value",
+                                "value": "current"
+                              }
+                            ]
+                          },
+                          {
+                            "name": "revision",
+                            "attributes": [
+                              {
+                                "name": "value",
+                                "value": "5"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "commands": null
     },
     {
       "id": 257,
@@ -91742,6 +97482,771 @@
               {
                 "name": "mask",
                 "value": "0x01"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "DeviceTypeStruct",
+      "kind": "struct",
+      "source": "descriptor-cluster.xml",
+      "clusters": [
+        29
+      ],
+      "definition": {
+        "name": "struct",
+        "attributes": [
+          {
+            "name": "name",
+            "value": "DeviceTypeStruct"
+          }
+        ],
+        "children": [
+          {
+            "name": "cluster",
+            "attributes": [
+              {
+                "name": "code",
+                "value": "0x001d"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "fieldId",
+                "value": "0"
+              },
+              {
+                "name": "name",
+                "value": "DeviceType"
+              },
+              {
+                "name": "type",
+                "value": "devtype_id"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "fieldId",
+                "value": "1"
+              },
+              {
+                "name": "name",
+                "value": "Revision"
+              },
+              {
+                "name": "type",
+                "value": "int16u"
+              },
+              {
+                "name": "min",
+                "value": "1"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "CapabilityMinimaStruct",
+      "kind": "struct",
+      "source": "basic-information-cluster.xml",
+      "clusters": [
+        40
+      ],
+      "definition": {
+        "name": "struct",
+        "attributes": [
+          {
+            "name": "name",
+            "value": "CapabilityMinimaStruct"
+          }
+        ],
+        "children": [
+          {
+            "name": "cluster",
+            "attributes": [
+              {
+                "name": "code",
+                "value": "0x0028"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "fieldId",
+                "value": "0"
+              },
+              {
+                "name": "name",
+                "value": "CaseSessionsPerFabric"
+              },
+              {
+                "name": "type",
+                "value": "int16u"
+              },
+              {
+                "name": "writable",
+                "value": "false"
+              },
+              {
+                "name": "default",
+                "value": "3"
+              },
+              {
+                "name": "min",
+                "value": "3"
+              },
+              {
+                "name": "max",
+                "value": "10000"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "fieldId",
+                "value": "1"
+              },
+              {
+                "name": "name",
+                "value": "SubscriptionsPerFabric"
+              },
+              {
+                "name": "type",
+                "value": "int16u"
+              },
+              {
+                "name": "writable",
+                "value": "false"
+              },
+              {
+                "name": "default",
+                "value": "3"
+              },
+              {
+                "name": "min",
+                "value": "3"
+              },
+              {
+                "name": "max",
+                "value": "10000"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "fieldId",
+                "value": "2"
+              },
+              {
+                "name": "name",
+                "value": "SimultaneousInvocationsSupported"
+              },
+              {
+                "name": "type",
+                "value": "int16u"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              },
+              {
+                "name": "min",
+                "value": "1"
+              },
+              {
+                "name": "max",
+                "value": "10000"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "fieldId",
+                "value": "3"
+              },
+              {
+                "name": "name",
+                "value": "SimultaneousWritesSupported"
+              },
+              {
+                "name": "type",
+                "value": "int16u"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              },
+              {
+                "name": "min",
+                "value": "1"
+              },
+              {
+                "name": "max",
+                "value": "10000"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "fieldId",
+                "value": "4"
+              },
+              {
+                "name": "name",
+                "value": "ReadPathsSupported"
+              },
+              {
+                "name": "type",
+                "value": "int16u"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              },
+              {
+                "name": "min",
+                "value": "9"
+              },
+              {
+                "name": "max",
+                "value": "10000"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "fieldId",
+                "value": "5"
+              },
+              {
+                "name": "name",
+                "value": "SubscribePathsSupported"
+              },
+              {
+                "name": "type",
+                "value": "int16u"
+              },
+              {
+                "name": "optional",
+                "value": "true"
+              },
+              {
+                "name": "min",
+                "value": "3"
+              },
+              {
+                "name": "max",
+                "value": "10000"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "ProductFinishEnum",
+      "kind": "enum",
+      "source": "basic-information-cluster.xml",
+      "clusters": [
+        40
+      ],
+      "definition": {
+        "name": "enum",
+        "attributes": [
+          {
+            "name": "name",
+            "value": "ProductFinishEnum"
+          },
+          {
+            "name": "type",
+            "value": "enum8"
+          }
+        ],
+        "children": [
+          {
+            "name": "cluster",
+            "attributes": [
+              {
+                "name": "code",
+                "value": "0x0028"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "name",
+                "value": "Other"
+              },
+              {
+                "name": "value",
+                "value": "0"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "name",
+                "value": "Matte"
+              },
+              {
+                "name": "value",
+                "value": "1"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "name",
+                "value": "Satin"
+              },
+              {
+                "name": "value",
+                "value": "2"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "name",
+                "value": "Polished"
+              },
+              {
+                "name": "value",
+                "value": "3"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "name",
+                "value": "Rugged"
+              },
+              {
+                "name": "value",
+                "value": "4"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "name",
+                "value": "Fabric"
+              },
+              {
+                "name": "value",
+                "value": "5"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "ColorEnum",
+      "kind": "enum",
+      "source": "basic-information-cluster.xml",
+      "clusters": [
+        40
+      ],
+      "definition": {
+        "name": "enum",
+        "attributes": [
+          {
+            "name": "name",
+            "value": "ColorEnum"
+          },
+          {
+            "name": "type",
+            "value": "enum8"
+          }
+        ],
+        "children": [
+          {
+            "name": "cluster",
+            "attributes": [
+              {
+                "name": "code",
+                "value": "0x0028"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "name",
+                "value": "Black"
+              },
+              {
+                "name": "value",
+                "value": "0"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "name",
+                "value": "Navy"
+              },
+              {
+                "name": "value",
+                "value": "1"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "name",
+                "value": "Green"
+              },
+              {
+                "name": "value",
+                "value": "2"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "name",
+                "value": "Teal"
+              },
+              {
+                "name": "value",
+                "value": "3"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "name",
+                "value": "Maroon"
+              },
+              {
+                "name": "value",
+                "value": "4"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "name",
+                "value": "Purple"
+              },
+              {
+                "name": "value",
+                "value": "5"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "name",
+                "value": "Olive"
+              },
+              {
+                "name": "value",
+                "value": "6"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "name",
+                "value": "Gray"
+              },
+              {
+                "name": "value",
+                "value": "7"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "name",
+                "value": "Blue"
+              },
+              {
+                "name": "value",
+                "value": "8"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "name",
+                "value": "Lime"
+              },
+              {
+                "name": "value",
+                "value": "9"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "name",
+                "value": "Aqua"
+              },
+              {
+                "name": "value",
+                "value": "10"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "name",
+                "value": "Red"
+              },
+              {
+                "name": "value",
+                "value": "11"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "name",
+                "value": "Fuchsia"
+              },
+              {
+                "name": "value",
+                "value": "12"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "name",
+                "value": "Yellow"
+              },
+              {
+                "name": "value",
+                "value": "13"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "name",
+                "value": "White"
+              },
+              {
+                "name": "value",
+                "value": "14"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "name",
+                "value": "Nickel"
+              },
+              {
+                "name": "value",
+                "value": "15"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "name",
+                "value": "Chrome"
+              },
+              {
+                "name": "value",
+                "value": "16"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "name",
+                "value": "Brass"
+              },
+              {
+                "name": "value",
+                "value": "17"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "name",
+                "value": "Copper"
+              },
+              {
+                "name": "value",
+                "value": "18"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "name",
+                "value": "Silver"
+              },
+              {
+                "name": "value",
+                "value": "19"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "name",
+                "value": "Gold"
+              },
+              {
+                "name": "value",
+                "value": "20"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "ProductAppearanceStruct",
+      "kind": "struct",
+      "source": "basic-information-cluster.xml",
+      "clusters": [
+        40
+      ],
+      "definition": {
+        "name": "struct",
+        "attributes": [
+          {
+            "name": "name",
+            "value": "ProductAppearanceStruct"
+          }
+        ],
+        "children": [
+          {
+            "name": "cluster",
+            "attributes": [
+              {
+                "name": "code",
+                "value": "0x0028"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "fieldId",
+                "value": "0"
+              },
+              {
+                "name": "name",
+                "value": "Finish"
+              },
+              {
+                "name": "type",
+                "value": "ProductFinishEnum"
+              },
+              {
+                "name": "max",
+                "value": "0x05"
+              }
+            ]
+          },
+          {
+            "name": "item",
+            "attributes": [
+              {
+                "name": "fieldId",
+                "value": "1"
+              },
+              {
+                "name": "name",
+                "value": "PrimaryColor"
+              },
+              {
+                "name": "type",
+                "value": "ColorEnum"
+              },
+              {
+                "name": "isNullable",
+                "value": "true"
+              },
+              {
+                "name": "max",
+                "value": "0x14"
               }
             ]
           }
