@@ -72,6 +72,12 @@ func TestProductionAttestationTrustStoreHoldsTheCSACDSigningKeys(t *testing.T) {
 	}
 }
 
+func TestProductionAttestationTrustStoreHoldsTheDCLPAAs(t *testing.T) {
+	if got := len(ProductionAttestationTrustStore().PAAs()); got < 50 {
+		t.Fatalf("PAAs() = %d certificates, want the DCL's", got)
+	}
+}
+
 func TestProductionAttestationVerifierRejectsTestCredentials(t *testing.T) {
 	err := NewAttestationVerifier(AttestationProduction).VerifyAttestation(testcredsAttestation(t))
 	var ae *credentials.AttestationError

@@ -14,9 +14,10 @@
 
 // Package production bundles the production trust anchors of device
 // attestation published on the Distributed Compliance Ledger (DCL) of the
-// Connectivity Standards Alliance: the certificates of the keys which sign
-// the Certification Declarations of certified products. See
-// certs/README.md for their source.
+// Connectivity Standards Alliance: the approved Product Attestation
+// Authorities (PAAs) and the certificates of the keys which sign the
+// Certification Declarations of certified products. They are a snapshot;
+// see certs/README.md for its source and how to refresh it.
 package production
 
 import (
@@ -26,8 +27,17 @@ import (
 	"sort"
 )
 
-//go:embed certs/cd/*.der
-var cdCerts embed.FS
+var (
+	//go:embed certs/paa/*.der
+	paaCerts embed.FS
+	//go:embed certs/cd/*.der
+	cdCerts embed.FS
+)
+
+// PAAs returns the DER-encoded certificates of the approved PAAs.
+func PAAs() [][]byte {
+	return readAll(paaCerts, "certs/paa")
+}
 
 // CDSigningCertificates returns the DER-encoded certificates of the
 // Alliance's Certification Declaration signing keys.

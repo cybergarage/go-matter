@@ -49,7 +49,7 @@ go-matter is a **commissioner (controller)**. It discovers a commissionable devi
 
 ### What is not supported yet
 
-- **The production PAAs of the Distributed Compliance Ledger are not bundled yet.** Device attestation is verified, but until they are, a certified product is commissioned only when its PAA is added with `WithCommissionerAttestationTrustStore` (`matterctl pairing --paa-trust-store`), and revocation is not checked. The Certification Declaration signing keys of the CSA are bundled.
+- **Certificate revocation is not checked.** Device attestation is verified against a bundled snapshot of the Distributed Compliance Ledger's PAAs and CD signing keys, refreshed monthly; a PAA approved since the snapshot can be added with `WithCommissionerAttestationTrustStore` (`matterctl pairing --paa-trust-store`).
 - Interaction Model subscriptions: an attribute is read on demand, and a change cannot be reported to the controller
 - Thread commissioning: only the Wi-Fi credentials of a device can be set, with `pairing code-wifi`
 - Groups, bindings, scenes and OTA software update
