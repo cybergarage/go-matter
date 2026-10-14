@@ -112,7 +112,9 @@ func generateControllerIdentity(rootKey, nodeKey crypto.Signer) (ControllerIdent
 	if err != nil {
 		return out, err
 	}
-	skid := sha1.Sum(elliptic.Marshal(rootPub.Curve, rootPub.X, rootPub.Y))
+	// The key identifier of RFC 5280 4.2.1.2 method 1, which Matter
+	// certificates use; SHA-1 names the key here, it secures nothing.
+	skid := sha1.Sum(elliptic.Marshal(rootPub.Curve, rootPub.X, rootPub.Y)) // NOSONAR
 	now := time.Now()
 	tmpl := &x509.Certificate{
 		SerialNumber: serial,

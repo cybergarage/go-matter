@@ -301,7 +301,9 @@ func (b *Live) generateIdentity() (credentials.ControllerIdentity, func(), error
 		if err != nil {
 			return id, nil, errors.New("cannot generate controller identity")
 		}
-		return id, func() {}, nil
+		return id, func() {
+			// The keys are in the identity, and go with it.
+		}, nil
 	}
 	root, err := b.ks.Generate(matter.RootKeyName)
 	if errors.Is(err, keystore.ErrKeyExists) {

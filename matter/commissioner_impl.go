@@ -403,7 +403,9 @@ func (cmr *commissioner) Connect(ctx context.Context, nodeID uint64) (Node, erro
 // withDefaultTimeout bounds ctx with timeout unless it has a deadline.
 func withDefaultTimeout(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
 	if _, ok := ctx.Deadline(); ok {
-		return ctx, func() {}
+		return ctx, func() {
+			// ctx is the caller's, which the caller cancels.
+		}
 	}
 	return context.WithTimeout(ctx, timeout)
 }
@@ -588,32 +590,46 @@ func (cmr *commissioner) Start() error {
 	st := cmr.store
 
 	if cmr.adminConfig == nil || cmr.operationalConfig == nil {
-		rec, ok, err := st.LoadFabric()
-		if err != nil {
-			log.Errorf("commissioner: load persisted fabric identity: %v", err)
-		} else if ok {
-			if cmr.adminConfig == nil {
-				root, operational, moved, err := cmr.fabricKeys(&rec)
-				if err != nil {
-					return err
-				}
-				if moved {
-					// The keys are in the key store now: the record no
-					// longer needs them.
-					if err := st.SaveFabric(rec); err != nil {
-						log.Errorf("commissioner: remove the keys moved into the key store from the fabric record: %v", err)
-					}
-				}
-				cmr.adminConfig = administratorConfigFromRecord(rec, root, operational)
-			}
-			if cmr.operationalConfig == nil {
-				cmr.operationalConfig = operationalCredentialsConfigFromRecord(rec)
-			}
+		if err := cmr.loadFabric(st); err != nil {
+			return err
 		}
 	}
 
 	if err := cmr.discoverer.Start(); err != nil {
 		return err
+	}
+	return nil
+}
+
+// loadFabric takes the administrator and the operational credentials
+// configs which were not set explicitly from the persisted fabric record,
+// with the keys of the key store. A record which cannot be read is logged;
+// a key store which fails is an error.
+func (cmr *commissioner) loadFabric(st store.Store) error {
+	rec, ok, err := st.LoadFabric()
+	if err != nil {
+		log.Errorf("commissioner: load persisted fabric identity: %v", err)
+		return nil
+	}
+	if !ok {
+		return nil
+	}
+	if cmr.adminConfig == nil {
+		root, operational, moved, err := cmr.fabricKeys(&rec)
+		if err != nil {
+			return err
+		}
+		if moved {
+			// The keys are in the key store now: the record no longer
+			// needs them.
+			if err := st.SaveFabric(rec); err != nil {
+				log.Errorf("commissioner: remove the keys moved into the key store from the fabric record: %v", err)
+			}
+		}
+		cmr.adminConfig = administratorConfigFromRecord(rec, root, operational)
+	}
+	if cmr.operationalConfig == nil {
+		cmr.operationalConfig = operationalCredentialsConfigFromRecord(rec)
 	}
 	return nil
 }
