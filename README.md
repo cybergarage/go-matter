@@ -92,8 +92,7 @@ go-matter is a **commissioner (controller)**. It discovers a commissionable devi
 | Project | Status | Description |
 |---------|--------|-------------|
 | [go-ble](https://github.com/cybergarage/go-ble) | v0.9.0 (central only) | Go package for Bluetooth Low Energy (BLE) communication |
-| [go-mdns](https://github.com/cybergarage/go-mdns) | v0.9.0 (client only) | Go package for mDNS (Multicast DNS) service discovery |
-
+| [go-mdns](https://github.com/cybergarage/go-mdns) | v1.0.0 | Go package for mDNS (Multicast DNS) and DNS-SD: service discovery and publication |
 
 ## Install
 
