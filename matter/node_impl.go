@@ -98,3 +98,10 @@ func (n *nodeImpl) Subscribe(ctx context.Context, paths []im.AttributeRequestPat
 }
 
 var _ AttributeSubscriber = (*nodeImpl)(nil)
+
+// ReadEvents reads the events of paths the node keeps. 7.14. Event.
+func (n *nodeImpl) ReadEvents(paths []im.EventRequestPath, opts ...im.ReadEventsOption) ([]im.EventReport, error) {
+	return im.ReadEvents(n.mux, paths, opts...)
+}
+
+var _ EventReader = (*nodeImpl)(nil)

@@ -127,7 +127,9 @@ Read/write/invoke any cluster by numeric ID (for clusters without a named comman
 
 * [matterctl any invoke]()	 - Invoke a command by numeric cluster/command ID.
 * [matterctl any read]()	 - Read an attribute by numeric cluster/attribute ID.
+* [matterctl any read-events]()	 - Read the events a node keeps of an event, or of every event of a cluster.
 * [matterctl any subscribe]()	 - Subscribe to an attribute, or to every attribute of a cluster, and print the reports until interrupted.
+* [matterctl any subscribe-events]()	 - Subscribe to an event, or to every event of a cluster, and print them until interrupted.
 * [matterctl any write]()	 - Write an attribute by numeric cluster/attribute ID.
 
 ## matterctl any help
@@ -205,6 +207,30 @@ matterctl any read <cluster-id> <attribute-id> <node ID> <endpoint ID> [flags]
 ```
 
 
+## matterctl any read-events
+
+Read the events a node keeps of an event, or of every event of a cluster.
+
+```
+matterctl any read-events <cluster-id> <event-id|*> <node ID> <endpoint ID> [flags]
+```
+
+### Options
+
+```
+      --event-min uint   read the events numbered this and up only
+  -h, --help             help for read-events
+```
+
+### Options inherited from parent commands
+
+```
+      --debug           enable debug output
+      --format string   output format: table|json|csv (default "table")
+      --verbose         enable verbose output
+```
+
+
 ## matterctl any subscribe
 
 Subscribe to an attribute, or to every attribute of a cluster, and print the reports until interrupted.
@@ -217,6 +243,32 @@ matterctl any subscribe <cluster-id> <attribute-id|*> <node ID> <endpoint ID> [f
 
 ```
   -h, --help                    help for subscribe
+      --max-interval duration   the most time the device may let pass without a report (default 1m0s)
+      --min-interval duration   the least time between two reports
+```
+
+### Options inherited from parent commands
+
+```
+      --debug           enable debug output
+      --format string   output format: table|json|csv (default "table")
+      --verbose         enable verbose output
+```
+
+
+## matterctl any subscribe-events
+
+Subscribe to an event, or to every event of a cluster, and print them until interrupted.
+
+```
+matterctl any subscribe-events <cluster-id> <event-id|*> <node ID> <endpoint ID> [flags]
+```
+
+### Options
+
+```
+      --event-min uint          report the kept events numbered this and up only
+  -h, --help                    help for subscribe-events
       --max-interval duration   the most time the device may let pass without a report (default 1m0s)
       --min-interval duration   the least time between two reports
 ```
