@@ -23,11 +23,14 @@ invokes the clusters of the node afterwards. Running as a Matter device is not
 implemented: go-matter cannot be commissioned by another controller, and it
 serves no cluster of its own.
 
-The device attestation chain of trust is not validated. The attestation
-exchange runs and its response is parsed, but the certificate chain is accepted
-without being verified against the Distributed Compliance Ledger, so this
-package does not reject an untrusted device. There are no Interaction Model
-subscriptions either: an attribute is read on demand.
+Device attestation is verified: the DAC must chain to a trusted Product
+Attestation Authority through its PAI, and the Certification Declaration must
+be signed by a trusted key and cover the DAC's vendor and product. The default
+mode, AttestationDevelopment, also trusts the test credentials of the Matter
+SDK; WithCommissionerAttestationMode selects AttestationProduction or
+AttestationNone, and WithCommissionerAttestationTrustStore adds anchors, such
+as self-issued ones. There are no Interaction Model subscriptions: an
+attribute is read on demand.
 
 # Commissioning
 

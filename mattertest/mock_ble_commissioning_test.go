@@ -102,6 +102,9 @@ func TestMockBLECommissioning(t *testing.T) {
 		matter.WithCommissionerCentral(central),
 		matter.WithCommissionerDiscoverer(mockdevice.NewFakeOperationalDiscoverer(dev)),
 		matter.WithCommissionerStoreDir(storeDir),
+		// The mock device attests with a self-signed DAC which no PAA
+		// issued, so only its signature can be verified.
+		matter.WithCommissionerAttestationMode(matter.AttestationNone),
 	)
 	if err := cmr.Start(); err != nil {
 		t.Fatalf("Commissioner.Start() error = %v", err)

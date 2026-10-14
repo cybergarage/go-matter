@@ -232,9 +232,9 @@ func encodeRDN(enc tlv.Encoder, atv pkix.AttributeTypeAndValue) error {
 	// encoding. Only the well-known Matter and CommonName attributes this
 	// repo's certificate authority generates are required to round-trip
 	// losslessly; foreign attributes on third-party certificates (e.g. a real
-	// device's DAC/PAI) are not needed for the pragmatic, signature-only
-	// attestation verification performed by this codebase (see
-	// matter/credentials/attestation.go).
+	// device's DAC/PAI) are not needed: attestation certificates arrive in
+	// X.509 DER and are verified as such (see
+	// matter/credentials/attestation_verifier.go).
 	return nil
 }
 

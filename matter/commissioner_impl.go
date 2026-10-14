@@ -113,6 +113,34 @@ func WithCommissionerStore(st store.Store) CommissionerOption {
 	}
 }
 
+// WithCommissionerAttestationMode sets how strictly the Commissioner
+// verifies device attestation. Defaults to AttestationDevelopment, which
+// commissions certified products and devices which attest with the test
+// credentials of the Matter SDK.
+func WithCommissionerAttestationMode(mode AttestationMode) CommissionerOption {
+	return func(cmr *commissioner) {
+		cmr.attestationMode = mode
+	}
+}
+
+// WithCommissionerAttestationTrustStore adds trust anchors, such as the
+// PAAs of self-issued attestation credentials or a newer copy of the
+// production PAAs, to those of the attestation mode.
+func WithCommissionerAttestationTrustStore(store AttestationTrustStore) CommissionerOption {
+	return func(cmr *commissioner) {
+		cmr.attestationStores = append(cmr.attestationStores, store)
+	}
+}
+
+// WithCommissionerAttestationVerifier replaces the Commissioner's device
+// attestation verification, overriding WithCommissionerAttestationMode and
+// WithCommissionerAttestationTrustStore.
+func WithCommissionerAttestationVerifier(v AttestationVerifier) CommissionerOption {
+	return func(cmr *commissioner) {
+		cmr.attestationVerifier = v
+	}
+}
+
 // commissioner represents a commissioner.
 type commissioner struct {
 	ble.Central
@@ -122,6 +150,11 @@ type commissioner struct {
 	appName           string
 	storeDir          string
 	store             store.Store
+	// attestationMode and attestationStores make attestationVerifier unless
+	// WithCommissionerAttestationVerifier set it.
+	attestationMode     AttestationMode
+	attestationStores   []AttestationTrustStore
+	attestationVerifier AttestationVerifier
 }
 
 // NewCommissioner returns a new commissioner.
@@ -134,9 +167,16 @@ func NewCommissioner(opts ...CommissionerOption) Commissioner {
 		appName:           DefaultAppName,
 		storeDir:          "",
 		store:             nil,
+
+		attestationMode:     AttestationDevelopment,
+		attestationStores:   nil,
+		attestationVerifier: nil,
 	}
 	for _, opt := range opts {
 		opt(com)
+	}
+	if com.attestationVerifier == nil {
+		com.attestationVerifier = NewAttestationVerifier(com.attestationMode, com.attestationStores...)
 	}
 	return com
 }
@@ -461,6 +501,9 @@ func computeCompressedFabricID(adminCfg config.AdministratorConfig) (uint64, err
 
 func (cmr *commissioner) commissionOptions(opts ...CommissionOption) []CommissionOption {
 	var defaults []CommissionOption
+	if cmr.attestationVerifier != nil && !hasAttestationVerifierOption(opts) {
+		defaults = append(defaults, cmr.attestationVerifier)
+	}
 	if cmr.adminConfig != nil {
 		defaults = append(defaults, cmr.adminConfig)
 	}
@@ -559,4 +602,13 @@ func (cmr *commissioner) Stop() error {
 		return err
 	}
 	return nil
+}
+
+func hasAttestationVerifierOption(opts []CommissionOption) bool {
+	for _, opt := range opts {
+		if _, ok := opt.(AttestationVerifier); ok {
+			return true
+		}
+	}
+	return false
 }

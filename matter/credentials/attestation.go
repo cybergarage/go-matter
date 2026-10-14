@@ -37,19 +37,9 @@ const (
 // field returned by the Operational Credentials cluster's AttestationResponse
 // command (11.18.7.2. AttestationResponse Command).
 //
-// # Implementation status
-//
-// This codebase performs only a pragmatic, signature-only check of
-// AttestationElements: it verifies that the response was signed by the
-// device's own DAC private key (see VerifyAttestationSignature), so the
-// commissioner knows it is really talking to the holder of that key. It does
-// NOT validate the Certification Declaration's signature against the CSA's
-// CD signing certificate, and does NOT build or verify a DAC -> PAI -> PAA
-// chain of trust against a Product Attestation Authority trust store. This
-// is intentionally out of scope — see the go-matter commissioning plan this
-// package was built against — and is not suitable for production/certified
-// commissioner use, only for commissioning a device the operator already
-// trusts (e.g. their own hardware in a local/test setting).
+// An AttestationVerifier checks the AttestationElements with the rest of
+// the device attestation procedure (6.2.3): the DAC signature, the nonce,
+// the DAC -> PAI -> PAA chain and the Certification Declaration.
 type AttestationElements struct {
 	// CertificationDeclaration is the device's signed Certification
 	// Declaration, opaque to this package (not further parsed or verified).
@@ -135,8 +125,7 @@ func ParseAttestationElements(tlvBytes []byte) (AttestationElements, error) {
 // alongside AttestationElements by the AttestationResponse command. The
 // signature is computed by the device over the concatenation of the raw
 // AttestationElements TLV bytes and the session's AttestationChallenge,
-// using its DAC private key. See the package doc comment for the scope of
-// verification this codebase performs (signature-only, no chain of trust).
+// using its DAC private key. It is one step of AttestationVerifier.
 // 11.18.7.2. AttestationResponse Command.
 func VerifyAttestationSignature(attestationElementsTLV, attestationChallenge, sig []byte, dacPub *ecdsa.PublicKey) error {
 	msg := make([]byte, 0, len(attestationElementsTLV)+len(attestationChallenge))

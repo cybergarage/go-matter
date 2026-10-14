@@ -160,7 +160,7 @@ func (dev *bleDevice) Commission(ctx context.Context, payload OnboardingPayload,
 	operationalCfg, _ := dev.OperationalCredentialsConfig()
 	wifiCfg, _ := dev.WiFiNetworkConfig()
 	adminCfg, _ := dev.AdministratorConfig()
-	identity, err := commissionWithSession(ctx, sess, dev.discoverer, operationalCfg, wifiCfg, adminCfg, true, dev.nodeID)
+	identity, err := commissionWithSession(ctx, sess, dev.discoverer, operationalCfg, wifiCfg, adminCfg, dev.attestationVerifier, true, dev.nodeID)
 	if err != nil {
 		log.Errorf("Commissioning failed for device (%s): %v", dev.String(), err)
 		return CommissionedIdentity{}, err

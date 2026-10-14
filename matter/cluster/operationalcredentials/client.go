@@ -24,14 +24,9 @@
 // callers always work with plain X.509 DER, consistent with the rest of this
 // codebase (matter/config, matter/protocol/case).
 //
-// Device attestation is verified pragmatically: only the DAC's own signature
-// over AttestationElements/NOCSRElements is checked (see
-// matter/credentials.VerifyAttestationSignature/VerifyNOCSRElementsSignature)
-// — this package does not build or verify a DAC -> PAI -> PAA chain of trust
-// against a Product Attestation Authority store, and does not validate the
-// device's Certification Declaration. See matter/credentials's package doc
-// for the reasoning; this is not suitable for production/certified
-// commissioner use.
+// This package only sends the commands and decodes their responses; the
+// commissioner verifies the device's attestation with
+// matter/credentials.AttestationVerifier.
 package operationalcredentials
 
 import (
