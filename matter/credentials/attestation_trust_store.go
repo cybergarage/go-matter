@@ -89,30 +89,59 @@ func appendUniqueCertificates(list []*x509.Certificate, certs ...*x509.Certifica
 	return list
 }
 
-// ParseAttestationTrustStore builds a store from DER- or PEM-encoded
-// certificates. A self-signed CA certificate is taken for a PAA; any other
-// certificate for a Certification Declaration signing certificate.
-func ParseAttestationTrustStore(certs ...[]byte) (AttestationTrustStore, error) {
-	var paas, cds []*x509.Certificate
-	for _, b := range certs {
+// ParseAttestationTrustStore builds a store from DER- or PEM-encoded PAA
+// certificates and Certification Declaration signing certificates. The two
+// are given apart, since a test CD signing certificate is a self-signed CA
+// just like a PAA.
+func ParseAttestationTrustStore(paas, cdSigners [][]byte) (AttestationTrustStore, error) {
+	parsedPAAs, err := parseCertificateList(paas)
+	if err != nil {
+		return nil, fmt.Errorf("credentials: PAA: %w", err)
+	}
+	parsedCDs, err := parseCertificateList(cdSigners)
+	if err != nil {
+		return nil, fmt.Errorf("credentials: CD signing certificate: %w", err)
+	}
+	return NewAttestationTrustStore(parsedPAAs, parsedCDs), nil
+}
+
+func parseCertificateList(list [][]byte) ([]*x509.Certificate, error) {
+	var certs []*x509.Certificate
+	for _, b := range list {
 		parsed, err := parseCertificates(b)
 		if err != nil {
 			return nil, err
 		}
-		for _, cert := range parsed {
-			if isPAA(cert) {
-				paas = appendUniqueCertificates(paas, cert)
-			} else {
-				cds = appendUniqueCertificates(cds, cert)
-			}
-		}
+		certs = appendUniqueCertificates(certs, parsed...)
 	}
-	return NewAttestationTrustStore(paas, cds), nil
+	return certs, nil
 }
 
-// LoadAttestationTrustStore reads every .der, .pem, .crt and .cer file in
-// dir, as ParseAttestationTrustStore does; other files are ignored.
-func LoadAttestationTrustStore(dir string) (AttestationTrustStore, error) {
+// LoadAttestationTrustStore reads the PAA certificates in paaDir and the
+// Certification Declaration signing certificates in cdDir, as chip-tool's
+// --paa-trust-store-path and --cd-trust-store-path do. Either directory may
+// be empty to read none. Every .der, .pem, .crt and .cer file is read;
+// other files are ignored.
+func LoadAttestationTrustStore(paaDir, cdDir string) (AttestationTrustStore, error) {
+	paas, err := readCertificateFiles(paaDir)
+	if err != nil {
+		return nil, err
+	}
+	cds, err := readCertificateFiles(cdDir)
+	if err != nil {
+		return nil, err
+	}
+	store, err := ParseAttestationTrustStore(paas, cds)
+	if err != nil {
+		return nil, err
+	}
+	return store, nil
+}
+
+func readCertificateFiles(dir string) ([][]byte, error) {
+	if dir == "" {
+		return nil, nil
+	}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, fmt.Errorf("credentials: read the attestation trust store: %w", err)
@@ -133,11 +162,7 @@ func LoadAttestationTrustStore(dir string) (AttestationTrustStore, error) {
 		}
 		certs = append(certs, b)
 	}
-	store, err := ParseAttestationTrustStore(certs...)
-	if err != nil {
-		return nil, fmt.Errorf("credentials: %s: %w", dir, err)
-	}
-	return store, nil
+	return certs, nil
 }
 
 func parseCertificates(b []byte) ([]*x509.Certificate, error) {
@@ -168,12 +193,4 @@ func parseCertificates(b []byte) ([]*x509.Certificate, error) {
 		return nil, errors.New("no certificate in the PEM data")
 	}
 	return certs, nil
-}
-
-// isPAA reports whether cert is a self-signed CA certificate.
-func isPAA(cert *x509.Certificate) bool {
-	if !cert.BasicConstraintsValid || !cert.IsCA {
-		return false
-	}
-	return bytes.Equal(cert.RawIssuer, cert.RawSubject) && cert.CheckSignatureFrom(cert) == nil
 }

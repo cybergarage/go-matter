@@ -877,8 +877,9 @@ Pairing Matter devices by specifying node ID and pairing code.
 
 ```
       --attestation string       device attestation verification: development|production|none (default "development")
+      --cd-trust-store string    directory of Certification Declaration signing certificates (.der/.pem) to trust besides the bundled ones
   -h, --help                     help for pairing
-      --paa-trust-store string   directory of PAA and CD signing certificates (.der/.pem) to trust besides the bundled ones
+      --paa-trust-store string   directory of PAA certificates (.der/.pem) to trust besides the bundled ones
 ```
 
 ### Options inherited from parent commands
@@ -910,9 +911,10 @@ matterctl pairing code <node ID|auto> <pairing code> [flags]
 
 ```
       --attestation string       device attestation verification: development|production|none (default "development")
+      --cd-trust-store string    directory of Certification Declaration signing certificates (.der/.pem) to trust besides the bundled ones
       --debug                    enable debug output
       --format string            output format: table|json|csv (default "table")
-      --paa-trust-store string   directory of PAA and CD signing certificates (.der/.pem) to trust besides the bundled ones
+      --paa-trust-store string   directory of PAA certificates (.der/.pem) to trust besides the bundled ones
       --verbose                  enable verbose output
 ```
 
@@ -935,9 +937,10 @@ matterctl pairing code-wifi <node ID|auto> <pairing code> <WIFI SSID> <WIFI pass
 
 ```
       --attestation string       device attestation verification: development|production|none (default "development")
+      --cd-trust-store string    directory of Certification Declaration signing certificates (.der/.pem) to trust besides the bundled ones
       --debug                    enable debug output
       --format string            output format: table|json|csv (default "table")
-      --paa-trust-store string   directory of PAA and CD signing certificates (.der/.pem) to trust besides the bundled ones
+      --paa-trust-store string   directory of PAA certificates (.der/.pem) to trust besides the bundled ones
       --verbose                  enable verbose output
 ```
 
@@ -965,9 +968,10 @@ matterctl pairing help [command] [flags]
 
 ```
       --attestation string       device attestation verification: development|production|none (default "development")
+      --cd-trust-store string    directory of Certification Declaration signing certificates (.der/.pem) to trust besides the bundled ones
       --debug                    enable debug output
       --format string            output format: table|json|csv (default "table")
-      --paa-trust-store string   directory of PAA and CD signing certificates (.der/.pem) to trust besides the bundled ones
+      --paa-trust-store string   directory of PAA certificates (.der/.pem) to trust besides the bundled ones
       --verbose                  enable verbose output
 ```
 

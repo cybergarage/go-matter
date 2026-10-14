@@ -78,6 +78,15 @@ const (
 	tagCDDACOriginVendorID   = 9
 	tagCDDACOriginProductID  = 10
 	tagCDAuthorizedPAAList   = 11
+
+	// certificationDeclarationFormatVersion is the only format_version
+	// this package knows the schema of.
+	certificationDeclarationFormatVersion = 1
+	// certificateIDLength is the length of certificate_id, such as
+	// "ZIG20141ZB330001-24" (6.3.1).
+	certificateIDLength = 19
+	// maxCDProductIDs is the largest product_id_array (6.3.1).
+	maxCDProductIDs = 100
 )
 
 var (
@@ -196,7 +205,7 @@ func ParseCertificationDeclaration(content []byte) (*CertificationDeclaration, e
 		return nil, fmt.Errorf("%w: the content is not a TLV structure", ErrInvalidCertificationDeclaration)
 	}
 	cd := &CertificationDeclaration{}
-	var haveVendor, haveProducts, haveOriginVendor, haveOriginProduct bool
+	seen := map[uint8]bool{}
 	for dec.Next() {
 		elem := dec.Element()
 		if elem.Type().IsEndOfContainer() {
@@ -206,16 +215,18 @@ func ParseCertificationDeclaration(content []byte) (*CertificationDeclaration, e
 		if !ok {
 			return nil, fmt.Errorf("%w: unexpected tag %v", ErrInvalidCertificationDeclaration, elem.Tag())
 		}
+		if seen[uint8(ct.ContextNumber())] {
+			return nil, fmt.Errorf("%w: field %d is repeated", ErrInvalidCertificationDeclaration, ct.ContextNumber())
+		}
+		seen[uint8(ct.ContextNumber())] = true
 		var err error
 		switch ct.ContextNumber() {
 		case tagCDFormatVersion:
 			cd.FormatVersion, err = cdUnsigned2(elem)
 		case tagCDVendorID:
 			cd.VendorID, err = cdUnsigned2(elem)
-			haveVendor = err == nil
 		case tagCDProductIDArray:
 			cd.ProductIDs, err = cdProductIDs(dec, elem)
-			haveProducts = err == nil
 		case tagCDDeviceTypeID:
 			v, ok := elem.Unsigned()
 			if !ok || v > 0xFFFFFFFF {
@@ -223,8 +234,8 @@ func ParseCertificationDeclaration(content []byte) (*CertificationDeclaration, e
 			}
 			cd.DeviceTypeID = uint32(v)
 		case tagCDCertificateID:
-			if cd.CertificateID, ok = elem.UTF8(); !ok {
-				err = errors.New("certificate_id is not a string")
+			if cd.CertificateID, ok = elem.UTF8(); !ok || len(cd.CertificateID) != certificateIDLength {
+				err = fmt.Errorf("certificate_id is not a %d-character string", certificateIDLength)
 			}
 		case tagCDSecurityLevel:
 			v, ok := elem.Unsigned()
@@ -244,10 +255,8 @@ func ParseCertificationDeclaration(content []byte) (*CertificationDeclaration, e
 			cd.CertificationType = CertificationType(v)
 		case tagCDDACOriginVendorID:
 			cd.DACOriginVendorID, err = cdUnsigned2(elem)
-			haveOriginVendor = err == nil
 		case tagCDDACOriginProductID:
 			cd.DACOriginProductID, err = cdUnsigned2(elem)
-			haveOriginProduct = err == nil
 		case tagCDAuthorizedPAAList:
 			cd.AuthorizedPAAs, err = cdAuthorizedPAAs(dec, elem)
 		default:
@@ -260,13 +269,22 @@ func ParseCertificationDeclaration(content []byte) (*CertificationDeclaration, e
 	if err := dec.Error(); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrInvalidCertificationDeclaration, err)
 	}
-	if !haveVendor || !haveProducts || len(cd.ProductIDs) == 0 {
-		return nil, fmt.Errorf("%w: vendor_id or product_id_array is missing", ErrInvalidCertificationDeclaration)
+	// Fields 0 to 8 are mandatory (6.3.1).
+	for tag := uint8(tagCDFormatVersion); tag <= tagCDCertificationType; tag++ {
+		if !seen[tag] {
+			return nil, fmt.Errorf("%w: mandatory field %d is missing", ErrInvalidCertificationDeclaration, tag)
+		}
 	}
-	if haveOriginVendor != haveOriginProduct {
+	if cd.FormatVersion != certificationDeclarationFormatVersion {
+		return nil, fmt.Errorf("%w: format_version %d is not %d", ErrInvalidCertificationDeclaration, cd.FormatVersion, certificationDeclarationFormatVersion)
+	}
+	if len(cd.ProductIDs) == 0 || len(cd.ProductIDs) > maxCDProductIDs {
+		return nil, fmt.Errorf("%w: product_id_array has %d entries, not 1 to %d", ErrInvalidCertificationDeclaration, len(cd.ProductIDs), maxCDProductIDs)
+	}
+	if seen[tagCDDACOriginVendorID] != seen[tagCDDACOriginProductID] {
 		return nil, fmt.Errorf("%w: dac_origin_vendor_id and dac_origin_product_id must be present together", ErrInvalidCertificationDeclaration)
 	}
-	cd.HasDACOrigin = haveOriginVendor
+	cd.HasDACOrigin = seen[tagCDDACOriginVendorID]
 	return cd, nil
 }
 

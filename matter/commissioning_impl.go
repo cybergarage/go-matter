@@ -24,6 +24,7 @@ import (
 	"fmt"
 
 	"github.com/cybergarage/go-logger/log"
+	"github.com/cybergarage/go-matter/matter/cluster/basicinformation"
 	"github.com/cybergarage/go-matter/matter/cluster/generalcommissioning"
 	"github.com/cybergarage/go-matter/matter/cluster/networkcommissioning"
 	"github.com/cybergarage/go-matter/matter/cluster/operationalcredentials"
@@ -71,6 +72,9 @@ var (
 	// commissionDeviceAttestationFn allows the whole device-attestation phase
 	// to be stubbed in tests that only care about sequencing around it.
 	commissionDeviceAttestationFn = commissionDeviceAttestation
+	// readBasicInformationIDs reads the device's VendorID and ProductID for
+	// device attestation.
+	readBasicInformationIDs = basicInformationIDs
 )
 
 type networkCommissioningInputs struct {
@@ -290,6 +294,13 @@ func commissionDeviceAttestation(sess session.SecureSession, verifier credential
 		return deviceAttestationResult{}, fmt.Errorf("commissioning: CertificateChainRequest(PAI): %w", err)
 	}
 
+	// 6.2.3.1: the Certification Declaration must cover the vendor and the
+	// product the device's Basic Information reports. A device which cannot
+	// report them fails every attestation mode but AttestationNone.
+	vendorID, productID, err := readBasicInformationIDs(sess)
+	if err != nil {
+		log.Warnf("Commissioning: read Basic Information VendorID/ProductID: %v", err)
+	}
 	if err := verifier.VerifyAttestation(credentials.AttestationInfo{
 		DAC:                  dacDER,
 		PAI:                  paiDER,
@@ -297,6 +308,9 @@ func commissionDeviceAttestation(sess session.SecureSession, verifier credential
 		AttestationSignature: attestationSig,
 		AttestationChallenge: challenge,
 		AttestationNonce:     attestationNonce,
+		VendorID:             vendorID,
+		ProductID:            productID,
+		HasBasicInformation:  err == nil,
 	}); err != nil {
 		return deviceAttestationResult{}, fmt.Errorf("commissioning: %w", err)
 	}
@@ -605,4 +619,18 @@ func loadNetworkCommissioningInputs(cfg config.WiFiNetworkConfig) (networkCommis
 		ssid:        ssid,
 		credentials: credentials,
 	}, nil
+}
+
+// basicInformationIDs reads the VendorID and ProductID attributes of the
+// device's Basic Information cluster (11.1.6).
+func basicInformationIDs(sess session.SecureSession) (uint16, uint16, error) {
+	vendorID, err := basicinformation.VendorID(sess, defaultEndpointID)
+	if err != nil {
+		return 0, 0, err
+	}
+	productID, err := basicinformation.ProductID(sess, defaultEndpointID)
+	if err != nil {
+		return 0, 0, err
+	}
+	return vendorID, productID, nil
 }

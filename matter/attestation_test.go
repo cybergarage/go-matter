@@ -48,12 +48,27 @@ func testcredsAttestation(t *testing.T) credentials.AttestationInfo {
 		AttestationSignature: sig,
 		AttestationChallenge: challenge,
 		AttestationNonce:     nonce,
+		VendorID:             testcreds.VendorID,
+		ProductID:            testcreds.ProductID,
+		HasBasicInformation:  true,
 	}
 }
 
 func TestDefaultAttestationVerifierAcceptsTestCredentials(t *testing.T) {
 	if err := DefaultAttestationVerifier().VerifyAttestation(testcredsAttestation(t)); err != nil {
 		t.Fatalf("VerifyAttestation() error = %v, want nil", err)
+	}
+}
+
+func TestProductionAttestationTrustStoreHoldsTheCSACDSigningKeys(t *testing.T) {
+	store := ProductionAttestationTrustStore()
+	if got := len(store.CDSigningCertificates()); got != 5 {
+		t.Fatalf("CDSigningCertificates() = %d certificates, want the 5 keys of the CSA", got)
+	}
+	for _, c := range store.CDSigningCertificates() {
+		if c.Subject.Organization[0] != "CSA" {
+			t.Errorf("CD signing certificate %q is not the CSA's", c.Subject.CommonName)
+		}
 	}
 }
 

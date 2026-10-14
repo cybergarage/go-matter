@@ -142,21 +142,36 @@ type testCD struct {
 	certType      CertificationType
 	origin        *[2]uint16
 	authorizedPAA [][]byte
+	// formatVersion, certificateID and omitDeviceType, when set, make a
+	// malformed declaration.
+	formatVersion  uint16
+	certificateID  string
+	omitDeviceType bool
 }
 
 func encodeTestCD(t *testing.T, cd testCD) []byte {
 	t.Helper()
 	enc := tlv.NewEncoder()
 	enc.BeginStructure(tlv.NewAnonymousTag())
-	enc.PutUnsigned2(tlv.NewContextTag(tagCDFormatVersion), 1)
+	formatVersion := cd.formatVersion
+	if formatVersion == 0 {
+		formatVersion = 1
+	}
+	certificateID := cd.certificateID
+	if certificateID == "" {
+		certificateID = "ZIG20141ZB330001-24"
+	}
+	enc.PutUnsigned2(tlv.NewContextTag(tagCDFormatVersion), formatVersion)
 	enc.PutUnsigned2(tlv.NewContextTag(tagCDVendorID), cd.vid)
 	enc.BeginArray(tlv.NewContextTag(tagCDProductIDArray))
 	for _, pid := range cd.pids {
 		enc.PutUnsigned2(tlv.NewAnonymousTag(), pid)
 	}
 	mustEnd(t, enc)
-	enc.PutUnsigned4(tlv.NewContextTag(tagCDDeviceTypeID), 0x0100)
-	if err := enc.PutUTF8(tlv.NewContextTag(tagCDCertificateID), "ZIG20141ZB330001-24"); err != nil {
+	if !cd.omitDeviceType {
+		enc.PutUnsigned4(tlv.NewContextTag(tagCDDeviceTypeID), 0x0100)
+	}
+	if err := enc.PutUTF8(tlv.NewContextTag(tagCDCertificateID), certificateID); err != nil {
 		t.Fatal(err)
 	}
 	enc.PutUnsigned1(tlv.NewContextTag(tagCDSecurityLevel), 0)
@@ -233,10 +248,17 @@ type attestationCase struct {
 	nonce     []byte
 	echoNonce []byte
 	signer    *ecdsa.PrivateKey
+	// vid and pid are the device's Basic Information; hasIDs is false when
+	// they are unknown.
+	vid, pid uint16
+	hasIDs   bool
 }
 
 func newAttestationCase(t *testing.T, pki *attestationPKI, cd testCD) *attestationCase {
 	t.Helper()
+	if len(cd.pids) == 0 {
+		cd = defaultTestCD
+	}
 	nonce := bytes.Repeat([]byte{0x42}, attestationNonceLength)
 	return &attestationCase{
 		pki:       pki,
@@ -244,6 +266,9 @@ func newAttestationCase(t *testing.T, pki *attestationPKI, cd testCD) *attestati
 		nonce:     nonce,
 		echoNonce: nonce,
 		signer:    pki.dacKey,
+		vid:       cd.vid,
+		pid:       cd.pids[len(cd.pids)-1],
+		hasIDs:    true,
 	}
 }
 
@@ -277,6 +302,9 @@ func (c *attestationCase) info(t *testing.T) AttestationInfo {
 		AttestationSignature: sig,
 		AttestationChallenge: challenge,
 		AttestationNonce:     c.nonce,
+		VendorID:             c.vid,
+		ProductID:            c.pid,
+		HasBasicInformation:  c.hasIDs,
 	}
 }
 
@@ -380,6 +408,52 @@ func TestAttestationVerifier(t *testing.T) {
 			},
 			failure: AttestationFailureCDContent,
 		},
+		{
+			name: "Basic Information unknown", ids: defaultPKIIDs, cd: defaultTestCD, mode: AttestationDevelopment,
+			tweak: func(c *attestationCase, p *attestationPKI) AttestationTrustStore {
+				c.hasIDs = false
+				return p.store()
+			},
+			failure: AttestationFailureMalformed,
+		},
+		{
+			name: "none ignores unknown Basic Information", ids: defaultPKIIDs, cd: defaultTestCD, mode: AttestationNone,
+			tweak: func(c *attestationCase, p *attestationPKI) AttestationTrustStore {
+				c.hasIDs = false
+				return p.store()
+			},
+		},
+		{
+			name: "device is another product of the vendor", ids: defaultPKIIDs, cd: defaultTestCD, mode: AttestationDevelopment,
+			tweak: func(c *attestationCase, p *attestationPKI) AttestationTrustStore {
+				c.pid = 0x8002
+				return p.store()
+			},
+			failure: AttestationFailureCDContent,
+		},
+		{
+			name: "DAC origin does not bind another product", ids: defaultPKIIDs, cd: testCD{vid: 0xFFF4, pids: []uint16{0x9000}, origin: &[2]uint16{0xFFF2, 0x8001}}, mode: AttestationDevelopment,
+			tweak: func(c *attestationCase, p *attestationPKI) AttestationTrustStore {
+				c.vid, c.pid = 0xFFF2, 0x8001 // the DAC's product, not the certified one
+				return p.store()
+			},
+			failure: AttestationFailureCDContent,
+		},
+		{
+			name: "rejected PAA", ids: prodIDs, cd: prodCD, mode: AttestationProduction,
+			opts:    nil,
+			tweak:   func(_ *attestationCase, p *attestationPKI) AttestationTrustStore { return p.store() },
+			failure: AttestationFailureRejectedAnchor,
+		},
+		{
+			name: "rejected CD signer", ids: prodIDs, cd: prodCD, mode: AttestationProduction,
+			opts:    nil,
+			tweak:   func(_ *attestationCase, p *attestationPKI) AttestationTrustStore { return p.store() },
+			failure: AttestationFailureRejectedAnchor,
+		},
+		{name: "CD format version 2", ids: defaultPKIIDs, cd: testCD{vid: 0xFFF2, pids: []uint16{0x8001}, formatVersion: 2}, mode: AttestationDevelopment, failure: AttestationFailureMalformed},
+		{name: "CD without device type", ids: defaultPKIIDs, cd: testCD{vid: 0xFFF2, pids: []uint16{0x8001}, omitDeviceType: true}, mode: AttestationDevelopment, failure: AttestationFailureMalformed},
+		{name: "CD with a short certificate ID", ids: defaultPKIIDs, cd: testCD{vid: 0xFFF2, pids: []uint16{0x8001}, certificateID: "ZIG20141"}, mode: AttestationDevelopment, failure: AttestationFailureMalformed},
 		{name: "revoked", ids: defaultPKIIDs, cd: defaultTestCD, mode: AttestationDevelopment, opts: []AttestationVerifierOption{WithAttestationRevocationChecker(revokeAll{})}, failure: AttestationFailureRevoked},
 	}
 	for _, tt := range tests {
@@ -390,7 +464,14 @@ func TestAttestationVerifier(t *testing.T) {
 			if tt.tweak != nil {
 				store = tt.tweak(c, pki)
 			}
-			err := NewAttestationVerifier(tt.mode, store, tt.opts...).VerifyAttestation(c.info(t))
+			opts := tt.opts
+			switch tt.name {
+			case "rejected PAA":
+				opts = append(opts, WithAttestationRejectedAnchors(NewAttestationTrustStore([]*x509.Certificate{pki.paa}, nil)))
+			case "rejected CD signer":
+				opts = append(opts, WithAttestationRejectedAnchors(NewAttestationTrustStore(nil, []*x509.Certificate{pki.cdSigner})))
+			}
+			err := NewAttestationVerifier(tt.mode, store, opts...).VerifyAttestation(c.info(t))
 			if tt.failure == 0 {
 				if err != nil {
 					t.Fatalf("VerifyAttestation() error = %v, want nil", err)
@@ -429,17 +510,20 @@ func TestAttestationIDFromCommonName(t *testing.T) {
 	}
 }
 
-func TestAttestationTrustStoreClassifiesCertificates(t *testing.T) {
+func TestAttestationTrustStoreKeepsPAAsAndCDSignersApart(t *testing.T) {
 	pki := newAttestationPKI(t, defaultPKIIDs)
-	store, err := ParseAttestationTrustStore(pki.paa.Raw, pki.cdSigner.Raw, pki.paa.Raw)
+	// A test CD signing certificate may be a self-signed CA like a PAA, so
+	// the store takes each kind from its own list.
+	selfSignedCD := pki.issue("Test CD Signing Authority", "", "", true, nil, nil, newTestKey(t), false)
+	store, err := ParseAttestationTrustStore([][]byte{pki.paa.Raw, pki.paa.Raw}, [][]byte{pki.cdSigner.Raw, selfSignedCD.Raw})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got := len(store.PAAs()); got != 1 {
 		t.Errorf("PAAs() = %d certificates, want 1", got)
 	}
-	if got := len(store.CDSigningCertificates()); got != 1 {
-		t.Errorf("CDSigningCertificates() = %d certificates, want 1", got)
+	if got := len(store.CDSigningCertificates()); got != 2 {
+		t.Errorf("CDSigningCertificates() = %d certificates, want 2", got)
 	}
 	merged := MergeAttestationTrustStores(store, nil, NewAttestationTrustStore([]*x509.Certificate{pki.paa}, nil))
 	if got := len(merged.PAAs()); got != 1 {

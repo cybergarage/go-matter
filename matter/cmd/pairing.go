@@ -33,9 +33,12 @@ import (
 const (
 	// AttestationParamStr selects how device attestation is verified.
 	AttestationParamStr = "attestation"
-	// PAATrustStoreParamStr names a directory of PAA and Certification
-	// Declaration signing certificates to trust besides the bundled ones.
+	// PAATrustStoreParamStr names a directory of PAA certificates to trust
+	// besides the bundled ones.
 	PAATrustStoreParamStr = "paa-trust-store"
+	// CDTrustStoreParamStr names a directory of Certification Declaration
+	// signing certificates to trust besides the bundled ones.
+	CDTrustStoreParamStr = "cd-trust-store"
 )
 
 func init() {
@@ -47,9 +50,15 @@ func init() {
 
 	viper.SetDefault(PAATrustStoreParamStr, "")
 	pairingCmd.PersistentFlags().String(PAATrustStoreParamStr, "",
-		"directory of PAA and CD signing certificates (.der/.pem) to trust besides the bundled ones")
+		"directory of PAA certificates (.der/.pem) to trust besides the bundled ones")
 	viper.BindPFlag(PAATrustStoreParamStr, pairingCmd.PersistentFlags().Lookup(PAATrustStoreParamStr))
 	viper.BindEnv(PAATrustStoreParamStr, "MATTER_CTL_PAA_TRUST_STORE")
+
+	viper.SetDefault(CDTrustStoreParamStr, "")
+	pairingCmd.PersistentFlags().String(CDTrustStoreParamStr, "",
+		"directory of Certification Declaration signing certificates (.der/.pem) to trust besides the bundled ones")
+	viper.BindPFlag(CDTrustStoreParamStr, pairingCmd.PersistentFlags().Lookup(CDTrustStoreParamStr))
+	viper.BindEnv(CDTrustStoreParamStr, "MATTER_CTL_CD_TRUST_STORE")
 
 	pairingCmd.AddCommand(pairingCodeCmd)
 	pairingCmd.AddCommand(pairingCodeWifiCmd)
@@ -147,15 +156,16 @@ var pairingCodeWifiCmd = &cobra.Command{ // nolint:exhaustruct
 }
 
 // pairingAttestationVerifier returns the device attestation verification
-// the --attestation and --paa-trust-store flags select.
+// the --attestation, --paa-trust-store and --cd-trust-store flags select.
 func pairingAttestationVerifier() (matter.AttestationVerifier, error) {
 	mode, err := credentials.ParseAttestationMode(viper.GetString(AttestationParamStr))
 	if err != nil {
 		return nil, err
 	}
 	var extra []matter.AttestationTrustStore
-	if dir := viper.GetString(PAATrustStoreParamStr); dir != "" {
-		store, err := credentials.LoadAttestationTrustStore(dir)
+	paaDir, cdDir := viper.GetString(PAATrustStoreParamStr), viper.GetString(CDTrustStoreParamStr)
+	if paaDir != "" || cdDir != "" {
+		store, err := credentials.LoadAttestationTrustStore(paaDir, cdDir)
 		if err != nil {
 			return nil, err
 		}

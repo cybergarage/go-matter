@@ -355,6 +355,7 @@ func TestCommissionDeviceAttestationVerifiesSignaturesAndParsesCSR(t *testing.T)
 	})
 
 	fixture := newDeviceAttestationFixture(t)
+	stubBasicInformationIDs(t)
 	attestationRequestCommand = fixture.attestationRequestCommand
 	certificateChainRequestCommand = fixture.certificateChainRequestCommand
 	csrRequestCommand = fixture.csrRequestCommand
@@ -382,6 +383,7 @@ func TestCommissionDeviceAttestationRejectsTamperedSignature(t *testing.T) {
 	})
 
 	fixture := newDeviceAttestationFixture(t)
+	stubBasicInformationIDs(t)
 	// Sign the attestation elements with a different (untrusted) key than the
 	// one presented as the DAC, simulating a device that isn't the holder of
 	// the DAC private key.
@@ -431,6 +433,7 @@ func TestCommissionDeviceAttestationRejectsMismatchedNonces(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fixture := newDeviceAttestationFixture(t)
+			stubBasicInformationIDs(t)
 			tt.setup(fixture)
 			attestationRequestCommand = fixture.attestationRequestCommand
 			certificateChainRequestCommand = fixture.certificateChainRequestCommand
@@ -700,4 +703,15 @@ func testRootMaterials() ([]byte, *x509.Certificate, *ecdsa.PrivateKey) {
 // issued, as AttestationNone does: the DAC signature and the nonce only.
 func signatureOnlyVerifier() credentials.AttestationVerifier {
 	return credentials.NewAttestationVerifier(credentials.AttestationNone, nil)
+}
+
+// stubBasicInformationIDs answers the Basic Information read of device
+// attestation without a device.
+func stubBasicInformationIDs(t *testing.T) {
+	t.Helper()
+	prev := readBasicInformationIDs
+	t.Cleanup(func() { readBasicInformationIDs = prev })
+	readBasicInformationIDs = func(session.SecureSession) (uint16, uint16, error) {
+		return 0xFFF1, 0x8000, nil
+	}
 }

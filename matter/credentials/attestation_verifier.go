@@ -95,6 +95,13 @@ type AttestationInfo struct {
 	AttestationChallenge []byte
 	// AttestationNonce is the nonce sent in the AttestationRequest.
 	AttestationNonce []byte
+	// VendorID and ProductID are the attributes of the device's Basic
+	// Information cluster, which the Certification Declaration must cover
+	// (6.2.3.1). HasBasicInformation is false when they could not be read,
+	// which fails every mode but AttestationNone.
+	VendorID            uint16
+	ProductID           uint16
+	HasBasicInformation bool
 }
 
 // AttestationVerifier verifies the attestation of a device. A commissioner
@@ -126,6 +133,7 @@ const (
 	AttestationFailureCDSignature
 	AttestationFailureCDContent
 	AttestationFailureRevoked
+	AttestationFailureRejectedAnchor
 )
 
 func (f AttestationFailure) String() string {
@@ -154,6 +162,8 @@ func (f AttestationFailure) String() string {
 		return "CD content"
 	case AttestationFailureRevoked:
 		return "revoked"
+	case AttestationFailureRejectedAnchor:
+		return "rejected anchor"
 	default:
 		return fmt.Sprintf("AttestationFailure(%d)", int(f))
 	}
@@ -192,6 +202,17 @@ func WithAttestationRevocationChecker(c RevocationChecker) AttestationVerifierOp
 	}
 }
 
+// WithAttestationRejectedAnchors sets anchors which are rejected even when
+// the trust store holds them: a DAC whose chain ends at one of the PAAs, or
+// a Certification Declaration signed by one of the CD signing keys, fails.
+// A production verifier rejects the test anchors of the Matter SDK this
+// way, whose private keys are public.
+func WithAttestationRejectedAnchors(store AttestationTrustStore) AttestationVerifierOption {
+	return func(v *attestationVerifier) {
+		v.rejected = store
+	}
+}
+
 // WithAttestationClock sets the clock the validity of the certificates is
 // checked against. Defaults to time.Now.
 func WithAttestationClock(now func() time.Time) AttestationVerifierOption {
@@ -203,6 +224,7 @@ func WithAttestationClock(now func() time.Time) AttestationVerifierOption {
 type attestationVerifier struct {
 	mode       AttestationMode
 	store      AttestationTrustStore
+	rejected   AttestationTrustStore
 	revocation RevocationChecker
 	now        func() time.Time
 }
@@ -211,12 +233,15 @@ type attestationVerifier struct {
 // the given mode against the given trust store. The store is not used in
 // AttestationNone.
 func NewAttestationVerifier(mode AttestationMode, store AttestationTrustStore, opts ...AttestationVerifierOption) AttestationVerifier {
-	v := &attestationVerifier{mode: mode, store: store, revocation: nil, now: time.Now}
+	v := &attestationVerifier{mode: mode, store: store, rejected: nil, revocation: nil, now: time.Now}
 	if v.store == nil {
 		v.store = NewAttestationTrustStore(nil, nil)
 	}
 	for _, opt := range opts {
 		opt(v)
+	}
+	if v.rejected == nil {
+		v.rejected = NewAttestationTrustStore(nil, nil)
 	}
 	return v
 }
@@ -255,6 +280,10 @@ func (v *attestationVerifier) VerifyAttestation(info AttestationInfo) error {
 		return nil
 	}
 
+	if !info.HasBasicInformation {
+		return attestationError(AttestationFailureMalformed, "the device's Basic Information VendorID and ProductID are unknown")
+	}
+
 	pai, err := x509.ParseCertificate(info.PAI)
 	if err != nil {
 		return attestationError(AttestationFailureMalformed, "parse the PAI: %w", err)
@@ -274,6 +303,9 @@ func (v *attestationVerifier) VerifyAttestation(info AttestationInfo) error {
 	if err != nil {
 		return err
 	}
+	if containsCertificate(v.rejected.PAAs(), paa) {
+		return attestationError(AttestationFailureRejectedAnchor, "the PAA %q is rejected in mode %v", paa.Subject.CommonName, v.mode)
+	}
 	paaVID, hasPAAVID, err := attestationVendorID(paa)
 	if err != nil {
 		return attestationError(AttestationFailureMalformed, "the PAA: %w", err)
@@ -282,7 +314,7 @@ func (v *attestationVerifier) VerifyAttestation(info AttestationInfo) error {
 		return attestationError(AttestationFailureVendorID, "the PAA has vendor ID 0x%04X, the PAI 0x%04X", paaVID, vid)
 	}
 
-	if err := v.verifyCertificationDeclaration(elements.CertificationDeclaration, vid, pid, paa); err != nil {
+	if err := v.verifyCertificationDeclaration(elements.CertificationDeclaration, info, vid, pid, paa); err != nil {
 		return err
 	}
 
@@ -362,8 +394,9 @@ func (v *attestationVerifier) verifyChain(dac, pai *x509.Certificate) (*x509.Cer
 }
 
 // verifyCertificationDeclaration verifies the signature and the content of
-// the Certification Declaration against the DAC's IDs (6.3, 6.2.3.1).
-func (v *attestationVerifier) verifyCertificationDeclaration(der []byte, vid, pid uint16, paa *x509.Certificate) error {
+// the Certification Declaration against the device's Basic Information and
+// the DAC's IDs (6.3, 6.2.3.1).
+func (v *attestationVerifier) verifyCertificationDeclaration(der []byte, info AttestationInfo, vid, pid uint16, paa *x509.Certificate) error {
 	signed, err := ParseSignedCertificationDeclaration(der)
 	if err != nil {
 		return attestationError(AttestationFailureMalformed, "%w", err)
@@ -379,6 +412,10 @@ func (v *attestationVerifier) verifyCertificationDeclaration(der []byte, vid, pi
 		return attestationError(AttestationFailureCDSignerNotFound,
 			"no trusted Certification Declaration signing certificate has key ID %X", signed.SignerKeyID)
 	}
+	if containsCertificate(v.rejected.CDSigningCertificates(), signer) {
+		return attestationError(AttestationFailureRejectedAnchor,
+			"the Certification Declaration signing key %q is rejected in mode %v", signer.Subject.CommonName, v.mode)
+	}
 	if err := signed.Verify(signer); err != nil {
 		return attestationError(AttestationFailureCDSignature, "%w", err)
 	}
@@ -388,6 +425,16 @@ func (v *attestationVerifier) verifyCertificationDeclaration(der []byte, vid, pi
 	}
 	if v.mode == AttestationProduction && cd.CertificationType == CertificationTypeDevelopmentAndTest {
 		return attestationError(AttestationFailureCDContent, "the Certification Declaration is for development and test")
+	}
+	// The declaration names the certified product, which the device must
+	// be, whichever DAC it carries.
+	if cd.VendorID != info.VendorID {
+		return attestationError(AttestationFailureCDContent,
+			"the Certification Declaration names vendor ID 0x%04X, the device's Basic Information 0x%04X", cd.VendorID, info.VendorID)
+	}
+	if !containsUint16(cd.ProductIDs, info.ProductID) {
+		return attestationError(AttestationFailureCDContent,
+			"the Certification Declaration does not list the device's Basic Information product ID 0x%04X", info.ProductID)
 	}
 	if cd.HasDACOrigin {
 		// The product carries the DAC of another vendor's product.
@@ -420,6 +467,15 @@ func (v *attestationVerifier) verifyCertificationDeclaration(der []byte, vid, pi
 		}
 	}
 	return nil
+}
+
+func containsCertificate(list []*x509.Certificate, cert *x509.Certificate) bool {
+	for _, c := range list {
+		if c.Equal(cert) {
+			return true
+		}
+	}
+	return false
 }
 
 func containsUint16(list []uint16, v uint16) bool {

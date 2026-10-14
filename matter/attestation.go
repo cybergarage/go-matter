@@ -19,6 +19,7 @@ import (
 
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/credentials"
+	"github.com/cybergarage/go-matter/matter/credentials/production"
 	"github.com/cybergarage/go-matter/matter/credentials/testcreds"
 )
 
@@ -33,7 +34,7 @@ const (
 	AttestationDevelopment = credentials.AttestationDevelopment
 	// AttestationProduction trusts the production anchors and those added
 	// with WithCommissionerAttestationTrustStore only, and rejects test
-	// vendor IDs.
+	// vendor IDs and the test anchors of the Matter SDK.
 	AttestationProduction = credentials.AttestationProduction
 	// AttestationNone does not verify the chain of trust.
 	AttestationNone = credentials.AttestationNone
@@ -46,20 +47,25 @@ type AttestationTrustStore = credentials.AttestationTrustStore
 // AttestationVerifier decides whether a device's attestation is trusted.
 type AttestationVerifier = credentials.AttestationVerifier
 
-// DevelopmentAttestationTrustStore returns the anchors trusted in
-// AttestationDevelopment besides the production ones: the test PAA and the
-// Certification Declaration signing certificate of the Matter SDK, which
-// its example devices and go-matter's testcreds attest with.
+// DevelopmentAttestationTrustStore returns the test anchors of the Matter
+// SDK, whose private keys are public: its test PAA, which go-matter's
+// testcreds chain to, and its test Certification Declaration signing key.
+// AttestationDevelopment trusts them besides the production anchors;
+// AttestationProduction rejects them.
 func DevelopmentAttestationTrustStore() AttestationTrustStore {
-	return mustParseAttestationTrustStore(testcreds.PAA(), testcreds.CDSigningCertificate())
+	return mustParseAttestationTrustStore(
+		[][]byte{testcreds.PAA()},
+		[][]byte{testcreds.TestCDSigningCertificate()},
+	)
 }
 
 // ProductionAttestationTrustStore returns the production anchors go-matter
-// bundles. It is empty until the production PAAs of the Distributed
-// Compliance Ledger are bundled; add them with
+// bundles: the Certification Declaration signing keys of the Connectivity
+// Standards Alliance. The production PAAs of the Distributed Compliance
+// Ledger are not bundled yet; add a product's PAA with
 // WithCommissionerAttestationTrustStore meanwhile.
 func ProductionAttestationTrustStore() AttestationTrustStore {
-	return credentials.NewAttestationTrustStore(nil, nil)
+	return mustParseAttestationTrustStore(nil, production.CDSigningCertificates())
 }
 
 // NewAttestationVerifier returns the verifier a Commissioner uses for the
@@ -71,7 +77,11 @@ func NewAttestationVerifier(mode AttestationMode, extra ...AttestationTrustStore
 		stores = append(stores, DevelopmentAttestationTrustStore())
 	}
 	stores = append(stores, extra...)
-	return credentials.NewAttestationVerifier(mode, credentials.MergeAttestationTrustStores(stores...))
+	var opts []credentials.AttestationVerifierOption
+	if mode == AttestationProduction {
+		opts = append(opts, credentials.WithAttestationRejectedAnchors(DevelopmentAttestationTrustStore()))
+	}
+	return credentials.NewAttestationVerifier(mode, credentials.MergeAttestationTrustStores(stores...), opts...)
 }
 
 // DefaultAttestationVerifier returns the verifier of a Commissioner which
@@ -80,8 +90,8 @@ func DefaultAttestationVerifier() AttestationVerifier {
 	return NewAttestationVerifier(AttestationDevelopment)
 }
 
-func mustParseAttestationTrustStore(certs ...[]byte) AttestationTrustStore {
-	store, err := credentials.ParseAttestationTrustStore(certs...)
+func mustParseAttestationTrustStore(paas, cdSigners [][]byte) AttestationTrustStore {
+	store, err := credentials.ParseAttestationTrustStore(paas, cdSigners)
 	if err != nil {
 		// The bundled certificates are fixed: a failure is a build error.
 		log.Errorf("matter: bundled attestation trust store: %v", err)

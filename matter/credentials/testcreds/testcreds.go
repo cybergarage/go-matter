@@ -49,6 +49,8 @@ var (
 	certificationDeclaration []byte
 	//go:embed certs/CSA_Matter_CD_Signing_Key_001.cert.der
 	cdSigningCert []byte
+	//go:embed certs/Chip-Test-CD-Cert.der
+	testCDSigningCert []byte
 )
 
 // AttestationProvider returns the test DAC, PAI and CD, signing with the
@@ -69,9 +71,20 @@ func PAA() []byte {
 }
 
 // CDSigningCertificate returns the DER-encoded certificate of the key which
-// signed the Certification Declaration.
+// signed the Certification Declaration. It is a production key of the
+// Connectivity Standards Alliance, CSA Certification Declaration Signing
+// Key 001: the declaration is for development and test by its vendor ID and
+// certification type, not by its signer.
 func CDSigningCertificate() []byte {
 	return clone(cdSigningCert)
+}
+
+// TestCDSigningCertificate returns the DER-encoded certificate of the Matter
+// SDK's test Certification Declaration signing key, "Matter Test CD
+// Signing Authority", whose private key is public. A commissioner trusts
+// it in development mode only.
+func TestCDSigningCertificate() []byte {
+	return clone(testCDSigningCert)
 }
 
 func clone(b []byte) []byte {
