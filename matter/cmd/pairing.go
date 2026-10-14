@@ -23,12 +23,34 @@ import (
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter"
 	"github.com/cybergarage/go-matter/matter/config"
+	"github.com/cybergarage/go-matter/matter/credentials"
 	"github.com/cybergarage/go-matter/matter/encoding"
 	"github.com/cybergarage/go-matter/matter/types"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+)
+
+const (
+	// AttestationParamStr selects how device attestation is verified.
+	AttestationParamStr = "attestation"
+	// PAATrustStoreParamStr names a directory of PAA and Certification
+	// Declaration signing certificates to trust besides the bundled ones.
+	PAATrustStoreParamStr = "paa-trust-store"
 )
 
 func init() {
+	viper.SetDefault(AttestationParamStr, matter.AttestationDevelopment.String())
+	pairingCmd.PersistentFlags().String(AttestationParamStr, matter.AttestationDevelopment.String(),
+		"device attestation verification: development|production|none")
+	viper.BindPFlag(AttestationParamStr, pairingCmd.PersistentFlags().Lookup(AttestationParamStr))
+	viper.BindEnv(AttestationParamStr) // MATTER_CTL_ATTESTATION
+
+	viper.SetDefault(PAATrustStoreParamStr, "")
+	pairingCmd.PersistentFlags().String(PAATrustStoreParamStr, "",
+		"directory of PAA and CD signing certificates (.der/.pem) to trust besides the bundled ones")
+	viper.BindPFlag(PAATrustStoreParamStr, pairingCmd.PersistentFlags().Lookup(PAATrustStoreParamStr))
+	viper.BindEnv(PAATrustStoreParamStr, "MATTER_CTL_PAA_TRUST_STORE")
+
 	pairingCmd.AddCommand(pairingCodeCmd)
 	pairingCmd.AddCommand(pairingCodeWifiCmd)
 	rootCmd.AddCommand(pairingCmd)
@@ -58,11 +80,16 @@ var pairingCodeCmd = &cobra.Command{ // nolint:exhaustruct
 			return err
 		}
 
+		verifier, err := pairingAttestationVerifier()
+		if err != nil {
+			return err
+		}
+
 		cmr := SharedCommissioner()
 		ctx, cancel := context.WithTimeout(context.Background(), matter.DefaultCommissioningTimeout)
 		defer cancel()
 
-		cme, err := cmr.Commission(ctx, pairingCode, matter.CommissionNodeID(nodeID))
+		cme, err := cmr.Commission(ctx, pairingCode, verifier, matter.CommissionNodeID(nodeID))
 		if err != nil {
 			log.Error(err)
 			return err
@@ -94,6 +121,11 @@ var pairingCodeWifiCmd = &cobra.Command{ // nolint:exhaustruct
 			return err
 		}
 
+		verifier, err := pairingAttestationVerifier()
+		if err != nil {
+			return err
+		}
+
 		cmr := SharedCommissioner()
 		ctx, cancel := context.WithTimeout(context.Background(), matter.DefaultCommissioningTimeout)
 		defer cancel()
@@ -102,7 +134,7 @@ var pairingCodeWifiCmd = &cobra.Command{ // nolint:exhaustruct
 			config.WithSSID([]byte(wifiSSID)),
 			config.WithCredentials([]byte(wifiPasswd)),
 		)
-		cme, err := cmr.Commission(ctx, pairingCode, wifiCfg, matter.CommissionNodeID(nodeID))
+		cme, err := cmr.Commission(ctx, pairingCode, wifiCfg, verifier, matter.CommissionNodeID(nodeID))
 		if err != nil {
 			log.Error(err)
 			return err
@@ -112,6 +144,24 @@ var pairingCodeWifiCmd = &cobra.Command{ // nolint:exhaustruct
 
 		return nil
 	},
+}
+
+// pairingAttestationVerifier returns the device attestation verification
+// the --attestation and --paa-trust-store flags select.
+func pairingAttestationVerifier() (matter.AttestationVerifier, error) {
+	mode, err := credentials.ParseAttestationMode(viper.GetString(AttestationParamStr))
+	if err != nil {
+		return nil, err
+	}
+	var extra []matter.AttestationTrustStore
+	if dir := viper.GetString(PAATrustStoreParamStr); dir != "" {
+		store, err := credentials.LoadAttestationTrustStore(dir)
+		if err != nil {
+			return nil, err
+		}
+		extra = append(extra, store)
+	}
+	return matter.NewAttestationVerifier(mode, extra...), nil
 }
 
 // Numeric arguments retain decimal semantics; 0x prefixes permit explicit hexadecimal.

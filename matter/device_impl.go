@@ -24,6 +24,7 @@ type baseDevice struct {
 	wifiConfig          config.WiFiNetworkConfig
 	operationCredConfig config.OperationalCredentialsConfig
 	adminConfig         config.AdministratorConfig
+	attestationVerifier AttestationVerifier
 	nodeID              uint64
 }
 
@@ -51,6 +52,8 @@ func (baseDev *baseDevice) parseCommissionOptions(opts ...CommissionOption) erro
 			baseDev.operationCredConfig = o
 		case config.AdministratorConfig:
 			baseDev.adminConfig = o
+		case AttestationVerifier:
+			baseDev.attestationVerifier = o
 		default:
 			return fmt.Errorf("unsupported commission option type: %T", opt)
 		}

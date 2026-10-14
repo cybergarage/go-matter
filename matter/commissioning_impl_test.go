@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"github.com/cybergarage/go-matter/matter/config"
+	"github.com/cybergarage/go-matter/matter/credentials"
 	mcrypto "github.com/cybergarage/go-matter/matter/crypto"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 	mdnspkg "github.com/cybergarage/go-matter/matter/mdns"
@@ -215,7 +216,7 @@ func TestCommissionOverPASEDoesNotInvokeCommissioningComplete(t *testing.T) {
 	})
 
 	armFailSafeCommand = func(session.SecureSession, im.EndpointID, uint16, uint64) error { return nil }
-	commissionDeviceAttestationFn = func(session.SecureSession) (deviceAttestationResult, error) {
+	commissionDeviceAttestationFn = func(session.SecureSession, credentials.AttestationVerifier) (deviceAttestationResult, error) {
 		return deviceAttestationResult{csr: generateTestCSR(t)}, nil
 	}
 	addTrustedRootCertificateCommand = func(session.SecureSession, im.EndpointID, []byte) error { return nil }
@@ -227,7 +228,7 @@ func TestCommissionOverPASEDoesNotInvokeCommissioningComplete(t *testing.T) {
 		return nil
 	}
 
-	_, err := commissionOverPASE(nil, validOperationalCredentialsConfig(), validAdministratorConfig(), nil, false)
+	_, err := commissionOverPASE(nil, validOperationalCredentialsConfig(), validAdministratorConfig(), nil, nil, false)
 	if err != nil {
 		t.Fatalf("commissionOverPASE(...) error = %v, want nil", err)
 	}
@@ -253,6 +254,7 @@ func TestCommissionWithSessionReturnsExplicitNonConcurrentError(t *testing.T) {
 		validOperationalCredentialsConfig(),
 		nil,
 		validAdministratorConfig(),
+		nil,
 		false,
 	)
 	if err == nil {
@@ -357,7 +359,7 @@ func TestCommissionDeviceAttestationVerifiesSignaturesAndParsesCSR(t *testing.T)
 	certificateChainRequestCommand = fixture.certificateChainRequestCommand
 	csrRequestCommand = fixture.csrRequestCommand
 
-	result, err := commissionDeviceAttestation(stubSecureSession{})
+	result, err := commissionDeviceAttestation(stubSecureSession{}, signatureOnlyVerifier())
 	if err != nil {
 		t.Fatalf("commissionDeviceAttestation(...) error = %v, want nil", err)
 	}
@@ -393,7 +395,7 @@ func TestCommissionDeviceAttestationRejectsTamperedSignature(t *testing.T) {
 	certificateChainRequestCommand = fixture.certificateChainRequestCommand
 	csrRequestCommand = fixture.csrRequestCommand
 
-	if _, err := commissionDeviceAttestation(stubSecureSession{}); err == nil {
+	if _, err := commissionDeviceAttestation(stubSecureSession{}, signatureOnlyVerifier()); err == nil {
 		t.Fatal("commissionDeviceAttestation(...) error = nil, want signature verification failure")
 	}
 }
@@ -434,7 +436,7 @@ func TestCommissionDeviceAttestationRejectsMismatchedNonces(t *testing.T) {
 			certificateChainRequestCommand = fixture.certificateChainRequestCommand
 			csrRequestCommand = fixture.csrRequestCommand
 
-			_, err := commissionDeviceAttestation(stubSecureSession{})
+			_, err := commissionDeviceAttestation(stubSecureSession{}, signatureOnlyVerifier())
 			if err == nil {
 				t.Fatal("commissionDeviceAttestation(...) error = nil, want a nonce mismatch")
 			}
@@ -692,4 +694,10 @@ func testRootMaterials() ([]byte, *x509.Certificate, *ecdsa.PrivateKey) {
 	rootDER, _ := x509.CreateCertificate(rand.Reader, rootTmpl, rootTmpl, &rootKey.PublicKey, rootKey)
 	rootCert, _ := x509.ParseCertificate(rootDER)
 	return rootDER, rootCert, rootKey
+}
+
+// signatureOnlyVerifier verifies the fixture's self-signed DAC, which no PAA
+// issued, as AttestationNone does: the DAC signature and the nonce only.
+func signatureOnlyVerifier() credentials.AttestationVerifier {
+	return credentials.NewAttestationVerifier(credentials.AttestationNone, nil)
 }

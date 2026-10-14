@@ -32,7 +32,7 @@ go-matter is a **commissioner (controller)**. It discovers a commissionable devi
 
 | | Status |
 | --- | --- |
-| Commissioning and operating a device (commissioner) | Supported: device attestation is not validated, and subscriptions and events are not supported yet |
+| Commissioning and operating a device (commissioner) | Supported: subscriptions and events are not supported yet |
 | Being commissioned, and serving clusters (device) | **In development**: commissioned over IP by chip-tool; the root node clusters and an On/Off Light. No events, Network Commissioning server or CASE session resumption yet |
 | `matterctl` command | Supported |
 
@@ -40,6 +40,7 @@ go-matter is a **commissioner (controller)**. It discovers a commissionable devi
 
 - Discovering a commissionable device over BLE and over mDNS, from a QR code payload or a manual pairing code
 - Commissioning over BLE (BTP) and over IP: PASE (SPAKE2+), the fail-safe and general commissioning flow, CSR and NOC issuance, and CASE
+- Device attestation verification: the DAC → PAI → PAA chain and the Certification Declaration, in a development mode (the default, which also trusts the test credentials of the Matter SDK), a production mode, or none
 - A persistent store of the fabric and of the commissioned nodes, so that a node is reachable again after a restart
 - Reconnecting to a commissioned node with a fresh CASE handshake
 - The Interaction Model: Read, Write and Invoke, including the reassembly of a chunked list
@@ -48,7 +49,7 @@ go-matter is a **commissioner (controller)**. It discovers a commissionable devi
 
 ### What is not supported yet
 
-- **The device attestation chain of trust is not validated.** The attestation exchange runs and its response is parsed, but the certificate chain is accepted without being verified against the Distributed Compliance Ledger. Do not rely on go-matter to reject an untrusted device.
+- **The production PAAs of the Distributed Compliance Ledger are not bundled yet.** Device attestation is verified, but until they are, a certified product is commissioned only when its PAA is added with `WithCommissionerAttestationTrustStore` (`matterctl pairing --paa-trust-store`), and revocation is not checked.
 - Interaction Model subscriptions: an attribute is read on demand, and a change cannot be reported to the controller
 - Thread commissioning: only the Wi-Fi credentials of a device can be set, with `pairing code-wifi`
 - Groups, bindings, scenes and OTA software update
@@ -74,7 +75,7 @@ go-matter is a **commissioner (controller)**. It discovers a commissionable devi
 | Commissioning | `protocol.pase` | ✅ Implemented | Passcode-Authenticated Session Establishment (PASE / SPAKE2+) |
 |               | `protocol.case` | ✅ Implemented | Certificate-Authenticated Session Establishment (CASE) |
 |               | `protocol.session` | ✅ Implemented | Secure session management |
-|               | `credentials` | ✅ Under verification | Attestation, CSR, and CA/NOC chain handling (attestation chain-of-trust validation is intentionally skipped for now) |
+|               | `credentials` | ✅ Implemented | Device attestation verification (DAC → PAI → PAA, Certification Declaration), CSR, and CA/NOC chain handling |
 |               | `store` | ✅ Implemented | Persistent fabric and commissionee record store |
 | Interaction Model | `protocol.im` | ✅ Implemented | Read/Write/Invoke Interaction Model transactions, incl. chunked list reassembly |
 |                    | `protocol.mrp` | ✅ Implemented | Message Reliability Protocol (acknowledgement, counters) |

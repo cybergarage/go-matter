@@ -43,6 +43,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Writes in `im.Server`.** `HandleAttributeWrite` registers a writer, which gets the value as TLV (`AttributeWriteRequest.Decoder`), whether it appends to a list, and whether the write is timed; it requires Operate unless `im.WithPrivilege` says otherwise. The server answers a WriteRequest with the status of each write: UNSUPPORTED_WRITE for a read-only attribute, UNSUPPORTED_ACCESS for a refused one. The device's Basic Information NodeLabel is writable.
 - `pake.Pake1.PA`, `pake.Pake3.CA` and `pake.WithPake2MessagePrecomputed`, which the responder needs.
 - `store.PersistentCounter`, a counter that never repeats a value across restarts without persisting every increment, for the boot count and the global group message counters.
+- **Device attestation verification** (6.2.3): the commissioner checks that the DAC chains to a trusted PAA through its PAI, that the vendor and product IDs of the DAC, the PAI and the PAA agree, and that the Certification Declaration is signed by a trusted key and covers the DAC's vendor and product, its DAC origin and its authorized PAAs. `credentials.AttestationVerifier` runs the procedure in one of three modes: `AttestationDevelopment`, the default, which also trusts the test credentials of the Matter SDK; `AttestationProduction`, which rejects the test vendor IDs and Certification Declarations for development and test; and `AttestationNone`, which only checks the DAC signature and the nonce. A rejected device fails with a `credentials.AttestationError` naming the failure.
+- `credentials.AttestationTrustStore`, with `LoadAttestationTrustStore` (a directory of PAA and CD signing certificates), `ParseAttestationTrustStore` and `MergeAttestationTrustStores`, and `credentials.RevocationChecker` (`WithAttestationRevocationChecker`) for a revocation check.
+- `credentials.ParseSignedCertificationDeclaration` and `ParseCertificationDeclaration`, which verify and decode a Certification Declaration.
+- `matter.WithCommissionerAttestationMode`, `WithCommissionerAttestationTrustStore` and `WithCommissionerAttestationVerifier`, and `matter.NewAttestationVerifier`, `DefaultAttestationVerifier` and `DevelopmentAttestationTrustStore`. An `AttestationVerifier` can also be passed to `Commission` as a `CommissionOption`.
+- `matterctl pairing --attestation development|production|none` and `--paa-trust-store <dir>`.
 
 ### Fixed
 
@@ -50,9 +55,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Operational discovery never found a node: `mdns.NewOperationalNodeQuery` for a service instance asked for its PTR records, which an instance does not have, since go-mdns sends the query's own type instead of ANY. It now asks for ANY, and `mdns.Query` carries the question type (`WithQueryType`).
 - `pbkdf.NewParamResponse` did not echo the initiator's random when the PBKDF parameters were given, so a responder with its own salt could not answer.
 - A PASE initiator that fails to verify cB now sends a failure StatusReport, so the responder ends the exchange instead of waiting for Pake3 until its deadline.
+- The commissioner did not check that the AttestationResponse and the CSRResponse echo the nonces of their requests (11.18.7.2, 11.18.7.6). It now rejects a response which does not.
+- The CASE initiator accepted any NOC of the fabric from the responder, so a node of the fabric could answer for another. It now checks that the NOC names the node it targeted, and fails with `caseprotocol.ErrUnexpectedResponder` otherwise.
 
 ### Changed
 
+- **A commissioner now rejects a device whose attestation does not verify.** Commissioning a device whose PAA is not trusted fails with `AttestationFailurePAANotFound`; add the PAA with `WithCommissionerAttestationTrustStore`, or select `AttestationNone` for a device trusted otherwise. The production PAAs of the Distributed Compliance Ledger are not bundled yet.
 - A standalone MRP ack sets the initiator flag exactly when the acknowledged message did not, instead of always; a commissioner's acks are unchanged.
 - `device.Session` no longer has `Transport()`: the device serves the Interaction Model on it.
 - `device.Session.Keys` returns `session.SessionKeys`, since a session may now be a CASE one.

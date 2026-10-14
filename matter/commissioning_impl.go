@@ -114,6 +114,7 @@ func commissionWithSession(
 	operationalCfg config.OperationalCredentialsConfig,
 	wifiCfg config.WiFiNetworkConfig,
 	adminCfg config.AdministratorConfig,
+	verifier credentials.AttestationVerifier,
 	requireNetwork bool,
 	requestedNodeID ...uint64,
 ) (deviceOperationalIdentity, error) {
@@ -125,7 +126,7 @@ func commissionWithSession(
 		return deviceOperationalIdentity{}, fmt.Errorf("commissioning: non-concurrent commissioning not yet supported")
 	}
 
-	identity, err := commissionOverPASE(sess, operationalCfg, adminCfg, wifiCfg, requireNetwork, requestedNodeID...)
+	identity, err := commissionOverPASE(sess, operationalCfg, adminCfg, wifiCfg, verifier, requireNetwork, requestedNodeID...)
 	if err != nil {
 		return deviceOperationalIdentity{}, err
 	}
@@ -146,6 +147,7 @@ func commissionOverPASE(
 	operationalCfg config.OperationalCredentialsConfig,
 	adminCfg config.AdministratorConfig,
 	wifiCfg config.WiFiNetworkConfig,
+	verifier credentials.AttestationVerifier,
 	requireNetwork bool,
 	requestedNodeID ...uint64,
 ) (deviceOperationalIdentity, error) {
@@ -174,7 +176,10 @@ func commissionOverPASE(
 	// Step 2: Device Attestation
 	// 11.18.7.1. AttestationRequest Command.
 	log.Infof("Commissioning: Device Attestation")
-	attResult, err := commissionDeviceAttestationFn(sess)
+	if verifier == nil {
+		verifier = DefaultAttestationVerifier()
+	}
+	attResult, err := commissionDeviceAttestationFn(sess, verifier)
 	if err != nil {
 		return deviceOperationalIdentity{}, err
 	}
@@ -258,11 +263,10 @@ func finalizeCommissioningOverCASE(
 
 // commissionDeviceAttestation runs the AttestationRequest / CertificateChainRequest
 // (DAC, PAI) / CSRRequest exchange and returns the device's DAC public key and
-// parsed CSR. It verifies the DAC's signature over the AttestationResponse and
-// CSRResponse payloads (see matter/credentials), but — per this codebase's
-// documented, intentionally pragmatic scope — does not validate a DAC -> PAI
-// -> PAA chain of trust, and does not verify the Certification Declaration.
-func commissionDeviceAttestation(sess session.SecureSession) (deviceAttestationResult, error) {
+// parsed CSR. The verifier decides whether the device's attestation is
+// trusted (6.2.3. Device Attestation Procedure); the CSRResponse must be
+// signed with the same DAC key.
+func commissionDeviceAttestation(sess session.SecureSession, verifier credentials.AttestationVerifier) (deviceAttestationResult, error) {
 	challenge := sess.SessionKeys().AttestationChallenge()
 	if len(challenge) == 0 {
 		return deviceAttestationResult{}, fmt.Errorf("commissioning: session has no attestation challenge")
@@ -281,6 +285,21 @@ func commissionDeviceAttestation(sess session.SecureSession) (deviceAttestationR
 	if err != nil {
 		return deviceAttestationResult{}, fmt.Errorf("commissioning: CertificateChainRequest(DAC): %w", err)
 	}
+	paiDER, err := certificateChainRequestCommand(sess, defaultEndpointID, certificateTypePAI)
+	if err != nil {
+		return deviceAttestationResult{}, fmt.Errorf("commissioning: CertificateChainRequest(PAI): %w", err)
+	}
+
+	if err := verifier.VerifyAttestation(credentials.AttestationInfo{
+		DAC:                  dacDER,
+		PAI:                  paiDER,
+		AttestationElements:  attestationElementsTLV,
+		AttestationSignature: attestationSig,
+		AttestationChallenge: challenge,
+		AttestationNonce:     attestationNonce,
+	}); err != nil {
+		return deviceAttestationResult{}, fmt.Errorf("commissioning: %w", err)
+	}
 	dacCert, err := x509.ParseCertificate(dacDER)
 	if err != nil {
 		return deviceAttestationResult{}, fmt.Errorf("commissioning: parse DAC: %w", err)
@@ -289,27 +308,6 @@ func commissionDeviceAttestation(sess session.SecureSession) (deviceAttestationR
 	if !ok {
 		return deviceAttestationResult{}, fmt.Errorf("commissioning: DAC public key is not ECDSA")
 	}
-
-	if err := credentials.VerifyAttestationSignature(attestationElementsTLV, challenge, attestationSig, dacPubKey); err != nil {
-		return deviceAttestationResult{}, fmt.Errorf("commissioning: %w", err)
-	}
-	attestationElements, err := credentials.ParseAttestationElements(attestationElementsTLV)
-	if err != nil {
-		return deviceAttestationResult{}, fmt.Errorf("commissioning: %w", err)
-	}
-	// 11.18.7.2. AttestationResponse Command: the AttestationElements echo
-	// the AttestationNonce of the request.
-	if !bytes.Equal(attestationElements.Nonce, attestationNonce) {
-		return deviceAttestationResult{}, fmt.Errorf("commissioning: AttestationResponse does not echo the AttestationNonce")
-	}
-
-	// PAI is fetched for completeness but its chain of trust to a Product
-	// Attestation Authority is intentionally not validated — see the package
-	// doc comment on matter/credentials and matter/cluster/operationalcredentials.
-	if _, err := certificateChainRequestCommand(sess, defaultEndpointID, certificateTypePAI); err != nil {
-		return deviceAttestationResult{}, fmt.Errorf("commissioning: CertificateChainRequest(PAI): %w", err)
-	}
-	log.Infof("Commissioning: PAI fetched; chain-of-trust validation intentionally skipped (see matter/credentials doc)")
 
 	csrNonce := make([]byte, csrNonceLength)
 	if _, err := rand.Read(csrNonce); err != nil {
