@@ -30,8 +30,9 @@ mode, AttestationDevelopment, also trusts the test credentials of the Matter
 SDK; WithCommissionerAttestationMode selects AttestationProduction or
 AttestationNone, and WithCommissionerAttestationTrustStore adds anchors, such
 as self-issued ones. A node from Commissioner.Connect subscribes to
-attributes with AttributeSubscriber, and Read, Write and Invoke share its
-session with the subscriptions. Events are not supported yet.
+attributes and events with AttributeSubscriber, reads events with
+EventReader, and Read, Write and Invoke share its session with the
+subscriptions.
 
 # Commissioning
 

@@ -84,6 +84,8 @@ type Report struct {
 	// every subscribed attribute, and of a resubscription.
 	Priming    bool
 	Attributes []AttributeReport
+	// Events are the events reported, in the order of their numbers.
+	Events []EventReport
 }
 
 // ReportHandler receives the reports of a subscription, one at a time and
@@ -102,6 +104,27 @@ type subscribeConfig struct {
 	resubscribe       bool
 	livenessMargin    time.Duration
 	onError           func(error)
+	eventPaths        []EventRequestPath
+	eventMin          uint64
+	hasEventMin       bool
+}
+
+// WithEvents subscribes to the events of paths too, which the reports
+// carry in Events. The priming report holds the events the publisher keeps
+// which match, from WithEventMin's number on.
+func WithEvents(paths ...EventRequestPath) SubscribeOption {
+	return func(c *subscribeConfig) {
+		c.eventPaths = append(c.eventPaths, paths...)
+	}
+}
+
+// WithEventMin asks for the events numbered n and up only (10.6.6). A
+// subscription which subscribes again asks for those after the last event
+// it reported.
+func WithEventMin(n uint64) SubscribeOption {
+	return func(c *subscribeConfig) {
+		c.eventMin, c.hasEventMin = n, true
+	}
 }
 
 // WithMinInterval sets MinIntervalFloor, the least time between two
@@ -175,13 +198,17 @@ type Subscription struct {
 	mutex       sync.Mutex
 	id          uint32
 	maxInterval time.Duration
-	chunks      map[message.ExchangeID]*Report
-	reports     []*Report
-	wake        chan struct{}
-	alive       chan struct{}
-	err         error
-	ended       bool
-	done        chan struct{}
+	// lastEvent is the number of the last event reported; hasLastEvent is
+	// false before the first.
+	lastEvent    uint64
+	hasLastEvent bool
+	chunks       map[message.ExchangeID]*Report
+	reports      []*Report
+	wake         chan struct{}
+	alive        chan struct{}
+	err          error
+	ended        bool
+	done         chan struct{}
 }
 
 // Subscribe subscribes to the attributes of paths and returns once the
@@ -190,8 +217,8 @@ type Subscription struct {
 // only. Reports arrive until Close, or until the subscription ends with an
 // error, after which Done is closed.
 func (m *ExchangeMux) Subscribe(ctx context.Context, paths []AttributeRequestPath, handler ReportHandler, opts ...SubscribeOption) (*Subscription, error) {
-	if len(paths) == 0 {
-		return nil, errors.New("im: Subscribe: no attribute path")
+	if len(paths) == 0 && !hasEventPaths(opts) {
+		return nil, errors.New("im: Subscribe: no attribute or event path")
 	}
 	if handler == nil {
 		return nil, errors.New("im: Subscribe: no report handler")
@@ -204,6 +231,9 @@ func (m *ExchangeMux) Subscribe(ctx context.Context, paths []AttributeRequestPat
 		resubscribe:       true,
 		livenessMargin:    DefaultLivenessMargin,
 		onError:           nil,
+		eventPaths:        nil,
+		eventMin:          0,
+		hasEventMin:       false,
 	}
 	for _, opt := range opts {
 		opt(&cfg)
@@ -217,20 +247,22 @@ func (m *ExchangeMux) Subscribe(ctx context.Context, paths []AttributeRequestPat
 		return nil, fmt.Errorf("im: Subscribe: negative liveness margin %v", cfg.livenessMargin)
 	}
 	sub := &Subscription{
-		mux:         m,
-		paths:       append([]AttributeRequestPath(nil), paths...),
-		cfg:         cfg,
-		handler:     handler,
-		mutex:       sync.Mutex{},
-		id:          0,
-		maxInterval: 0,
-		chunks:      map[message.ExchangeID]*Report{},
-		reports:     nil,
-		wake:        make(chan struct{}, 1),
-		alive:       make(chan struct{}, 1),
-		err:         nil,
-		ended:       false,
-		done:        make(chan struct{}),
+		mux:          m,
+		paths:        append([]AttributeRequestPath(nil), paths...),
+		cfg:          cfg,
+		handler:      handler,
+		mutex:        sync.Mutex{},
+		id:           0,
+		maxInterval:  0,
+		lastEvent:    0,
+		hasLastEvent: false,
+		chunks:       map[message.ExchangeID]*Report{},
+		reports:      nil,
+		wake:         make(chan struct{}, 1),
+		alive:        make(chan struct{}, 1),
+		err:          nil,
+		ended:        false,
+		done:         make(chan struct{}),
 	}
 	priming, err := sub.subscribe(ctx)
 	if err != nil {
@@ -290,7 +322,14 @@ func (sub *Subscription) subscribe(ctx context.Context) (_ *Report, err error) {
 			sub.mux.unregister(id, sub)
 		}
 	}()
-	payload, err := encodeSubscribeRequest(sub.paths, sub.cfg)
+	cfg := sub.cfg
+	sub.mutex.Lock()
+	if sub.hasLastEvent {
+		// Not the events already reported again (10.6.6).
+		cfg.eventMin, cfg.hasEventMin = sub.lastEvent+1, true
+	}
+	sub.mutex.Unlock()
+	payload, err := encodeSubscribeRequest(sub.paths, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("im: build SubscribeRequest: %w", err)
 	}
@@ -340,6 +379,7 @@ func (sub *Subscription) subscribe(ctx context.Context) (_ *Report, err error) {
 			if priming.Attributes, err = mergeAttributeReports(priming.Attributes, rd.attributes); err != nil {
 				return nil, fmt.Errorf("im: Subscribe: priming report: %w", err)
 			}
+			priming.Events = append(priming.Events, rd.events...)
 			if err := transmitOnExchange(sub.mux, message.StatusResponseMessage, exchange, statusResponsePayload(StatusSuccess)); err != nil {
 				return nil, fmt.Errorf("im: Subscribe: answer the priming report: %w", err)
 			}
@@ -385,6 +425,7 @@ func (sub *Subscription) received(exchange message.ExchangeID, rd *reportData) {
 		sub.reportError(fmt.Errorf("im: subscription %d: drop a report: %w", rd.subscriptionID, err))
 		return
 	}
+	report.Events = append(report.Events, rd.events...)
 	if rd.moreChunks {
 		sub.chunks[exchange] = report
 		sub.mutex.Unlock()
@@ -393,13 +434,18 @@ func (sub *Subscription) received(exchange message.ExchangeID, rd *reportData) {
 	delete(sub.chunks, exchange)
 	sub.mutex.Unlock()
 	// An empty report only keeps the subscription alive.
-	if 0 < len(report.Attributes) {
+	if 0 < len(report.Attributes) || 0 < len(report.Events) {
 		sub.enqueue(report)
 	}
 }
 
 func (sub *Subscription) enqueue(report *Report) {
 	sub.mutex.Lock()
+	for _, e := range report.Events {
+		if e.Status == nil && (!sub.hasLastEvent || sub.lastEvent < e.EventNumber) {
+			sub.lastEvent, sub.hasLastEvent = e.EventNumber, true
+		}
+	}
 	sub.reports = append(sub.reports, report)
 	sub.mutex.Unlock()
 	select {
@@ -537,19 +583,24 @@ func encodeSubscribeRequest(paths []AttributeRequestPath, cfg subscribeConfig) (
 	enc.PutBool(tlv.NewContextTag(0), cfg.keepSubscriptions)
 	enc.PutUnsigned2(tlv.NewContextTag(1), uint16(cfg.minInterval/time.Second)) // nolint: gosec // bounded by Subscribe
 	enc.PutUnsigned2(tlv.NewContextTag(2), uint16(cfg.maxInterval/time.Second)) // nolint: gosec // bounded by Subscribe
-	enc.BeginArray(tlv.NewContextTag(3))                                        // AttributeRequests
-	for _, p := range paths {
-		enc.BeginList(tlv.NewAnonymousTag()) // AttributePathIB
-		if p.Endpoint != nil {
-			enc.PutUnsigned2(tlv.NewContextTag(2), uint16(*p.Endpoint))
-		}
-		if p.Cluster != nil {
-			if err := enc.PutUnsigned(tlv.NewContextTag(3), uint64(*p.Cluster)); err != nil {
-				return nil, err
+	if 0 < len(paths) {
+		enc.BeginArray(tlv.NewContextTag(3)) // AttributeRequests
+		for _, p := range paths {
+			enc.BeginList(tlv.NewAnonymousTag()) // AttributePathIB
+			if p.Endpoint != nil {
+				enc.PutUnsigned2(tlv.NewContextTag(2), uint16(*p.Endpoint))
 			}
-		}
-		if p.Attribute != nil {
-			if err := enc.PutUnsigned(tlv.NewContextTag(4), uint64(*p.Attribute)); err != nil {
+			if p.Cluster != nil {
+				if err := enc.PutUnsigned(tlv.NewContextTag(3), uint64(*p.Cluster)); err != nil {
+					return nil, err
+				}
+			}
+			if p.Attribute != nil {
+				if err := enc.PutUnsigned(tlv.NewContextTag(4), uint64(*p.Attribute)); err != nil {
+					return nil, err
+				}
+			}
+			if err := enc.EndContainer(); err != nil {
 				return nil, err
 			}
 		}
@@ -557,8 +608,15 @@ func encodeSubscribeRequest(paths []AttributeRequestPath, cfg subscribeConfig) (
 			return nil, err
 		}
 	}
-	if err := enc.EndContainer(); err != nil {
-		return nil, err
+	if 0 < len(cfg.eventPaths) {
+		if err := encodeEventRequests(enc, tlv.NewContextTag(4), cfg.eventPaths); err != nil {
+			return nil, err
+		}
+		if cfg.hasEventMin {
+			if err := encodeEventFilters(enc, tlv.NewContextTag(5), cfg.eventMin); err != nil {
+				return nil, err
+			}
+		}
 	}
 	enc.PutBool(tlv.NewContextTag(7), cfg.fabricFiltered)
 	enc.PutUnsigned1(tlv.NewContextTag(interactionModelRevisionTag), interactionModelRevision)
@@ -632,6 +690,7 @@ type reportData struct {
 	subscriptionID    uint32
 	hasSubscriptionID bool
 	attributes        []attributeReportEntry
+	events            []EventReport
 	moreChunks        bool
 	suppressResponse  bool
 }
@@ -683,6 +742,19 @@ func decodeReportData(raw []byte) (*reportData, error) {
 	if f := valueField(root, 4); f != nil {
 		if rd.suppressResponse, ok = f.Element.Bool(); !ok {
 			return nil, errors.New("im: ReportData: SuppressResponse is not a boolean")
+		}
+	}
+	if events := valueField(root, 2); events != nil {
+		if !events.Element.Type().IsArray() && !events.Element.Type().IsList() {
+			return nil, errors.New("im: ReportData: EventReportIBs is not an array")
+		}
+		var timeline eventTimeline
+		for _, r := range events.Children {
+			e, err := decodeEventReportIB(r, &timeline)
+			if err != nil {
+				return nil, fmt.Errorf("im: ReportData: %w", err)
+			}
+			rd.events = append(rd.events, e)
 		}
 	}
 	reports := valueField(root, 1)
@@ -800,4 +872,12 @@ func mergeAttributeReports(reports []AttributeReport, entries []attributeReportE
 		list.Value.Children = append(list.Value.Children, e.Value)
 	}
 	return reports, nil
+}
+
+func hasEventPaths(opts []SubscribeOption) bool {
+	var cfg subscribeConfig
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+	return 0 < len(cfg.eventPaths)
 }

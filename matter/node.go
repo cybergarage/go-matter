@@ -69,10 +69,21 @@ type ValueAttributeReader interface {
 //		[]im.AttributeRequestPath{im.NewAttributeRequestPath(1, onoff.ClusterID, onoff.OnOffAttributeID)},
 //		func(r *im.Report) { ... })
 //
+// im.WithEvents subscribes to events too, which the reports carry in
+// Events; a subscription which subscribes again asks for the events after
+// the last one it reported.
+//
 // A subscription lasts until it is closed, or the node is: when no report
 // arrives within its max interval, it subscribes again on the same
 // session. A session which fails ends it; connect again to subscribe
 // again.
 type AttributeSubscriber interface {
 	Subscribe(ctx context.Context, paths []im.AttributeRequestPath, handler im.ReportHandler, opts ...im.SubscribeOption) (*im.Subscription, error)
+}
+
+// EventReader is an optional extension implemented by nodes returned by
+// this library: it reads the events a node keeps (7.14. Event). To be told
+// of new events, subscribe with im.WithEvents.
+type EventReader interface {
+	ReadEvents(paths []im.EventRequestPath, opts ...im.ReadEventsOption) ([]im.EventReport, error)
 }
