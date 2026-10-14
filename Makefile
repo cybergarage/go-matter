@@ -144,3 +144,9 @@ tui:
 
 check-tui:
 	./scripts/check-tui.sh
+
+# Refresh the production PAAs and CD signing certificates bundled in
+# matter/credentials/production/certs from the Distributed Compliance Ledger.
+.PHONY: update-production-certs
+update-production-certs:
+	go run ./matter/credentials/production/internal/update

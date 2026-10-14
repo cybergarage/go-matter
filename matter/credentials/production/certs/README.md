@@ -1,16 +1,35 @@
 # Production trust anchors of the Distributed Compliance Ledger
 
 The files in this directory are public certificates of the Connectivity
-Standards Alliance's Distributed Compliance Ledger (DCL), as mirrored in the
-Matter SDK, [project-chip/connectedhomeip](https://github.com/project-chip/connectedhomeip),
-at commit `61485549cbf9b80a894f256bcb0e15060677dba9` (2026-10-13). The SDK
-is licensed under the Apache License, Version 2.0; see [LICENSE](LICENSE) and
-[NOTICE](NOTICE).
+Standards Alliance's Distributed Compliance Ledger (DCL), named by their
+subject key ID:
 
-| File | Source in connectedhomeip |
-|------|---------------------------|
-| `cd/CSA_Matter_CD_Signing_Key_00N.der` (N = 1 to 5) | `credentials/production/cd-certs/dcld_mirror_CN_Certification_Declaration_Signing_Key_00N_O_CSA_vid_0xC5A0_1.der` |
+| Directory | Content |
+|-----------|---------|
+| `paa/` | The approved Product Attestation Authorities (PAAs): the DCL's approved root certificates, without the Matter Certification and Testing CA |
+| `cd/` | The Certification Declaration signing certificates: the certificates the Matter Certification and Testing CA issued |
 
-They are the certificates of the keys with which the Alliance signs the
-Certification Declarations of certified products. A commissioner trusts
-them in every attestation mode but `none`.
+[SOURCE](SOURCE) tells where and when the current snapshot was taken; the
+updater below rewrites it. The initial snapshot was imported from the DCL
+mirror of the Matter SDK,
+[project-chip/connectedhomeip](https://github.com/project-chip/connectedhomeip),
+`credentials/production/paa-root-certs` and `credentials/production/cd-certs`,
+at commit `61485549cbf9b80a894f256bcb0e15060677dba9` (2026-10-13); later
+snapshots are read from the DCL itself. The SDK is licensed under the Apache
+License, Version 2.0; see [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+## Refreshing the snapshot
+
+```
+make update-production-certs
+```
+
+reads both sets from the production DCL's REST API
+(`https://on.dcl.csa-iot.org`) with `matter/credentials/dcl`, and replaces the
+`.der` files here. The `dcl-certs` workflow runs it monthly and opens a pull
+request when the ledger changed. A directory of certificates can be used
+instead of the ledger:
+
+```
+go run ./matter/credentials/production/internal/update -paa-dir DIR -cd-dir DIR
+```

@@ -60,12 +60,13 @@ func DevelopmentAttestationTrustStore() AttestationTrustStore {
 }
 
 // ProductionAttestationTrustStore returns the production anchors go-matter
-// bundles: the Certification Declaration signing keys of the Connectivity
-// Standards Alliance. The production PAAs of the Distributed Compliance
-// Ledger are not bundled yet; add a product's PAA with
-// WithCommissionerAttestationTrustStore meanwhile.
+// bundles: a snapshot of the approved PAAs and the Certification
+// Declaration signing keys of the Distributed Compliance Ledger. A PAA
+// approved after the snapshot can be added with
+// WithCommissionerAttestationTrustStore, or read from the ledger with
+// credentials/dcl.
 func ProductionAttestationTrustStore() AttestationTrustStore {
-	return mustParseAttestationTrustStore(nil, production.CDSigningCertificates())
+	return mustParseAttestationTrustStore(production.PAAs(), production.CDSigningCertificates())
 }
 
 // NewAttestationVerifier returns the verifier a Commissioner uses for the
@@ -90,12 +91,21 @@ func DefaultAttestationVerifier() AttestationVerifier {
 	return NewAttestationVerifier(AttestationDevelopment)
 }
 
+// mustParseAttestationTrustStore parses bundled certificates one by one, so
+// that a certificate which does not parse drops itself only.
 func mustParseAttestationTrustStore(paas, cdSigners [][]byte) AttestationTrustStore {
-	store, err := credentials.ParseAttestationTrustStore(paas, cdSigners)
-	if err != nil {
-		// The bundled certificates are fixed: a failure is a build error.
-		log.Errorf("matter: bundled attestation trust store: %v", err)
-		return credentials.NewAttestationTrustStore([]*x509.Certificate{}, []*x509.Certificate{})
+	return credentials.NewAttestationTrustStore(parseBundledCertificates(paas), parseBundledCertificates(cdSigners))
+}
+
+func parseBundledCertificates(list [][]byte) []*x509.Certificate {
+	certs := make([]*x509.Certificate, 0, len(list))
+	for _, b := range list {
+		cert, err := x509.ParseCertificate(b)
+		if err != nil {
+			log.Errorf("matter: bundled attestation trust anchor: %v", err)
+			continue
+		}
+		certs = append(certs, cert)
 	}
-	return store
+	return certs
 }
