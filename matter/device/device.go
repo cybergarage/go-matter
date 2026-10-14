@@ -331,6 +331,9 @@ type Device struct {
 	// fabricRemovedHandlers are the application clusters' handlers of
 	// RemoveFabric.
 	fabricRemovedHandlers []func(fabricIndex uint8)
+	// caseResumptions keeps the CASE sessions the device can resume
+	// (4.14.2.2), shared by its CASE responders.
+	caseResumptions caseprotocol.ResponderResumptionStore
 	// refresh asks the advertising loop to republish the operational
 	// services, which it does until refreshDone is closed.
 	refresh     chan struct{}
@@ -366,6 +369,7 @@ func New(opts ...Option) (*Device, error) {
 		groups:      nil,
 
 		fabricRemovedHandlers: nil,
+		caseResumptions:       caseprotocol.NewResponderResumptionStore(),
 		refresh:               make(chan struct{}, 1),
 		refreshDone:           nil,
 
@@ -422,7 +426,11 @@ func New(opts ...Option) (*Device, error) {
 		d.bindFabric(sec, fabricIndex)
 		d.requestRefresh()
 	}
-	d.opCreds.onFabricUpdated = func(uint8) { d.requestRefresh() }
+	d.opCreds.onFabricUpdated = func(fabricIndex uint8) {
+		// Sessions resumed after UpdateNOC would carry the old identity.
+		d.caseResumptions.DeleteFabric(fabricIndex)
+		d.requestRefresh()
+	}
 	d.opCreds.register(d.imServer)
 	(&accessControl{oc: d.opCreds}).register(d.imServer)
 	d.groupKeys = &groupKeyManagement{oc: d.opCreds}
@@ -826,6 +834,7 @@ func (d *Device) runCASE(pt *peerTransport, sessionID types.SessionID) {
 	opts := []caseprotocol.ResponderOption{
 		caseprotocol.WithResponderSessionID(sessionID),
 		caseprotocol.WithResponderEstablishedHandler(established),
+		caseprotocol.WithResponderResumptionStore(d.caseResumptions),
 	}
 	if d.mrp != nil {
 		opts = append(opts, caseprotocol.WithResponderMRPParameters(*d.mrp))
@@ -853,7 +862,11 @@ func (d *Device) runCASE(pt *peerTransport, sessionID types.SessionID) {
 	}
 	d.mu.Unlock()
 
-	log.Infof("device: CASE session %d established with node 0x%016X on fabric %d at %s", sessionID, es.PeerNodeID, es.FabricIndex, pt.peer)
+	how := "established"
+	if es.Resumed {
+		how = "resumed"
+	}
+	log.Infof("device: CASE session %d %s with node 0x%016X on fabric %d at %s", sessionID, how, es.PeerNodeID, es.FabricIndex, pt.peer)
 	d.notifySession(sess)
 }
 

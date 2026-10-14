@@ -310,6 +310,10 @@ func (m *ExchangeMux) fail(err error) {
 		return
 	}
 	for _, sub := range subs {
+		if sub.cfg.reconnect != nil {
+			sub.sessionLost()
+			continue
+		}
 		sub.end(m.Err())
 	}
 }

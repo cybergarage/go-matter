@@ -33,7 +33,7 @@ go-matter is a **commissioner (controller)**. It discovers a commissionable devi
 | | Status |
 | --- | --- |
 | Commissioning and operating a device (commissioner) | Supported |
-| Being commissioned, and serving clusters (device) | **In development**: commissioned over IP by chip-tool; the root node clusters and an On/Off Light. No events, Network Commissioning server or CASE session resumption yet |
+| Being commissioned, and serving clusters (device) | **In development**: commissioned over IP by chip-tool; the root node clusters and an On/Off Light, with CASE session resumption. No events or Network Commissioning server yet |
 | `matterctl` command | Supported |
 
 ### What the commissioner supports
@@ -42,7 +42,7 @@ go-matter is a **commissioner (controller)**. It discovers a commissionable devi
 - Commissioning over BLE (BTP) and over IP: PASE (SPAKE2+), the fail-safe and general commissioning flow, CSR and NOC issuance, and CASE
 - Device attestation verification: the DAC → PAI → PAA chain and the Certification Declaration, in a development mode (the default, which also trusts the test credentials of the Matter SDK), a production mode, or none
 - A persistent store of the fabric and of the commissioned nodes, so that a node is reachable again after a restart
-- Reconnecting to a commissioned node with a fresh CASE handshake
+- Reconnecting to a commissioned node with CASE, resuming the last session (session resumption) when the node still knows it; subscriptions move over to the new session when the old one fails
 - The Interaction Model: Read, Write and Invoke, including the reassembly of a chunked list, and subscriptions to attributes and events, which report changes to a callback and subscribe again when a report is overdue
 - Events: reading the events a node keeps, and subscribing to them, with event number filters and timestamps resolved
 - The Message Reliability Protocol: acknowledgements and counters
@@ -53,7 +53,6 @@ go-matter is a **commissioner (controller)**. It discovers a commissionable devi
 - **Certificate revocation is not checked.** Device attestation is verified against a bundled snapshot of the Distributed Compliance Ledger's PAAs and CD signing keys, refreshed monthly; a PAA approved since the snapshot can be added with `WithCommissionerAttestationTrustStore` (`matterctl pairing --paa-trust-store`).
 - Thread commissioning: only the Wi-Fi credentials of a device can be set, with `pairing code-wifi`
 - Groups, bindings, scenes and OTA software update
-- Session resumption: every reconnect is a full CASE handshake
 - The clusters which are not listed above
 
 ### Releases

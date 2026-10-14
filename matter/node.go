@@ -75,10 +75,24 @@ type ValueAttributeReader interface {
 //
 // A subscription lasts until it is closed, or the node is: when no report
 // arrives within its max interval, it subscribes again on the same
-// session. A session which fails ends it; connect again to subscribe
-// again.
+// session, and when the session fails, or the node does not answer on it,
+// the node reconnects (see Reconnector) and it subscribes again over the
+// new session.
 type AttributeSubscriber interface {
 	Subscribe(ctx context.Context, paths []im.AttributeRequestPath, handler im.ReportHandler, opts ...im.SubscribeOption) (*im.Subscription, error)
+}
+
+// Reconnector is an optional extension implemented by nodes returned by
+// Commissioner.Connect: it establishes a new CASE session with the node in
+// place of the current one, through operational discovery, resuming the
+// last session when the node still knows it (4.14.2.2. Session Resumption)
+// and running a full CASE when not. The node's subscriptions move over to
+// the new session. A node also reconnects by itself when a request finds
+// its session failed, and when a subscription gets no answer on it.
+type Reconnector interface {
+	Reconnect(ctx context.Context) error
+	// Resumed reports whether the current session resumed an earlier one.
+	Resumed() bool
 }
 
 // EventReader is an optional extension implemented by nodes returned by

@@ -20,6 +20,10 @@ type sigma1 struct {
 	// session-parameter-struct, defaults for those it leaves out. They are
 	// decoded only; encodeSigma1 sends defaultSessionParams.
 	InitiatorMRP session.MRPParameters
+	// ResumptionID and ResumeMIC ask to resume a session (4.14.2.2.1);
+	// both are empty for a full CASE.
+	ResumptionID []byte
+	ResumeMIC    []byte
 }
 
 // sessionParams mirrors connectedhomeip's SessionParameters
@@ -106,6 +110,14 @@ func encodeSigma1(v sigma1) ([]byte, error) {
 		return nil, err
 	}
 	encodeSessionParams(enc, tlv.NewContextTag(5), defaultSessionParams)
+	if len(v.ResumptionID) != 0 {
+		if err := enc.PutOctet(tlv.NewContextTag(tagSigma1ResumptionID), v.ResumptionID); err != nil {
+			return nil, err
+		}
+		if err := enc.PutOctet(tlv.NewContextTag(tagSigma1ResumeMIC), v.ResumeMIC); err != nil {
+			return nil, err
+		}
+	}
 	if err := enc.EndContainer(); err != nil {
 		return nil, err
 	}
@@ -343,8 +355,8 @@ func topLevelFields(b []byte, what string) (map[uint8][]byte, map[uint8]uint64, 
 	return nil, nil, fmt.Errorf("case: %s: unterminated structure", what)
 }
 
-// decodeSigma1 decodes a Sigma1 (Matter Core 4.14.2.3). The resumption
-// fields are ignored: this responder always answers with a full Sigma2.
+// decodeSigma1 decodes a Sigma1 (Matter Core 4.14.2.3), with its
+// resumption fields when it asks to resume.
 func decodeSigma1(b []byte) (sigma1, error) {
 	octets, uints, err := topLevelFields(b, "Sigma1")
 	if err != nil {
@@ -356,6 +368,13 @@ func decodeSigma1(b []byte) (sigma1, error) {
 		DestinationID:      octets[3],
 		InitiatorEphPubKey: octets[4],
 		InitiatorMRP:       decodeMRPParameters(b, 5),
+		ResumptionID:       octets[tagSigma1ResumptionID],
+		ResumeMIC:          octets[tagSigma1ResumeMIC],
+	}
+	if (len(out.ResumptionID) != 0 || len(out.ResumeMIC) != 0) && (len(out.ResumptionID) != resumptionIDLen || len(out.ResumeMIC) != resumeMICLen) {
+		// A malformed resumption request is ignored, not fatal: the
+		// responder answers it with a full Sigma2.
+		out.ResumptionID, out.ResumeMIC = nil, nil
 	}
 	sessionID, ok := uints[2]
 	switch {

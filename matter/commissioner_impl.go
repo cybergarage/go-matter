@@ -27,6 +27,7 @@ import (
 	"github.com/cybergarage/go-matter/matter/errors"
 	"github.com/cybergarage/go-matter/matter/mdns"
 	caseprotocol "github.com/cybergarage/go-matter/matter/protocol/case"
+	"github.com/cybergarage/go-matter/matter/protocol/session"
 	"github.com/cybergarage/go-matter/matter/store"
 )
 
@@ -155,6 +156,9 @@ type commissioner struct {
 	attestationMode     AttestationMode
 	attestationStores   []AttestationTrustStore
 	attestationVerifier AttestationVerifier
+	// resumptions keeps what resumes the last CASE session with each node
+	// connected to, in memory only.
+	resumptions resumptionCache
 }
 
 // NewCommissioner returns a new commissioner.
@@ -345,14 +349,20 @@ func (cmr *commissioner) commissionMatchingDevice(ctx context.Context, payload O
 	return nil, fmt.Errorf("%w: no matching commissionable device found", ErrNotFound)
 }
 
-// Connect reconnects to an already-commissioned node via a fresh CASE
-// handshake, using the fabric identity (cmr.adminConfig/cmr.operationalConfig
-// — already resolved from either explicit config or the persisted fabric
+// Connect reconnects to an already-commissioned node via a CASE handshake,
+// using the fabric identity (cmr.adminConfig/cmr.operationalConfig —
+// already resolved from either explicit config or the persisted fabric
 // record by Start()) and the persisted per-device record (cmr.store) to
 // locate and authenticate the peer. It reuses operationalNodeDiscoverer and
 // establishOperationalCASESession unmodified (the same package vars
 // Commission()'s CASE finalization uses), so this path is provably
 // independent of Commission()'s own CASE-close-via-defer behavior.
+//
+// A node connected before resumes its last session (4.14.2.2. Session
+// Resumption), which skips the certificates and signatures of a full CASE;
+// the node falls back to a full CASE when it no longer knows the session.
+// The returned Node reconnects the same way when its session fails; see
+// Reconnector.
 func (cmr *commissioner) Connect(ctx context.Context, nodeID uint64) (Node, error) {
 	if cmr.store == nil {
 		return nil, fmt.Errorf("%w: commissioner: Connect requires Start() to have opened a persistence store", ErrFailed)
@@ -360,11 +370,8 @@ func (cmr *commissioner) Connect(ctx context.Context, nodeID uint64) (Node, erro
 	if cmr.adminConfig == nil || cmr.operationalConfig == nil {
 		return nil, fmt.Errorf("%w: commissioner: Connect: no fabric identity available (commission a device, or call Start() against a store that already has one)", ErrNotFound)
 	}
-	if _, ok := ctx.Deadline(); !ok {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, DefaultConnectTimeout)
-		defer cancel()
-	}
+	ctx, cancel := withDefaultTimeout(ctx, DefaultConnectTimeout)
+	defer cancel()
 
 	compressedFabricID, err := computeCompressedFabricID(cmr.adminConfig)
 	if err != nil {
@@ -377,13 +384,43 @@ func (cmr *commissioner) Connect(ctx context.Context, nodeID uint64) (Node, erro
 	if !ok {
 		return nil, fmt.Errorf("%w: commissioner: Connect: no commissionee record for node 0x%016X", ErrNotFound, nodeID)
 	}
+	caseSess, resumed, err := cmr.connectSession(ctx, rec)
+	if err != nil {
+		return nil, err
+	}
+	reconnect := func(ctx context.Context) (session.SecureSession, bool, error) {
+		ctx, cancel := withDefaultTimeout(ctx, DefaultConnectTimeout)
+		defer cancel()
+		return cmr.connectSession(ctx, rec)
+	}
+	return newNode(NodeID(rec.NodeID), rec.FabricID, caseSess, resumed, reconnect), nil
+}
 
+// withDefaultTimeout bounds ctx with timeout unless it has a deadline.
+func withDefaultTimeout(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
+	if _, ok := ctx.Deadline(); ok {
+		return ctx, func() {}
+	}
+	return context.WithTimeout(ctx, timeout)
+}
+
+// connectSession discovers the commissioned node of rec and establishes a
+// CASE session with it, resuming the last one when there is one. It
+// returns whether the session was resumed.
+func (cmr *commissioner) connectSession(ctx context.Context, rec store.CommissioneeRecord) (session.SecureSession, bool, error) {
 	ipk, _ := cmr.operationalConfig.IPK()
 	peer := operationalCASEPeerFromRecord(rec, ipk)
+	key := resumptionKey{compressedFabricID: rec.CompressedFabricID, nodeID: rec.NodeID}
+	peer.resumption = cmr.resumptions.load(key)
+	resumed := false
+	peer.established = func(state *caseprotocol.ResumptionState, r bool) {
+		cmr.resumptions.save(key, state)
+		resumed = r
+	}
 
 	node, err := operationalNodeDiscoverer(ctx, cmr.discoverer, peer)
 	if err != nil {
-		return nil, fmt.Errorf("commissioner: Connect: %w", err)
+		return nil, false, fmt.Errorf("commissioner: Connect: %w", err)
 	}
 
 	// paseTransport is nil: Connect never has a PASE-phase connection to
@@ -393,7 +430,7 @@ func (cmr *commissioner) Connect(ctx context.Context, nodeID uint64) (Node, erro
 	// a fresh connection.
 	caseSess, err := establishOperationalCASESession(ctx, node, peer, cmr.adminConfig, nil)
 	if err != nil {
-		return nil, fmt.Errorf("commissioner: Connect: %w", err)
+		return nil, false, fmt.Errorf("commissioner: Connect: %w", err)
 	}
 
 	// The node's session lives until the node is closed, not until the
@@ -401,7 +438,7 @@ func (cmr *commissioner) Connect(ctx context.Context, nodeID uint64) (Node, erro
 	if t, ok := caseSess.Transport().(deadlineReleaser); ok {
 		t.releaseDeadline()
 	}
-	return newNode(NodeID(rec.NodeID), rec.FabricID, caseSess), nil
+	return caseSess, resumed, nil
 }
 
 // effectiveConfigOptions extracts the AdministratorConfig/OperationalCredentialsConfig

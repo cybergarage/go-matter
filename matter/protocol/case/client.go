@@ -23,6 +23,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -97,6 +98,15 @@ func WithIPK(ipk []byte) Option {
 	}
 }
 
+// WithResumption asks to resume the session state names (4.14.2.2.1). The
+// responder answers with Sigma2_Resume when it still has the session, and
+// with a full Sigma2 otherwise, which the initiator then completes.
+func WithResumption(state *ResumptionState) Option {
+	return func(i *Initiator) {
+		i.resumeFrom = state.clone()
+	}
+}
+
 // Initiator represents a CASE client.
 type Initiator struct {
 	t          Transport
@@ -105,6 +115,23 @@ type Initiator struct {
 	ipk        []byte
 	// peerMRP are the MRP parameters of the responder's Sigma2.
 	peerMRP session.MRPParameters
+	// resumeFrom is the session to resume, if any; resumption is the state
+	// to keep after EstablishSession, and resumed whether it resumed.
+	resumeFrom *ResumptionState
+	resumption *ResumptionState
+	resumed    bool
+}
+
+// ResumptionState returns the state to resume the session EstablishSession
+// established with, the next time; nil before it succeeds.
+func (i *Initiator) ResumptionState() *ResumptionState {
+	return i.resumption.clone()
+}
+
+// Resumed reports whether EstablishSession resumed a session rather than
+// running a full CASE.
+func (i *Initiator) Resumed() bool {
+	return i.resumed
 }
 
 // NewInitiator creates a new CASE initiator.
@@ -168,12 +195,20 @@ func (i *Initiator) EstablishSession(ctx context.Context) (session.SessionKeys, 
 	)
 
 	exchangeID := message.NewFirstExchangeID()
-	sigma1Payload, err := encodeSigma1(sigma1{
+	s1 := sigma1{
 		InitiatorRandom:    initiatorRandom,
 		InitiatorSessionID: uint16(initiatorSessionID),
 		DestinationID:      destinationID,
 		InitiatorEphPubKey: initiatorEphPubKey,
-	})
+	}
+	if i.resumeFrom.valid() {
+		mic, err := resumeMIC(i.resumeFrom.SharedSecret, initiatorRandom, i.resumeFrom.ResumptionID, sigma1ResumeInfo, sigma1ResumeNonce)
+		if err != nil {
+			return nil, err
+		}
+		s1.ResumptionID, s1.ResumeMIC = i.resumeFrom.ResumptionID, mic
+	}
+	sigma1Payload, err := encodeSigma1(s1)
 	if err != nil {
 		return nil, err
 	}
@@ -194,6 +229,9 @@ func (i *Initiator) EstablishSession(ctx context.Context) (session.SessionKeys, 
 	sigma2Msg, err := message.NewMessageFromBytes(sigma2Raw)
 	if err != nil {
 		return nil, fmt.Errorf("case: parse Sigma2 message: %w", err)
+	}
+	if sigma2Msg.Opcode() == message.CASESigma2Resume && i.resumeFrom.valid() {
+		return i.finishResumption(ctx, sigma2Msg, exchangeID, inputs.nodeID, initiatorRandom, initiatorSessionID)
 	}
 	if !sigma2Msg.Opcode().IsCASESigma2() {
 		if sigma2Msg.Opcode().IsStatusReport() {
@@ -321,7 +359,94 @@ func (i *Initiator) EstablishSession(ctx context.Context) (session.SessionKeys, 
 	if err != nil {
 		return nil, err
 	}
+	// The responder offered this session for resumption in Sigma2.
+	i.resumption = &ResumptionState{ResumptionID: cloneBytes(tbeData2.ResumptionID), SharedSecret: cloneBytes(sharedSecret)}
+	i.resumed = false
 	return sessionKeys, nil
+}
+
+// finishResumption completes a resumed CASE (4.14.2.2.2): it checks the
+// Sigma2_Resume's MIC with the new resumption ID, tells the responder it
+// succeeded, and derives the session keys from the kept shared secret,
+// salted with the resumption ID Sigma1 named.
+func (i *Initiator) finishResumption(ctx context.Context, msg message.Message, exchangeID message.ExchangeID, localNodeID uint64, initiatorRandom []byte, initiatorSessionID session.SessionID) (session.SessionKeys, error) {
+	resume, err := decodeSigma2Resume(msg.Payload())
+	if err != nil {
+		return nil, err
+	}
+	if err := verifyResumeMIC(resume.MIC, i.resumeFrom.SharedSecret, initiatorRandom, resume.ResumptionID, sigma2ResumeInfo, sigma2ResumeNonce); err != nil {
+		return nil, fmt.Errorf("case: Sigma2_Resume: %w", err)
+	}
+	i.peerMRP = resume.ResponderMRP
+	payload := make([]byte, statusReportHeaderLen)
+	binary.LittleEndian.PutUint16(payload[0:2], statusGeneralSuccess)
+	binary.LittleEndian.PutUint32(payload[2:6], uint32(message.SecureChannel))
+	binary.LittleEndian.PutUint16(payload[6:8], statusProtocolSessionSuccess)
+	reportMsg, err := buildCASEMessage(message.StatusReport, message.InitiatorFlag|message.ReliabilityFlag, exchangeID, message.NodeID(localNodeID), payload, true, msg.MessageCounter())
+	if err != nil {
+		return nil, err
+	}
+	reportBytes, err := reportMsg.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	if err := transmitUntilAcked(ctx, i.t, exchangeID, reportBytes); err != nil {
+		return nil, fmt.Errorf("case: transmit StatusReport after Sigma2_Resume: %w", err)
+	}
+	keys, err := deriveResumedSessionKeys(i.resumeFrom.SharedSecret, initiatorRandom, i.resumeFrom.ResumptionID,
+		initiatorSessionID, session.SessionID(resume.ResponderSessionID), session.NodeID(localNodeID), session.NodeID(i.peerNodeID))
+	if err != nil {
+		return nil, err
+	}
+	log.Infof("CASE: resumed the session with node 0x%016X", i.peerNodeID)
+	i.resumption = &ResumptionState{ResumptionID: cloneBytes(resume.ResumptionID), SharedSecret: cloneBytes(i.resumeFrom.SharedSecret)}
+	i.resumed = true
+	return keys, nil
+}
+
+// resumeAckAttempts bounds how many times the StatusReport which ends a
+// resumed CASE is sent while no acknowledgement comes back.
+const resumeAckAttempts = 3
+
+// transmitUntilAcked sends a reliable message which expects no response,
+// again while no acknowledgement arrives on the exchange, as MRP does
+// (4.12). A message no acknowledgement came for is taken as delivered: the
+// peer may acknowledge it only with its first message on the new session.
+func transmitUntilAcked(ctx context.Context, t Transport, exchangeID message.ExchangeID, b []byte) error {
+	for range resumeAckAttempts {
+		if err := t.Transmit(ctx, b); err != nil {
+			return err
+		}
+		attemptCtx, cancel := context.WithTimeout(ctx, time.Second)
+		acked := waitForAck(attemptCtx, t, exchangeID)
+		cancel()
+		if acked {
+			return nil
+		}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+	}
+	log.Debugf("CASE: no acknowledgement of the StatusReport on exchange 0x%04X", exchangeID)
+	return nil
+}
+
+// waitForAck reports whether a message acknowledging something on the
+// exchange arrives before ctx ends.
+func waitForAck(ctx context.Context, t Transport, exchangeID message.ExchangeID) bool {
+	for {
+		raw, err := t.Receive(ctx)
+		if err != nil {
+			return false
+		}
+		msg, err := message.NewMessageFromBytes(raw)
+		if err != nil || msg.ExchangeID() != exchangeID {
+			continue
+		}
+		if _, ok := msg.AckMessageCounter(); ok {
+			return true
+		}
+	}
 }
 
 func redactedBytes(b []byte) string {
