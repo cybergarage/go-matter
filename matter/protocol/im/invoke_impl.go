@@ -191,6 +191,11 @@ func buildIMProtocolHeaderOnExchange(opcode message.Opcode, exchangeID message.E
 // which request a response answers.
 // 4.10.2. Exchange ID.
 func receiveExchangeResponse(sess SecureSession, exchangeID message.ExchangeID) ([]byte, error) {
+	// A session an ExchangeMux reads hands out the exchange's messages
+	// itself, and keeps the others for whoever waits for them.
+	if r, ok := sess.(exchangeReceiver); ok {
+		return r.ReceiveExchange(exchangeID)
+	}
 	for {
 		raw, err := sess.Receive()
 		if err != nil {

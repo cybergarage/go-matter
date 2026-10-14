@@ -396,6 +396,11 @@ func (cmr *commissioner) Connect(ctx context.Context, nodeID uint64) (Node, erro
 		return nil, fmt.Errorf("commissioner: Connect: %w", err)
 	}
 
+	// The node's session lives until the node is closed, not until the
+	// connect deadline: the mux times each response out instead.
+	if t, ok := caseSess.Transport().(deadlineReleaser); ok {
+		t.releaseDeadline()
+	}
 	return newNode(NodeID(rec.NodeID), rec.FabricID, caseSess), nil
 }
 

@@ -49,13 +49,27 @@ func newOperationalUDPTransport(ctx context.Context, node mdnspkg.Commissionable
 // effectiveDeadline returns the earlier of ctx's own deadline (if any) and
 // t.maxDeadline, so a caller can bound a single Transmit/Receive call to a
 // short per-attempt window (e.g. for retrying a lost packet) without ever
-// extending the connection past the deadline it was opened with.
+// extending the connection past the deadline it was opened with. A zero
+// time is no deadline.
 func (t *operationalUDPTransport) effectiveDeadline(ctx context.Context) time.Time {
 	deadline := t.maxDeadline
-	if ctxDeadline, ok := ctx.Deadline(); ok && ctxDeadline.Before(deadline) {
+	if ctxDeadline, ok := ctx.Deadline(); ok && (deadline.IsZero() || ctxDeadline.Before(deadline)) {
 		deadline = ctxDeadline
 	}
 	return deadline
+}
+
+// releaseDeadline lets the connection outlive the deadline it was opened
+// with, for a node connected with Commissioner.Connect: its session is read
+// by an im.ExchangeMux, which times each response out itself, and its
+// subscriptions last until it is closed.
+func (t *operationalUDPTransport) releaseDeadline() {
+	t.maxDeadline = time.Time{}
+}
+
+// deadlineReleaser is a transport whose connection deadline can be lifted.
+type deadlineReleaser interface {
+	releaseDeadline()
 }
 
 func lookupOperationalAddrPort(node mdnspkg.CommissionableNode) (net.IP, int, string, error) {

@@ -127,6 +127,7 @@ Read/write/invoke any cluster by numeric ID (for clusters without a named comman
 
 * [matterctl any invoke]()	 - Invoke a command by numeric cluster/command ID.
 * [matterctl any read]()	 - Read an attribute by numeric cluster/attribute ID.
+* [matterctl any subscribe]()	 - Subscribe to an attribute, or to every attribute of a cluster, and print the reports until interrupted.
 * [matterctl any write]()	 - Write an attribute by numeric cluster/attribute ID.
 
 ## matterctl any help
@@ -193,6 +194,31 @@ matterctl any read <cluster-id> <attribute-id> <node ID> <endpoint ID> [flags]
 
 ```
   -h, --help   help for read
+```
+
+### Options inherited from parent commands
+
+```
+      --debug           enable debug output
+      --format string   output format: table|json|csv (default "table")
+      --verbose         enable verbose output
+```
+
+
+## matterctl any subscribe
+
+Subscribe to an attribute, or to every attribute of a cluster, and print the reports until interrupted.
+
+```
+matterctl any subscribe <cluster-id> <attribute-id|*> <node ID> <endpoint ID> [flags]
+```
+
+### Options
+
+```
+  -h, --help                    help for subscribe
+      --max-interval duration   the most time the device may let pass without a report (default 1m0s)
+      --min-interval duration   the least time between two reports
 ```
 
 ### Options inherited from parent commands

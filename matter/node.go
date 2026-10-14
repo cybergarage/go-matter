@@ -15,6 +15,8 @@
 package matter
 
 import (
+	"context"
+
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 	"github.com/cybergarage/go-matter/matter/protocol/im"
 	"github.com/cybergarage/go-matter/matter/protocol/session"
@@ -55,4 +57,22 @@ type Node interface {
 // by this library. Keeping it separate preserves existing Node implementations.
 type ValueAttributeReader interface {
 	ReadValueAttribute(endpointID im.EndpointID, clusterID im.ClusterID, attributeID im.AttributeID) (*im.ValueReadResponse, error)
+}
+
+// AttributeSubscriber is an optional extension implemented by nodes returned
+// by this library: it subscribes to attributes, and calls the handler with
+// their values first and with each change after (8.5. Subscribe
+// Interaction). Read, Write and Invoke keep working on the node while it
+// has subscriptions.
+//
+//	sub, err := node.(matter.AttributeSubscriber).Subscribe(ctx,
+//		[]im.AttributeRequestPath{im.NewAttributeRequestPath(1, onoff.ClusterID, onoff.OnOffAttributeID)},
+//		func(r *im.Report) { ... })
+//
+// A subscription lasts until it is closed, or the node is: when no report
+// arrives within its max interval, it subscribes again on the same
+// session. A session which fails ends it; connect again to subscribe
+// again.
+type AttributeSubscriber interface {
+	Subscribe(ctx context.Context, paths []im.AttributeRequestPath, handler im.ReportHandler, opts ...im.SubscribeOption) (*im.Subscription, error)
 }

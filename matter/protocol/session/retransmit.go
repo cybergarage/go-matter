@@ -72,7 +72,7 @@ func WithUndeliveredHandler(h func(message.ProtocolHeader)) SecureSessionOption 
 // StopRetransmissions stops retransmitting the messages sess sent, as when
 // the session closes; the messages sess sends afterwards are sent once.
 func StopRetransmissions(sess SecureSession) {
-	if s, ok := sess.(*secureSession); ok && s.retransmit != nil {
+	if s, ok := unwrapSecureSession(sess); ok && s.retransmit != nil {
 		s.retransmit.stop()
 	}
 }

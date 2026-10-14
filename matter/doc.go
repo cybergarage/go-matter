@@ -29,8 +29,9 @@ be signed by a trusted key and cover the DAC's vendor and product. The default
 mode, AttestationDevelopment, also trusts the test credentials of the Matter
 SDK; WithCommissionerAttestationMode selects AttestationProduction or
 AttestationNone, and WithCommissionerAttestationTrustStore adds anchors, such
-as self-issued ones. There are no Interaction Model subscriptions: an
-attribute is read on demand.
+as self-issued ones. A node from Commissioner.Connect subscribes to
+attributes with AttributeSubscriber, and Read, Write and Invoke share its
+session with the subscriptions. Events are not supported yet.
 
 # Commissioning
 
