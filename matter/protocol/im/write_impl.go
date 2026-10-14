@@ -54,7 +54,7 @@ func WriteAttribute(sess SecureSession, endpointID EndpointID, clusterID Cluster
 		return nil, fmt.Errorf("im: build WriteRequest payload: %w", err)
 	}
 
-	protocolHeaderBytes, exchangeID, err := buildIMProtocolHeader(message.WriteRequestMessage)
+	protocolHeaderBytes, exchangeID, err := buildIMProtocolHeader(sess, message.WriteRequestMessage)
 	if err != nil {
 		return nil, fmt.Errorf("im: build protocol header: %w", err)
 	}

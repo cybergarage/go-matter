@@ -105,7 +105,7 @@ type subscribeConfig struct {
 }
 
 // WithMinInterval sets MinIntervalFloor, the least time between two
-// reports. Defaults to 0.
+// reports, in whole seconds. Defaults to 0.
 func WithMinInterval(d time.Duration) SubscribeOption {
 	return func(c *subscribeConfig) {
 		c.minInterval = d
@@ -113,8 +113,8 @@ func WithMinInterval(d time.Duration) SubscribeOption {
 }
 
 // WithMaxInterval sets MaxIntervalCeiling, the most time the publisher may
-// let pass without a report; it may choose less. Defaults to
-// DefaultSubscribeMaxInterval.
+// let pass without a report, in whole seconds; it may choose less.
+// Defaults to DefaultSubscribeMaxInterval.
 func WithMaxInterval(d time.Duration) SubscribeOption {
 	return func(c *subscribeConfig) {
 		c.maxInterval = d
@@ -208,8 +208,13 @@ func (m *ExchangeMux) Subscribe(ctx context.Context, paths []AttributeRequestPat
 	for _, opt := range opts {
 		opt(&cfg)
 	}
-	if cfg.minInterval < 0 || cfg.maxInterval < cfg.minInterval || cfg.maxInterval > 0xFFFF*time.Second {
-		return nil, fmt.Errorf("im: Subscribe: invalid intervals %v to %v", cfg.minInterval, cfg.maxInterval)
+	// The intervals go on the wire in whole seconds (10.7.2).
+	if cfg.minInterval < 0 || cfg.maxInterval < cfg.minInterval || cfg.maxInterval > 0xFFFF*time.Second ||
+		cfg.minInterval%time.Second != 0 || cfg.maxInterval%time.Second != 0 {
+		return nil, fmt.Errorf("im: Subscribe: intervals %v to %v are not whole seconds from 0 to 65535 in order", cfg.minInterval, cfg.maxInterval)
+	}
+	if cfg.livenessMargin < 0 {
+		return nil, fmt.Errorf("im: Subscribe: negative liveness margin %v", cfg.livenessMargin)
 	}
 	sub := &Subscription{
 		mux:         m,
@@ -289,16 +294,13 @@ func (sub *Subscription) subscribe(ctx context.Context) (_ *Report, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("im: build SubscribeRequest: %w", err)
 	}
-	exchange := message.NewFirstExchangeID()
+	exchange := sub.mux.NewExchangeID()
 	if err := transmitOnExchange(sub.mux, message.SubscribeRequestMessage, exchange, payload); err != nil {
 		return nil, fmt.Errorf("im: transmit SubscribeRequest: %w", err)
 	}
 	priming := &Report{SubscriptionID: 0, Priming: true, Attributes: nil}
 	for {
-		if err := ctx.Err(); err != nil {
-			return nil, err
-		}
-		raw, err := sub.mux.ReceiveExchange(exchange)
+		raw, err := sub.mux.ReceiveExchangeContext(ctx, exchange)
 		if err != nil {
 			return nil, fmt.Errorf("im: Subscribe: %w", err)
 		}
@@ -335,7 +337,9 @@ func (sub *Subscription) subscribe(ctx context.Context) (_ *Report, err error) {
 				registered = true
 			}
 			priming.SubscriptionID = id
-			priming.Attributes = mergeAttributeReports(priming.Attributes, rd.attributes)
+			if priming.Attributes, err = mergeAttributeReports(priming.Attributes, rd.attributes); err != nil {
+				return nil, fmt.Errorf("im: Subscribe: priming report: %w", err)
+			}
 			if err := transmitOnExchange(sub.mux, message.StatusResponseMessage, exchange, statusResponsePayload(StatusSuccess)); err != nil {
 				return nil, fmt.Errorf("im: Subscribe: answer the priming report: %w", err)
 			}
@@ -373,7 +377,14 @@ func (sub *Subscription) received(exchange message.ExchangeID, rd *reportData) {
 	if report == nil {
 		report = &Report{SubscriptionID: rd.subscriptionID, Priming: false, Attributes: nil}
 	}
-	report.Attributes = mergeAttributeReports(report.Attributes, rd.attributes)
+	var err error
+	if report.Attributes, err = mergeAttributeReports(report.Attributes, rd.attributes); err != nil {
+		// A malformed report is dropped whole, its earlier chunks too.
+		delete(sub.chunks, exchange)
+		sub.mutex.Unlock()
+		sub.reportError(fmt.Errorf("im: subscription %d: drop a report: %w", rd.subscriptionID, err))
+		return
+	}
 	if rd.moreChunks {
 		sub.chunks[exchange] = report
 		sub.mutex.Unlock()
@@ -656,6 +667,7 @@ func decodeReportData(raw []byte) (*reportData, error) {
 		return nil, fmt.Errorf("im: ReportData: %w", err)
 	}
 	rd := &reportData{}
+	var ok bool
 	if f := valueField(root, 0); f != nil {
 		n, err := valueUnsigned(f, 0xFFFFFFFF)
 		if err != nil {
@@ -664,10 +676,14 @@ func decodeReportData(raw []byte) (*reportData, error) {
 		rd.subscriptionID, rd.hasSubscriptionID = uint32(n), true
 	}
 	if f := valueField(root, 3); f != nil {
-		rd.moreChunks, _ = f.Element.Bool()
+		if rd.moreChunks, ok = f.Element.Bool(); !ok {
+			return nil, errors.New("im: ReportData: MoreChunkedMessages is not a boolean")
+		}
 	}
 	if f := valueField(root, 4); f != nil {
-		rd.suppressResponse, _ = f.Element.Bool()
+		if rd.suppressResponse, ok = f.Element.Bool(); !ok {
+			return nil, errors.New("im: ReportData: SuppressResponse is not a boolean")
+		}
 	}
 	reports := valueField(root, 1)
 	if reports == nil {
@@ -758,29 +774,30 @@ func decodeReportPath(v *AttributeValue) (AttributePath, bool, error) {
 }
 
 // mergeAttributeReports adds the entries of a chunk to the reports of the
-// chunks before it: an item appended to a list joins the list its path
-// last reported.
-func mergeAttributeReports(reports []AttributeReport, entries []attributeReportEntry) []AttributeReport {
+// chunks before it: an item appended to a list (ListIndex null) joins the
+// list its path last reported in the same report, which must have the same
+// DataVersion. An item which appends to no list is an error: a report
+// replaces a changed list whole before it appends to it (10.6.4.3).
+func mergeAttributeReports(reports []AttributeReport, entries []attributeReportEntry) ([]AttributeReport, error) {
 	for _, e := range entries {
-		if e.appendItem {
-			appended := false
-			for i := len(reports) - 1; 0 <= i; i-- {
-				r := &reports[i]
-				if r.Path != e.Path {
-					continue
-				}
-				if r.Value != nil && (r.Value.Element.Type().IsArray() || r.Value.Element.Type().IsList()) {
-					r.Value.Children = append(r.Value.Children, e.Value)
-					appended = true
-				}
+		if !e.appendItem {
+			reports = append(reports, e.AttributeReport)
+			continue
+		}
+		var list *AttributeReport
+		for i := len(reports) - 1; 0 <= i; i-- {
+			if reports[i].Path == e.Path {
+				list = &reports[i]
 				break
 			}
-			if appended {
-				continue
-			}
-			log.Debugf("im: report: an item for %v appends to no list", e.Path)
 		}
-		reports = append(reports, e.AttributeReport)
+		if list == nil || list.Value == nil || (!list.Value.Element.Type().IsArray() && !list.Value.Element.Type().IsList()) {
+			return nil, fmt.Errorf("an item for %v appends to no list", e.Path)
+		}
+		if list.HasDataVersion != e.HasDataVersion || list.DataVersion != e.DataVersion {
+			return nil, fmt.Errorf("an item for %v has another DataVersion than its list", e.Path)
+		}
+		list.Value.Children = append(list.Value.Children, e.Value)
 	}
-	return reports
+	return reports, nil
 }

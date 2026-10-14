@@ -15,9 +15,11 @@
 package im
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/cybergarage/go-logger/log"
@@ -49,8 +51,9 @@ const unclaimedMessageLifetime = time.Minute
 // a report to its subscription. It is a SecureSession itself, so the
 // Read, Write and Invoke functions of this package work over it unchanged.
 type ExchangeMux struct {
-	sess    SecureSession
-	timeout time.Duration
+	sess     SecureSession
+	timeout  time.Duration
+	exchange atomic.Uint32
 
 	mutex   sync.Mutex
 	queue   []queuedMessage
@@ -95,8 +98,16 @@ func NewExchangeMux(sess SecureSession, opts ...ExchangeMuxOption) *ExchangeMux 
 	for _, opt := range opts {
 		opt(m)
 	}
+	m.exchange.Store(uint32(message.NewFirstExchangeID()))
 	go m.read()
 	return m
+}
+
+// NewExchangeID returns the ID of a new exchange this node initiates: the
+// first is random, and each one after it the next (4.10.2), so that
+// concurrent exchanges do not share an ID.
+func (m *ExchangeMux) NewExchangeID() message.ExchangeID {
+	return message.ExchangeID(m.exchange.Add(1)) // nolint: gosec // ExchangeID rolls over at 16 bits
 }
 
 // Transmit sends payload on the session.
@@ -107,13 +118,19 @@ func (m *ExchangeMux) Transmit(payload []byte) error {
 // Receive returns the next message which no subscription took, of any
 // exchange, waiting up to the response timeout.
 func (m *ExchangeMux) Receive() ([]byte, error) {
-	return m.receive(func(queuedMessage) bool { return true })
+	return m.receive(context.Background(), func(queuedMessage) bool { return true })
 }
 
 // ReceiveExchange returns the next message of the exchange, waiting up to
 // the response timeout.
 func (m *ExchangeMux) ReceiveExchange(exchange message.ExchangeID) ([]byte, error) {
-	return m.receive(func(q queuedMessage) bool { return q.exchange == exchange })
+	return m.ReceiveExchangeContext(context.Background(), exchange)
+}
+
+// ReceiveExchangeContext is ReceiveExchange which also returns when ctx is
+// done.
+func (m *ExchangeMux) ReceiveExchangeContext(ctx context.Context, exchange message.ExchangeID) ([]byte, error) {
+	return m.receive(ctx, func(q queuedMessage) bool { return q.exchange == exchange })
 }
 
 // Unwrap returns the session the mux reads, so that the session package's
@@ -168,7 +185,7 @@ func (m *ExchangeMux) Close() error {
 	return nil
 }
 
-func (m *ExchangeMux) receive(match func(queuedMessage) bool) ([]byte, error) {
+func (m *ExchangeMux) receive(ctx context.Context, match func(queuedMessage) bool) ([]byte, error) {
 	timer := time.NewTimer(m.timeout)
 	defer timer.Stop()
 	for {
@@ -192,6 +209,8 @@ func (m *ExchangeMux) receive(match func(queuedMessage) bool) ([]byte, error) {
 		case <-changed:
 		case <-timer.C:
 			return nil, ErrResponseTimeout
+		case <-ctx.Done():
+			return nil, ctx.Err()
 		}
 	}
 }
@@ -323,4 +342,19 @@ func (m *ExchangeMux) pruneLocked() {
 // exchange, such as an ExchangeMux.
 type exchangeReceiver interface {
 	ReceiveExchange(exchange message.ExchangeID) ([]byte, error)
+}
+
+// exchangeAllocator is a session which allocates the IDs of the exchanges
+// this node initiates, such as an ExchangeMux.
+type exchangeAllocator interface {
+	NewExchangeID() message.ExchangeID
+}
+
+// newExchangeID returns the ID of a new exchange on sess: from sess when it
+// allocates them, else a random one.
+func newExchangeID(sess SecureSession) message.ExchangeID {
+	if a, ok := sess.(exchangeAllocator); ok {
+		return a.NewExchangeID()
+	}
+	return message.NewFirstExchangeID()
 }

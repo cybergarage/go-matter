@@ -335,8 +335,14 @@ func TestReportChunksJoinListItems(t *testing.T) {
 	if first.subscriptionID != 42 || !first.moreChunks || second.moreChunks {
 		t.Fatalf("chunks = %+v, %+v", first, second)
 	}
-	reports := mergeAttributeReports(nil, first.attributes)
-	reports = mergeAttributeReports(reports, second.attributes)
+	reports, err := mergeAttributeReports(nil, first.attributes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reports, err = mergeAttributeReports(reports, second.attributes)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(reports) != 1 {
 		t.Fatalf("%d attribute reports, want the list once", len(reports))
 	}
@@ -351,5 +357,139 @@ func TestReportChunksJoinListItems(t *testing.T) {
 	}
 	if len(got) != 4 || got[0] != 1 || got[3] != 4 {
 		t.Fatalf("list = %v, want [1 2 3 4]", got)
+	}
+}
+
+func TestReportAppendsNeedTheirList(t *testing.T) {
+	appends, err := decodeReportData(encodeTestReportData(t, 42, false, []uint16{3}, true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := mergeAttributeReports(nil, appends.attributes); err == nil {
+		t.Error("an item appended to no list was merged")
+	}
+	whole, err := decodeReportData(encodeTestReportData(t, 42, true, []uint16{1}, false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	reports, err := mergeAttributeReports(nil, whole.attributes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	appends.attributes[0].DataVersion = 10 // another snapshot of the cluster
+	if _, err := mergeAttributeReports(reports, appends.attributes); err == nil {
+		t.Error("an item of another DataVersion was appended")
+	}
+}
+
+func TestReportDataRejectsNonBooleanFlags(t *testing.T) {
+	raw := encodeTestReportData(t, 42, false, []uint16{1}, false)
+	// Replace the trailing MoreChunkedMessages (tag 3, false) with an
+	// unsigned integer, keeping the encoding's length.
+	hdr, err := message.NewProtocolHeaderFromBytes(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hb, _ := hdr.Bytes()
+	body := raw[len(hb):]
+	enc := tlv.NewEncoder()
+	enc.PutBool(tlv.NewContextTag(3), false)
+	boolField := enc.Bytes()
+	enc = tlv.NewEncoder()
+	enc.PutUnsigned1(tlv.NewContextTag(3), 1)
+	uintField := enc.Bytes()
+	i := bytesIndex(body, boolField)
+	if i < 0 {
+		t.Fatal("no MoreChunkedMessages in the test report")
+	}
+	malformed := append(append(append(append([]byte{}, hb...), body[:i]...), uintField...), body[i+len(boolField):]...)
+	if _, err := decodeReportData(malformed); err == nil {
+		t.Error("a non-boolean MoreChunkedMessages was accepted")
+	}
+}
+
+func bytesIndex(b, sub []byte) int {
+	for i := 0; i+len(sub) <= len(b); i++ {
+		match := true
+		for j := range sub {
+			if b[i+j] != sub[j] {
+				match = false
+				break
+			}
+		}
+		if match {
+			return i
+		}
+	}
+	return -1
+}
+
+func TestSubscribeRejectsFractionalIntervalsAndNegativeMargins(t *testing.T) {
+	var on atomic.Bool
+	mux := newTestMux(t, startServer(t, onOffServer(&on)))
+	path := []AttributeRequestPath{NewAttributeRequestPath(1, 6, 0)}
+	for _, opt := range []SubscribeOption{
+		WithMinInterval(1500 * time.Millisecond),
+		WithMaxInterval(2500 * time.Millisecond),
+		WithLivenessMargin(-time.Second),
+	} {
+		if _, err := mux.Subscribe(context.Background(), path, func(*Report) {}, opt); err == nil {
+			t.Error("Subscribe() with an invalid option succeeded")
+		}
+	}
+}
+
+func TestSubscribeReturnsWhenItsContextEnds(t *testing.T) {
+	// A peer which never answers.
+	out := make(chan []byte, 64)
+	closed := make(chan struct{})
+	t.Cleanup(func() { close(closed) })
+	sess := session.NewSecureSession(&chanTransport{in: make(chan []byte), out: out, closed: closed}, serverTestKeys{})
+	mux := NewExchangeMux(sess, WithResponseTimeout(time.Minute))
+	t.Cleanup(func() { _ = mux.Close() })
+
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	start := time.Now()
+	_, err := mux.Subscribe(ctx, []AttributeRequestPath{NewAttributeRequestPath(1, 6, 0)}, func(*Report) {})
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("Subscribe() error = %v, want the context's", err)
+	}
+	if elapsed := time.Since(start); elapsed > 5*time.Second {
+		t.Fatalf("Subscribe() returned after %v, not when its context ended", elapsed)
+	}
+}
+
+func TestExchangeMuxAllocatesSequentialExchangeIDs(t *testing.T) {
+	var on atomic.Bool
+	mux := newTestMux(t, startServer(t, onOffServer(&on)))
+	first := mux.NewExchangeID()
+	seen := map[message.ExchangeID]bool{first: true}
+	for i := 1; i < 1000; i++ {
+		id := mux.NewExchangeID()
+		if id != first+message.ExchangeID(i) {
+			t.Fatalf("exchange %d has ID %d, want %d", i, id, first+message.ExchangeID(i))
+		}
+		if seen[id] {
+			t.Fatalf("exchange ID %d is allocated twice", id)
+		}
+		seen[id] = true
+	}
+	// Concurrent requests on the mux each get their own exchange.
+	var wg sync.WaitGroup
+	errs := make(chan error, 16)
+	for range 16 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if _, err := ReadBoolAttribute(mux, onOffPath.Endpoint, onOffPath.Cluster, onOffPath.Attribute); err != nil {
+				errs <- err
+			}
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		t.Errorf("concurrent ReadBoolAttribute() error = %v", err)
 	}
 }

@@ -37,7 +37,7 @@ func TimedInvoke(sess SecureSession, endpointID EndpointID, clusterID ClusterID,
 		timeout = DefaultTimedInteractionTimeout
 	}
 	millis := min(0xFFFF, timeout.Milliseconds())
-	exchangeID := message.NewFirstExchangeID()
+	exchangeID := newExchangeID(sess)
 
 	// TimedRequestMessage (10.7.8).
 	enc := tlv.NewEncoder()

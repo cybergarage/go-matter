@@ -238,7 +238,7 @@ func readRaw(t *testing.T, client SecureSession, paths ...[3]int64) []byte {
 	enc.PutUnsigned1(tlv.NewContextTag(interactionModelRevisionTag), interactionModelRevision)
 	_ = enc.EndContainer()
 
-	hdr, exchange, err := buildIMProtocolHeader(message.ReadRequestMessage)
+	hdr, exchange, err := buildIMProtocolHeader(nil, message.ReadRequestMessage)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -307,7 +307,7 @@ func TestServerReadWildcards(t *testing.T) {
 func TestServerAnswersUnsupportedInteractions(t *testing.T) {
 	client := startServer(t, testServer())
 	// An opcode the server does not know.
-	hdr, exchange, err := buildIMProtocolHeader(message.Opcode(0x42))
+	hdr, exchange, err := buildIMProtocolHeader(nil, message.Opcode(0x42))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -336,7 +336,7 @@ func TestServerAnswersUnsupportedInteractions(t *testing.T) {
 
 	// A malformed request is answered with InvalidAction, and the server
 	// keeps serving.
-	hdr, exchange, _ = buildIMProtocolHeader(message.InvokeRequestMessage)
+	hdr, exchange, _ = buildIMProtocolHeader(nil, message.InvokeRequestMessage)
 	if err := client.Transmit(append(hdr, 0x15, 0x18)); err != nil {
 		t.Fatal(err)
 	}
