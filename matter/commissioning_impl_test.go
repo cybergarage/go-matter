@@ -387,7 +387,7 @@ func TestCommissionDeviceAttestationRejectsTamperedSignature(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fixture.attestationSig = signRaw(t, otherKey, append(append([]byte{}, fixture.attestationElementsTLV...), fixture.challenge...))
+	fixture.attestationSigner = otherKey
 
 	attestationRequestCommand = fixture.attestationRequestCommand
 	certificateChainRequestCommand = fixture.certificateChainRequestCommand
@@ -395,6 +395,53 @@ func TestCommissionDeviceAttestationRejectsTamperedSignature(t *testing.T) {
 
 	if _, err := commissionDeviceAttestation(stubSecureSession{}); err == nil {
 		t.Fatal("commissionDeviceAttestation(...) error = nil, want signature verification failure")
+	}
+}
+
+func TestCommissionDeviceAttestationRejectsMismatchedNonces(t *testing.T) {
+	prevAttestationReq := attestationRequestCommand
+	prevCertChainReq := certificateChainRequestCommand
+	prevCSRReq := csrRequestCommand
+	t.Cleanup(func() {
+		attestationRequestCommand = prevAttestationReq
+		certificateChainRequestCommand = prevCertChainReq
+		csrRequestCommand = prevCSRReq
+	})
+
+	tests := []struct {
+		name  string
+		setup func(*deviceAttestationFixture)
+		want  string
+	}{
+		{
+			name: "attestation nonce",
+			setup: func(f *deviceAttestationFixture) {
+				f.attestationNonce = bytes.Repeat([]byte{0x11}, attestationNonceLength)
+			},
+			want: "AttestationNonce",
+		},
+		{
+			name:  "CSR nonce",
+			setup: func(f *deviceAttestationFixture) { f.csrNonce = bytes.Repeat([]byte{0x22}, csrNonceLength) },
+			want:  "CSRNonce",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fixture := newDeviceAttestationFixture(t)
+			tt.setup(fixture)
+			attestationRequestCommand = fixture.attestationRequestCommand
+			certificateChainRequestCommand = fixture.certificateChainRequestCommand
+			csrRequestCommand = fixture.csrRequestCommand
+
+			_, err := commissionDeviceAttestation(stubSecureSession{})
+			if err == nil {
+				t.Fatal("commissionDeviceAttestation(...) error = nil, want a nonce mismatch")
+			}
+			if !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("commissionDeviceAttestation(...) error = %q, want it to mention %s", err, tt.want)
+			}
+		})
 	}
 }
 
@@ -448,17 +495,22 @@ func (stubSessionKeys) AttestationChallenge() []byte          { return bytes.Rep
 // deviceAttestationFixture provides fake but cryptographically valid
 // AttestationRequest/CertificateChainRequest/CSRRequest responses, signed by
 // a locally generated "DAC" key, for exercising commissionDeviceAttestation's
-// real verification logic without a real device or wire transport.
+// real verification logic without a real device or wire transport. Like a
+// device, it echoes the nonce of each request unless a test overrides it.
 type deviceAttestationFixture struct {
+	t         *testing.T
 	dacKey    *ecdsa.PrivateKey
 	dacDER    []byte
 	deviceCSR *x509.CertificateRequest
 	challenge []byte
 
-	attestationElementsTLV []byte
-	attestationSig         []byte
-	nocsrElementsTLV       []byte
-	csrSig                 []byte
+	// attestationSigner signs the AttestationResponse; the DAC key unless a
+	// test replaces it.
+	attestationSigner *ecdsa.PrivateKey
+	// attestationNonce and csrNonce, when set, replace the nonces the
+	// fixture echoes.
+	attestationNonce []byte
+	csrNonce         []byte
 }
 
 func newDeviceAttestationFixture(t *testing.T) *deviceAttestationFixture {
@@ -480,24 +532,25 @@ func newDeviceAttestationFixture(t *testing.T) *deviceAttestationFixture {
 		t.Fatal(err)
 	}
 
-	f := &deviceAttestationFixture{
-		dacKey:    dacKey,
-		dacDER:    dacDER,
-		deviceCSR: generateTestCSR(t),
-		challenge: bytes.Repeat([]byte{0x5A}, 16), // matches stubSessionKeys.AttestationChallenge
+	return &deviceAttestationFixture{
+		t:                 t,
+		dacKey:            dacKey,
+		dacDER:            dacDER,
+		deviceCSR:         generateTestCSR(t),
+		challenge:         bytes.Repeat([]byte{0x5A}, 16), // matches stubSessionKeys.AttestationChallenge
+		attestationSigner: dacKey,
+		attestationNonce:  nil,
+		csrNonce:          nil,
 	}
-
-	f.attestationElementsTLV = encodeAttestationElementsTLV(t, []byte{0x01, 0x02}, bytes.Repeat([]byte{0x11}, attestationNonceLength), 1000)
-	f.attestationSig = signRaw(t, dacKey, append(append([]byte{}, f.attestationElementsTLV...), f.challenge...))
-
-	f.nocsrElementsTLV = encodeNOCSRElementsTLV(t, f.deviceCSR.Raw, bytes.Repeat([]byte{0x22}, csrNonceLength))
-	f.csrSig = signRaw(t, dacKey, append(append([]byte{}, f.nocsrElementsTLV...), f.challenge...))
-
-	return f
 }
 
-func (f *deviceAttestationFixture) attestationRequestCommand(session.SecureSession, im.EndpointID, []byte) ([]byte, []byte, error) {
-	return f.attestationElementsTLV, f.attestationSig, nil
+func (f *deviceAttestationFixture) attestationRequestCommand(_ session.SecureSession, _ im.EndpointID, nonce []byte) ([]byte, []byte, error) {
+	if f.attestationNonce != nil {
+		nonce = f.attestationNonce
+	}
+	elements := encodeAttestationElementsTLV(f.t, []byte{0x01, 0x02}, nonce, 1000)
+	sig := signRaw(f.t, f.attestationSigner, append(append([]byte{}, elements...), f.challenge...))
+	return elements, sig, nil
 }
 
 func (f *deviceAttestationFixture) certificateChainRequestCommand(_ session.SecureSession, _ im.EndpointID, certType uint8) ([]byte, error) {
@@ -507,8 +560,13 @@ func (f *deviceAttestationFixture) certificateChainRequestCommand(_ session.Secu
 	return f.dacDER, nil
 }
 
-func (f *deviceAttestationFixture) csrRequestCommand(session.SecureSession, im.EndpointID, []byte) ([]byte, []byte, error) {
-	return f.nocsrElementsTLV, f.csrSig, nil
+func (f *deviceAttestationFixture) csrRequestCommand(_ session.SecureSession, _ im.EndpointID, nonce []byte) ([]byte, []byte, error) {
+	if f.csrNonce != nil {
+		nonce = f.csrNonce
+	}
+	elements := encodeNOCSRElementsTLV(f.t, f.deviceCSR.Raw, nonce)
+	sig := signRaw(f.t, f.dacKey, append(append([]byte{}, elements...), f.challenge...))
+	return elements, sig, nil
 }
 
 func encodeAttestationElementsTLV(t *testing.T, cd, nonce []byte, timestamp uint32) []byte {

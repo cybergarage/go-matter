@@ -31,6 +31,7 @@ import (
 
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/config"
+	"github.com/cybergarage/go-matter/matter/credentials"
 	mcrypto "github.com/cybergarage/go-matter/matter/crypto"
 	"github.com/cybergarage/go-matter/matter/encoding/message"
 	"github.com/cybergarage/go-matter/matter/io"
@@ -65,6 +66,10 @@ var (
 	caseRetryAttempts = 5
 	caseRetryInterval = 3 * time.Second
 )
+
+// ErrUnexpectedResponder is returned when the responder's NOC does not name
+// the node and the fabric the initiator asked for.
+var ErrUnexpectedResponder = errors.New("case: unexpected responder")
 
 var (
 	errStatusReport = errors.New("case: status report indicates failure")
@@ -244,6 +249,10 @@ func (i *Initiator) EstablishSession(ctx context.Context) (session.SessionKeys, 
 	log.Infof("CASE Sigma2: certificate validation ok")
 	responderLeaf, err := parseCertificateBytes(tbeData2.ResponderNOC)
 	if err != nil {
+		return nil, err
+	}
+	if err := verifyResponderIdentity(responderLeaf, i.peerNodeID, inputs.fabricID); err != nil {
+		log.Infof("CASE Sigma2: responder identity mismatch")
 		return nil, err
 	}
 	sigma2TBS, err := encodeSigmaTBSData(tbeData2.ResponderNOC, tbeData2.ResponderICAC, sigma2.ResponderEphPubKey, initiatorEphPubKey)
@@ -480,4 +489,23 @@ func verifyCertificateChain(leafDER, icacDER []byte, root *x509.Certificate) err
 // EstablishSession returns.
 func (i *Initiator) PeerMRPParameters() session.MRPParameters {
 	return i.peerMRP
+}
+
+// verifyResponderIdentity checks that the responder's NOC names the node the
+// Sigma1 destination identifier targeted, on the initiator's fabric. The
+// chain verification only proves that the NOC was issued on the fabric:
+// without this check, any node of the fabric could answer for another
+// (4.14.2. Certificate Authenticated Session Establishment).
+func verifyResponderIdentity(noc *x509.Certificate, peerNodeID, fabricID uint64) error {
+	nodeID, nocFabricID, err := credentials.CertificateIdentity(noc)
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrUnexpectedResponder, err)
+	}
+	if nodeID != peerNodeID {
+		return fmt.Errorf("%w: the NOC names node 0x%016X, not 0x%016X", ErrUnexpectedResponder, nodeID, peerNodeID)
+	}
+	if nocFabricID != fabricID {
+		return fmt.Errorf("%w: the NOC names fabric 0x%016X, not 0x%016X", ErrUnexpectedResponder, nocFabricID, fabricID)
+	}
+	return nil
 }
