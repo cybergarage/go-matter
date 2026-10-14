@@ -155,3 +155,24 @@ func TestWriteCertificatesReplacesTheDERFiles(t *testing.T) {
 		t.Fatal("the written certificate does not read back")
 	}
 }
+
+func TestWriteCertificatesKeepsTheOldSetOnError(t *testing.T) {
+	dir := t.TempDir()
+	a := newRoot(t, "A", 1)
+	if err := WriteCertificates(dir, []*x509.Certificate{a}); err != nil {
+		t.Fatal(err)
+	}
+	// Two different certificates with the same subject key ID collide.
+	collide := newRoot(t, "A again", 1)
+	if err := WriteCertificates(dir, []*x509.Certificate{newRoot(t, "B", 2), a, collide}); err == nil {
+		t.Fatal("WriteCertificates() error = nil, want a name collision")
+	}
+	ders, _ := filepath.Glob(filepath.Join(dir, "*.der"))
+	if len(ders) != 1 || filepath.Base(ders[0]) != FileName(a) {
+		t.Fatalf(".der files = %v, want the old set", ders)
+	}
+	leftovers, _ := filepath.Glob(filepath.Join(filepath.Dir(dir), ".dcl-*"))
+	if len(leftovers) != 0 {
+		t.Fatalf("temporary directories were left: %v", leftovers)
+	}
+}

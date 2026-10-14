@@ -195,36 +195,53 @@ func FileName(cert *x509.Certificate) string {
 }
 
 // WriteCertificates replaces the .der files in dir with the certificates,
-// DER-encoded and named by FileName. Other files are left alone.
+// DER-encoded and named by FileName. Other files are left alone. The new set
+// is written and checked in a temporary directory first, so an error leaves
+// the old set in place.
 func WriteCertificates(dir string, certs []*x509.Certificate) error {
+	files := map[string][]byte{}
+	for _, cert := range certs {
+		name := FileName(cert)
+		if prev, ok := files[name]; ok {
+			if bytes.Equal(prev, cert.Raw) {
+				continue
+			}
+			return fmt.Errorf("dcl: two certificates are named %s", name)
+		}
+		files[name] = cert.Raw
+	}
+	if len(files) == 0 {
+		return errors.New("dcl: no certificate to write")
+	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("dcl: %w", err)
+	}
+	tmp, err := os.MkdirTemp(filepath.Dir(filepath.Clean(dir)), ".dcl-")
+	if err != nil {
+		return fmt.Errorf("dcl: %w", err)
+	}
+	defer os.RemoveAll(tmp)
+	for name, der := range files {
+		if err := os.WriteFile(filepath.Join(tmp, name), der, 0o644); err != nil {
+			return fmt.Errorf("dcl: %w", err)
+		}
 	}
 	old, err := filepath.Glob(filepath.Join(dir, "*.der"))
 	if err != nil {
 		return fmt.Errorf("dcl: %w", err)
 	}
 	for _, f := range old {
+		if _, keep := files[filepath.Base(f)]; keep {
+			continue
+		}
 		if err := os.Remove(f); err != nil {
 			return fmt.Errorf("dcl: %w", err)
 		}
 	}
-	seen := map[string][]byte{}
-	for _, cert := range certs {
-		name := FileName(cert)
-		if prev, ok := seen[name]; ok {
-			if bytes.Equal(prev, cert.Raw) {
-				continue
-			}
-			return fmt.Errorf("dcl: two certificates are named %s", name)
-		}
-		seen[name] = cert.Raw
-		if err := os.WriteFile(filepath.Join(dir, name), cert.Raw, 0o644); err != nil {
+	for name := range files {
+		if err := os.Rename(filepath.Join(tmp, name), filepath.Join(dir, name)); err != nil {
 			return fmt.Errorf("dcl: %w", err)
 		}
-	}
-	if len(seen) == 0 {
-		return errors.New("dcl: no certificate to write")
 	}
 	return nil
 }

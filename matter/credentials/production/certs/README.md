@@ -9,12 +9,14 @@ subject key ID:
 | `paa/` | The approved Product Attestation Authorities (PAAs): the DCL's approved root certificates, without the Matter Certification and Testing CA |
 | `cd/` | The Certification Declaration signing certificates: the certificates the Matter Certification and Testing CA issued |
 
-The current snapshot was taken from the DCL mirror of the Matter SDK,
+[SOURCE](SOURCE) tells where and when the current snapshot was taken; the
+updater below rewrites it. The initial snapshot was imported from the DCL
+mirror of the Matter SDK,
 [project-chip/connectedhomeip](https://github.com/project-chip/connectedhomeip),
 `credentials/production/paa-root-certs` and `credentials/production/cd-certs`,
-at commit `61485549cbf9b80a894f256bcb0e15060677dba9` (2026-10-13). The SDK
-is licensed under the Apache License, Version 2.0; see [LICENSE](LICENSE) and
-[NOTICE](NOTICE).
+at commit `61485549cbf9b80a894f256bcb0e15060677dba9` (2026-10-13); later
+snapshots are read from the DCL itself. The SDK is licensed under the Apache
+License, Version 2.0; see [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
 ## Refreshing the snapshot
 

@@ -53,7 +53,10 @@ func main() {
 
 func run(out, url, paaDir, cdDir string) error {
 	var paas, cds []*x509.Certificate
+	date := time.Now().UTC().Format(time.DateOnly)
+	source := fmt.Sprintf("Distributed Compliance Ledger, %s, fetched %s", url, date)
 	if paaDir != "" || cdDir != "" {
+		source = fmt.Sprintf("PAAs from %s and CD signing certificates from %s, imported %s", paaDir, cdDir, date)
 		store, err := credentials.LoadAttestationTrustStore(paaDir, cdDir)
 		if err != nil {
 			return err
@@ -71,16 +74,20 @@ func run(out, url, paaDir, cdDir string) error {
 			return err
 		}
 	}
-	if len(paas) != 0 {
-		if err := dcl.WriteCertificates(filepath.Join(out, "paa"), paas); err != nil {
-			return err
-		}
+	// An empty set is an error rather than "nothing changed": the ledger
+	// always has both, and a response whose shape changed decodes to none.
+	if len(paas) == 0 || len(cds) == 0 {
+		return fmt.Errorf("update: %d PAAs and %d CD signing certificates; want both", len(paas), len(cds))
 	}
-	if len(cds) != 0 {
-		if err := dcl.WriteCertificates(filepath.Join(out, "cd"), cds); err != nil {
-			return err
-		}
+	if err := dcl.WriteCertificates(filepath.Join(out, "paa"), paas); err != nil {
+		return err
 	}
-	fmt.Printf("%d PAAs, %d CD signing certificates\n", len(paas), len(cds))
+	if err := dcl.WriteCertificates(filepath.Join(out, "cd"), cds); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(out, "SOURCE"), []byte(source+"\n"), 0o644); err != nil {
+		return fmt.Errorf("update: %w", err)
+	}
+	fmt.Printf("%d PAAs, %d CD signing certificates from %s\n", len(paas), len(cds), source)
 	return nil
 }

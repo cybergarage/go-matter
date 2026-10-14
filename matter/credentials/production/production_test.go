@@ -30,7 +30,7 @@ func TestBundledPAAsAreSelfSignedCAs(t *testing.T) {
 		if err != nil {
 			t.Fatalf("a bundled PAA does not parse: %v", err)
 		}
-		if !cert.IsCA || !bytes.Equal(cert.RawIssuer, cert.RawSubject) {
+		if !cert.IsCA || !bytes.Equal(cert.RawIssuer, cert.RawSubject) || cert.CheckSignatureFrom(cert) != nil {
 			t.Errorf("PAA %q is not a self-signed CA", cert.Subject.CommonName)
 		}
 		if cert.Subject.CommonName == "Matter Certification and Testing CA" {
