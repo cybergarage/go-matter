@@ -32,7 +32,7 @@ go-matter is a **commissioner (controller)**. It discovers a commissionable devi
 
 | | Status |
 | --- | --- |
-| Commissioning and operating a device (commissioner) | Supported: subscriptions and events are not supported yet |
+| Commissioning and operating a device (commissioner) | Supported: events are not supported yet |
 | Being commissioned, and serving clusters (device) | **In development**: commissioned over IP by chip-tool; the root node clusters and an On/Off Light. No events, Network Commissioning server or CASE session resumption yet |
 | `matterctl` command | Supported |
 
@@ -43,14 +43,14 @@ go-matter is a **commissioner (controller)**. It discovers a commissionable devi
 - Device attestation verification: the DAC → PAI → PAA chain and the Certification Declaration, in a development mode (the default, which also trusts the test credentials of the Matter SDK), a production mode, or none
 - A persistent store of the fabric and of the commissioned nodes, so that a node is reachable again after a restart
 - Reconnecting to a commissioned node with a fresh CASE handshake
-- The Interaction Model: Read, Write and Invoke, including the reassembly of a chunked list
+- The Interaction Model: Read, Write and Invoke, including the reassembly of a chunked list, and attribute subscriptions, which report changes to a callback and subscribe again when a report is overdue
 - The Message Reliability Protocol: acknowledgements and counters
 - The Basic Information, Descriptor, General Commissioning, General Diagnostics, Network Commissioning, Operational Credentials, Access Control and On/Off clusters, as a client
 
 ### What is not supported yet
 
 - **Certificate revocation is not checked.** Device attestation is verified against a bundled snapshot of the Distributed Compliance Ledger's PAAs and CD signing keys, refreshed monthly; a PAA approved since the snapshot can be added with `WithCommissionerAttestationTrustStore` (`matterctl pairing --paa-trust-store`).
-- Interaction Model subscriptions: an attribute is read on demand, and a change cannot be reported to the controller
+- Events: an event can be neither read nor subscribed to
 - Thread commissioning: only the Wi-Fi credentials of a device can be set, with `pairing code-wifi`
 - Groups, bindings, scenes and OTA software update
 - Session resumption: every reconnect is a full CASE handshake

@@ -84,9 +84,25 @@ func WithPeerMRPParameters(p MRPParameters) SecureSessionOption {
 // PeerMRPParameters returns the parameters the peer of sess announced, as
 // set with WithPeerMRPParameters; ok is false when none were set.
 func PeerMRPParameters(sess SecureSession) (MRPParameters, bool) {
-	s, ok := sess.(*secureSession)
+	s, ok := unwrapSecureSession(sess)
 	if !ok || s.peerMRP == nil {
 		return MRPParameters{}, false
 	}
 	return *s.peerMRP, true
+}
+
+// unwrapSecureSession returns the session sess is, or wraps: a wrapper,
+// such as im.ExchangeMux, returns the session it wraps from Unwrap.
+func unwrapSecureSession(sess SecureSession) (*secureSession, bool) {
+	for sess != nil {
+		if s, ok := sess.(*secureSession); ok {
+			return s, true
+		}
+		w, ok := sess.(interface{ Unwrap() SecureSession })
+		if !ok {
+			return nil, false
+		}
+		sess = w.Unwrap()
+	}
+	return nil, false
 }

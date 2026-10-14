@@ -65,7 +65,7 @@ func doReadRequest(sess SecureSession, endpointID EndpointID, clusterID ClusterI
 		return nil, fmt.Errorf("im: build ReadRequest payload: %w", err)
 	}
 
-	protocolHeaderBytes, exchangeID, err := buildIMProtocolHeader(message.ReadRequestMessage)
+	protocolHeaderBytes, exchangeID, err := buildIMProtocolHeader(sess, message.ReadRequestMessage)
 	if err != nil {
 		return nil, fmt.Errorf("im: build protocol header: %w", err)
 	}

@@ -50,6 +50,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `credentials.ParseSignedCertificationDeclaration` and `ParseCertificationDeclaration`, which verify and decode a Certification Declaration, requiring its mandatory fields and format version 1.
 - `testcreds.TestCDSigningCertificate`, the Matter SDK's test CD signing key "Matter Test CD Signing Authority".
 - `matter.WithCommissionerAttestationMode`, `WithCommissionerAttestationTrustStore` and `WithCommissionerAttestationVerifier`, and `matter.NewAttestationVerifier`, `DefaultAttestationVerifier` and `DevelopmentAttestationTrustStore`. An `AttestationVerifier` can also be passed to `Commission` as a `CommissionOption`.
+- **Attribute subscriptions** (8.5): `im.ExchangeMux.Subscribe`, and `Subscribe` of the `matter.AttributeSubscriber` a node from `Commissioner.Connect` implements, subscribe to attribute paths, wildcards included, and call a `ReportHandler` with the priming report and each report after, in order, with chunked reports and list items joined. A subscription answers its reports, takes itself for lost when no report arrives within its max interval and a liveness margin, and subscribes again with a backoff. Options set the intervals, `KeepSubscriptions`, fabric filtering, resubscription and an error handler.
+- `im.ExchangeMux`, which reads a session for the exchanges this node initiates and those a peer initiates: responses go to whoever waits for their exchange, with `DefaultResponseTimeout`, and reports to their subscription. A report for an unknown subscription is answered with InvalidSubscription.
+- `matterctl any subscribe <cluster-id> <attribute-id|*> <node ID> <endpoint ID>`, which prints the reports until interrupted.
 - `matterctl pairing --attestation development|production|none`, `--paa-trust-store <dir>` and `--cd-trust-store <dir>`.
 
 ### Fixed
@@ -63,6 +66,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- A node from `Commissioner.Connect` lives until it is closed: its session is read by an `im.ExchangeMux`, which times each response out after `DefaultResponseTimeout`, instead of failing every request once the connect deadline passed. `Node.Session()` returns the mux.
+- The session package's helpers, such as `session.PeerMRPParameters`, see through a session wrapper which has `Unwrap() SecureSession`.
 - **A commissioner now rejects a device whose attestation does not verify.** Commissioning a device whose PAA is not trusted fails with `AttestationFailurePAANotFound`; add the PAA with `WithCommissionerAttestationTrustStore`, or select `AttestationNone` for a device trusted otherwise. The commissioner reads the VendorID and ProductID of the device's Basic Information during attestation.
 - A standalone MRP ack sets the initiator flag exactly when the acknowledged message did not, instead of always; a commissioner's acks are unchanged.
 - `device.Session` no longer has `Transport()`: the device serves the Interaction Model on it.

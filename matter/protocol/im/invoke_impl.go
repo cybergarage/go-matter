@@ -62,7 +62,7 @@ func Invoke(sess SecureSession, endpointID EndpointID, clusterID ClusterID, comm
 	}
 
 	// Wrap payload in the IM protocol header and send over the secure session.
-	protocolHeaderBytes, exchangeID, err := buildIMProtocolHeader(message.InvokeRequestMessage)
+	protocolHeaderBytes, exchangeID, err := buildIMProtocolHeader(sess, message.InvokeRequestMessage)
 	if err != nil {
 		return nil, fmt.Errorf("im: build protocol header: %w", err)
 	}
@@ -158,8 +158,8 @@ func buildInvokeRequestPayloadTimed(endpointID EndpointID, clusterID ClusterID, 
 // message, returning the ExchangeID it generated so the caller can match it
 // against the ExchangeID of whatever message it eventually receives back —
 // see receiveExchangeResponse.
-func buildIMProtocolHeader(opcode message.Opcode) ([]byte, message.ExchangeID, error) {
-	exchangeID := message.NewFirstExchangeID()
+func buildIMProtocolHeader(sess SecureSession, opcode message.Opcode) ([]byte, message.ExchangeID, error) {
+	exchangeID := newExchangeID(sess)
 	b, err := buildIMProtocolHeaderOnExchange(opcode, exchangeID)
 	return b, exchangeID, err
 }
@@ -191,6 +191,11 @@ func buildIMProtocolHeaderOnExchange(opcode message.Opcode, exchangeID message.E
 // which request a response answers.
 // 4.10.2. Exchange ID.
 func receiveExchangeResponse(sess SecureSession, exchangeID message.ExchangeID) ([]byte, error) {
+	// A session an ExchangeMux reads hands out the exchange's messages
+	// itself, and keeps the others for whoever waits for them.
+	if r, ok := sess.(exchangeReceiver); ok {
+		return r.ReceiveExchange(exchangeID)
+	}
 	for {
 		raw, err := sess.Receive()
 		if err != nil {
