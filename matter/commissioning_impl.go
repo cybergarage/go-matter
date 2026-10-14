@@ -15,6 +15,7 @@
 package matter
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/rand"
@@ -292,8 +293,14 @@ func commissionDeviceAttestation(sess session.SecureSession) (deviceAttestationR
 	if err := credentials.VerifyAttestationSignature(attestationElementsTLV, challenge, attestationSig, dacPubKey); err != nil {
 		return deviceAttestationResult{}, fmt.Errorf("commissioning: %w", err)
 	}
-	if _, err := credentials.ParseAttestationElements(attestationElementsTLV); err != nil {
+	attestationElements, err := credentials.ParseAttestationElements(attestationElementsTLV)
+	if err != nil {
 		return deviceAttestationResult{}, fmt.Errorf("commissioning: %w", err)
+	}
+	// 11.18.7.2. AttestationResponse Command: the AttestationElements echo
+	// the AttestationNonce of the request.
+	if !bytes.Equal(attestationElements.Nonce, attestationNonce) {
+		return deviceAttestationResult{}, fmt.Errorf("commissioning: AttestationResponse does not echo the AttestationNonce")
 	}
 
 	// PAI is fetched for completeness but its chain of trust to a Product
@@ -318,6 +325,11 @@ func commissionDeviceAttestation(sess session.SecureSession) (deviceAttestationR
 	elements, err := credentials.ParseNOCSRElements(nocsrElementsTLV)
 	if err != nil {
 		return deviceAttestationResult{}, fmt.Errorf("commissioning: %w", err)
+	}
+	// 11.18.7.6. CSRResponse Command: the NOCSRElements echo the CSRNonce of
+	// the request.
+	if !bytes.Equal(elements.CSRNonce, csrNonce) {
+		return deviceAttestationResult{}, fmt.Errorf("commissioning: CSRResponse does not echo the CSRNonce")
 	}
 	csr, err := credentials.ParseCSR(elements.CSR)
 	if err != nil {

@@ -131,6 +131,19 @@ func ParseOperationalCertificate(tlvBytes []byte) (*OperationalCertificate, erro
 	return oc, nil
 }
 
+// CertificateIdentity returns the node ID and the fabric ID of the subject
+// of an operational certificate in its X.509 form, 0 for an attribute the
+// subject does not have (6.5.6.1. Matter DN attributes).
+func CertificateIdentity(cert *x509.Certificate) (nodeID uint64, fabricID uint64, err error) {
+	if nodeID, _, err = subjectUint64(cert, oidMatterNodeID); err != nil {
+		return 0, 0, err
+	}
+	if fabricID, _, err = subjectUint64(cert, oidMatterFabricID); err != nil {
+		return 0, 0, err
+	}
+	return nodeID, fabricID, nil
+}
+
 // subjectUint64 reads a Matter 64-bit subject attribute, a 16-digit hex
 // string.
 func subjectUint64(cert *x509.Certificate, oid asn1.ObjectIdentifier) (uint64, bool, error) {
