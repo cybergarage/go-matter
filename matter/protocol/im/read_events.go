@@ -65,6 +65,7 @@ func ReadEvents(sess SecureSession, paths []EventRequestPath, opts ...ReadEvents
 		return nil, fmt.Errorf("im: transmit ReadRequest: %w", err)
 	}
 	var events []EventReport
+	var timeline eventTimeline
 	for {
 		raw, err := receiveExchangeResponse(sess, exchange)
 		if err != nil {
@@ -91,6 +92,9 @@ func ReadEvents(sess SecureSession, paths []EventRequestPath, opts ...ReadEvents
 		rd, err := decodeReportData(raw)
 		if err != nil {
 			return nil, err
+		}
+		if err := resolveEventTimestamps(&timeline, rd.events); err != nil {
+			return nil, fmt.Errorf("im: ReadEvents: %w", err)
 		}
 		events = append(events, rd.events...)
 		// Each chunk but the last, and a last one which asks for it, is

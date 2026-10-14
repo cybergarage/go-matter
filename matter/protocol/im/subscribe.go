@@ -202,7 +202,7 @@ type Subscription struct {
 	// false before the first.
 	lastEvent    uint64
 	hasLastEvent bool
-	chunks       map[message.ExchangeID]*Report
+	chunks       map[message.ExchangeID]*pendingReport
 	reports      []*Report
 	wake         chan struct{}
 	alive        chan struct{}
@@ -256,7 +256,7 @@ func (m *ExchangeMux) Subscribe(ctx context.Context, paths []AttributeRequestPat
 		maxInterval:  0,
 		lastEvent:    0,
 		hasLastEvent: false,
-		chunks:       map[message.ExchangeID]*Report{},
+		chunks:       map[message.ExchangeID]*pendingReport{},
 		reports:      nil,
 		wake:         make(chan struct{}, 1),
 		alive:        make(chan struct{}, 1),
@@ -338,6 +338,7 @@ func (sub *Subscription) subscribe(ctx context.Context) (_ *Report, err error) {
 		return nil, fmt.Errorf("im: transmit SubscribeRequest: %w", err)
 	}
 	priming := &Report{SubscriptionID: 0, Priming: true, Attributes: nil}
+	var timeline eventTimeline
 	for {
 		raw, err := sub.mux.ReceiveExchangeContext(ctx, exchange)
 		if err != nil {
@@ -379,6 +380,9 @@ func (sub *Subscription) subscribe(ctx context.Context) (_ *Report, err error) {
 			if priming.Attributes, err = mergeAttributeReports(priming.Attributes, rd.attributes); err != nil {
 				return nil, fmt.Errorf("im: Subscribe: priming report: %w", err)
 			}
+			if err := resolveEventTimestamps(&timeline, rd.events); err != nil {
+				return nil, fmt.Errorf("im: Subscribe: priming report: %w", err)
+			}
 			priming.Events = append(priming.Events, rd.events...)
 			if err := transmitOnExchange(sub.mux, message.StatusResponseMessage, exchange, statusResponsePayload(StatusSuccess)); err != nil {
 				return nil, fmt.Errorf("im: Subscribe: answer the priming report: %w", err)
@@ -406,6 +410,13 @@ func (sub *Subscription) setID(id uint32, maxInterval time.Duration) {
 	sub.maxInterval = maxInterval
 }
 
+// pendingReport is a report whose chunks are arriving, with the timeline
+// its delta event timestamps resolve against.
+type pendingReport struct {
+	report   *Report
+	timeline eventTimeline
+}
+
 // received takes a chunk of a report the publisher sent on its exchange.
 func (sub *Subscription) received(exchange message.ExchangeID, rd *reportData) {
 	select {
@@ -413,12 +424,16 @@ func (sub *Subscription) received(exchange message.ExchangeID, rd *reportData) {
 	default:
 	}
 	sub.mutex.Lock()
-	report := sub.chunks[exchange]
-	if report == nil {
-		report = &Report{SubscriptionID: rd.subscriptionID, Priming: false, Attributes: nil}
+	pending := sub.chunks[exchange]
+	if pending == nil {
+		pending = &pendingReport{report: &Report{SubscriptionID: rd.subscriptionID, Priming: false, Attributes: nil, Events: nil}, timeline: eventTimeline{}}
 	}
+	report := pending.report
 	var err error
-	if report.Attributes, err = mergeAttributeReports(report.Attributes, rd.attributes); err != nil {
+	if report.Attributes, err = mergeAttributeReports(report.Attributes, rd.attributes); err == nil {
+		err = resolveEventTimestamps(&pending.timeline, rd.events)
+	}
+	if err != nil {
 		// A malformed report is dropped whole, its earlier chunks too.
 		delete(sub.chunks, exchange)
 		sub.mutex.Unlock()
@@ -427,7 +442,7 @@ func (sub *Subscription) received(exchange message.ExchangeID, rd *reportData) {
 	}
 	report.Events = append(report.Events, rd.events...)
 	if rd.moreChunks {
-		sub.chunks[exchange] = report
+		sub.chunks[exchange] = pending
 		sub.mutex.Unlock()
 		return
 	}
@@ -748,9 +763,8 @@ func decodeReportData(raw []byte) (*reportData, error) {
 		if !events.Element.Type().IsArray() && !events.Element.Type().IsList() {
 			return nil, errors.New("im: ReportData: EventReportIBs is not an array")
 		}
-		var timeline eventTimeline
 		for _, r := range events.Children {
-			e, err := decodeEventReportIB(r, &timeline)
+			e, err := decodeEventReportIB(r)
 			if err != nil {
 				return nil, fmt.Errorf("im: ReportData: %w", err)
 			}

@@ -99,6 +99,8 @@ type EventReport struct {
 	// Status is the reason the event path is not reported; nil for an
 	// event.
 	Status *InvokeStatus
+	// delta is true while Timestamp is a delta yet to be resolved.
+	delta bool
 }
 
 // Time returns the event's time when its timestamp is an epoch one.
@@ -170,8 +172,9 @@ type eventTimeline struct {
 	have     bool
 }
 
-// decodeEventReportIB decodes an EventReportIB (10.6.9).
-func decodeEventReportIB(r *AttributeValue, timeline *eventTimeline) (EventReport, error) {
+// decodeEventReportIB decodes an EventReportIB (10.6.9). A delta timestamp
+// stays unresolved; resolveEventTimestamps resolves it.
+func decodeEventReportIB(r *AttributeValue) (EventReport, error) {
 	var e EventReport
 	if !r.Element.Type().IsStructure() {
 		return e, errors.New("EventReportIB is not a structure")
@@ -211,16 +214,15 @@ func decodeEventReportIB(r *AttributeValue, timeline *eventTimeline) (EventRepor
 		return e, fmt.Errorf("Priority: %w", err)
 	}
 	e.Priority = EventPriority(priority)
-	if err := resolveEventTimestamp(dataIB, &e, timeline); err != nil {
+	if err := decodeEventTimestamp(dataIB, &e); err != nil {
 		return e, err
 	}
 	e.Data = valueField(dataIB, tagEventDataData)
 	return e, nil
 }
 
-// resolveEventTimestamp takes the one timestamp of an EventDataIB,
-// resolving a delta one.
-func resolveEventTimestamp(dataIB *AttributeValue, e *EventReport, timeline *eventTimeline) error {
+// decodeEventTimestamp takes the one timestamp of an EventDataIB.
+func decodeEventTimestamp(dataIB *AttributeValue, e *EventReport) error {
 	type field struct {
 		tag   uint8
 		typ   EventTimestampType
@@ -242,18 +244,32 @@ func resolveEventTimestamp(dataIB *AttributeValue, e *EventReport, timeline *eve
 		if err != nil {
 			return fmt.Errorf("timestamp: %w", err)
 		}
-		if f.delta {
-			if !timeline.have || timeline.lastType != f.typ {
-				return errors.New("a delta timestamp follows no event of its kind")
-			}
-			n += timeline.last
-		}
-		e.Timestamp, e.TimestampType = n, f.typ
+		e.Timestamp, e.TimestampType, e.delta = n, f.typ, f.delta
 	}
 	if found != 1 {
 		return fmt.Errorf("EventDataIB has %d timestamps, want 1", found)
 	}
-	timeline.last, timeline.lastType, timeline.have = e.Timestamp, e.TimestampType, true
+	return nil
+}
+
+// resolveEventTimestamps resolves the delta timestamps of events against
+// the event before each in the report, which may be in an earlier chunk:
+// the timeline carries over from one chunk to the next.
+func resolveEventTimestamps(timeline *eventTimeline, events []EventReport) error {
+	for i := range events {
+		e := &events[i]
+		if e.Status != nil {
+			continue
+		}
+		if e.delta {
+			if !timeline.have || timeline.lastType != e.TimestampType {
+				return fmt.Errorf("event %d has a delta timestamp which follows no event of its kind", e.EventNumber)
+			}
+			e.Timestamp += timeline.last
+			e.delta = false
+		}
+		timeline.last, timeline.lastType, timeline.have = e.Timestamp, e.TimestampType, true
+	}
 	return nil
 }
 

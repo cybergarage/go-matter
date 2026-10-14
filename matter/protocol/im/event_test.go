@@ -367,8 +367,43 @@ func TestEventDeltaTimestampNeedsAnEventBefore(t *testing.T) {
 		t.Fatal(err)
 	}
 	raw := append(hdr, encodeEventReportData(t, nil, []testEvent{{number: 1, timestamp: 5, delta: true}}, false, true)...)
-	if _, err := decodeReportData(raw); err == nil {
+	rd, err := decodeReportData(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var timeline eventTimeline
+	if err := resolveEventTimestamps(&timeline, rd.events); err == nil {
 		t.Error("a delta timestamp with no event before it was accepted")
+	}
+}
+
+func TestEventDeltaTimestampsCarryAcrossChunks(t *testing.T) {
+	// The first chunk ends with event 2; the second starts with a delta
+	// from it.
+	var timeline eventTimeline
+	decode := func(events []testEvent, more bool) []EventReport {
+		t.Helper()
+		hdr, _ := message.NewProtocolHeader(
+			message.WithHeaderExchangeFlags(message.InitiatorFlag|message.ReliabilityFlag),
+			message.WithHeaderOpcode(message.ReportDataMessage),
+			message.WithHeaderExchangeID(9),
+			message.WithHeaderProtocolID(message.InteractionModel),
+		).Bytes()
+		rd, err := decodeReportData(append(hdr, encodeEventReportData(t, nil, events, more, !more)...))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := resolveEventTimestamps(&timeline, rd.events); err != nil {
+			t.Fatal(err)
+		}
+		return rd.events
+	}
+	decode(keptEvents[:2], true)
+	// encodeEventReportData takes deltas within its chunk, so the delta
+	// from event 2 is given directly as the first event's timestamp.
+	second := decode([]testEvent{{number: 3, timestamp: keptEvents[2].timestamp - keptEvents[1].timestamp, delta: true, position: 1}}, false)
+	if second[0].Timestamp != keptEvents[2].timestamp {
+		t.Fatalf("event 3 timestamp = %d, want %d resolved across the chunks", second[0].Timestamp, keptEvents[2].timestamp)
 	}
 }
 
