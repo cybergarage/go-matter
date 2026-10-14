@@ -358,9 +358,15 @@ func loadCertificateAuthority(adminCfg config.AdministratorConfig) (*credentials
 		return nil, fmt.Errorf("commissioning: administrator config is required")
 	}
 	rootCert, _ := adminCfg.RootCertificate()
-	rootKey, _ := adminCfg.RootPrivateKey()
 	fabricID, _ := adminCfg.FabricID()
-	ca, err := credentials.NewCertificateAuthority(rootCert, rootKey, fabricID)
+	var ca *credentials.CertificateAuthority
+	var err error
+	if rootSigner, ok := adminCfg.RootSigner(); ok {
+		ca, err = credentials.NewCertificateAuthorityWithSigner(rootCert, rootSigner, fabricID)
+	} else {
+		rootKey, _ := adminCfg.RootPrivateKey()
+		ca, err = credentials.NewCertificateAuthority(rootCert, rootKey, fabricID)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("commissioning: certificate authority: %w", err)
 	}

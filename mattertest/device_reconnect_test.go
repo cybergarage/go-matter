@@ -36,6 +36,12 @@ const reconnectLightDiscriminator = 0x0ABE
 // newReconnectLight returns an On/Off Light on st, which a restart keeps.
 func newReconnectLight(t *testing.T, st store.DeviceStore) (*device.Device, *cluster.OnOff) {
 	t.Helper()
+	return newTestLight(t, st, reconnectLightDiscriminator)
+}
+
+// newTestLight returns an On/Off Light on st with the discriminator.
+func newTestLight(t *testing.T, st store.DeviceStore, discriminator uint16) (*device.Device, *cluster.OnOff) {
+	t.Helper()
 	attestation, err := testcreds.AttestationProvider()
 	if err != nil {
 		t.Fatal(err)
@@ -44,7 +50,7 @@ func newReconnectLight(t *testing.T, st store.DeviceStore) (*device.Device, *clu
 		device.WithDeviceStore(st),
 		device.WithPasscode(types.Passcode(deviceCommissioningPasscode)),
 		device.WithAddress(":0"),
-		device.WithDiscriminator(reconnectLightDiscriminator),
+		device.WithDiscriminator(discriminator),
 		device.WithVendorID(testcreds.VendorID),
 		device.WithProductID(testcreds.ProductID),
 		device.WithAttestationProvider(attestation),

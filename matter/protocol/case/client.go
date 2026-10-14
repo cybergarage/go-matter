@@ -311,7 +311,7 @@ func (i *Initiator) EstablishSession(ctx context.Context) (session.SessionKeys, 
 	if err != nil {
 		return nil, err
 	}
-	sigma3Sig, err := signWithKey(inputs.privateKey, sigma3TBS)
+	sigma3Sig, err := inputs.signer.Sign(sigma3TBS)
 	if err != nil {
 		return nil, fmt.Errorf("case: Sigma3 signature: %w", err)
 	}

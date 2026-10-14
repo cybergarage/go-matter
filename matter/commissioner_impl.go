@@ -16,6 +16,7 @@ package matter
 
 import (
 	"context"
+	"crypto"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -25,6 +26,7 @@ import (
 	"github.com/cybergarage/go-matter/matter/ble"
 	"github.com/cybergarage/go-matter/matter/config"
 	"github.com/cybergarage/go-matter/matter/errors"
+	"github.com/cybergarage/go-matter/matter/keystore"
 	"github.com/cybergarage/go-matter/matter/mdns"
 	caseprotocol "github.com/cybergarage/go-matter/matter/protocol/case"
 	"github.com/cybergarage/go-matter/matter/protocol/session"
@@ -159,6 +161,8 @@ type commissioner struct {
 	// resumptions keeps what resumes the last CASE session with each node
 	// connected to, in memory only.
 	resumptions resumptionCache
+	// keyStore keeps the fabric's private keys when set.
+	keyStore keystore.KeyStore
 }
 
 // NewCommissioner returns a new commissioner.
@@ -475,8 +479,15 @@ func (cmr *commissioner) persistCommissioning(adminCfg config.AdministratorConfi
 	fabricRec, err := buildFabricRecord(adminCfg, operationalCfg)
 	if err != nil {
 		log.Errorf("commissioner: build fabric record: %v", err)
-	} else if err := cmr.store.SaveFabric(fabricRec); err != nil {
-		log.Errorf("commissioner: save fabric identity: %v", err)
+	} else {
+		// With a key store, the keys go there instead of the record. A
+		// key it cannot take stays in the record rather than being lost.
+		if _, _, _, err := cmr.fabricKeys(&fabricRec); err != nil {
+			log.Errorf("commissioner: %v", err)
+		}
+		if err := cmr.store.SaveFabric(fabricRec); err != nil {
+			log.Errorf("commissioner: save fabric identity: %v", err)
+		}
 	}
 
 	compressedFabricID, err := computeCompressedFabricID(adminCfg)
@@ -582,7 +593,18 @@ func (cmr *commissioner) Start() error {
 			log.Errorf("commissioner: load persisted fabric identity: %v", err)
 		} else if ok {
 			if cmr.adminConfig == nil {
-				cmr.adminConfig = administratorConfigFromRecord(rec)
+				root, operational, moved, err := cmr.fabricKeys(&rec)
+				if err != nil {
+					return err
+				}
+				if moved {
+					// The keys are in the key store now: the record no
+					// longer needs them.
+					if err := st.SaveFabric(rec); err != nil {
+						log.Errorf("commissioner: remove the keys moved into the key store from the fabric record: %v", err)
+					}
+				}
+				cmr.adminConfig = administratorConfigFromRecord(rec, root, operational)
 			}
 			if cmr.operationalConfig == nil {
 				cmr.operationalConfig = operationalCredentialsConfigFromRecord(rec)
@@ -614,14 +636,27 @@ func (cmr *commissioner) openFileStore() (store.Store, error) {
 	return st, nil
 }
 
-func administratorConfigFromRecord(rec store.FabricRecord) config.AdministratorConfig {
+// administratorConfigFromRecord makes the administrator config of a fabric
+// record, with the keys of root and operational when not nil, and the
+// record's own when it holds them.
+func administratorConfigFromRecord(rec store.FabricRecord, root, operational crypto.Signer) config.AdministratorConfig {
 	opts := []config.AdministratorConfigOption{
 		config.WithAdministratorNodeID(rec.AdminNodeID),
 		config.WithAdministratorFabricID(rec.FabricID),
 		config.WithAdministratorRootCertificate(rec.RootCertificate),
-		config.WithAdministratorRootPrivateKey(rec.RootPrivateKey),
 		config.WithAdministratorNOC(rec.NOC),
-		config.WithAdministratorPrivateKey(rec.PrivateKey),
+	}
+	if len(rec.RootPrivateKey) != 0 {
+		opts = append(opts, config.WithAdministratorRootPrivateKey(rec.RootPrivateKey))
+	}
+	if len(rec.PrivateKey) != 0 {
+		opts = append(opts, config.WithAdministratorPrivateKey(rec.PrivateKey))
+	}
+	if root != nil {
+		opts = append(opts, config.WithAdministratorRootSigner(root))
+	}
+	if operational != nil {
+		opts = append(opts, config.WithAdministratorSigner(operational))
 	}
 	if len(rec.ICAC) != 0 {
 		opts = append(opts, config.WithAdministratorICAC(rec.ICAC))

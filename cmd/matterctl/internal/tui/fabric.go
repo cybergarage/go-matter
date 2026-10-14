@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/cybergarage/go-matter/matter"
 	"github.com/cybergarage/go-matter/matter/credentials"
+	"github.com/cybergarage/go-matter/matter/keystore"
 	"github.com/cybergarage/go-matter/matter/store"
 )
 
@@ -36,15 +38,27 @@ type fabricBackend interface {
 	CreateFabric(context.Context, uint16) (Result, error)
 }
 
-func identityFromRecord(r store.FabricRecord) credentials.ControllerIdentity {
-	return credentials.ControllerIdentity{FabricID: r.FabricID, NodeID: r.AdminNodeID, RootCertificate: r.RootCertificate, RootPrivateKey: r.RootPrivateKey, NOC: r.NOC, PrivateKey: r.PrivateKey, IPK: r.IPK}
+// identityFromRecord returns the identity of r, with the keys of ks for the
+// keys r does not hold.
+func identityFromRecord(r store.FabricRecord, ks keystore.KeyStore) credentials.ControllerIdentity {
+	id := credentials.ControllerIdentity{FabricID: r.FabricID, NodeID: r.AdminNodeID, RootCertificate: r.RootCertificate, RootPrivateKey: r.RootPrivateKey, NOC: r.NOC, PrivateKey: r.PrivateKey, IPK: r.IPK}
+	if ks == nil {
+		return id
+	}
+	if len(id.RootPrivateKey) == 0 {
+		id.RootSigner, _ = ks.Signer(matter.RootKeyName)
+	}
+	if len(id.PrivateKey) == 0 {
+		id.Signer, _ = ks.Signer(matter.OperationalKeyName)
+	}
+	return id
 }
-func validFabric(r store.FabricRecord) error {
+func validFabric(r store.FabricRecord, ks keystore.KeyStore) error {
 	// The commissioner CA currently signs directly with the root; intermediate-backed bootstrap is unsupported.
 	if r.AdminVendorID == 0 || r.AdminVendorID > 0xFFF4 || len(r.ICAC) != 0 {
 		return errors.New("unsupported controller vendor or intermediate identity")
 	}
-	return credentials.ValidateControllerIdentity(identityFromRecord(r))
+	return credentials.ValidateControllerIdentity(identityFromRecord(r, ks))
 }
 func parseVendor(s string) (uint16, error) {
 	n, err := strconv.ParseUint(s, 0, 16)

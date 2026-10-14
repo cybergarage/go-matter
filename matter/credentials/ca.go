@@ -15,6 +15,7 @@
 package credentials
 
 import (
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -101,7 +102,7 @@ func extKeyUsageClientServerAuthExtension() (pkix.Extension, error) {
 // (types.NewOperationalNodeID) rather than a fixed test value.
 type CertificateAuthority struct {
 	rootCert *x509.Certificate
-	rootKey  *ecdsa.PrivateKey
+	rootKey  crypto.Signer
 	fabricID uint64
 }
 
@@ -122,8 +123,30 @@ func NewCertificateAuthority(rootCertBytes, rootPrivateKeyBytes []byte, fabricID
 	if err != nil {
 		return nil, fmt.Errorf("credentials: root private key: %w", err)
 	}
+	return newCertificateAuthority(rootCert, rootKey, fabricID)
+}
+
+// NewCertificateAuthorityWithSigner is NewCertificateAuthority with the root
+// key held by a crypto.Signer, such as a key store, an HSM or a KMS key,
+// instead of the key itself.
+func NewCertificateAuthorityWithSigner(rootCertBytes []byte, rootKey crypto.Signer, fabricID uint64) (*CertificateAuthority, error) {
+	rootDER, err := certificateDERBytes(rootCertBytes)
+	if err != nil {
+		return nil, fmt.Errorf("credentials: root certificate: %w", err)
+	}
+	rootCert, err := x509.ParseCertificate(rootDER)
+	if err != nil {
+		return nil, fmt.Errorf("credentials: parse root certificate: %w", err)
+	}
+	if rootKey == nil {
+		return nil, fmt.Errorf("credentials: no root signer")
+	}
+	return newCertificateAuthority(rootCert, rootKey, fabricID)
+}
+
+func newCertificateAuthority(rootCert *x509.Certificate, rootKey crypto.Signer, fabricID uint64) (*CertificateAuthority, error) {
 	rootPub, ok := rootCert.PublicKey.(*ecdsa.PublicKey)
-	if !ok || !rootPub.Equal(&rootKey.PublicKey) {
+	if !ok || !rootPub.Equal(rootKey.Public()) {
 		return nil, fmt.Errorf("credentials: root private key does not match root certificate's public key")
 	}
 	if fabricID == 0 {
@@ -227,6 +250,16 @@ func certificateDERBytes(b []byte) ([]byte, error) {
 		return block.Bytes, nil
 	}
 	return b, nil
+}
+
+// ParsePrivateKey parses an ECDSA private key in PKCS#8 or SEC 1, PEM or
+// DER, the encodings config.AdministratorConfig takes.
+func ParsePrivateKey(b []byte) (*ecdsa.PrivateKey, error) {
+	key, err := parsePrivateKey(b)
+	if err != nil {
+		return nil, fmt.Errorf("credentials: %w", err)
+	}
+	return key, nil
 }
 
 func parsePrivateKey(b []byte) (*ecdsa.PrivateKey, error) {

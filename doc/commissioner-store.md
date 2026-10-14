@@ -32,7 +32,7 @@ the same records can be kept in memory or in any other storage (see
   a reconnect-over-CASE lookup would search for.
 - The directory is created at file mode `0700`, and every file within it
   at `0600`, since `fabric.json` holds private key material in plaintext
-  (see [Security](#security)).
+  unless a key store keeps the keys (see [Key store](#key-store)).
 
 ## Explicit controller initialization
 
@@ -50,6 +50,10 @@ a complete identity or no identity. An unsupported filesystem fails safely.
 The regular `SaveFabric` replacement API remains for existing callers.
 `matterctl tui --live` exposes creation only as an explicit, confirmed action.
 Startup does not generate keys or create an absent store directory.
+
+`credentials.GenerateControllerIdentityWithSigners(root, operational)` does the
+same with keys made beforehand in a key store, an HSM or a KMS: the identity
+holds their `crypto.Signer`s and no key bytes.
 
 ## `fabric.json` — fabric-wide identity
 
@@ -212,9 +216,43 @@ expires.
   `Commission()` — the device is genuinely commissioned regardless of
   whether the local cache write succeeded.
 
+## Key store
+
+`matter.WithCommissionerKeyStore(ks)` keeps the fabric's two private keys in a
+`keystore.KeyStore` instead of `fabric.json`: the root CA key, which signs the
+NOCs the commissioner issues, under `matter.RootKeyName` (`root`), and the key
+of the commissioner's own NOC, which signs its CASE Sigma3, under
+`matter.OperationalKeyName` (`operational`). `fabric.json` then has no
+`rootPrivateKey` or `privateKey`.
+
+A key is used through `crypto.Signer`, which is how PKCS#11 (HSM), cloud KMS
+and TPM libraries give out their keys, so the key need not leave the hardware.
+The `matter/keystore` package provides:
+
+| Key store | Keeps the keys |
+| --- | --- |
+| `keystore.NewFileKeyStore(dir)` | One PKCS#8 PEM file per key, `<name>.key`, at `0600`; a key file others can read is refused |
+| `keystore.NewFileKeyStore(dir, keystore.WithPassphrase(p))` | The same, encrypted with AES-256-GCM under a scrypt key of the passphrase (N=2^15, r=8, p=1), bound to the key's name |
+| `keystore.NewStaticKeyStore(map[string]crypto.Signer{...})` | Signers made elsewhere, such as an HSM's or a KMS's; it neither generates nor deletes keys |
+| `keystore.NewMemKeyStore()` | In memory, for tests |
+
+`Start` takes the fabric's keys from the key store and checks that each is the
+key of its certificate. When `fabric.json` still holds a key, `Start` moves it
+into the key store, if the store can import keys (`keystore.Importer`), and
+removes it from `fabric.json` once the store has it; a key the store cannot
+take stays in `fabric.json`. A key store which fails, such as with a wrong
+passphrase, or whose key is not the fabric's, fails `Start`.
+
+`matterctl` uses a file key store when `MATTER_CTL_KEY_STORE` names its
+directory, encrypted when `MATTER_CTL_KEY_STORE_PASSPHRASE` is set. Both are
+read from the environment only, so that the passphrase stays out of the shell
+history and the process list; matterctl removes the passphrase from its
+environment once read. `matterctl tui --live` creates a new fabric's keys in
+that key store.
+
 ## Security
 
-`fabric.json` contains private key material (the fabric's root private
+Without a key store, `fabric.json` contains private key material (the fabric's root private
 key and the administrator's own private key) in plaintext, and every file
 this package writes is created at `0600` inside a `0700` directory as the
 mitigation for that — the same posture as e.g. `~/.ssh`. This is not new
@@ -224,8 +262,8 @@ durable on disk. There is currently no encryption at rest and no file
 locking for multiple processes sharing a directory — treat `~/.{app-name}/`
 with the same care as any other local credential store. A `Commissioner`
 can forget a device with `Store.DeleteCommissionee`. To keep the key
-material out of plaintext files, plug in a `KVStore` backed by an
-encrypted or hardware-protected store.
+material out of plaintext files, use a [key store](#key-store): an encrypted
+file key store, or an HSM, a KMS or a TPM through `crypto.Signer`.
 
 ## Programmatic access
 

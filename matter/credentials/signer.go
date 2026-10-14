@@ -15,9 +15,11 @@
 package credentials
 
 import (
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
@@ -59,6 +61,68 @@ func GenerateSoftwareSigner() (Signer, error) {
 		return nil, fmt.Errorf("credentials: generate a key: %w", err)
 	}
 	return NewSoftwareSigner(priv)
+}
+
+// NewSigner returns a Signer which signs with cs, a P-256 key held
+// anywhere a crypto.Signer reaches: in memory, or in an HSM over PKCS#11, a
+// cloud KMS or a TPM, which never hand the private key out. cs signs the
+// SHA-256 digest of each message, as an ASN.1 ECDSA signature; the Signer
+// converts it to the raw r||s Matter carries, and checks it.
+func NewSigner(cs crypto.Signer) (Signer, error) {
+	if cs == nil {
+		return nil, errors.New("credentials: no signer")
+	}
+	if priv, ok := cs.(*ecdsa.PrivateKey); ok {
+		return NewSoftwareSigner(priv)
+	}
+	pub, ok := cs.Public().(*ecdsa.PublicKey)
+	if !ok || pub.Curve != elliptic.P256() {
+		return nil, errors.New("credentials: the signer's key is not a P-256 ECDSA key")
+	}
+	return &cryptoSigner{cs: cs, pub: pub}, nil
+}
+
+// cryptoSigner is a Signer over a crypto.Signer.
+type cryptoSigner struct {
+	cs  crypto.Signer
+	pub *ecdsa.PublicKey
+}
+
+func (s *cryptoSigner) PublicKey() *ecdsa.PublicKey {
+	return s.pub
+}
+
+func (s *cryptoSigner) Sign(msg []byte) ([]byte, error) {
+	digest := sha256.Sum256(msg)
+	der, err := s.cs.Sign(rand.Reader, digest[:], crypto.SHA256)
+	if err != nil {
+		return nil, fmt.Errorf("credentials: sign: %w", err)
+	}
+	raw, err := rawSignatureFromASN1(der)
+	if err != nil {
+		return nil, fmt.Errorf("credentials: sign: %w", err)
+	}
+	// A key store which signed with another key, or not over the digest,
+	// is caught here rather than by the peer.
+	if err := verifyRawSignature(s.pub, msg, raw); err != nil {
+		return nil, fmt.Errorf("credentials: the signer's signature does not verify: %w", err)
+	}
+	return raw, nil
+}
+
+// rawSignatureFromASN1 converts an ASN.1 ECDSA-Sig-Value to the raw r||s of
+// a P-256 signature.
+func rawSignatureFromASN1(der []byte) ([]byte, error) {
+	var sig struct{ R, S *big.Int }
+	rest, err := asn1.Unmarshal(der, &sig)
+	if err != nil || len(rest) != 0 || sig.R == nil || sig.S == nil || sig.R.Sign() <= 0 || sig.S.Sign() <= 0 ||
+		sig.R.BitLen() > 256 || sig.S.BitLen() > 256 {
+		return nil, errors.New("malformed ECDSA signature")
+	}
+	out := make([]byte, rawSignatureLen)
+	sig.R.FillBytes(out[:32])
+	sig.S.FillBytes(out[32:])
+	return out, nil
 }
 
 // ParseSoftwareSigner returns a Signer for a DER-encoded P-256 private key,

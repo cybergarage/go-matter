@@ -21,6 +21,7 @@ import (
 	"github.com/cybergarage/go-matter/matter/credentials"
 	"github.com/cybergarage/go-matter/matter/encoding"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
+	"github.com/cybergarage/go-matter/matter/keystore"
 	caseprotocol "github.com/cybergarage/go-matter/matter/protocol/case"
 	"github.com/cybergarage/go-matter/matter/protocol/im"
 	"github.com/cybergarage/go-matter/matter/store"
@@ -127,14 +128,27 @@ type Live struct {
 	st      *trackingStore
 	started bool
 	dir     string
+	// ks keeps the fabric's private keys when set, instead of the store.
+	ks keystore.KeyStore
 }
 
 func NewLive(st store.Store) *Live {
+	return newLive(st, nil)
+}
+
+func newLive(st store.Store, ks keystore.KeyStore) *Live {
 	tracked := &trackingStore{Store: st}
-	return &Live{cmr: matter.NewCommissioner(matter.WithCommissionerStore(tracked)), st: tracked}
+	opts := []matter.CommissionerOption{matter.WithCommissionerStore(tracked)}
+	if ks != nil {
+		opts = append(opts, matter.WithCommissionerKeyStore(ks))
+	}
+	return &Live{cmr: matter.NewCommissioner(opts...), st: tracked, ks: ks}
 }
 func openLiveDirectory(dir string) (*Live, error) {
-	b := NewLive(store.NewMemStore())
+	return openLiveDirectoryWithKeyStore(dir, nil)
+}
+func openLiveDirectoryWithKeyStore(dir string, ks keystore.KeyStore) (*Live, error) {
+	b := newLive(store.NewMemStore(), ks)
 	b.dir = dir
 	if _, err := os.Lstat(dir); errors.Is(err, os.ErrNotExist) {
 		return b, nil
@@ -145,7 +159,7 @@ func openLiveDirectory(dir string) (*Live, error) {
 	if err != nil {
 		return nil, errors.New("cannot open commissioner store")
 	}
-	b = NewLive(st)
+	b = newLive(st, ks)
 	b.dir = dir
 	return b, nil
 }
@@ -173,7 +187,7 @@ func (b *Live) Overview() (FabricSummary, error) {
 		return FabricSummary{}, nil
 	}
 	summary := FabricSummary{Present: true, FabricID: r.FabricID, AdminNodeID: r.AdminNodeID, VendorID: r.AdminVendorID}
-	summary.Valid = validFabric(r) == nil
+	summary.Valid = validFabric(r, b.ks) == nil
 	if !summary.Valid {
 		return summary, nil
 	}
@@ -219,22 +233,25 @@ func (b *Live) CreateFabric(ctx context.Context, vendor uint16) (Result, error) 
 	if err := ctx.Err(); err != nil {
 		return Result{}, err
 	}
-	id, err := credentials.GenerateControllerIdentity()
+	id, discard, err := b.generateIdentity()
 	if err != nil {
-		return Result{}, errors.New("cannot generate controller identity")
+		return Result{}, err
 	}
 	rec := store.FabricRecord{FabricID: id.FabricID, AdminNodeID: id.NodeID, AdminVendorID: vendor, RootCertificate: id.RootCertificate, RootPrivateKey: id.RootPrivateKey, NOC: id.NOC, PrivateKey: id.PrivateKey, IPK: id.IPK, UpdatedAt: time.Now().UTC()}
-	if err := validFabric(rec); err != nil {
+	if err := validFabric(rec, b.ks); err != nil {
+		discard()
 		return Result{}, errors.New("generated identity validation failed")
 	}
 	if err := ctx.Err(); err != nil {
+		discard()
 		return Result{}, err
 	}
 	if err := store.CreateFabric(st, rec); err != nil {
+		discard()
 		return Result{}, errors.New("identity was not initialized: existing data or atomic save failure; reload before retrying")
 	}
 	// Replace the unused lazy commissioner so its next Start restores the new identity.
-	next := NewLive(st)
+	next := newLive(st, b.ks)
 	b.cmr = next.cmr
 	b.st = next.st
 	return Result{Message: "FABRIC CREATED / SAVED locally. No device has been commissioned. Reloaded identity is ready for confirmed pairing."}, nil
@@ -274,12 +291,47 @@ func (b *Live) List() ([]Device, error) {
 	sort.Slice(ds, func(i, j int) bool { return ds[i].ID < ds[j].ID })
 	return ds, nil
 }
+
+// generateIdentity generates a fabric identity, its keys in the key store
+// when there is one. discard removes the keys it generated there, for an
+// identity which is not saved.
+func (b *Live) generateIdentity() (credentials.ControllerIdentity, func(), error) {
+	if b.ks == nil {
+		id, err := credentials.GenerateControllerIdentity()
+		if err != nil {
+			return id, nil, errors.New("cannot generate controller identity")
+		}
+		return id, func() {}, nil
+	}
+	root, err := b.ks.Generate(matter.RootKeyName)
+	if errors.Is(err, keystore.ErrKeyExists) {
+		return credentials.ControllerIdentity{}, nil, errors.New("the key store already has a fabric root key; use an empty key store")
+	}
+	if err != nil {
+		return credentials.ControllerIdentity{}, nil, errors.New("cannot generate the root key in the key store")
+	}
+	operational, err := b.ks.Generate(matter.OperationalKeyName)
+	if err != nil {
+		_ = b.ks.Delete(matter.RootKeyName)
+		return credentials.ControllerIdentity{}, nil, errors.New("cannot generate the controller key in the key store")
+	}
+	discard := func() {
+		_ = b.ks.Delete(matter.RootKeyName)
+		_ = b.ks.Delete(matter.OperationalKeyName)
+	}
+	id, err := credentials.GenerateControllerIdentityWithSigners(root, operational)
+	if err != nil {
+		discard()
+		return id, nil, errors.New("cannot generate controller identity")
+	}
+	return id, discard, nil
+}
 func (b *Live) start() error {
 	if b.started {
 		return nil
 	}
 	rec, ok, err := b.st.LoadFabric()
-	if err != nil || !ok || validFabric(rec) != nil {
+	if err != nil || !ok || validFabric(rec, b.ks) != nil {
 		return errors.New("a valid supported fabric is required; create one explicitly or check the existing store")
 	}
 	if err := b.cmr.Start(); err != nil {
@@ -444,7 +496,7 @@ func (b *Live) Invoke(ctx context.Context, id uint64, p Path, c im.CommandID) (R
 }
 func (b *Live) Pair(ctx context.Context, p encoding.OnboardingPayload) (Result, error) {
 	rec, ok, err := b.st.LoadFabric()
-	if err != nil || !ok || validFabric(rec) != nil {
+	if err != nil || !ok || validFabric(rec, b.ks) != nil {
 		return Result{}, errors.New("pairing requires a valid fabric in this store; choose Create new fabric when absent")
 	}
 	if err := ctx.Err(); err != nil {

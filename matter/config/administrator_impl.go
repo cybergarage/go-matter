@@ -14,7 +14,11 @@
 
 package config
 
-import "github.com/cybergarage/go-matter/matter/encoding/json"
+import (
+	"crypto"
+
+	"github.com/cybergarage/go-matter/matter/encoding/json"
+)
 
 // AdministratorConfigOption defines a functional option for configuring AdministratorConfig.
 type AdministratorConfigOption func(*administratorConfig)
@@ -70,6 +74,24 @@ func WithAdministratorRootPrivateKey(key []byte) AdministratorConfigOption {
 	}
 }
 
+// WithAdministratorSigner sets the operational key for CASE Sigma3 as a
+// signer, such as a key of a key store, an HSM or a KMS; it takes
+// precedence over WithAdministratorPrivateKey.
+func WithAdministratorSigner(signer crypto.Signer) AdministratorConfigOption {
+	return func(c *administratorConfig) {
+		c.signer = signer
+	}
+}
+
+// WithAdministratorRootSigner sets the root key, which signs the NOCs issued
+// during commissioning, as a signer; it takes precedence over
+// WithAdministratorRootPrivateKey.
+func WithAdministratorRootSigner(signer crypto.Signer) AdministratorConfigOption {
+	return func(c *administratorConfig) {
+		c.rootSigner = signer
+	}
+}
+
 type administratorConfig struct {
 	nodeID          *uint64
 	fabricID        *uint64
@@ -78,6 +100,8 @@ type administratorConfig struct {
 	icac            []byte
 	privateKey      []byte
 	rootPrivateKey  []byte
+	signer          crypto.Signer
+	rootSigner      crypto.Signer
 }
 
 func newAdministratorConfig(opts ...AdministratorConfigOption) *administratorConfig {
@@ -89,6 +113,8 @@ func newAdministratorConfig(opts ...AdministratorConfigOption) *administratorCon
 		icac:            nil,
 		privateKey:      nil,
 		rootPrivateKey:  nil,
+		signer:          nil,
+		rootSigner:      nil,
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -148,6 +174,14 @@ func (c *administratorConfig) RootPrivateKey() ([]byte, bool) {
 		return nil, false
 	}
 	return c.rootPrivateKey, true
+}
+
+func (c *administratorConfig) Signer() (crypto.Signer, bool) {
+	return c.signer, c.signer != nil
+}
+
+func (c *administratorConfig) RootSigner() (crypto.Signer, bool) {
+	return c.rootSigner, c.rootSigner != nil
 }
 
 func (c *administratorConfig) Map() map[string]any {
