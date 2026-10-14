@@ -28,12 +28,12 @@ No physical device was commissioned or operated for this implementation.
 
 go-matter is a **commissioner (controller)**. It discovers a commissionable device over BLE and mDNS, commissions it onto a fabric, and reads, writes and invokes the clusters of the node afterwards.
 
-**Running as a Matter device is under development.** The `matter/device` package advertises itself as a commissionable node over mDNS and answers PASE, but go-matter cannot yet be commissioned all the way by another controller, and it serves no cluster of its own. The device role is planned for v1.0.0.
+**Running as a Matter device is under development.** The `matter/device` package is commissioned over IP by another commissioner such as chip-tool: it advertises itself over mDNS, answers PASE and CASE, attests, and joins the fabric. It serves the clusters of the root node and an On/Off Light with Identify, Groups and Scenes, which chip-tool reads, operates and subscribes to; see [examples/onofflight](examples/onofflight). It has not been verified with Google Home or Amazon Alexa yet. The device role is planned for v1.0.0.
 
 | | Status |
 | --- | --- |
-| Commissioning and operating a device (commissioner) | Supported |
-| Being commissioned, and serving clusters (device) | **In development**: PASE only |
+| Commissioning and operating a device (commissioner) | Supported: device attestation is not validated, and subscriptions and events are not supported yet |
+| Being commissioned, and serving clusters (device) | **In development**: commissioned over IP by chip-tool; the root node clusters and an On/Off Light. No events, Network Commissioning server or CASE session resumption yet |
 | `matterctl` command | Supported |
 
 ### What the commissioner supports
