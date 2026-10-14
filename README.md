@@ -42,6 +42,7 @@ go-matter is a **commissioner (controller)**. It discovers a commissionable devi
 - Commissioning over BLE (BTP) and over IP: PASE (SPAKE2+), the fail-safe and general commissioning flow, CSR and NOC issuance, and CASE
 - Device attestation verification: the DAC → PAI → PAA chain and the Certification Declaration, in a development mode (the default, which also trusts the test credentials of the Matter SDK), a production mode, or none
 - A persistent store of the fabric and of the commissioned nodes, so that a node is reachable again after a restart
+- A key store for the fabric's private keys, apart from that store: files encrypted with a passphrase, or an HSM, a KMS or a TPM through `crypto.Signer`
 - Reconnecting to a commissioned node with CASE, resuming the last session (session resumption) when the node still knows it; subscriptions move over to the new session when the old one fails
 - The Interaction Model: Read, Write and Invoke, including the reassembly of a chunked list, and subscriptions to attributes and events, which report changes to a callback and subscribe again when a report is overdue
 - Events: reading the events a node keeps, and subscribing to them, with event number filters and timestamps resolved
@@ -76,6 +77,7 @@ go-matter is a **commissioner (controller)**. It discovers a commissionable devi
 |               | `protocol.session` | ✅ Implemented | Secure session management |
 |               | `credentials` | ✅ Implemented | Device attestation verification (DAC → PAI → PAA, Certification Declaration), CSR, and CA/NOC chain handling |
 |               | `store` | ✅ Implemented | Persistent fabric and commissionee record store |
+|               | `keystore` | ✅ Implemented | Key store for the fabric's private keys: encrypted files, or any `crypto.Signer` (HSM, KMS, TPM) |
 | Interaction Model | `protocol.im` | ✅ Implemented | Read/Write/Invoke Interaction Model transactions, incl. chunked list reassembly |
 |                    | `protocol.mrp` | ✅ Implemented | Message Reliability Protocol (acknowledgement, counters) |
 | Clusters | `cluster` | ✅ Implemented | Basic Information, Descriptor, General Commissioning/Diagnostics, Network Commissioning, Operational Credentials, Access Control |

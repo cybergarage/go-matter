@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/cybergarage/go-logger/log"
+	"github.com/cybergarage/go-matter/matter/cmd"
 	"github.com/cybergarage/go-matter/matter/protocol/im"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -37,7 +38,13 @@ func Command() *cobra.Command {
 					}
 					dir = filepath.Join(home, ".matterctl")
 				}
-				b, err := openLiveDirectory(dir)
+				// The fabric's keys are kept in the key store
+				// MATTER_CTL_KEY_STORE names, as for the other commands.
+				ks, err := cmd.KeyStoreFromEnv()
+				if err != nil {
+					return err
+				}
+				b, err := openLiveDirectoryWithKeyStore(dir, ks)
 				if err != nil {
 					return err
 				}

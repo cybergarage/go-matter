@@ -1,6 +1,7 @@
 package caseprotocol
 
 import (
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/x509"
@@ -13,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/cybergarage/go-matter/matter/config"
+	"github.com/cybergarage/go-matter/matter/credentials"
 	"github.com/cybergarage/go-matter/matter/credentials/chipcert"
 	mcrypto "github.com/cybergarage/go-matter/matter/crypto"
 	"github.com/cybergarage/go-matter/matter/protocol/session"
@@ -30,7 +32,8 @@ type administratorInputs struct {
 	rootPublicKey   []byte
 	nocDER          []byte
 	icacDER         []byte
-	privateKey      *ecdsa.PrivateKey
+	// signer signs Sigma3 with the key of the NOC.
+	signer credentials.Signer
 }
 
 // AdministratorMetadata is the subset of parsed administrator identity used by commissioning.
@@ -50,6 +53,7 @@ func loadAdministratorInputs(cfg config.AdministratorConfig) (administratorInput
 	nocBytes, _ := cfg.NOC()
 	icacBytes, _ := cfg.ICAC()
 	privateKeyBytes, _ := cfg.PrivateKey()
+	configSigner, hasSigner := cfg.Signer()
 	if nodeID == 0 {
 		return administratorInputs{}, fmt.Errorf("case: administrator config missing node ID")
 	}
@@ -62,7 +66,7 @@ func loadAdministratorInputs(cfg config.AdministratorConfig) (administratorInput
 	if len(nocBytes) == 0 {
 		return administratorInputs{}, fmt.Errorf("case: administrator config missing NOC")
 	}
-	if len(privateKeyBytes) == 0 {
+	if len(privateKeyBytes) == 0 && !hasSigner {
 		return administratorInputs{}, fmt.Errorf("case: administrator config missing private key")
 	}
 
@@ -95,9 +99,12 @@ func loadAdministratorInputs(cfg config.AdministratorConfig) (administratorInput
 			return administratorInputs{}, fmt.Errorf("case: parse administrator ICAC: %w", err)
 		}
 	}
-	privateKey, err := parsePrivateKey(privateKeyBytes)
+	signer, err := administratorSigner(configSigner, privateKeyBytes)
 	if err != nil {
-		return administratorInputs{}, fmt.Errorf("case: parse administrator private key: %w", err)
+		return administratorInputs{}, err
+	}
+	if nocPub, ok := nocCert.PublicKey.(*ecdsa.PublicKey); !ok || !nocPub.Equal(signer.PublicKey()) {
+		return administratorInputs{}, fmt.Errorf("case: administrator private key does not match the NOC")
 	}
 	return administratorInputs{
 		nodeID:          nodeID,
@@ -106,8 +113,29 @@ func loadAdministratorInputs(cfg config.AdministratorConfig) (administratorInput
 		rootPublicKey:   rootPubKey,
 		nocDER:          nocDER,
 		icacDER:         icacDER,
-		privateKey:      privateKey,
+		signer:          signer,
 	}, nil
+}
+
+// administratorSigner returns the signer of the administrator's operational
+// key: the config's signer, else its private key.
+func administratorSigner(s crypto.Signer, privateKeyBytes []byte) (credentials.Signer, error) {
+	if s != nil {
+		signer, err := credentials.NewSigner(s)
+		if err != nil {
+			return nil, fmt.Errorf("case: administrator signer: %w", err)
+		}
+		return signer, nil
+	}
+	privateKey, err := parsePrivateKey(privateKeyBytes)
+	if err != nil {
+		return nil, fmt.Errorf("case: parse administrator private key: %w", err)
+	}
+	signer, err := credentials.NewSoftwareSigner(privateKey)
+	if err != nil {
+		return nil, fmt.Errorf("case: administrator private key: %w", err)
+	}
+	return signer, nil
 }
 
 // LoadAdministratorMetadata parses and validates the administrator config and returns

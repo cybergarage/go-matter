@@ -25,15 +25,18 @@ import "time"
 // OperationalCredentialsConfig's RootCertificate/NOC/ICAC fields, which
 // commissioning_impl.go never reads (the RCAC/NOC actually sent to a
 // device always come from the administrator's own CertificateAuthority).
+//
+// RootPrivateKey and PrivateKey are empty when the keys are kept in a key
+// store (matter.WithCommissionerKeyStore) instead.
 type FabricRecord struct {
 	FabricID        uint64    `json:"fabricId"`
 	AdminNodeID     uint64    `json:"adminNodeId"`
 	AdminVendorID   uint16    `json:"adminVendorId"`
 	RootCertificate []byte    `json:"rootCertificate"`
-	RootPrivateKey  []byte    `json:"rootPrivateKey"`
+	RootPrivateKey  []byte    `json:"rootPrivateKey,omitempty"`
 	NOC             []byte    `json:"noc"`
 	ICAC            []byte    `json:"icac,omitempty"`
-	PrivateKey      []byte    `json:"privateKey"`
+	PrivateKey      []byte    `json:"privateKey,omitempty"`
 	IPK             []byte    `json:"ipk"`
 	UpdatedAt       time.Time `json:"updatedAt"`
 }

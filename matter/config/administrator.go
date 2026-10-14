@@ -14,6 +14,8 @@
 
 package config
 
+import "crypto"
+
 // AdministratorConfigHelper defines the interface for map and string representations
 // of administrator credentials used for CASE finalization.
 type AdministratorConfigHelper interface {
@@ -48,4 +50,11 @@ type AdministratorConfig interface {
 	// matter/credentials.CertificateAuthority). Accepted encodings match
 	// PrivateKey().
 	RootPrivateKey() ([]byte, bool)
+	// Signer returns the operational key for CASE Sigma3 when it is held by
+	// a signer, such as a key store, an HSM or a KMS, in place of
+	// PrivateKey.
+	Signer() (crypto.Signer, bool)
+	// RootSigner returns the root key when it is held by a signer, in place
+	// of RootPrivateKey.
+	RootSigner() (crypto.Signer, bool)
 }

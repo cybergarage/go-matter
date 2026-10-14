@@ -3,6 +3,7 @@
 package credentials
 
 import (
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -19,9 +20,14 @@ import (
 
 // ControllerIdentity contains secret material. Never format or log it.
 // 6.5. Node Operational Credentials. This minimal CA has no intermediate.
+//
+// A key is either its PKCS#8 bytes (RootPrivateKey, PrivateKey) or, when
+// it is kept in a key store, an HSM or a KMS, a signer (RootSigner,
+// Signer), which takes the place of the bytes.
 type ControllerIdentity struct {
 	FabricID, NodeID                                      uint64
 	RootCertificate, RootPrivateKey, NOC, PrivateKey, IPK []byte
+	RootSigner, Signer                                    crypto.Signer
 }
 
 // RandomOperationalID uses the full operational ID range and propagates entropy failures.
@@ -41,44 +47,17 @@ func RandomOperationalID() (uint64, error) {
 // GenerateControllerIdentity creates a new local fabric only when called explicitly.
 // It performs no persistence, discovery or device operation.
 func GenerateControllerIdentity() (ControllerIdentity, error) {
-	var out ControllerIdentity
-	var err error
-	out.FabricID, err = RandomOperationalID()
-	if err != nil {
-		return out, err
-	}
-	out.NodeID, err = RandomOperationalID()
-	if err != nil {
-		return out, err
-	}
 	rootKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
-		return out, errors.New("cannot create root key")
+		return ControllerIdentity{}, errors.New("cannot create root key")
 	}
 	nodeKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
-		return out, errors.New("cannot create controller key")
+		return ControllerIdentity{}, errors.New("cannot create controller key")
 	}
-	serial, err := randomSerialNumber()
+	out, err := generateControllerIdentity(rootKey, nodeKey)
 	if err != nil {
-		return out, errors.New("cannot create certificate serial")
-	}
-	rcacID, err := RandomOperationalID()
-	if err != nil {
-		return out, err
-	}
-	skid := sha1.Sum(elliptic.Marshal(rootKey.Curve, rootKey.X, rootKey.Y))
-	now := time.Now()
-	tmpl := &x509.Certificate{
-		SerialNumber: serial,
-		Subject:      pkix.Name{ExtraNames: []pkix.AttributeTypeAndValue{utf8Attr(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 37244, 1, 4}, uint64ToHexRDNValue(rcacID))}},
-		NotBefore:    now.Add(-time.Hour), NotAfter: now.Add(10 * 365 * 24 * time.Hour),
-		KeyUsage: x509.KeyUsageCertSign | x509.KeyUsageCRLSign, IsCA: true, BasicConstraintsValid: true,
-		SubjectKeyId: skid[:], AuthorityKeyId: skid[:],
-	}
-	out.RootCertificate, err = x509.CreateCertificate(rand.Reader, tmpl, tmpl, &rootKey.PublicKey, rootKey)
-	if err != nil {
-		return ControllerIdentity{}, errors.New("cannot create root certificate")
+		return ControllerIdentity{}, err
 	}
 	out.RootPrivateKey, err = x509.MarshalPKCS8PrivateKey(rootKey)
 	if err != nil {
@@ -88,11 +67,72 @@ func GenerateControllerIdentity() (ControllerIdentity, error) {
 	if err != nil {
 		return ControllerIdentity{}, err
 	}
-	ca, err := NewCertificateAuthority(out.RootCertificate, out.RootPrivateKey, out.FabricID)
+	out.RootSigner, out.Signer = nil, nil
+	return out, ValidateControllerIdentity(out)
+}
+
+// GenerateControllerIdentityWithSigners is GenerateControllerIdentity with
+// the root and the controller's operational keys made beforehand where
+// they are kept, such as in a key store: the identity holds the signers,
+// and no key bytes.
+func GenerateControllerIdentityWithSigners(rootKey, nodeKey crypto.Signer) (ControllerIdentity, error) {
+	if rootKey == nil || nodeKey == nil {
+		return ControllerIdentity{}, errors.New("a root and a controller signer are required")
+	}
+	out, err := generateControllerIdentity(rootKey, nodeKey)
 	if err != nil {
 		return ControllerIdentity{}, err
 	}
-	out.NOC, err = ca.IssueNOC(&x509.CertificateRequest{PublicKey: &nodeKey.PublicKey}, out.NodeID)
+	return out, ValidateControllerIdentity(out)
+}
+
+func generateControllerIdentity(rootKey, nodeKey crypto.Signer) (ControllerIdentity, error) {
+	var out ControllerIdentity
+	var err error
+	rootPub, ok := rootKey.Public().(*ecdsa.PublicKey)
+	if !ok || rootPub.Curve != elliptic.P256() {
+		return out, errors.New("the root key is not a P-256 key")
+	}
+	if pub, ok := nodeKey.Public().(*ecdsa.PublicKey); !ok || pub.Curve != elliptic.P256() {
+		return out, errors.New("the controller key is not a P-256 key")
+	}
+	out.FabricID, err = RandomOperationalID()
+	if err != nil {
+		return out, err
+	}
+	out.NodeID, err = RandomOperationalID()
+	if err != nil {
+		return out, err
+	}
+	serial, err := randomSerialNumber()
+	if err != nil {
+		return out, errors.New("cannot create certificate serial")
+	}
+	rcacID, err := RandomOperationalID()
+	if err != nil {
+		return out, err
+	}
+	// The key identifier of RFC 5280 4.2.1.2 method 1, which Matter
+	// certificates use; SHA-1 names the key here, it secures nothing.
+	skid := sha1.Sum(elliptic.Marshal(rootPub.Curve, rootPub.X, rootPub.Y)) // NOSONAR
+	now := time.Now()
+	tmpl := &x509.Certificate{
+		SerialNumber: serial,
+		Subject:      pkix.Name{ExtraNames: []pkix.AttributeTypeAndValue{utf8Attr(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 37244, 1, 4}, uint64ToHexRDNValue(rcacID))}},
+		NotBefore:    now.Add(-time.Hour), NotAfter: now.Add(10 * 365 * 24 * time.Hour),
+		KeyUsage: x509.KeyUsageCertSign | x509.KeyUsageCRLSign, IsCA: true, BasicConstraintsValid: true,
+		SubjectKeyId: skid[:], AuthorityKeyId: skid[:],
+	}
+	out.RootCertificate, err = x509.CreateCertificate(rand.Reader, tmpl, tmpl, rootPub, rootKey)
+	if err != nil {
+		return ControllerIdentity{}, errors.New("cannot create root certificate")
+	}
+	out.RootSigner, out.Signer = rootKey, nodeKey
+	ca, err := NewCertificateAuthorityWithSigner(out.RootCertificate, rootKey, out.FabricID)
+	if err != nil {
+		return ControllerIdentity{}, err
+	}
+	out.NOC, err = ca.IssueNOC(&x509.CertificateRequest{PublicKey: nodeKey.Public()}, out.NodeID)
 	if err != nil {
 		return ControllerIdentity{}, err
 	}
@@ -100,7 +140,7 @@ func GenerateControllerIdentity() (ControllerIdentity, error) {
 	if _, err := rand.Read(out.IPK); err != nil {
 		return ControllerIdentity{}, errors.New("cannot create identity protection key")
 	}
-	return out, ValidateControllerIdentity(out)
+	return out, nil
 }
 
 // ValidateControllerIdentity checks restored material before any network operation.
@@ -109,11 +149,18 @@ func ValidateControllerIdentity(id ControllerIdentity) error {
 	if id.FabricID == 0 || !types.NodeID(id.NodeID).IsOperational() || len(id.IPK) != 16 {
 		return errors.New("invalid fabric/controller ID or IPK length")
 	}
-	ca, err := NewCertificateAuthority(id.RootCertificate, id.RootPrivateKey, id.FabricID)
+	var ca *CertificateAuthority
+	var err error
+	if id.RootSigner != nil {
+		ca, err = NewCertificateAuthorityWithSigner(id.RootCertificate, id.RootSigner, id.FabricID)
+	} else {
+		ca, err = NewCertificateAuthority(id.RootCertificate, id.RootPrivateKey, id.FabricID)
+	}
 	if err != nil {
 		return errors.New("invalid root certificate/key")
 	}
-	if ca.rootKey.Curve != elliptic.P256() || !ca.rootCert.IsCA || ca.rootCert.KeyUsage&x509.KeyUsageCertSign == 0 || ca.rootCert.CheckSignatureFrom(ca.rootCert) != nil {
+	rootPub, ok := ca.rootKey.Public().(*ecdsa.PublicKey)
+	if !ok || rootPub.Curve != elliptic.P256() || !ca.rootCert.IsCA || ca.rootCert.KeyUsage&x509.KeyUsageCertSign == 0 || ca.rootCert.CheckSignatureFrom(ca.rootCert) != nil {
 		return errors.New("invalid P-256 root CA")
 	}
 	der, err := certificateDERBytes(id.NOC)
@@ -124,12 +171,17 @@ func ValidateControllerIdentity(id ControllerIdentity) error {
 	if err != nil {
 		return errors.New("invalid controller certificate")
 	}
-	key, err := parsePrivateKey(id.PrivateKey)
-	if err != nil || key.Curve != elliptic.P256() {
+	var keyPub *ecdsa.PublicKey
+	if id.Signer != nil {
+		keyPub, _ = id.Signer.Public().(*ecdsa.PublicKey)
+	} else if key, err := parsePrivateKey(id.PrivateKey); err == nil {
+		keyPub = &key.PublicKey
+	}
+	if keyPub == nil || keyPub.Curve != elliptic.P256() {
 		return errors.New("invalid controller key")
 	}
 	pub, ok := noc.PublicKey.(*ecdsa.PublicKey)
-	if !ok || !pub.Equal(&key.PublicKey) {
+	if !ok || !pub.Equal(keyPub) {
 		return errors.New("controller key/certificate mismatch")
 	}
 	var nodeOK, fabricOK bool

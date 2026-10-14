@@ -57,6 +57,21 @@ the devices of its fabric.
 persistent storage and then re-advertises itself over mDNS before CASE can
 start, which a short deadline expires in the middle of.
 
+# Keys
+
+The store of the commissioner holds the fabric's root CA key and the
+commissioner's own operational key, unless WithCommissionerKeyStore keeps
+them in a key store of the matter/keystore package: files encrypted with a
+passphrase, or any crypto.Signer, such as the key of an HSM, a KMS or a TPM.
+
+	ks, err := keystore.NewFileKeyStore(dir, keystore.WithPassphrase(passphrase))
+	if err != nil {
+		return err
+	}
+	commissioner := matter.NewCommissioner(matter.WithCommissionerKeyStore(ks))
+
+Start moves the keys an existing store holds into the key store.
+
 # Operating a node
 
 A commissioned node is kept in the store of the commissioner, so it is reached

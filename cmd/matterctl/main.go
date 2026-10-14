@@ -34,7 +34,16 @@ func main() {
 		}
 		return
 	}
-	commissioner := matter.NewCommissioner(matter.WithCommissionerAppName(cmd.ProgramName))
+	opts := []matter.CommissionerOption{matter.WithCommissionerAppName(cmd.ProgramName)}
+	ks, err := cmd.KeyStoreFromEnv()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	if ks != nil {
+		opts = append(opts, matter.WithCommissionerKeyStore(ks))
+	}
+	commissioner := matter.NewCommissioner(opts...)
 	if err := cmd.Execute(commissioner); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
