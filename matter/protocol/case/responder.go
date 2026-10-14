@@ -96,6 +96,8 @@ type ResponderSession struct {
 	// PeerMRP are the MRP parameters the initiator announced in its
 	// Sigma1, defaults for those it did not.
 	PeerMRP session.MRPParameters
+	// Resumed is true for a session resumed with Sigma2_Resume.
+	Resumed bool
 }
 
 // ResponderOption configures a Responder.
@@ -130,11 +132,21 @@ func WithResponderEstablishedHandler(h func(*ResponderSession)) ResponderOption 
 	}
 }
 
+// WithResponderResumptionStore sets the store of the sessions the responder
+// can resume (4.14.2.2): it resumes a session a Sigma1 asks to resume when
+// the store has it, and keeps each session it establishes there. Responders
+// of a node share one store. Without one, every Sigma1 gets a full Sigma2.
+func WithResponderResumptionStore(store ResponderResumptionStore) ResponderOption {
+	return func(r *Responder) {
+		r.resumptions = store
+	}
+}
+
 // Responder is the device side of CASE (Matter Core 4.14.2): it answers a
 // Sigma1 addressed to one of its fabrics, proves its identity on that
 // fabric in Sigma2, and checks the initiator's in Sigma3. Session
-// resumption is not supported: a Sigma1 asking to resume gets a full
-// Sigma2.
+// resumption needs a ResponderResumptionStore
+// (WithResponderResumptionStore).
 //
 // A Responder runs one exchange; create a new one for each attempt.
 type Responder struct {
@@ -144,6 +156,9 @@ type Responder struct {
 	established func(*ResponderSession)
 	// mrp are the MRP parameters the responder announces in its Sigma2.
 	mrp session.MRPParameters
+	// resumptions keeps the sessions the responder can resume; nil when it
+	// resumes none.
+	resumptions ResponderResumptionStore
 
 	counter         message.MessageCounter
 	lastPeerCounter message.MessageCounter
@@ -160,6 +175,7 @@ func NewResponder(t Transport, fabrics func() ([]ResponderFabric, error), opts .
 		sessionID:       0,
 		established:     nil,
 		mrp:             session.DefaultMRPParameters(),
+		resumptions:     nil,
 		counter:         message.NewMessageCounter(),
 		lastPeerCounter: 0,
 		hasLastPeer:     false,
@@ -192,6 +208,9 @@ func (r *Responder) EstablishSession(ctx context.Context) (*ResponderSession, er
 	if err != nil {
 		r.sendStatusReport(ctx, sigma1Msg, statusGeneralFailure, statusProtocolInvalidParameter)
 		return nil, err
+	}
+	if resumption, fabric, ok := r.findResumption(s1); ok {
+		return r.resume(ctx, sigma1Msg, s1, resumption, fabric)
 	}
 	fabric, ipk, err := r.findFabric(s1)
 	if err != nil {
@@ -291,6 +310,17 @@ func (r *Responder) EstablishSession(ctx context.Context) (*ResponderSession, er
 		PeerNodeID:  peer.NodeID,
 		PeerCATs:    peer.CATs,
 		PeerMRP:     s1.InitiatorMRP,
+		Resumed:     false,
+	}
+	if r.resumptions != nil {
+		// Sigma2 offered the session for resumption under resumptionID.
+		r.resumptions.Save(ResponderResumption{
+			ResumptionID: resumptionID,
+			SharedSecret: cloneBytes(sharedSecret),
+			FabricIndex:  fabric.FabricIndex,
+			PeerNodeID:   peer.NodeID,
+			PeerCATs:     peer.CATs,
+		})
 	}
 	if r.established != nil {
 		r.established(established)
@@ -472,4 +502,165 @@ func (r *Responder) sendStatusReport(ctx context.Context, req message.Message, g
 		log.Warnf("CASE responder: send failure StatusReport: %v", err)
 	}
 	return err
+}
+
+// findResumption returns the session a Sigma1 asks to resume, and its
+// fabric, when the responder can resume it: the store has it, the Sigma1's
+// MIC proves the initiator knows its shared secret, and the fabric is
+// still there (4.14.2.2.1). Otherwise the Sigma1 gets a full Sigma2.
+func (r *Responder) findResumption(s1 sigma1) (ResponderResumption, ResponderFabric, bool) {
+	if r.resumptions == nil || len(s1.ResumptionID) == 0 {
+		return ResponderResumption{}, ResponderFabric{}, false
+	}
+	resumption, ok := r.resumptions.Find(s1.ResumptionID)
+	if !ok {
+		log.Debugf("CASE responder: no session to resume, answering with a full Sigma2")
+		return ResponderResumption{}, ResponderFabric{}, false
+	}
+	if err := verifyResumeMIC(s1.ResumeMIC, resumption.SharedSecret, s1.InitiatorRandom, s1.ResumptionID, sigma1ResumeInfo, sigma1ResumeNonce); err != nil {
+		log.Infof("CASE responder: %v, answering with a full Sigma2", err)
+		return ResponderResumption{}, ResponderFabric{}, false
+	}
+	fabrics, err := r.fabrics()
+	if err != nil {
+		return ResponderResumption{}, ResponderFabric{}, false
+	}
+	for _, f := range fabrics {
+		if f.FabricIndex == resumption.FabricIndex {
+			return resumption, f, true
+		}
+	}
+	r.resumptions.DeleteFabric(resumption.FabricIndex)
+	return ResponderResumption{}, ResponderFabric{}, false
+}
+
+// resume resumes a session (4.14.2.2.2): it answers with Sigma2_Resume,
+// under a new resumption ID, and the session is established when the
+// initiator reports success.
+func (r *Responder) resume(ctx context.Context, sigma1Msg message.Message, s1 sigma1, resumption ResponderResumption, fabric ResponderFabric) (*ResponderSession, error) {
+	sessionID := r.sessionID
+	if sessionID == 0 {
+		sessionID = types.NewSessionIDExcept(types.SessionID(s1.InitiatorSessionID))
+	}
+	newID, err := newResumptionID()
+	if err != nil {
+		return nil, err
+	}
+	mic, err := resumeMIC(resumption.SharedSecret, s1.InitiatorRandom, newID, sigma2ResumeInfo, sigma2ResumeNonce)
+	if err != nil {
+		return nil, err
+	}
+	payload, err := encodeSigma2Resume(sigma2Resume{
+		ResumptionID:       newID,
+		MIC:                mic,
+		ResponderSessionID: uint16(sessionID),
+		SessionParams:      sessionParamsFor(r.mrp),
+		ResponderMRP:       session.MRPParameters{},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if err := r.reply(ctx, sigma1Msg, message.CASESigma2Resume, payload); err != nil {
+		return nil, fmt.Errorf("case: transmit Sigma2_Resume: %w", err)
+	}
+	report, err := r.receiveStatusReport(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := r.ack(ctx, report); err != nil {
+		log.Warnf("CASE responder: acknowledge the StatusReport: %v", err)
+	}
+	sr, err := decodeStatusReport(report)
+	if err != nil {
+		return nil, err
+	}
+	if sr.generalCode != statusGeneralSuccess || sr.protocolCode != statusProtocolSessionSuccess {
+		return nil, fmt.Errorf("%w: the initiator ended the resumption: %s", errStatusReport, sr)
+	}
+	keys, err := deriveResumedSessionKeys(resumption.SharedSecret, s1.InitiatorRandom, s1.ResumptionID,
+		session.SessionID(s1.InitiatorSessionID), sessionID, session.NodeID(fabric.NodeID), session.NodeID(resumption.PeerNodeID))
+	if err != nil {
+		return nil, err
+	}
+	r.resumptions.Delete(s1.ResumptionID)
+	r.resumptions.Save(ResponderResumption{
+		ResumptionID: newID,
+		SharedSecret: resumption.SharedSecret,
+		FabricIndex:  resumption.FabricIndex,
+		PeerNodeID:   resumption.PeerNodeID,
+		PeerCATs:     resumption.PeerCATs,
+	})
+	established := &ResponderSession{
+		Keys:        keys,
+		FabricIndex: resumption.FabricIndex,
+		PeerNodeID:  resumption.PeerNodeID,
+		PeerCATs:    resumption.PeerCATs,
+		PeerMRP:     s1.InitiatorMRP,
+		Resumed:     true,
+	}
+	if r.established != nil {
+		r.established(established)
+	}
+	log.Infof("CASE responder: resumed the session with node 0x%016X", resumption.PeerNodeID)
+	return established, nil
+}
+
+// receiveStatusReport returns the StatusReport which ends a resumption;
+// standalone acks are skipped, and a retransmitted Sigma1 is answered
+// again.
+func (r *Responder) receiveStatusReport(ctx context.Context) (message.Message, error) {
+	for {
+		b, err := r.t.Receive(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("case: receive StatusReport: %w", err)
+		}
+		msg, err := message.NewMessageFromBytes(b)
+		if err != nil {
+			return nil, fmt.Errorf("case: parse message: %w", err)
+		}
+		if msg.Opcode().IsMRPStandaloneAck() {
+			continue
+		}
+		if r.hasLastPeer && msg.MessageCounter() == r.lastPeerCounter {
+			if r.lastSent != nil {
+				if err := r.t.Transmit(ctx, r.lastSent); err != nil {
+					return nil, fmt.Errorf("case: retransmit: %w", err)
+				}
+			}
+			continue
+		}
+		r.lastPeerCounter = msg.MessageCounter()
+		r.hasLastPeer = true
+		if msg.ProtocolID() != message.SecureChannel || !msg.Opcode().IsStatusReport() {
+			return nil, fmt.Errorf("%w: got protocol 0x%04X opcode 0x%02X, want a StatusReport", ErrUnexpectedMessage, uint16(msg.ProtocolID()), uint8(msg.Opcode()))
+		}
+		return msg, nil
+	}
+}
+
+// ack sends a standalone acknowledgement of msg (4.12.7.1).
+func (r *Responder) ack(ctx context.Context, msg message.Message) error {
+	headerOpts := []message.HeaderOption{
+		message.WithHeaderSessionID(0),
+		message.WithHeaderSecurityFlags(0x00),
+		message.WithHeaderMessageCounter(r.nextCounter()),
+	}
+	if src, ok := msg.SourceNodeID(); ok {
+		headerOpts = append(headerOpts, message.WithHeaderDestinationNodeID(src))
+	}
+	ackMsg := message.NewMessage(
+		message.WithMessageFrameHeader(message.NewHeader(headerOpts...)),
+		message.WithMessageProtocolHeader(message.NewProtocolHeader(
+			message.WithHeaderExchangeFlags(0),
+			message.WithHeaderOpcode(message.MRPStandaloneAck),
+			message.WithHeaderExchangeID(msg.ExchangeID()),
+			message.WithHeaderProtocolID(message.SecureChannel),
+			message.WithHeaderAckCounter(msg.MessageCounter()),
+		)),
+	)
+	b, err := ackMsg.Bytes()
+	if err != nil {
+		return err
+	}
+	return r.t.Transmit(ctx, b)
 }

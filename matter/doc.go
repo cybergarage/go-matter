@@ -69,8 +69,12 @@ again without being commissioned a second time.
 
 	res, err := node.ReadAttribute(endpointID, clusterID, attributeID)
 
-Every reconnect is a full CASE handshake: this package holds no session
-resumption.
+Connect resumes the last CASE session with the node when the node still
+knows it (4.14.2.2. Session Resumption), and runs a full CASE handshake when
+not. The state to resume with is kept in memory only, so the first Connect
+after the commissioner starts is a full handshake. The node implements
+Reconnector: it connects again when its session fails, and its
+subscriptions move over to the new session.
 
 The cluster packages under matter/cluster wrap the attributes and the commands
 of a cluster, so that an identifier does not have to be written out by hand.

@@ -412,6 +412,8 @@ func (d *Device) notifyFabricRemoved(fabricIndex uint8) {
 // does (11.18.6.12).
 func (d *Device) fabricRemoved(fabricIndex uint8) {
 	d.notifyFabricRemoved(fabricIndex)
+	// A removed fabric's sessions cannot be resumed either.
+	d.caseResumptions.DeleteFabric(fabricIndex)
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	for _, sess := range d.sessions {

@@ -514,12 +514,16 @@ func establishCASESession(
 	if err != nil {
 		return nil, fmt.Errorf("commissioning: CASE finalization: %w", err)
 	}
-	initiator := caseprotocol.NewInitiator(
-		t,
-		adminCfg,
+	opts := []caseprotocol.Option{
 		caseprotocol.WithPeerNodeID(peer.nodeID),
 		caseprotocol.WithIPK(peer.ipk),
-	)
+	}
+	if peer.resumption != nil {
+		// 4.14.2.2. Session Resumption: falls back to a full CASE when
+		// the node no longer knows the session.
+		opts = append(opts, caseprotocol.WithResumption(peer.resumption))
+	}
+	initiator := caseprotocol.NewInitiator(t, adminCfg, opts...)
 	keys, err := initiator.EstablishSession(ctx)
 	if err != nil {
 		// Only close t if we opened it ourselves: a reused paseTransport
@@ -533,6 +537,9 @@ func establishCASESession(
 		}
 		return nil, fmt.Errorf("commissioning: CASE finalization: %w", err)
 	}
+	if peer.established != nil {
+		peer.established(initiator.ResumptionState(), initiator.Resumed())
+	}
 	// CASE runs over UDP, so the session retransmits what the device does
 	// not acknowledge (MRP), at the intervals it announced in its Sigma2.
 	return session.NewSecureSession(t, keys,
@@ -545,6 +552,11 @@ type operationalCASEPeer struct {
 	nodeID          uint64
 	serviceInstance string
 	ipk             []byte
+	// resumption, when set, resumes an earlier CASE session with the node.
+	resumption *caseprotocol.ResumptionState
+	// established, when set, is told the state to resume the established
+	// session with, and whether it was resumed.
+	established func(state *caseprotocol.ResumptionState, resumed bool)
 }
 
 func loadOperationalCASEPeer(cfg config.OperationalCredentialsConfig, adminCfg config.AdministratorConfig, identity deviceOperationalIdentity) (operationalCASEPeer, error) {

@@ -125,10 +125,11 @@ Example:
 }
 ```
 
-**Note:** `go-matter` does not implement CASE session resumption (there is
-no cached `resumptionID`/shared secret to skip the handshake) — this
-record is enough to locate a device again and run a fresh Sigma1-3
-handshake, not to resume a previous one.
+**Note:** this record is enough to locate a device again and run a fresh
+Sigma1-3 handshake. CASE session resumption needs the resumption ID and the
+shared secret of the last session, which the commissioner keeps in memory
+only and never writes to the store: the first `Connect` after a restart is a
+full handshake, and the ones after it resume.
 
 ## Configuring the location
 

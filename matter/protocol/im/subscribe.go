@@ -107,6 +107,23 @@ type subscribeConfig struct {
 	eventPaths        []EventRequestPath
 	eventMin          uint64
 	hasEventMin       bool
+	reconnect         ReconnectFunc
+}
+
+// ReconnectFunc connects the session again, such as with a new CASE, after
+// failed stopped working, and returns the mux of the new session. When
+// another caller already replaced failed, it returns the mux which did. An
+// error which wraps ErrSubscriptionClosed tells that the session is closed
+// for good: the subscription ends as by Close.
+type ReconnectFunc func(ctx context.Context, failed *ExchangeMux) (*ExchangeMux, error)
+
+// WithReconnect lets a subscription whose session fails, or whose
+// publisher stops answering, subscribe again over the session f connects,
+// instead of ending. A node returned by the matter package sets it.
+func WithReconnect(f ReconnectFunc) SubscribeOption {
+	return func(c *subscribeConfig) {
+		c.reconnect = f
+	}
 }
 
 // WithEvents subscribes to the events of paths too, which the reports
@@ -161,10 +178,11 @@ func WithFabricFiltered(filtered bool) SubscribeOption {
 	}
 }
 
-// WithResubscribe sets whether a lost subscription subscribes again on the
-// same session, with a backoff, until it succeeds or the subscription is
-// closed. Defaults to true. A failed session ends the subscription
-// whichever way.
+// WithResubscribe sets whether a lost subscription subscribes again, with
+// a backoff, until it succeeds or the subscription is closed. Defaults to
+// true. It subscribes again on the same session, or with WithReconnect over
+// a new one when the session fails or the publisher stops answering;
+// without WithReconnect a failed session ends the subscription.
 func WithResubscribe(resubscribe bool) SubscribeOption {
 	return func(c *subscribeConfig) {
 		c.resubscribe = resubscribe
@@ -190,12 +208,13 @@ func WithSubscribeErrorHandler(f func(error)) SubscribeOption {
 
 // Subscription is an active subscription (8.5. Subscribe Interaction).
 type Subscription struct {
-	mux     *ExchangeMux
 	paths   []AttributeRequestPath
 	cfg     subscribeConfig
 	handler ReportHandler
 
-	mutex       sync.Mutex
+	mutex sync.Mutex
+	// mux is the session the subscription is on; a reconnection moves it.
+	mux         *ExchangeMux
 	id          uint32
 	maxInterval time.Duration
 	// lastEvent is the number of the last event reported; hasLastEvent is
@@ -206,9 +225,12 @@ type Subscription struct {
 	reports      []*Report
 	wake         chan struct{}
 	alive        chan struct{}
-	err          error
-	ended        bool
-	done         chan struct{}
+	// lost is signaled when the session fails under a subscription which
+	// reconnects.
+	lost  chan struct{}
+	err   error
+	ended bool
+	done  chan struct{}
 }
 
 // Subscribe subscribes to the attributes of paths and returns once the
@@ -260,11 +282,12 @@ func (m *ExchangeMux) Subscribe(ctx context.Context, paths []AttributeRequestPat
 		reports:      nil,
 		wake:         make(chan struct{}, 1),
 		alive:        make(chan struct{}, 1),
+		lost:         make(chan struct{}, 1),
 		err:          nil,
 		ended:        false,
 		done:         make(chan struct{}),
 	}
-	priming, err := sub.subscribe(ctx)
+	priming, err := sub.subscribe(ctx, m)
 	if err != nil {
 		return nil, err
 	}
@@ -313,13 +336,13 @@ func (sub *Subscription) Close() error {
 // subscribe runs a Subscribe interaction (8.5.1) and returns its priming
 // report: the publisher reports the subscribed attributes, in chunks, each
 // answered with a StatusResponse, then sends a SubscribeResponse.
-func (sub *Subscription) subscribe(ctx context.Context) (_ *Report, err error) {
+func (sub *Subscription) subscribe(ctx context.Context, mux *ExchangeMux) (_ *Report, err error) {
 	var id uint32
 	registered := false
 	defer func() {
 		// A failed (re)subscription leaves no ID registered.
 		if err != nil && registered {
-			sub.mux.unregister(id, sub)
+			mux.unregister(id, sub)
 		}
 	}()
 	cfg := sub.cfg
@@ -333,14 +356,14 @@ func (sub *Subscription) subscribe(ctx context.Context) (_ *Report, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("im: build SubscribeRequest: %w", err)
 	}
-	exchange := sub.mux.NewExchangeID()
-	if err := transmitOnExchange(sub.mux, message.SubscribeRequestMessage, exchange, payload); err != nil {
+	exchange := mux.NewExchangeID()
+	if err := transmitOnExchange(mux, message.SubscribeRequestMessage, exchange, payload); err != nil {
 		return nil, fmt.Errorf("im: transmit SubscribeRequest: %w", err)
 	}
 	priming := &Report{SubscriptionID: 0, Priming: true, Attributes: nil}
 	var timeline eventTimeline
 	for {
-		raw, err := sub.mux.ReceiveExchangeContext(ctx, exchange)
+		raw, err := mux.ReceiveExchangeContext(ctx, exchange)
 		if err != nil {
 			return nil, fmt.Errorf("im: Subscribe: %w", err)
 		}
@@ -371,7 +394,7 @@ func (sub *Subscription) subscribe(ctx context.Context) (_ *Report, err error) {
 				id = rd.subscriptionID
 				// Registered before the priming is answered, so no report
 				// of the new subscription can come unknown.
-				if err := sub.mux.register(id, sub); err != nil {
+				if err := mux.register(id, sub); err != nil {
 					return nil, err
 				}
 				registered = true
@@ -384,7 +407,7 @@ func (sub *Subscription) subscribe(ctx context.Context) (_ *Report, err error) {
 				return nil, fmt.Errorf("im: Subscribe: priming report: %w", err)
 			}
 			priming.Events = append(priming.Events, rd.events...)
-			if err := transmitOnExchange(sub.mux, message.StatusResponseMessage, exchange, statusResponsePayload(StatusSuccess)); err != nil {
+			if err := transmitOnExchange(mux, message.StatusResponseMessage, exchange, statusResponsePayload(StatusSuccess)); err != nil {
 				return nil, fmt.Errorf("im: Subscribe: answer the priming report: %w", err)
 			}
 		case hdr.Opcode() == message.SubscribeResponseMessage:
@@ -395,7 +418,7 @@ func (sub *Subscription) subscribe(ctx context.Context) (_ *Report, err error) {
 			if !registered || respID != id {
 				return nil, errors.New("im: Subscribe: the SubscribeResponse is not for the primed subscription")
 			}
-			sub.setID(id, maxInterval)
+			sub.setID(mux, id, maxInterval)
 			return priming, nil
 		default:
 			log.Debugf("im: Subscribe: skip opcode %v", hdr.Opcode())
@@ -403,9 +426,10 @@ func (sub *Subscription) subscribe(ctx context.Context) (_ *Report, err error) {
 	}
 }
 
-func (sub *Subscription) setID(id uint32, maxInterval time.Duration) {
+func (sub *Subscription) setID(mux *ExchangeMux, id uint32, maxInterval time.Duration) {
 	sub.mutex.Lock()
 	defer sub.mutex.Unlock()
+	sub.mux = mux
 	sub.id = id
 	sub.maxInterval = maxInterval
 }
@@ -494,10 +518,12 @@ func (sub *Subscription) deliver() {
 }
 
 // watch takes the subscription for lost when no report arrives within its
-// MaxInterval and the liveness margin, and subscribes again (8.5.2).
+// MaxInterval and the liveness margin, or when its session fails under it
+// and it reconnects, and subscribes again (8.5.2).
 func (sub *Subscription) watch() {
 	for {
 		timer := time.NewTimer(sub.MaxInterval() + sub.cfg.livenessMargin)
+		var lost error
 		select {
 		case <-sub.done:
 			timer.Stop()
@@ -505,9 +531,17 @@ func (sub *Subscription) watch() {
 		case <-sub.alive:
 			timer.Stop()
 			continue
+		case <-sub.lost:
+			timer.Stop()
+			err := sub.currentMux().Err()
+			if err == nil {
+				// Of a session the subscription already left.
+				continue
+			}
+			lost = fmt.Errorf("im: subscription %d: %w", sub.ID(), err)
 		case <-timer.C:
+			lost = fmt.Errorf("%w (subscription %d, max interval %v)", ErrSubscriptionLost, sub.ID(), sub.MaxInterval())
 		}
-		lost := fmt.Errorf("%w (subscription %d, max interval %v)", ErrSubscriptionLost, sub.ID(), sub.MaxInterval())
 		if !sub.cfg.resubscribe {
 			sub.end(lost)
 			return
@@ -519,48 +553,111 @@ func (sub *Subscription) watch() {
 	}
 }
 
+// sessionLost tells a subscription which reconnects that its session
+// failed.
+func (sub *Subscription) sessionLost() {
+	select {
+	case sub.lost <- struct{}{}:
+	default:
+	}
+}
+
+// currentMux returns the session the subscription is on.
+func (sub *Subscription) currentMux() *ExchangeMux {
+	sub.mutex.Lock()
+	defer sub.mutex.Unlock()
+	return sub.mux
+}
+
 // resubscribe subscribes again with a growing backoff until it succeeds,
-// the subscription is closed, or the session fails.
+// the subscription is closed, or the session fails and cannot reconnect.
+// It reconnects first when the session failed, or when the publisher did
+// not answer on it, which it does not once it forgot the session, such as
+// after a restart.
 func (sub *Subscription) resubscribe() bool {
 	backoff := time.Second
+	reconnect := false
 	for {
 		select {
 		case <-sub.done:
 			return false
-		case <-sub.mux.Done():
-			sub.end(sub.mux.Err())
-			return false
 		default:
 		}
-		old := sub.ID()
-		ctx, cancel := context.WithTimeout(context.Background(), 2*sub.mux.timeout)
-		priming, err := sub.subscribe(ctx)
-		cancel()
-		if err == nil {
-			sub.mux.unregister(old, sub)
-			sub.mutex.Lock()
-			ended := sub.ended
-			sub.mutex.Unlock()
-			if ended {
-				sub.mux.unregister(sub.ID(), sub)
+		old, oldMux := sub.ID(), sub.currentMux()
+		mux := oldMux
+		if mux.Err() != nil || reconnect {
+			if sub.cfg.reconnect == nil {
+				sub.end(mux.Err())
 				return false
 			}
-			log.Infof("im: subscription %d resubscribed as %d", old, sub.ID())
-			sub.enqueue(priming)
-			return true
+			next, err := sub.reconnect(mux)
+			switch {
+			case errors.Is(err, ErrSubscriptionClosed):
+				sub.end(nil)
+				return false
+			case err != nil:
+				sub.reportError(fmt.Errorf("im: resubscribe: reconnect: %w", err))
+				mux = nil
+			default:
+				mux = next
+			}
 		}
-		sub.reportError(fmt.Errorf("im: resubscribe: %w", err))
+		if mux != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 2*mux.timeout)
+			priming, err := sub.subscribe(ctx, mux)
+			cancel()
+			if err == nil {
+				oldMux.unregister(old, sub)
+				// Close may have run during the subscribe, which registered
+				// the subscription again.
+				sub.mutex.Lock()
+				ended := sub.ended
+				sub.mutex.Unlock()
+				if ended {
+					mux.unregister(sub.ID(), sub)
+					return false
+				}
+				log.Infof("im: subscription %d resubscribed as %d", old, sub.ID())
+				sub.enqueue(priming)
+				return true
+			}
+			sub.reportError(fmt.Errorf("im: resubscribe: %w", err))
+			reconnect = sub.cfg.reconnect != nil && (mux.Err() != nil || errors.Is(err, ErrResponseTimeout))
+		}
 		wait := backoff + rand.N(backoff/2+1) // nolint: gosec // jitter
 		backoff = min(2*backoff, maxResubscribeBackoff)
+		var muxDone <-chan struct{}
+		if mux != nil && sub.cfg.reconnect == nil {
+			muxDone = mux.Done()
+		}
 		select {
 		case <-sub.done:
 			return false
-		case <-sub.mux.Done():
-			sub.end(sub.mux.Err())
+		case <-muxDone:
+			sub.end(mux.Err())
 			return false
 		case <-time.After(wait):
 		}
 	}
+}
+
+// reconnect runs the subscription's ReconnectFunc, until the subscription
+// ends.
+func (sub *Subscription) reconnect(failed *ExchangeMux) (*ExchangeMux, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		select {
+		case <-sub.done:
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+	mux, err := sub.cfg.reconnect(ctx, failed)
+	if err == nil && mux == nil {
+		err = errors.New("im: reconnect returned no session")
+	}
+	return mux, err
 }
 
 func (sub *Subscription) reportError(err error) {
@@ -582,10 +679,12 @@ func (sub *Subscription) end(err error) {
 	} else {
 		sub.err = err
 	}
-	id := sub.id
+	id, mux := sub.id, sub.mux
 	close(sub.done)
 	sub.mutex.Unlock()
-	sub.mux.unregister(id, sub)
+	if mux != nil {
+		mux.unregister(id, sub)
+	}
 	if err != nil {
 		sub.reportError(err)
 	}
