@@ -356,10 +356,13 @@ func (i *Initiator) EstablishSession(ctx context.Context) (session.SessionKeys, 
 	log.Infof("CASE SigmaFinished: success")
 	// The responder sends SigmaFinished reliably on the unsecured session;
 	// left unacknowledged, it is retransmitted onto a connection which has
-	// moved on to the new session (4.12.7.1).
-	if err := ackReliable(ctx, i.t, statusRaw, message.NodeID(inputs.nodeID)); err != nil {
-		return nil, fmt.Errorf("case: acknowledge SigmaFinished: %w", err)
+	// moved on to the new session (4.12.7.1). The acknowledgement is best
+	// effort: without it the session still stands, and the peer gives up.
+	ackCtx, ackCancel := context.WithTimeout(ctx, ackTransmitTimeout)
+	if err := ackReliable(ackCtx, i.t, statusRaw, message.NodeID(inputs.nodeID)); err != nil {
+		log.Debugf("CASE: SigmaFinished not acknowledged: %v", err)
 	}
+	ackCancel()
 
 	sessionKeys, err := deriveSessionKeys(sharedSecret, operationalIPK, sigma1RawPayload(sigma1Msg), sigma2RawPayload(sigma2Msg), sigma3RawPayload(sigma3Msg), initiatorSessionID, session.SessionID(sigma2.ResponderSessionID), session.NodeID(inputs.nodeID), session.NodeID(i.peerNodeID))
 	if err != nil {
@@ -409,6 +412,10 @@ func (i *Initiator) finishResumption(ctx context.Context, msg message.Message, e
 	i.resumed = true
 	return keys, nil
 }
+
+// ackTransmitTimeout bounds the send of a standalone acknowledgement, which
+// a datagram transport completes at once.
+const ackTransmitTimeout = 200 * time.Millisecond
 
 // ackReliable sends a standalone acknowledgement of raw on the unsecured
 // session when raw requested one (4.12.7.1); anything else is left as is.
