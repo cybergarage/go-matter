@@ -1120,7 +1120,6 @@ matterctl tui [flags]
 
 ```
   -h, --help               help for tui
-      --live               real devices and the commissioner store; operations still need UI confirmation (the default) (default true)
       --log-file string    log file (default ./matterctl-YYYYMMDD-HHMMSS.log in the current directory, mode 0600)
       --log-level string   log level from the start: off, info or debug (debug writes decrypted messages, the fabric's IPK included) (default "off")
       --offline            the fictional offline fixture instead: no store, network or Bluetooth

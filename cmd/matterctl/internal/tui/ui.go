@@ -22,7 +22,7 @@ import (
 
 // Command returns the standalone TUI subcommand without starting a commissioner.
 func Command() *cobra.Command {
-	var live, offline bool
+	var offline bool
 	var dir string
 	var logLevelArg, logFile string
 	command := &cobra.Command{Use: "tui", Short: "Full-screen controller (real devices; --offline for a fictional fixture)", SilenceUsage: true,
@@ -56,8 +56,8 @@ func Command() *cobra.Command {
 			}()
 			var backend Backend = &Demo{}
 			mode := "OFFLINE FIXTURE — fictional devices / no network"
-			// Live by default; --offline, or --live=false, runs the fixture.
-			if live && !offline {
+			// Live unless --offline asks for the fixture.
+			if !offline {
 				if dir == "" {
 					home, err := os.UserHomeDir()
 					if err != nil {
@@ -90,7 +90,6 @@ func Command() *cobra.Command {
 			defer managed.Fini()
 			return newUIWithLog(backend, mode, managed, sink, logDir).Run()
 		}}
-	command.Flags().BoolVar(&live, "live", true, "real devices and the commissioner store; operations still need UI confirmation (the default)")
 	command.Flags().BoolVar(&offline, "offline", false, "the fictional offline fixture instead: no store, network or Bluetooth")
 	command.Flags().StringVar(&dir, "store-dir", "", "commissioner store (default ~/.matterctl); explicit initialization; one process only")
 	command.Flags().StringVar(&logLevelArg, "log-level", "off", "log level from the start: off, info or debug (debug writes decrypted messages, the fabric's IPK included)")

@@ -48,7 +48,7 @@ identity exclusively; an existing `fabric.json` is never overwritten. The file
 backend publishes a complete synced temporary file by hard link, so a crash sees
 a complete identity or no identity. An unsupported filesystem fails safely.
 The regular `SaveFabric` replacement API remains for existing callers.
-`matterctl tui --live` exposes creation only as an explicit, confirmed action.
+`matterctl tui` exposes creation only as an explicit, confirmed action.
 Startup does not generate keys or create an absent store directory.
 
 `credentials.GenerateControllerIdentityWithSigners(root, operational)` does the
@@ -247,7 +247,7 @@ passphrase, or whose key is not the fabric's, fails `Start`.
 directory, encrypted when `MATTER_CTL_KEY_STORE_PASSPHRASE` is set. Both are
 read from the environment only, so that the passphrase stays out of the shell
 history and the process list; matterctl removes the passphrase from its
-environment once read. `matterctl tui --live` creates a new fabric's keys in
+environment once read. `matterctl tui` creates a new fabric's keys in
 that key store.
 
 ## Security
