@@ -10,23 +10,24 @@ and preserve caller cancellation through commissioning.
 Use Go 1.25+ and a real terminal:
 
 ```sh
-make tui
-# Equivalent, explicitly fictional and offline:
-GOWORK=off go run ./cmd/matterctl tui
+make tui                          # real devices, the store ~/.matterctl
+make tui-debug                    # the same, with a debug log
+make tui TUI_ARGS=--offline       # the fictional offline fixture
 GOWORK=off go run ./cmd/matterctl tui --help
 ```
 
-The default uses fictional lights in memory. It creates no fabric, writes no
+`--offline` uses fictional lights in memory. It creates no fabric, writes no
 credentials, starts no BLE/mDNS transport and performs no device operations.
 The pairing form still validates public test payloads and exercises a fixture
 success/failure flow. Fixture state is discarded on exit.
 
-For live use with a new or existing go-matter commissioner fabric, opt in:
+Without `--offline`, the TUI is live, with a new or existing go-matter
+commissioner fabric:
 
 ```sh
-GOWORK=off go run ./cmd/matterctl tui --live
+GOWORK=off go run ./cmd/matterctl tui
 # Or select a compatible store location:
-GOWORK=off go run ./cmd/matterctl tui --live --store-dir /path/to/controller/store
+GOWORK=off go run ./cmd/matterctl tui --store-dir /path/to/controller/store
 ```
 
 The default live store is `~/.matterctl`,
@@ -54,21 +55,26 @@ The library's log is off by default: it would otherwise be printed over the
 screen. Choose **Log: OFF (change level)** in the menu, or start with
 `--log-level`:
 
+`make tui-debug` starts at `debug`:
+
 ```sh
-GOWORK=off go run ./cmd/matterctl tui --live --log-level info
-GOWORK=off go run ./cmd/matterctl tui --live --log-level debug --log-file pairing.log
+make tui-debug
+make tui TUI_ARGS="--log-level info"
+GOWORK=off go run ./cmd/matterctl tui --log-level info
+GOWORK=off go run ./cmd/matterctl tui --log-level debug --log-file pairing.log
 ```
 
 | Level | Writes |
 | --- | --- |
-| `off` | Nothing (the default) |
+| `off` | Nothing (the default; `make tui-debug` starts at `debug`) |
 | `info` | The steps of each operation: discovery, PASE, attestation, CSR, AddNOC, CASE, and the start, duration and outcome of each TUI operation. No passcode |
 | `debug` | Also every message sent and received as hex, the decrypted ones included, such as the fabric's IPK in AddNOC |
 
 The log is written to `matterctl-YYYYMMDD-HHMMSS.log` in the directory
 `matterctl tui` was started from, unless `--log-file` names another file, with
-mode `0600`; an existing file is appended to. Turning the log off and on again
-keeps writing to the same file. The last lines are shown in a panel under the
+mode `0600`; an existing file is appended to and set to `0600`. Each line starts
+with a timestamp in milliseconds. Turning the log off and on again keeps writing
+to the same file. The last lines are shown in a panel under the
 other panels; `l` shows the log full screen, where the arrows and PgUp/PgDn
 scroll and End follows the end again. On exit, the file's path is printed.
 
