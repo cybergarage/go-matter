@@ -1,4 +1,3 @@
-![](https://img.shields.io/badge/status-Work%20In%20Progress-8A2BE2)
 ![GitHub tag (latest SemVer)](https://img.shields.io/github/v/tag/cybergarage/go-matter)
 [![test](https://github.com/cybergarage/go-matter/actions/workflows/make.yml/badge.svg)](https://github.com/cybergarage/go-matter/actions/workflows/make.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/cybergarage/go-matter.svg)](https://pkg.go.dev/github.com/cybergarage/go-matter)
