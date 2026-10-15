@@ -567,6 +567,9 @@ func (u *UI) drain() {
 			}
 			return
 		}
+		if c.result.PairedNode != 0 && u.inspectPaired(c.result) {
+			return
+		}
 		if c.node == 0 {
 			u.reload()
 		}
@@ -583,6 +586,37 @@ func (u *UI) drain() {
 	default:
 	}
 }
+
+// inspectPaired selects the node a pairing just saved and inspects it,
+// reporting the pairing before the inventory: the pairing was confirmed and
+// reached the node, so its inventory needs no second confirmation. It
+// returns false, leaving the result as it is, when the node is not listed.
+func (u *UI) inspectPaired(r Result) bool {
+	u.search.SetText("")
+	u.reload()
+	index := -1
+	for i, d := range u.visible {
+		if d.ID == r.PairedNode {
+			index = i
+		}
+	}
+	if index < 0 {
+		return false
+	}
+	u.devices.SetCurrentItem(index)
+	u.selectedDevice = index
+	id, paired := r.PairedNode, r.Message
+	u.startOp(fmt.Sprintf("inspect node %016X after pairing", id), true, 30*time.Second, func(ctx context.Context) (Result, error) {
+		inspected, err := u.backend.Inspect(ctx, id)
+		if err != nil {
+			return Result{}, fmt.Errorf("%s\nAutomatic inspect failed; choose Reconnect / inspect to retry: %w", paired, err)
+		}
+		inspected.Message = paired + "\n\n" + inspected.Message
+		return inspected, nil
+	})
+	return true
+}
+
 func (u *UI) quit() {
 	u.rootCancel()
 	if u.cancel != nil {
