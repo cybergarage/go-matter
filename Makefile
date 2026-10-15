@@ -137,7 +137,8 @@ clean:
 check-datamodel:
 	./scripts/check-datamodel.sh
 
-# Offline TUI fixture; set TUI_ARGS='--live --store-dir ...' only for deliberate live use.
+# The TUI on real devices with the store ~/.matterctl; TUI_ARGS=--offline runs
+# the fictional fixture, and TUI_ARGS='--store-dir ...' selects another store.
 .PHONY: tui tui-debug check-tui
 tui:
 	GOWORK=off go run ./cmd/matterctl tui $(TUI_ARGS)

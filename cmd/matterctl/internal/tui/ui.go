@@ -22,10 +22,10 @@ import (
 
 // Command returns the standalone TUI subcommand without starting a commissioner.
 func Command() *cobra.Command {
-	var live bool
+	var live, offline bool
 	var dir string
 	var logLevelArg, logFile string
-	command := &cobra.Command{Use: "tui", Short: "Full-screen controller (offline fixture by default)", SilenceUsage: true,
+	command := &cobra.Command{Use: "tui", Short: "Full-screen controller (real devices; --offline for a fictional fixture)", SilenceUsage: true,
 		PersistentPreRunE: func(_ *cobra.Command, _ []string) error { log.SetDefault(nil); return nil }, Args: cobra.NoArgs, RunE: func(_ *cobra.Command, _ []string) error {
 			// The library logs to stdout by default, which would draw over
 			// the screen: it logs to a file only, and only when asked.
@@ -56,7 +56,8 @@ func Command() *cobra.Command {
 			}()
 			var backend Backend = &Demo{}
 			mode := "OFFLINE FIXTURE — fictional devices / no network"
-			if live {
+			// Live by default; --offline, or --live=false, runs the fixture.
+			if live && !offline {
 				if dir == "" {
 					home, err := os.UserHomeDir()
 					if err != nil {
@@ -89,7 +90,8 @@ func Command() *cobra.Command {
 			defer managed.Fini()
 			return newUIWithLog(backend, mode, managed, sink, logDir).Run()
 		}}
-	command.Flags().BoolVar(&live, "live", false, "enable real operations after UI confirmation (never used in tests)")
+	command.Flags().BoolVar(&live, "live", true, "real devices and the commissioner store; operations still need UI confirmation (the default)")
+	command.Flags().BoolVar(&offline, "offline", false, "the fictional offline fixture instead: no store, network or Bluetooth")
 	command.Flags().StringVar(&dir, "store-dir", "", "commissioner store (default ~/.matterctl); explicit initialization; one process only")
 	command.Flags().StringVar(&logLevelArg, "log-level", "off", "log level from the start: off, info or debug (debug writes decrypted messages, the fabric's IPK included)")
 	command.Flags().StringVar(&logFile, "log-file", "", "log file (default ./matterctl-YYYYMMDD-HHMMSS.log in the current directory, mode 0600)")
