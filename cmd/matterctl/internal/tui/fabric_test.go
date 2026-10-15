@@ -82,7 +82,7 @@ func TestFabricFormValidationConfirmationAndCancel(t *testing.T) {
 	form := front.(*tview.Flex).GetItem(1).(*tview.Form)
 	field := form.GetFormItem(0).(*tview.InputField)
 	field.SetText("0")
-	form.SetFocus(2)
+	form.SetFocus(1) // Validate; Cancel comes after it.
 	u.app.SetFocus(form)
 	press(u, tcell.KeyEnter, 0)
 	summary, _ := u.backend.(fabricBackend).Overview()
@@ -94,7 +94,7 @@ func TestFabricFormValidationConfirmationAndCancel(t *testing.T) {
 	if !u.dialog || u.busy {
 		t.Fatal("confirmation missing")
 	}
-	press(u, tcell.KeyEnter, 0) // Cancel is default.
+	press(u, tcell.KeyEnter, 0) // A confirmation focuses Cancel.
 	summary, _ = u.backend.(fabricBackend).Overview()
 	if summary.Present {
 		t.Fatal("cancel generated identity")
