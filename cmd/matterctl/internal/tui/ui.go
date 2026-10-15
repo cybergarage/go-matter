@@ -574,7 +574,6 @@ func (u *UI) drain() {
 			u.reload()
 		}
 		u.updateActions()
-		u.detail.SetText(c.result.Message)
 		if c.inventory {
 			u.inventory = c.result.Paths
 			u.paths.Clear()
@@ -583,6 +582,9 @@ func (u *UI) drain() {
 			}
 			u.updateActions()
 		}
+		// After the inventory rows: adding the first one selects it, which
+		// shows its details, and would hide the result of the operation.
+		u.detail.SetText(c.result.Message)
 	default:
 	}
 }
