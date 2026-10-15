@@ -17,6 +17,7 @@ package mattertest
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -130,7 +131,7 @@ type mockBLECommissioningFixture struct {
 	opCfg       config.OperationalCredentialsConfig
 }
 
-func newMockBLECommissioningFixture(t *testing.T) mockBLECommissioningFixture {
+func newMockBLECommissioningFixture(t *testing.T, opts ...mockdevice.FakeBLECentralOption) mockBLECommissioningFixture {
 	t.Helper()
 	dev, err := mockdevice.New(
 		mockdevice.WithDiscriminator(mockBLECommissioningDiscriminator),
@@ -141,7 +142,7 @@ func newMockBLECommissioningFixture(t *testing.T) mockBLECommissioningFixture {
 	if err != nil {
 		t.Fatalf("mockdevice.New() error = %v", err)
 	}
-	central, observer, err := mockdevice.NewFakeBLECentral(dev)
+	central, observer, err := mockdevice.NewFakeBLECentral(dev, opts...)
 	if err != nil {
 		t.Fatalf("mockdevice.NewFakeBLECentral() error = %v", err)
 	}
@@ -188,4 +189,31 @@ func (f mockBLECommissioningFixture) startCommissioner(t *testing.T) matter.Comm
 		}
 	})
 	return cmr
+}
+
+// TestMockBLECommissioningRetriesConnect checks that a connection BlueZ
+// aborts, as it does when the adapter still scans, is tried again, and that
+// the commissioner gives up after bleConnectAttempts.
+func TestMockBLECommissioningRetriesConnect(t *testing.T) {
+	wifiCfg := config.NewWiFiNetworkConfig(
+		config.WithSSID([]byte("mock-ssid")),
+		config.WithCredentials([]byte("mock-password")),
+	)
+	for _, c := range []struct {
+		failures int
+		ok       bool
+	}{{2, true}, {4, false}} {
+		f := newMockBLECommissioningFixture(t, mockdevice.WithFakeBLECentralConnectFailures(c.failures))
+		cmr := f.startCommissioner(t)
+		// Long enough for the waits between the attempts (3s for four).
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		_, err := cmr.Commission(ctx, f.pairingCode, f.adminCfg, f.opCfg, wifiCfg)
+		cancel()
+		if c.ok && err != nil {
+			t.Fatalf("%d failed connection attempts: Commission() error = %v", c.failures, err)
+		}
+		if !c.ok && (err == nil || !strings.Contains(err.Error(), "le-connection-abort-by-local")) {
+			t.Fatalf("%d failed connection attempts: Commission() error = %v, want the connection error", c.failures, err)
+		}
+	}
 }

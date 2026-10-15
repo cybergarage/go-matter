@@ -17,6 +17,7 @@ package matter
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/ble"
@@ -96,7 +97,7 @@ func (dev *bleDevice) Receive(ctx context.Context) ([]byte, error) {
 
 // Commission commissions the node with the given commissioning options.
 func (dev *bleDevice) Commission(ctx context.Context, payload OnboardingPayload, opts ...CommissionOption) (CommissionedIdentity, error) {
-	log.Infof("Connected to device: %s", dev.String())
+	log.Infof("Connecting to device: %s", dev.String())
 
 	if err := dev.parseCommissionOptions(opts...); err != nil {
 		log.Errorf("Failed to parse commission options for device (%s): %v", dev.String(), err)
@@ -112,7 +113,7 @@ func (dev *bleDevice) Commission(ctx context.Context, payload OnboardingPayload,
 		return CommissionedIdentity{}, ErrWiFiNetworkRequired
 	}
 
-	if err := dev.Connect(ctx); err != nil {
+	if err := dev.connectWithRetry(ctx); err != nil {
 		log.Errorf("Failed to connect to device (%s): %v", dev.String(), err)
 		return CommissionedIdentity{}, err
 	}
@@ -197,4 +198,39 @@ func (dev *bleDevice) String() string {
 // MarshalObject returns an object suitable for marshaling to JSON.
 func (dev *bleDevice) MarshalObject() any {
 	return dev.baseDevice.marshalObject(dev)
+}
+
+// BLE connection retries. BlueZ aborts a connection it starts while the
+// adapter still scans ("le-connection-abort-by-local"), and the scan of
+// the discovery may stop only after it returned, so a first attempt fails
+// now and then; connectedhomeip's Linux BLE layer retries it as well
+// (BluezEndpoint::ConnectDeviceImpl, kMaxConnectRetries).
+const (
+	bleConnectAttempts      = 4
+	bleConnectRetryInterval = 500 * time.Millisecond
+)
+
+// connectWithRetry connects to the device, trying again after a failed
+// attempt, with a longer wait each time, up to bleConnectAttempts.
+func (dev *bleDevice) connectWithRetry(ctx context.Context) error {
+	var err error
+	for attempt := 1; attempt <= bleConnectAttempts; attempt++ {
+		if err = dev.Connect(ctx); err == nil {
+			if attempt > 1 {
+				log.Infof("Connected to device (%s) at attempt %d", dev.String(), attempt)
+			}
+			return nil
+		}
+		if ctx.Err() != nil || attempt == bleConnectAttempts {
+			break
+		}
+		log.Warnf("BLE connection attempt %d/%d to device (%s) failed: %v; retrying", attempt, bleConnectAttempts, dev.String(), err)
+		_ = dev.Disconnect()
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("%w (after BLE connection attempt %d: %w)", ctx.Err(), attempt, err)
+		case <-time.After(time.Duration(attempt) * bleConnectRetryInterval):
+		}
+	}
+	return fmt.Errorf("%d BLE connection attempts: %w", bleConnectAttempts, err)
 }
