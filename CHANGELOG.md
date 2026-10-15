@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-16
+
+The commissioner completed. Device attestation is verified against the DCL's production trust anchors, attributes and events are subscribed to, CASE sessions are resumed, and the fabric's private keys can be kept in a key store. `matterctl tui` commissions a device over BLE with Wi-Fi credentials, or over IP, and operates it. Commissioning, On/Off, subscriptions, events and resubscription after a power cycle were verified against a real device.
+
+### Known limitations
+
+- Only a few real devices have been verified; fixes found against more devices, and multi-admin alongside Google Home and Amazon Alexa, are planned for v0.9.x.
+- Certificate revocation is not checked, and Thread commissioning, opening a commissioning window, timed writes, groups, bindings, scenes and OTA software update are not implemented.
+- On macOS, Core Bluetooth may refuse the Matter BLE service of a device (`uuidNotAllowed`); commission such a device over BLE from Linux.
+
 ### Added
 
 - **Wi-Fi in the TUI's Pair device.** Optional Wi-Fi SSID and password fields under the code: empty for a device on the network, set for a new device found over Bluetooth, which is given the network. The password is masked and never logged.
@@ -68,7 +78,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
-- The CASE initiator acknowledges the SigmaFinished StatusReport the device sends reliably (4.12.7.1). A Tapo P110M retransmitted it about four times after each CASE, logged as "packet does not belong to this session".
+- The CASE initiator acknowledges the SigmaFinished StatusReport the device sends reliably (4.12.7.1). A device retransmitted it about four times after each CASE, logged as "packet does not belong to this session".
 - Every `Commissioner.Connect`, and so every `matterctl` command and TUI operation on a node, waited for the whole 5 s of the operational discovery although the node answered within milliseconds. The discovery now ends at the first response which gives the node's operational service with a port and an address (`mdns.UntilSearcher`, implemented by `NewDiscoverer`'s discoverer).
 - After an inspect, `matterctl tui` showed the details of the first inventory row instead of the result of the inspect, since adding that row selected it.
 - `matterctl tui` showed the node ID of a paired device as the hexadecimal of its decimal digits (`types.NodeID` formats itself in decimal), such as `3133…` for 0xB6C144BE822A44BA.

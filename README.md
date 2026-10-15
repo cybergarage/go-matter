@@ -49,13 +49,16 @@ go-matter is a **commissioner (controller)**. It discovers a commissionable devi
 - Groups, bindings, scenes and OTA software update
 - The clusters which are not listed above
 - The session resumption state lives in memory only, so the first `Connect` after a restart, and the first after commissioning, run a full CASE
+- Only a few real devices have been commissioned and operated so far, and multi-admin alongside Google Home or Amazon Alexa has not been verified yet
+- On macOS, Core Bluetooth may refuse the Matter BLE service of a device (`uuidNotAllowed`); commission such a device over BLE from Linux (BlueZ), or over IP
 
 ### Releases
 
 | Version | Scope |
 | --- | --- |
-| **v0.8.0** | The commissioner, with the gaps which are listed above |
-| v0.9.0 | The commissioner completed: attestation validation, subscriptions, and the clusters verified against real devices |
+| v0.8.0 | The first commissioner release |
+| **v0.9.0** | The commissioner completed: attestation validation, subscriptions and events, CASE session resumption, a key store, and the `matterctl tui` controller, verified against a real device |
+| v0.9.x | Fixes found against more real devices, and multi-admin alongside Google Home and Amazon Alexa verified |
 | v1.0.0 | The device role, and a stable API |
 
 ### Progress Overview
@@ -77,8 +80,8 @@ go-matter is a **commissioner (controller)**. It discovers a commissionable devi
 | Interaction Model | `protocol.im` | ✅ Implemented | Read/Write/Invoke transactions, incl. chunked list reassembly; attribute and event subscriptions; event reads; exchange multiplexing (`ExchangeMux`) |
 |                    | `protocol.mrp` | ✅ Implemented | Message Reliability Protocol (acknowledgement, counters) |
 | Clusters | `cluster` | ✅ Implemented | Basic Information, Descriptor, General Commissioning/Diagnostics, Network Commissioning, Operational Credentials, Access Control |
-|          | `cluster.onoff` | ✅ Under verification | On/Off cluster client (not yet exercised against a real device) |
-| Operation | `cmd.matterctl` | 🚧 In progress | `matterctl` CLI (pairing, scan, per-cluster read/write/invoke) |
+|          | `cluster.onoff` | ✅ Implemented | On/Off cluster client |
+| Operation | `cmd.matterctl` | ✅ Implemented | `matterctl` CLI (scan, pairing, per-cluster read/write/invoke, subscriptions, events) and the `matterctl tui` full-screen controller |
 | Encoding | `encoding.base38` | ✅ Implemented | Base38 encoding/decoding |
 |          | `encoding.qr` | ✅ Implemented | QR code generation |
 |          | `encoding.pairing` | ✅ Implemented | Manual pairing code handling |
@@ -248,10 +251,10 @@ store `~/.matterctl`, or `make tui-debug` for the same with a debug log;
 `--offline` (`make tui TUI_ARGS=--offline`) runs a fictional fixture instead.
 Live use requires a valid commissioner fabric, restored from the selected
 store or explicitly created in the UI. Network operations
-require UI confirmation. This initial draft supports saved-device
-menus, manual/QR pairing forms, Descriptor inspection and selected read/On-Off
-controls. See [scope, keys, screenshots and verification](doc/matterctl-tui.md).
-No physical device was commissioned or operated for this implementation.
+require UI confirmation. It supports saved-device menus, manual/QR pairing
+forms with optional Wi-Fi credentials for a device found over BLE, an inspect
+of the node right after pairing, Descriptor inspection, selected read/On-Off
+controls and a log. See [scope, keys, screenshots and verification](doc/matterctl-tui.md).
 
 # User Guides
 
