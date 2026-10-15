@@ -92,12 +92,15 @@ func TestKeysFormsSearchAndResize(t *testing.T) {
 		t.Fatal("form cancel")
 	}
 	u.pairForm()
-	// The form is kept as a child; test input masking and validation without logging it.
+	// The form is kept as a child; test validation without logging the code.
 	_, front := u.pages.GetFrontPage()
 	form := front.(*tview.Flex).GetItem(1).(*tview.Form)
 	field := form.GetFormItem(0).(*tview.InputField)
+	if form.GetButton(0).GetLabel() != "Validate" || form.GetButton(1).GetLabel() != "Cancel" {
+		t.Fatal("Validate must come before Cancel")
+	}
 	field.SetText("invalid")
-	form.SetFocus(2)
+	form.SetFocus(1)
 	u.app.SetFocus(form)
 	press(u, tcell.KeyEnter, 0)
 	if !u.dialog || u.busy {
@@ -113,7 +116,7 @@ func TestKeysFormsSearchAndResize(t *testing.T) {
 	}
 	press(u, tcell.KeyEnter, 0)
 	if u.busy {
-		t.Fatal("Cancel must be first confirmation button")
+		t.Fatal("Cancel must have the focus of a confirmation")
 	}
 	press(u, tcell.KeyRune, '?')
 	if !u.dialog {
@@ -459,7 +462,7 @@ func TestFixturePairRequiresConfirmationAndRejectsDuplicate(t *testing.T) {
 	u.confirm("Fixture pair", func() {
 		u.start(false, time.Second, func(ctx context.Context) (Result, error) { return u.backend.Pair(ctx, p) })
 	})
-	// Move to Confirm, then Enter: no command-line string is involved.
+	// Move from Cancel to Confirm, then Enter: no command-line string is involved.
 	press(u, tcell.KeyTab, 0)
 	press(u, tcell.KeyEnter, 0)
 	if !u.busy {

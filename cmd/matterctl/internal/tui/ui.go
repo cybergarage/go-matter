@@ -24,10 +24,36 @@ import (
 func Command() *cobra.Command {
 	var live bool
 	var dir string
+	var logLevelArg, logFile string
 	command := &cobra.Command{Use: "tui", Short: "Full-screen controller (offline fixture by default)", SilenceUsage: true,
 		PersistentPreRunE: func(_ *cobra.Command, _ []string) error { log.SetDefault(nil); return nil }, Args: cobra.NoArgs, RunE: func(_ *cobra.Command, _ []string) error {
-			// Disable library logging globally before any code/PIN can reach transports.
+			// The library logs to stdout by default, which would draw over
+			// the screen: it logs to a file only, and only when asked.
 			log.SetDefault(nil)
+			level, err := ParseLogLevel(logLevelArg)
+			if err != nil {
+				return err
+			}
+			logDir, err := os.Getwd()
+			if err != nil {
+				logDir = os.TempDir()
+			}
+			sink := &logSink{}
+			if level != LogOff {
+				if logFile == "" {
+					logFile = filepath.Join(logDir, DefaultLogFileName(time.Now()))
+				}
+				// Before the store is opened, so that its log is kept too.
+				if err := sink.Enable(level, logFile); err != nil {
+					return fmt.Errorf("cannot open log file: %w", err)
+				}
+			}
+			defer func() {
+				sink.Disable()
+				if path := sink.Path(); path != "" {
+					fmt.Fprintln(os.Stderr, "matterctl tui: log written to "+path)
+				}
+			}()
 			var backend Backend = &Demo{}
 			mode := "OFFLINE FIXTURE — fictional devices / no network"
 			if live {
@@ -61,10 +87,12 @@ func Command() *cobra.Command {
 				return errors.New("cannot initialize terminal")
 			}
 			defer managed.Fini()
-			return NewUI(backend, mode, managed).Run()
+			return newUIWithLog(backend, mode, managed, sink, logDir).Run()
 		}}
 	command.Flags().BoolVar(&live, "live", false, "enable real operations after UI confirmation (never used in tests)")
 	command.Flags().StringVar(&dir, "store-dir", "", "commissioner store (default ~/.matterctl); explicit initialization; one process only")
+	command.Flags().StringVar(&logLevelArg, "log-level", "off", "log level from the start: off, info or debug (debug writes decrypted messages, the fabric's IPK included)")
+	command.Flags().StringVar(&logFile, "log-file", "", "log file (default ./matterctl-YYYYMMDD-HHMMSS.log in the current directory, mode 0600)")
 	return command
 }
 
@@ -120,11 +148,31 @@ type UI struct {
 	editorSubmit                 func()
 	generation                   uint64
 	mode                         string
+	root                         *tview.Flex
+	logs                         *logSink
+	logDir                       string
+	logView                      *tview.TextView
+	logMax                       bool
 }
 
+// logPanelHeight is the height of the log panel under the main panels.
+const logPanelHeight = 10
+
+// logRefreshInterval is how often the log panel reads the log file.
+const logRefreshInterval = 500 * time.Millisecond
+
 func NewUI(backend Backend, mode string, screen tcell.Screen) *UI {
+	return newUIWithLog(backend, mode, screen, &logSink{}, "")
+}
+
+// newUIWithLog makes a UI whose log goes through sink; a log turned on
+// from the menu is written to a new file in logDir, the current directory
+// when empty.
+func newUIWithLog(backend Backend, mode string, screen tcell.Screen, sink *logSink, logDir string) *UI {
 	ctx, cancel := context.WithCancel(context.Background())
-	u := &UI{app: tview.NewApplication().SetScreen(screen), screen: screen, backend: backend, rootCtx: ctx, rootCancel: cancel, results: make(chan completion, 1), mode: mode}
+	u := &UI{app: tview.NewApplication().SetScreen(screen), screen: screen, backend: backend, rootCtx: ctx, rootCancel: cancel, results: make(chan completion, 1), mode: mode, logs: sink, logDir: logDir}
+	u.logView = tview.NewTextView().SetWrap(true).SetMaxLines(logViewMaxLines)
+	u.logView.SetBorder(true)
 	u.devices = tview.NewList().ShowSecondaryText(false)
 	u.devices.SetBorder(true).SetTitle(" Saved devices ")
 	u.paths = tview.NewList().ShowSecondaryText(false)
@@ -134,11 +182,13 @@ func NewUI(backend Backend, mode string, screen tcell.Screen) *UI {
 	u.detail = tview.NewTextView().SetWrap(true)
 	u.detail.SetBorder(true).SetTitle(" Result / last observation ")
 	u.detail.SetText("Saved does not mean connected. Select Reconnect / inspect.\nOnly supported operations appear. Values are snapshots, not subscriptions.")
-	u.status = tview.NewTextView().SetText(mode + "\nTab / arrows / Enter | / search | ? help | Esc cancel | q / Ctrl-C quit")
+	u.status = tview.NewTextView()
 	u.search = tview.NewInputField().SetLabel("Search: ").SetChangedFunc(func(s string) { u.filter(s) }).SetDoneFunc(func(_ tcell.Key) { u.setFocus(0) })
 	u.body = tview.NewFlex()
-	root := tview.NewFlex().SetDirection(tview.FlexRow).AddItem(u.status, 3, 0, false).AddItem(u.search, 1, 0, false).AddItem(u.body, 0, 1, true)
-	u.pages = tview.NewPages().AddPage("main", root, true, true)
+	u.root = tview.NewFlex().SetDirection(tview.FlexRow)
+	u.pages = tview.NewPages().AddPage("main", u.root, true, true)
+	u.updateStatus()
+	u.refreshLog()
 	u.devices.SetChangedFunc(func(index int, _ string, _ string, _ rune) {
 		u.selectedDevice = index
 		u.clearSelection()
@@ -168,11 +218,27 @@ func NewUI(backend Backend, mode string, screen tcell.Screen) *UI {
 		}
 	}
 	u.updateActions()
+	w, _ := screen.Size()
+	u.layout(w)
 	u.setFocus(0)
 	return u
 }
 func (u *UI) Run() error {
+	go func() {
+		ticker := time.NewTicker(logRefreshInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-u.rootCtx.Done():
+				return
+			case <-ticker.C:
+				u.app.QueueUpdateDraw(u.refreshLog)
+			}
+		}
+	}()
+	tuiLogf("started: %s", u.mode)
 	err := u.app.Run()
+	tuiLogf("quit")
 	u.rootCancel()
 	if u.cancel != nil {
 		u.cancel()
@@ -187,6 +253,21 @@ func (u *UI) Run() error {
 	return errors.Join(err, u.backend.Close())
 }
 func (u *UI) layout(width int) {
+	u.root.Clear()
+	u.root.AddItem(u.status, 3, 0, false)
+	shown := u.logs.Path() != ""
+	if shown && u.logMax {
+		u.root.AddItem(u.logView, 0, 1, true)
+		return
+	}
+	u.root.AddItem(u.search, 1, 0, false).AddItem(u.body, 0, 1, true)
+	if shown {
+		height := logPanelHeight
+		if _, h := u.screen.Size(); h < 30 {
+			height = max(4, h/4)
+		}
+		u.root.AddItem(u.logView, height, 0, false)
+	}
 	u.body.Clear()
 	if width < 95 {
 		u.body.SetDirection(tview.FlexRow).AddItem(u.devices, 0, 1, false).AddItem(u.paths, 0, 1, false).AddItem(u.actions, 0, 1, false).AddItem(u.detail, 0, 1, false)
@@ -262,6 +343,10 @@ func (u *UI) updateActions() {
 			u.reload()
 		}
 	})
+	u.actions.AddItem("Log: "+u.logs.Level().String()+" (change level)", "", 0, u.logForm)
+	if u.logs.Path() != "" {
+		u.actions.AddItem("Show log full screen (l)", "", 0, func() { u.setLogMax(true) })
+	}
 	if f, ok := u.backend.(fabricBackend); ok {
 		u.actions.AddItem("Fabric overview", "", 0, func() {
 			summary, err := f.Overview()
@@ -284,14 +369,14 @@ func (u *UI) updateActions() {
 	if d, ok := u.device(); ok {
 		u.actions.AddItem("Reconnect / inspect", "", 0, func() {
 			u.confirm("Connect to selected node and read Descriptor inventory?", func() {
-				u.start(true, 30*time.Second, func(ctx context.Context) (Result, error) { return u.backend.Inspect(ctx, d.ID) })
+				u.startOp(fmt.Sprintf("inspect node %016X", d.ID), true, 30*time.Second, func(ctx context.Context) (Result, error) { return u.backend.Inspect(ctx, d.ID) })
 			})
 		})
 		if p, ok := u.path(); ok {
 			if readable(p) {
 				u.actions.AddItem("Read selected attribute", "", 0, func() {
 					u.confirm("Read selected node: "+p.String()+"?", func() {
-						u.start(false, 30*time.Second, func(ctx context.Context) (Result, error) { return u.backend.Read(ctx, d.ID, p) })
+						u.startOp(fmt.Sprintf("read node %016X %s", d.ID, p), false, 30*time.Second, func(ctx context.Context) (Result, error) { return u.backend.Read(ctx, d.ID, p) })
 					})
 				})
 			}
@@ -310,7 +395,7 @@ func (u *UI) updateActions() {
 				}
 				u.actions.AddItem("Invoke "+name+" + fresh readback", "", 0, func() {
 					u.confirm("Send "+name+" to "+d.Name+" / "+p.String()+"?", func() {
-						u.start(false, 30*time.Second, func(ctx context.Context) (Result, error) { return u.backend.Invoke(ctx, d.ID, p, c) })
+						u.startOp(fmt.Sprintf("invoke %s on node %016X %s", name, d.ID, p), false, 30*time.Second, func(ctx context.Context) (Result, error) { return u.backend.Invoke(ctx, d.ID, p, c) })
 					})
 				})
 			}
@@ -342,24 +427,53 @@ func (u *UI) confirm(text string, fn func()) {
 		return
 	}
 	generation := u.generation
-	modal := tview.NewModal().SetText(text).AddButtons([]string{"Cancel", "Confirm"}).SetDoneFunc(func(i int, _ string) {
-		u.closeDialog()
-		if i == 1 && generation == u.generation {
+	// The action comes first and Cancel last, as in the forms; Cancel has
+	// the focus, so that a stray Enter changes nothing.
+	u.choose(text, []string{"Confirm", "Cancel"}, 1, func(i int) {
+		if i == 0 && generation == u.generation {
 			fn()
 		}
 	})
+}
+
+// choose shows text with buttons, focusing the one at focus, and calls fn
+// with the index of the button pressed once the dialog is closed.
+func (u *UI) choose(text string, buttons []string, focus int, fn func(int)) {
+	modal := tview.NewModal().SetText(text).AddButtons(buttons).SetDoneFunc(func(i int, _ string) {
+		u.closeDialog()
+		fn(i)
+	})
+	modal.SetFocus(focus)
 	u.dialog = true
 	u.pages.AddPage("dialog", modal, true, true)
 	u.app.SetFocus(modal)
 }
+
+// startOp runs fn as start does, and logs when it starts and how it ends
+// under label, which names the operation and never holds a credential.
+func (u *UI) startOp(label string, inventory bool, timeout time.Duration, fn func(context.Context) (Result, error)) {
+	u.start(inventory, timeout, func(ctx context.Context) (Result, error) {
+		begin := time.Now()
+		tuiLogf("%s: started (timeout %s)", label, timeout)
+		r, err := fn(ctx)
+		elapsed := time.Since(begin).Round(time.Millisecond)
+		if err != nil {
+			tuiLogErrorf("%s: failed after %s: %v", label, elapsed, err)
+		} else {
+			tuiLogf("%s: done in %s: %s", label, elapsed, r.Message)
+		}
+		return r, err
+	})
+}
+
 func (u *UI) pairForm() {
 	if u.busy {
 		return
 	}
-	field := tview.NewInputField().SetLabel("Code / MT: ").SetMaskCharacter('*').SetFieldWidth(30)
-	note := tview.NewTextView().SetText("Manual 11/21 digits or MT: QR text. Input is masked.\nExisting fabric required in LIVE mode; no Wi-Fi provisioning.\nPairing changes persistent device access. Cancel may leave an uncertain outcome.")
+	field := tview.NewInputField().SetLabel("Code / MT: ").SetFieldWidth(30)
+	note := tview.NewTextView().SetText("Manual 11/21 digits or MT: QR text. The code is not written to the log.\nExisting fabric required in LIVE mode; no Wi-Fi provisioning.\nPairing changes persistent device access. Cancel may leave an uncertain outcome.")
 	form := tview.NewForm().AddFormItem(field)
-	form.AddButton("Cancel", func() { field.SetText(""); u.closeDialog() }).AddButton("Validate", func() {
+	form.AddButton("Validate", func() {
 		p, err := ParsePayload(field.GetText())
 		if err != nil {
 			note.SetText(err.Error())
@@ -368,10 +482,10 @@ func (u *UI) pairForm() {
 		field.SetText("")
 		u.closeDialog()
 		u.confirm("Valid standard onboarding payload. Commission into this controller's fabric?\nDo not repeat after an uncertain outcome. No credential is shown.", func() {
-			u.start(false, 120*time.Second, func(ctx context.Context) (Result, error) { return u.backend.Pair(ctx, p) })
+			u.startOp("pair device", false, 120*time.Second, func(ctx context.Context) (Result, error) { return u.backend.Pair(ctx, p) })
 		})
-	})
-	form.SetFocus(1)
+	}).AddButton("Cancel", func() { field.SetText(""); u.closeDialog() })
+	form.SetFocus(0)
 	box := tview.NewFlex().SetDirection(tview.FlexRow).AddItem(note, 5, 0, false).AddItem(form, 0, 1, true)
 	box.SetBorder(true).SetTitle(" Pair device ")
 	// Flex auto-resizes forms with the terminal and preserves widget state.
@@ -396,7 +510,11 @@ func (u *UI) start(inventory bool, timeout time.Duration, fn func(context.Contex
 	u.cancel = cancel
 	u.workDone = make(chan struct{})
 	done := u.workDone
-	u.detail.SetText("WORKING: operation in progress (no per-stage API).\nEsc requests cancellation. No automatic retries.\nOperation may have changed device state before cancellation.")
+	stages := "Turn the log on (Menu: Log) to follow its stages."
+	if u.logs.Level() != LogOff {
+		stages = "Its stages are logged below; l shows the log full screen."
+	}
+	u.detail.SetText("WORKING: operation in progress. " + stages + "\nEsc requests cancellation. No automatic retries.\nOperation may have changed device state before cancellation.")
 	go func() {
 		defer close(done)
 		defer cancel()
@@ -461,6 +579,8 @@ func (u *UI) key(e *tcell.EventKey) *tcell.EventKey {
 			u.detail.SetText("Cancellation requested; awaiting transport shutdown. Outcome may be uncertain.")
 		case u.dialog:
 			u.closeDialog()
+		case u.logMax:
+			u.setLogMax(false)
 		default:
 			u.search.SetText("")
 			u.setFocus(0)
@@ -472,6 +592,22 @@ func (u *UI) key(e *tcell.EventKey) *tcell.EventKey {
 			u.quit()
 			return nil
 		}
+	}
+	if e.Rune() == 'l' && !u.dialog && u.app.GetFocus() != u.search {
+		// Also while an operation runs, to follow its log.
+		u.setLogMax(!u.logMax)
+		return nil
+	}
+	if u.logMax {
+		if e.Key() == tcell.KeyEnd {
+			u.logView.ScrollToEnd()
+			return nil
+		}
+		// The log view scrolls; the hidden panels take no keys.
+		if e.Key() == tcell.KeyTab || e.Key() == tcell.KeyBacktab {
+			return nil
+		}
+		return e
 	}
 	if u.busy {
 		return nil
@@ -515,7 +651,7 @@ func (u *UI) fabricForm() {
 	field := tview.NewInputField().SetLabel("Admin vendor ID: ").SetFieldWidth(12)
 	note := tview.NewTextView().SetText("Create a local controller identity; no network operation.\nIDs are automatic. Existing identity is never replaced.\nEnter your assigned vendor ID; 0xFFF1–0xFFF4 are development test IDs.\nKeys/IPK are stored locally, never displayed. Keep the store private.")
 	form := tview.NewForm().AddFormItem(field)
-	form.AddButton("Cancel", u.closeDialog).AddButton("Validate", func() {
+	form.AddButton("Validate", func() {
 		vendor, err := parseVendor(field.GetText())
 		if err != nil {
 			note.SetText(err.Error())
@@ -523,13 +659,105 @@ func (u *UI) fabricForm() {
 		}
 		u.closeDialog()
 		u.confirm("Generate and save a NEW local fabric identity?\nNo existing identity will be overwritten. No device is registered.\nThe store contains private keys in plaintext (0600 files).", func() {
-			u.start(false, 30*time.Second, func(ctx context.Context) (Result, error) { return backend.CreateFabric(ctx, vendor) })
+			u.startOp(fmt.Sprintf("create fabric (vendor 0x%04X)", vendor), false, 30*time.Second, func(ctx context.Context) (Result, error) { return backend.CreateFabric(ctx, vendor) })
 		})
-	})
-	form.SetFocus(1)
+	}).AddButton("Cancel", u.closeDialog)
+	form.SetFocus(0)
 	box := tview.NewFlex().SetDirection(tview.FlexRow).AddItem(note, 6, 0, false).AddItem(form, 0, 1, true)
 	box.SetBorder(true).SetTitle(" Create local fabric ")
 	u.dialog = true
 	u.pages.AddPage("dialog", box, true, true)
 	u.app.SetFocus(form)
+}
+
+func (u *UI) updateStatus() {
+	keys := "Tab / arrows / Enter | / search | ? help | Esc cancel | q / Ctrl-C quit"
+	logState := "LOG: OFF (Menu: Log)"
+	if path := u.logs.Path(); path != "" {
+		logState = "LOG: " + u.logs.Level().String() + " → " + path
+		keys += " | l log"
+	}
+	u.status.SetText(u.mode + "\n" + logState + "\n" + keys)
+	title := " Log — l: full screen "
+	if u.logMax {
+		title = " Log — arrows / PgUp / PgDn scroll, End follows, l / Esc back "
+	}
+	u.logView.SetTitle(title)
+}
+
+// refreshLog appends to the log panel what was written to the log file
+// since it last looked, and keeps the panel at its end unless it is
+// scrolled back in full screen.
+func (u *UI) refreshLog() {
+	text, err := u.logs.ReadNew()
+	if err != nil {
+		text = "(log file unreadable: " + err.Error() + ")\n"
+	}
+	if text == "" {
+		return
+	}
+	_, _ = u.logView.Write([]byte(text))
+	if !u.logMax {
+		u.logView.ScrollToEnd()
+	}
+}
+
+func (u *UI) setLogMax(on bool) {
+	if on && u.logs.Path() == "" {
+		return
+	}
+	u.logMax = on
+	u.updateStatus()
+	w, _ := u.screen.Size()
+	u.layout(w)
+	if on {
+		u.logView.ScrollToEnd()
+		u.app.SetFocus(u.logView)
+		return
+	}
+	u.setFocus(u.focus)
+}
+
+func (u *UI) setLogLevel(level LogLevel) {
+	if level == LogOff {
+		u.logs.Disable()
+	} else {
+		path := u.logs.Path()
+		if path == "" {
+			dir := u.logDir
+			if dir == "" {
+				dir, _ = os.Getwd()
+			}
+			path = filepath.Join(dir, DefaultLogFileName(time.Now()))
+		}
+		if err := u.logs.Enable(level, path); err != nil {
+			u.detail.SetText("Cannot open the log file: " + err.Error())
+			return
+		}
+		u.detail.SetText("Log " + level.String() + " → " + u.logs.Path() + "\nThe log panel follows the file; l shows it full screen.")
+	}
+	u.refreshLog()
+	u.updateStatus()
+	u.updateActions()
+	w, _ := u.screen.Size()
+	u.layout(w)
+}
+
+func (u *UI) logForm() {
+	if u.busy {
+		return
+	}
+	target := u.logs.Path()
+	if target == "" {
+		target = "a new file in the current directory"
+	}
+	text := "Log level (now " + u.logs.Level().String() + ").\nWritten to " + target + " (mode 0600), shown under the panels.\n\n" +
+		"INFO: the steps of each operation (discovery, PASE, CASE, commissioning). No passcode.\n" +
+		"DEBUG: also every message as hex, decrypted ones included, such as the fabric's IPK. Share a DEBUG log only with people you trust."
+	levels := []LogLevel{LogInfo, LogDebug, LogOff}
+	u.choose(text, []string{"Info", "Debug", "Off", "Cancel"}, 3, func(i int) {
+		if i >= 0 && i < len(levels) {
+			u.setLogLevel(levels[i])
+		}
+	})
 }

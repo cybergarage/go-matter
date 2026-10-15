@@ -76,7 +76,7 @@ func (u *UI) setForm() {
 			return
 		}
 		u.closeDialog()
-		u.start(false, 30*time.Second, func(ctx context.Context) (Result, error) { return backend.Set(ctx, d.ID, p, value) })
+		u.startOp(fmt.Sprintf("set node %016X %s", d.ID, p), false, 30*time.Second, func(ctx context.Context) (Result, error) { return backend.Set(ctx, d.ID, p, value) })
 	}
 	form := tview.NewForm().AddFormItem(field)
 	if len(schema.choices) > 0 || schema.kind == boolKind || schema.nullable {
