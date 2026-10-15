@@ -25,7 +25,7 @@ func Command() *cobra.Command {
 	var live, offline bool
 	var dir string
 	var logLevelArg, logFile string
-	command := &cobra.Command{Use: "tui", Short: "Full-screen controller", SilenceUsage: true,
+	command := &cobra.Command{Use: "tui", Short: "Full-screen controller (real devices; --offline for a fictional fixture)", SilenceUsage: true,
 		PersistentPreRunE: func(_ *cobra.Command, _ []string) error { log.SetDefault(nil); return nil }, Args: cobra.NoArgs, RunE: func(_ *cobra.Command, _ []string) error {
 			// The library logs to stdout by default, which would draw over
 			// the screen: it logs to a file only, and only when asked.
@@ -92,9 +92,6 @@ func Command() *cobra.Command {
 		}}
 	command.Flags().BoolVar(&live, "live", true, "real devices and the commissioner store; operations still need UI confirmation (the default)")
 	command.Flags().BoolVar(&offline, "offline", false, "the fictional offline fixture instead: no store, network or Bluetooth")
-	// The fixture has no real device: it is for developing the screens,
-	// so the flag is left out of the help.
-	_ = command.Flags().MarkHidden("offline")
 	command.Flags().StringVar(&dir, "store-dir", "", "commissioner store (default ~/.matterctl); explicit initialization; one process only")
 	command.Flags().StringVar(&logLevelArg, "log-level", "off", "log level from the start: off, info or debug (debug writes decrypted messages, the fabric's IPK included)")
 	command.Flags().StringVar(&logFile, "log-file", "", "log file (default ./matterctl-YYYYMMDD-HHMMSS.log in the current directory, mode 0600)")

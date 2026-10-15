@@ -34,7 +34,7 @@ matterctl is a commissioner. Running as a Matter device is not supported.
 * [matterctl pairing]()	 - Pairing Matter devices.
 * [matterctl reset]()	 - Remove the local persistence directory.
 * [matterctl scan]()	 - Scan for Matter devices.
-* [matterctl tui]()	 - Full-screen controller
+* [matterctl tui]()	 - Full-screen controller (real devices; --offline for a fictional fixture)
 
 ## matterctl accesscontrol
 
@@ -1110,7 +1110,7 @@ matterctl scan [pairing code] [flags]
 
 ## matterctl tui
 
-Full-screen controller
+Full-screen controller (real devices; --offline for a fictional fixture)
 
 ```
 matterctl tui [flags]
@@ -1123,6 +1123,7 @@ matterctl tui [flags]
       --live               real devices and the commissioner store; operations still need UI confirmation (the default) (default true)
       --log-file string    log file (default ./matterctl-YYYYMMDD-HHMMSS.log in the current directory, mode 0600)
       --log-level string   log level from the start: off, info or debug (debug writes decrypted messages, the fabric's IPK included) (default "off")
+      --offline            the fictional offline fixture instead: no store, network or Bluetooth
       --store-dir string   commissioner store (default ~/.matterctl); explicit initialization; one process only
 ```
 

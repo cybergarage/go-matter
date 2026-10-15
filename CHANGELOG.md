@@ -76,7 +76,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
-- `matterctl tui` is live by default: it opens the commissioner store and operates real devices, each operation still after a confirmation. The fictional fixture, which was the default and has no device behind it, is left to developing the screens, with the hidden `--offline` flag; `--live` is kept.
+- `matterctl tui` is live by default: it opens the commissioner store and operates real devices, each operation still after a confirmation. `--offline` runs the fictional fixture, which was the default; `--live` is kept.
 - `make tui-debug` starts the TUI with its log at debug level, and `.gitignore` leaves the log files out.
 - go-logger v1.4.0. The log of `matterctl tui` has millisecond timestamps, and is written to its file and its panel at once through `log.NewWriterLogger`, instead of the panel reading the file back.
 - In the forms and dialogs of `matterctl tui`, the action (Validate, Send, Confirm) comes first, with the focus, and Cancel last. The pairing field shows the code as typed instead of masking it.
