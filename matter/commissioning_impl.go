@@ -22,6 +22,8 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"net"
+	"strings"
 
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/cluster/basicinformation"
@@ -500,13 +502,67 @@ func discoverOperationalNode(
 		if err != nil {
 			return nil, fmt.Errorf("commissioning: operational discovery failed: %w", err)
 		}
+		if node, ok := selectOperationalNode(nodes, peer.serviceInstance); ok {
+			return node, nil
+		}
 		if len(nodes) > 0 {
-			return nodes[0], nil
+			log.Infof("Commissioning: Operational Discovery: %d responses, none yet for %s with a port and an address; searching again", len(nodes), peer.serviceInstance)
 		}
 		if ctx.Err() != nil {
 			return nil, fmt.Errorf("commissioning: operational discovery timeout: no operational node found")
 		}
 	}
+}
+
+// selectOperationalNode picks the node to run CASE with among the responses
+// of an operational discovery: one for the operational service instance
+// (4.3.2.1. Operational Instance Name), with a port and an address. A
+// device which has just joined its network answers before it has an
+// address, and puts its commissionable service in the same packets; the
+// responses are kept apart, in the order they arrived, so the last one
+// which qualifies is taken.
+func selectOperationalNode(nodes []mdnspkg.CommissionableNode, serviceInstance string) (mdnspkg.CommissionableNode, bool) {
+	for i := len(nodes) - 1; i >= 0; i-- {
+		node := nodes[i]
+		if named, ok := node.(interface{ Name() string }); ok && serviceInstance != "" {
+			if !isOperationalServiceName(named.Name(), serviceInstance) {
+				continue
+			}
+		}
+		if port, ok := node.Port(); !ok || port <= 0 {
+			continue
+		}
+		if len(usableAddresses(node)) == 0 {
+			continue
+		}
+		return node, true
+	}
+	return nil, false
+}
+
+// isOperationalServiceName reports whether name, such as
+// "<compressed fabric ID>-<node ID>._matter._tcp", is that of the
+// operational service instance.
+func isOperationalServiceName(name string, serviceInstance string) bool {
+	want := serviceInstance + "." + mdnspkg.OperationalNodeService
+	return len(name) >= len(want) && strings.EqualFold(name[:len(want)], want)
+}
+
+// usableAddresses returns the addresses of node which can be connected to:
+// a response without address records reports the unspecified address.
+func usableAddresses(node mdnspkg.CommissionableNode) []net.IP {
+	addrs, ok := node.Addresses()
+	if !ok {
+		return nil
+	}
+	usable := make([]net.IP, 0, len(addrs))
+	for _, addr := range addrs {
+		if addr == nil || addr.IsUnspecified() {
+			continue
+		}
+		usable = append(usable, addr)
+	}
+	return usable
 }
 
 func establishCASESession(
