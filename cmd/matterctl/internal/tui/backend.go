@@ -578,13 +578,13 @@ func (b *Live) Pair(ctx context.Context, p encoding.OnboardingPayload, wifi *WiF
 		return Result{}, errors.New("commissioning returned no node identity")
 	}
 	if b.st.failed() {
-		return Result{Message: fmt.Sprintf("Device joined as %016X, but LOCAL SAVE FAILED. Do not retry pairing; restart access is not guaranteed.", id)}, nil
+		return Result{Message: fmt.Sprintf("Device joined as %016X, but LOCAL SAVE FAILED. Do not retry pairing; restart access is not guaranteed.", uint64(id))}, nil
 	}
 	records, err := b.st.ListCommissionees()
 	if err == nil {
 		for _, r := range records {
 			if r.NodeID == uint64(id) {
-				return Result{Message: fmt.Sprintf("PAIRING COMPLETE / SAVED: node %016X. Reload devices.", id)}, nil
+				return Result{Message: fmt.Sprintf("PAIRING COMPLETE / SAVED: node %016X. Reload devices.", uint64(id))}, nil
 			}
 		}
 	}
