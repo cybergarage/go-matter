@@ -118,17 +118,22 @@ func TestKeysFormsSearchAndResize(t *testing.T) {
 	if u.busy || u.dialog {
 		t.Fatal("Esc must cancel a confirmation")
 	}
-	// Enter in the field validates without moving to the button.
+	// Enter in the field moves to Validate; a second Enter validates.
 	u.pairForm()
 	_, front = u.pages.GetFrontPage()
-	field = front.(*tview.Flex).GetItem(1).(*tview.Form).GetFormItem(0).(*tview.InputField)
+	form = front.(*tview.Flex).GetItem(1).(*tview.Form)
+	field = form.GetFormItem(0).(*tview.InputField)
 	if u.app.GetFocus() != field {
 		t.Fatal("the pairing field must have the focus")
 	}
 	field.SetText(fixtureCode)
 	press(u, tcell.KeyEnter, 0)
+	if u.app.GetFocus() != form.GetButton(0) {
+		t.Fatal("Enter in the field must move to Validate")
+	}
+	press(u, tcell.KeyEnter, 0)
 	if _, front = u.pages.GetFrontPage(); !u.dialog || u.busy {
-		t.Fatal("Enter in the field must validate")
+		t.Fatal("Validate must lead to the confirmation")
 	}
 	if _, ok := front.(*tview.Modal); !ok {
 		t.Fatal("validation must lead to the confirmation")

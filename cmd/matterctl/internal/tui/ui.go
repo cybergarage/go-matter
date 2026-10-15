@@ -486,10 +486,8 @@ func (u *UI) pairForm() {
 		})
 	}
 	form.AddButton("Validate", validate).AddButton("Cancel", func() { field.SetText(""); u.closeDialog() })
+	// Enter in the field moves to Validate, which Enter then presses.
 	form.SetFocus(0)
-	// Enter in the field validates, as the Validate button does.
-	u.editorInput = field
-	u.editorSubmit = validate
 	box := tview.NewFlex().SetDirection(tview.FlexRow).AddItem(note, 5, 0, false).AddItem(form, 0, 1, true)
 	box.SetBorder(true).SetTitle(" Pair device ")
 	// Flex auto-resizes forms with the terminal and preserves widget state.
@@ -667,10 +665,8 @@ func (u *UI) fabricForm() {
 		})
 	}
 	form.AddButton("Validate", validate).AddButton("Cancel", u.closeDialog)
+	// Enter in the field moves to Validate, which Enter then presses.
 	form.SetFocus(0)
-	// Enter in the field validates, as the Validate button does.
-	u.editorInput = field
-	u.editorSubmit = validate
 	box := tview.NewFlex().SetDirection(tview.FlexRow).AddItem(note, 6, 0, false).AddItem(form, 0, 1, true)
 	box.SetBorder(true).SetTitle(" Create local fabric ")
 	u.dialog = true

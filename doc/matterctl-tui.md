@@ -96,10 +96,9 @@ QR data is not supported. Only version 0 standard commissioning flow is accepted
 reserved setup PINs are rejected. Errors do not echo input. The field shows the
 code as typed, and is cleared after validation; the code is never logged.
 Tab/Shift-Tab moves through form fields/buttons; the field is initially focused,
-and Enter in it validates, as the Validate button does. In every form and
+and Enter in it moves to Validate. In every form and
 dialog the action (Validate, Send, Confirm) comes first, with the focus, and
-Cancel last; Esc cancels too. Validation precedes a separate confirmation, so
-pairing still takes two Enters.
+Cancel last; Esc cancels too. Validation precedes a separate confirmation.
 
 Every read, inspect, invoke and pairing operation needs confirmation. Pairing
 adds persistent access to a device; invoke changes device state. There is no
