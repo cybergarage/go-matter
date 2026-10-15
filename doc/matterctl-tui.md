@@ -10,19 +10,20 @@ and preserve caller cancellation through commissioning.
 Use Go 1.25+ and a real terminal:
 
 ```sh
-make tui                          # real devices, the store ~/.matterctl
-make tui-debug                    # the same, with a debug log
-make tui TUI_ARGS=--offline       # the fictional offline fixture
+make tui          # real devices, the store ~/.matterctl
+make tui-debug    # the same, with a debug log
 GOWORK=off go run ./cmd/matterctl tui --help
 ```
 
-`--offline` uses fictional lights in memory. It creates no fabric, writes no
-credentials, starts no BLE/mDNS transport and performs no device operations.
-The pairing form still validates public test payloads and exercises a fixture
-success/failure flow. Fixture state is discarded on exit.
+For developing the screens, the hidden `--offline` flag
+(`make tui TUI_ARGS=--offline`) runs a fixture of fictional lights in memory
+instead, the one the tests use: there is no device behind it. It creates no
+fabric, writes no credentials, starts no BLE/mDNS transport and performs no
+device operations. The pairing form still validates public test payloads and
+exercises a fixture success/failure flow. Fixture state is discarded on exit.
 
-Without `--offline`, the TUI is live, with a new or existing go-matter
-commissioner fabric:
+Otherwise the TUI is live, with a new or existing go-matter commissioner
+fabric:
 
 ```sh
 GOWORK=off go run ./cmd/matterctl tui
