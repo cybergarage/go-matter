@@ -77,8 +77,9 @@ func lookupOperationalAddrPort(node mdnspkg.CommissionableNode) (net.IP, int, st
 	if !ok {
 		return nil, 0, "", fmt.Errorf("no operational port found")
 	}
-	addrs, ok := node.Addresses()
-	if !ok || len(addrs) == 0 {
+	// A response without address records reports the unspecified address.
+	addrs := usableAddresses(node)
+	if len(addrs) == 0 {
 		return nil, 0, "", fmt.Errorf("no operational addresses found")
 	}
 	for _, addr := range addrs {
