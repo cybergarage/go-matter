@@ -506,9 +506,19 @@ func TestFixturePairRequiresConfirmationAndRejectsDuplicate(t *testing.T) {
 		t.Fatal("confirmed pair did not run")
 	}
 	waitWork(t, u)
-	u.reload()
+	// The paired node is selected and inspected right away.
+	if !u.busy {
+		t.Fatal("the paired node was not inspected")
+	}
+	if d, ok := u.device(); !ok || d.ID != 0x102 {
+		t.Fatal("the paired node was not selected")
+	}
+	waitWork(t, u)
 	if len(u.records) != 2 {
 		t.Fatal("fixture success missing from menu")
+	}
+	if len(u.inventory) == 0 || !strings.Contains(u.detail.GetText(false), "PAIRING COMPLETE") {
+		t.Fatalf("the inventory of the paired node, after the pairing result, expected: %q", u.detail.GetText(false))
 	}
 	u.start(false, time.Second, func(ctx context.Context) (Result, error) { return u.backend.Pair(ctx, p, nil) })
 	waitWork(t, u)

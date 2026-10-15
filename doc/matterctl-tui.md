@@ -128,6 +128,10 @@ Cancel last; Esc cancels too. Validation precedes a separate confirmation.
 Every read, inspect, invoke and pairing operation needs confirmation. Pairing
 adds persistent access to a device; invoke changes device state. There is no
 reset/unpair/factory-reset or batch action. Reload reads only local records.
+A pairing which completes and is saved selects the new node and inspects it
+right away, without a second confirmation, showing the pairing result above its
+inventory; when that inspection fails, the pairing result stays, and Reconnect /
+inspect retries it. Saved nodes are not inspected when the TUI starts.
 Selection/search is locked during work to keep a response attached to the selected
 node. Work runs outside the UI goroutine. A working indicator represents the whole
 exchange; turn the log on to follow its stages (discovery, PASE, attestation,

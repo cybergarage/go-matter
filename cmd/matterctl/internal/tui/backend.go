@@ -54,6 +54,9 @@ type Result struct {
 	Message      string
 	Acknowledged bool
 	Paths        []Path
+	// PairedNode is the node a pairing commissioned and saved; zero
+	// otherwise. The UI inspects it right away.
+	PairedNode uint64
 }
 type Backend interface {
 	List() ([]Device, error)
@@ -584,7 +587,7 @@ func (b *Live) Pair(ctx context.Context, p encoding.OnboardingPayload, wifi *WiF
 	if err == nil {
 		for _, r := range records {
 			if r.NodeID == uint64(id) {
-				return Result{Message: fmt.Sprintf("PAIRING COMPLETE / SAVED: node %016X. Reload devices.", uint64(id))}, nil
+				return Result{Message: fmt.Sprintf("PAIRING COMPLETE / SAVED: node %016X.", uint64(id)), PairedNode: uint64(id)}, nil
 			}
 		}
 	}
@@ -685,6 +688,6 @@ func (b *Demo) Pair(ctx context.Context, _ encoding.OnboardingPayload, _ *WiFiCr
 		return Result{}, errors.New("fixture already paired; duplicate rejected")
 	}
 	b.paired = true
-	return Result{Message: "OFFLINE FIXTURE / PAIRING COMPLETE: no real credential or device changed."}, nil
+	return Result{Message: "OFFLINE FIXTURE / PAIRING COMPLETE: no real credential or device changed.", PairedNode: 0x102}, nil
 }
 func (*Demo) Close() error { return nil }

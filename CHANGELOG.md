@@ -68,6 +68,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- After an inspect, `matterctl tui` showed the details of the first inventory row instead of the result of the inspect, since adding that row selected it.
 - `matterctl tui` showed the node ID of a paired device as the hexadecimal of its decimal digits (`types.NodeID` formats itself in decimal), such as `3133…` for 0xB6C144BE822A44BA.
 - Commissioning a device over BLE could fail at CASE with "no operational addresses found" although the device advertised its operational service with an address: the operational discovery took the first response, which, from a device which has just joined its network, is its commissionable service or its operational service before it has an address. It now takes the last response for the operational service instance with a port and an address, and searches again until one comes.
 - Commissioning over BLE failed at once when BlueZ aborted the connection (`le-connection-abort-by-local`), as it does when the discovery's scan has not stopped yet. The connection is now tried up to 4 times, waiting longer each time, as connectedhomeip's Linux BLE layer does.
@@ -81,6 +82,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- After a pairing which completes and is saved, `matterctl tui` selects the new node and inspects it, showing the pairing result above its inventory.
 - The TUI's Create new fabric reads the vendor ID in hexadecimal, with or without `0x` and surrounding spaces (`FFF1`, `0xFFF1`), and no longer in decimal; the confirmation shows it in both. The TUI logs the inputs its forms reject, without the pairing code or the Wi-Fi password.
 - `matterctl tui` is live by default: it opens the commissioner store and operates real devices, each operation still after a confirmation. `--offline` runs the fictional fixture, which was the default, and `--live` is gone.
 - `make tui-debug` starts the TUI with its log at debug level, and `.gitignore` leaves the log files out.
