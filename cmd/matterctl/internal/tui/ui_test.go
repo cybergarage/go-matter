@@ -114,10 +114,26 @@ func TestKeysFormsSearchAndResize(t *testing.T) {
 	if field.GetText() != "" {
 		t.Fatal("code retained after validation")
 	}
-	press(u, tcell.KeyEnter, 0)
-	if u.busy {
-		t.Fatal("Cancel must have the focus of a confirmation")
+	press(u, tcell.KeyEscape, 0)
+	if u.busy || u.dialog {
+		t.Fatal("Esc must cancel a confirmation")
 	}
+	// Enter in the field validates without moving to the button.
+	u.pairForm()
+	_, front = u.pages.GetFrontPage()
+	field = front.(*tview.Flex).GetItem(1).(*tview.Form).GetFormItem(0).(*tview.InputField)
+	if u.app.GetFocus() != field {
+		t.Fatal("the pairing field must have the focus")
+	}
+	field.SetText(fixtureCode)
+	press(u, tcell.KeyEnter, 0)
+	if _, front = u.pages.GetFrontPage(); !u.dialog || u.busy {
+		t.Fatal("Enter in the field must validate")
+	}
+	if _, ok := front.(*tview.Modal); !ok {
+		t.Fatal("validation must lead to the confirmation")
+	}
+	press(u, tcell.KeyEscape, 0)
 	press(u, tcell.KeyRune, '?')
 	if !u.dialog {
 		t.Fatal("help")
@@ -462,8 +478,7 @@ func TestFixturePairRequiresConfirmationAndRejectsDuplicate(t *testing.T) {
 	u.confirm("Fixture pair", func() {
 		u.start(false, time.Second, func(ctx context.Context) (Result, error) { return u.backend.Pair(ctx, p) })
 	})
-	// Move from Cancel to Confirm, then Enter: no command-line string is involved.
-	press(u, tcell.KeyTab, 0)
+	// Confirm has the focus: Enter, and no command-line string is involved.
 	press(u, tcell.KeyEnter, 0)
 	if !u.busy {
 		t.Fatal("confirmed pair did not run")

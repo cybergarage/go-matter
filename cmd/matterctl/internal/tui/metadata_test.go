@@ -182,8 +182,7 @@ func TestDelayedOldCompletionAndStaleConfirmationCannotApply(t *testing.T) {
 	called := false
 	u.confirm("fixture confirmation", func() { called = true })
 	u.devices.SetCurrentItem(0)
-	press(u, tcell.KeyRight, 0)
-	press(u, tcell.KeyEnter, 0)
+	press(u, tcell.KeyEnter, 0) // Confirm has the focus.
 	if called {
 		t.Fatal("stale confirmation executed")
 	}

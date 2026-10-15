@@ -94,7 +94,7 @@ func TestFabricFormValidationConfirmationAndCancel(t *testing.T) {
 	if !u.dialog || u.busy {
 		t.Fatal("confirmation missing")
 	}
-	press(u, tcell.KeyEnter, 0) // A confirmation focuses Cancel.
+	press(u, tcell.KeyEscape, 0) // Esc cancels the confirmation.
 	summary, _ = u.backend.(fabricBackend).Overview()
 	if summary.Present {
 		t.Fatal("cancel generated identity")

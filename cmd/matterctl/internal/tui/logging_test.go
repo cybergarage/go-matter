@@ -120,12 +120,12 @@ func TestLogFromMenuShowsPanelAndOperations(t *testing.T) {
 	if _, ok := front.(*tview.Modal); !ok || !u.dialog {
 		t.Fatal("log level dialog missing")
 	}
-	press(u, tcell.KeyEnter, 0) // Cancel has the focus.
-	if u.logs.Level() != LogOff {
-		t.Fatal("Enter on the log dialog must change nothing")
+	press(u, tcell.KeyEscape, 0)
+	if u.logs.Level() != LogOff || u.dialog {
+		t.Fatal("Esc on the log dialog must change nothing")
 	}
-
-	u.setLogLevel(LogInfo)
+	u.logForm()
+	press(u, tcell.KeyEnter, 0) // Info has the focus.
 	matches, _ := filepath.Glob(filepath.Join(dir, "matterctl-*.log"))
 	if len(matches) != 1 || u.logs.Path() != matches[0] {
 		t.Fatalf("log file not created in the start directory: %v", matches)
@@ -189,18 +189,18 @@ func TestPairCodeIsShownAsTyped(t *testing.T) {
 	}
 }
 
-func TestConfirmPutsActionFirstAndFocusesCancel(t *testing.T) {
+func TestConfirmFocusesTheActionAndCancelFollows(t *testing.T) {
 	u, _ := newTestUI(t)
 	ran := false
 	u.confirm("fixture", func() { ran = true })
+	press(u, tcell.KeyTab, 0)
 	press(u, tcell.KeyEnter, 0)
 	if ran || u.dialog {
-		t.Fatal("Enter must choose Cancel")
+		t.Fatal("Cancel must follow Confirm")
 	}
 	u.confirm("fixture", func() { ran = true })
-	press(u, tcell.KeyBacktab, 0)
 	press(u, tcell.KeyEnter, 0)
 	if !ran {
-		t.Fatal("Confirm must be the first button")
+		t.Fatal("Confirm must have the focus")
 	}
 }

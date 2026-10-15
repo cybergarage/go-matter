@@ -427,9 +427,9 @@ func (u *UI) confirm(text string, fn func()) {
 		return
 	}
 	generation := u.generation
-	// The action comes first and Cancel last, as in the forms; Cancel has
-	// the focus, so that a stray Enter changes nothing.
-	u.choose(text, []string{"Confirm", "Cancel"}, 1, func(i int) {
+	// The action comes first, with the focus, and Cancel last, as in the
+	// forms; Esc cancels too.
+	u.choose(text, []string{"Confirm", "Cancel"}, 0, func(i int) {
 		if i == 0 && generation == u.generation {
 			fn()
 		}
@@ -473,7 +473,7 @@ func (u *UI) pairForm() {
 	field := tview.NewInputField().SetLabel("Code / MT: ").SetFieldWidth(30)
 	note := tview.NewTextView().SetText("Manual 11/21 digits or MT: QR text. The code is not written to the log.\nExisting fabric required in LIVE mode; no Wi-Fi provisioning.\nPairing changes persistent device access. Cancel may leave an uncertain outcome.")
 	form := tview.NewForm().AddFormItem(field)
-	form.AddButton("Validate", func() {
+	validate := func() {
 		p, err := ParsePayload(field.GetText())
 		if err != nil {
 			note.SetText(err.Error())
@@ -484,8 +484,12 @@ func (u *UI) pairForm() {
 		u.confirm("Valid standard onboarding payload. Commission into this controller's fabric?\nDo not repeat after an uncertain outcome. No credential is shown.", func() {
 			u.startOp("pair device", false, 120*time.Second, func(ctx context.Context) (Result, error) { return u.backend.Pair(ctx, p) })
 		})
-	}).AddButton("Cancel", func() { field.SetText(""); u.closeDialog() })
+	}
+	form.AddButton("Validate", validate).AddButton("Cancel", func() { field.SetText(""); u.closeDialog() })
 	form.SetFocus(0)
+	// Enter in the field validates, as the Validate button does.
+	u.editorInput = field
+	u.editorSubmit = validate
 	box := tview.NewFlex().SetDirection(tview.FlexRow).AddItem(note, 5, 0, false).AddItem(form, 0, 1, true)
 	box.SetBorder(true).SetTitle(" Pair device ")
 	// Flex auto-resizes forms with the terminal and preserves widget state.
@@ -651,7 +655,7 @@ func (u *UI) fabricForm() {
 	field := tview.NewInputField().SetLabel("Admin vendor ID: ").SetFieldWidth(12)
 	note := tview.NewTextView().SetText("Create a local controller identity; no network operation.\nIDs are automatic. Existing identity is never replaced.\nEnter your assigned vendor ID; 0xFFF1–0xFFF4 are development test IDs.\nKeys/IPK are stored locally, never displayed. Keep the store private.")
 	form := tview.NewForm().AddFormItem(field)
-	form.AddButton("Validate", func() {
+	validate := func() {
 		vendor, err := parseVendor(field.GetText())
 		if err != nil {
 			note.SetText(err.Error())
@@ -661,8 +665,12 @@ func (u *UI) fabricForm() {
 		u.confirm("Generate and save a NEW local fabric identity?\nNo existing identity will be overwritten. No device is registered.\nThe store contains private keys in plaintext (0600 files).", func() {
 			u.startOp(fmt.Sprintf("create fabric (vendor 0x%04X)", vendor), false, 30*time.Second, func(ctx context.Context) (Result, error) { return backend.CreateFabric(ctx, vendor) })
 		})
-	}).AddButton("Cancel", u.closeDialog)
+	}
+	form.AddButton("Validate", validate).AddButton("Cancel", u.closeDialog)
 	form.SetFocus(0)
+	// Enter in the field validates, as the Validate button does.
+	u.editorInput = field
+	u.editorSubmit = validate
 	box := tview.NewFlex().SetDirection(tview.FlexRow).AddItem(note, 6, 0, false).AddItem(form, 0, 1, true)
 	box.SetBorder(true).SetTitle(" Create local fabric ")
 	u.dialog = true
@@ -755,7 +763,7 @@ func (u *UI) logForm() {
 		"INFO: the steps of each operation (discovery, PASE, CASE, commissioning). No passcode.\n" +
 		"DEBUG: also every message as hex, decrypted ones included, such as the fabric's IPK. Share a DEBUG log only with people you trust."
 	levels := []LogLevel{LogInfo, LogDebug, LogOff}
-	u.choose(text, []string{"Info", "Debug", "Off", "Cancel"}, 3, func(i int) {
+	u.choose(text, []string{"Info", "Debug", "Off", "Cancel"}, 0, func(i int) {
 		if i >= 0 && i < len(levels) {
 			u.setLogLevel(levels[i])
 		}
