@@ -54,18 +54,18 @@ The library's log is off by default: it would otherwise be printed over the
 screen. Choose **Log: OFF (change level)** in the menu, or start with
 `--log-level`:
 
-`make tui` starts at `debug` (`TUI_LOG_LEVEL`, which `TUI_ARGS` overrides):
+`make tui-debug` starts at `debug`:
 
 ```sh
-make tui TUI_ARGS=--live
-make tui TUI_ARGS=--live TUI_LOG_LEVEL=info
+make tui-debug TUI_ARGS=--live
+make tui TUI_ARGS="--live --log-level info"
 GOWORK=off go run ./cmd/matterctl tui --live --log-level info
 GOWORK=off go run ./cmd/matterctl tui --live --log-level debug --log-file pairing.log
 ```
 
 | Level | Writes |
 | --- | --- |
-| `off` | Nothing (the default of `matterctl tui`; `make tui` starts at `debug`) |
+| `off` | Nothing (the default; `make tui-debug` starts at `debug`) |
 | `info` | The steps of each operation: discovery, PASE, attestation, CSR, AddNOC, CASE, and the start, duration and outcome of each TUI operation. No passcode |
 | `debug` | Also every message sent and received as hex, the decrypted ones included, such as the fabric's IPK in AddNOC |
 
