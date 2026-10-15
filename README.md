@@ -14,16 +14,6 @@ Matter is an open-source connectivity standard for smart home and IoT (Internet 
 
 > **Bundled third-party test credentials.** `matter/credentials/testcreds` contains the public test attestation credentials of the Matter SDK, [project-chip/connectedhomeip](https://github.com/project-chip/connectedhomeip) (Apache License 2.0): the development DAC and PAI for vendor ID 0xFFF1 and product ID 0x8000, the test PAA, and the example Certification Declaration. They are copied unmodified from commit `d305b0761957c960c26c0841e1b50add2365871d`, with the SDK's `LICENSE` and `NOTICE`. See [matter/credentials/testcreds/certs/README.md](matter/credentials/testcreds/certs/README.md) for the source of each file. They are for development and testing only: their private key is public, and commissioners accept them only in development mode.
 
-## Full-screen controller
-
-Run `make tui` for the fictional offline `matterctl tui` dashboard. Live mode
-requires an explicit `--live` option and a valid commissioner fabric, restored
-from the selected store or explicitly created in the UI. Network operations
-require UI confirmation. This initial draft supports saved-device
-menus, manual/QR pairing forms, Descriptor inspection and selected read/On-Off
-controls. See [scope, keys, screenshots and verification](doc/matterctl-tui.md).
-No physical device was commissioned or operated for this implementation.
-
 ## Status
 
 go-matter is a **commissioner (controller)**. It discovers a commissionable device over BLE and mDNS, commissions it onto a fabric, and reads, writes and invokes the clusters of the node afterwards.
@@ -51,10 +41,14 @@ go-matter is a **commissioner (controller)**. It discovers a commissionable devi
 
 ### What is not supported yet
 
-- **Certificate revocation is not checked.** Device attestation is verified against a bundled snapshot of the Distributed Compliance Ledger's PAAs and CD signing keys, refreshed monthly; a PAA approved since the snapshot can be added with `WithCommissionerAttestationTrustStore` (`matterctl pairing --paa-trust-store`).
+- **Certificate revocation is not checked.** Device attestation is verified against a bundled snapshot of the Distributed Compliance Ledger's PAAs and CD signing keys, refreshed monthly; a PAA approved since the snapshot can be added with `WithCommissionerAttestationTrustStore` (`matterctl pairing --paa-trust-store`). `credentials.RevocationChecker` is a hook for a revocation check, which go-matter does not implement yet.
 - Thread commissioning: only the Wi-Fi credentials of a device can be set, with `pairing code-wifi`
+- Multi-admin: opening a commissioning window on a commissioned node (sending OpenCommissioningWindow) so that another ecosystem can join it
+- Timed writes
+- User-directed commissioning (UDC), NFC and Wi-Fi PAF commissioning, Joint Fabric (JCM), ICD (intermittently connected device) clients and an OTA provider
 - Groups, bindings, scenes and OTA software update
 - The clusters which are not listed above
+- The session resumption state lives in memory only, so the first `Connect` after a restart, and the first after commissioning, run a full CASE
 
 ### Releases
 
@@ -73,12 +67,14 @@ go-matter is a **commissioner (controller)**. It discovers a commissionable devi
 | Discovery | `ble.btp` | ✅ Implemented | BLE transport protocol (BTP) implementation |
 |           | `mdns` | ✅ Implemented | mDNS (Multicast DNS) service discovery |
 | Commissioning | `protocol.pase` | ✅ Implemented | Passcode-Authenticated Session Establishment (PASE / SPAKE2+) |
-|               | `protocol.case` | ✅ Implemented | Certificate-Authenticated Session Establishment (CASE) |
+|               | `protocol.case` | ✅ Implemented | Certificate-Authenticated Session Establishment (CASE), with session resumption (Sigma2_Resume) |
 |               | `protocol.session` | ✅ Implemented | Secure session management |
 |               | `credentials` | ✅ Implemented | Device attestation verification (DAC → PAI → PAA, Certification Declaration), CSR, and CA/NOC chain handling |
+|               | `credentials.production` | ✅ Implemented | Bundled snapshot of the DCL's production PAAs and CD signing certificates |
+|               | `credentials.dcl` | ✅ Implemented | DCL REST client which refreshes that snapshot (`make update-production-certs`) |
 |               | `store` | ✅ Implemented | Persistent fabric and commissionee record store |
 |               | `keystore` | ✅ Implemented | Key store for the fabric's private keys: encrypted files, or any `crypto.Signer` (HSM, KMS, TPM) |
-| Interaction Model | `protocol.im` | ✅ Implemented | Read/Write/Invoke Interaction Model transactions, incl. chunked list reassembly |
+| Interaction Model | `protocol.im` | ✅ Implemented | Read/Write/Invoke transactions, incl. chunked list reassembly; attribute and event subscriptions; event reads; exchange multiplexing (`ExchangeMux`) |
 |                    | `protocol.mrp` | ✅ Implemented | Message Reliability Protocol (acknowledgement, counters) |
 | Clusters | `cluster` | ✅ Implemented | Basic Information, Descriptor, General Commissioning/Diagnostics, Network Commissioning, Operational Credentials, Access Control |
 |          | `cluster.onoff` | ✅ Under verification | On/Off cluster client (not yet exercised against a real device) |
@@ -147,6 +143,85 @@ res, err := node.ReadAttribute(endpointID, clusterID, attributeID)
 
 Commissioning bounds the whole PASE-through-CASE exchange with a single deadline, which defaults to `DefaultCommissioningTimeout` (120 seconds): a device commits its new fabric to persistent storage and then re-advertises itself over mDNS before CASE can start, and a shorter deadline expires in the middle of that.
 
+### Device attestation
+
+A commissioner verifies the device attestation of every device it commissions, and refuses one which does not verify with a `credentials.AttestationError`. The mode is set with `WithCommissionerAttestationMode`:
+
+| Mode | Trusts |
+| --- | --- |
+| `matter.AttestationDevelopment` (default) | The production PAAs and CD signing keys of the DCL, bundled in `credentials/production`, and the test PAA and test CD signing key of the Matter SDK, so certified products and self-made test devices both commission |
+| `matter.AttestationProduction` | The production trust anchors only: the test vendor IDs (0xFFF1 to 0xFFF4), development and test Certification Declarations and the SDK's test anchors are rejected |
+| `matter.AttestationNone` | Nothing: only the DAC's signature over the attestation elements and the nonce are checked |
+
+```go
+commissioner := matter.NewCommissioner(
+	matter.WithCommissionerAttestationMode(matter.AttestationProduction),
+)
+```
+
+PAAs and CD signing certificates of your own are added with `WithCommissionerAttestationTrustStore` and `credentials.LoadAttestationTrustStore`. The library itself never reaches the network for them.
+
+### Subscriptions and events
+
+A node from `Connect` reports the attributes and the events it is subscribed to through a callback. The first report (`Priming`) holds every subscribed attribute; the subscription subscribes again when a report is overdue, and moves to a new session when the node's session fails.
+
+```go
+paths := []im.AttributeRequestPath{
+	im.NewAttributeRequestPath(1, 0x0006, 0x0000), // On/Off of endpoint 1
+}
+sub, err := node.(matter.AttributeSubscriber).Subscribe(ctx, paths,
+	func(r *im.Report) {
+		for _, a := range r.Attributes {
+			log.Printf("attribute %v: %v", a.Path, a.Value)
+		}
+		for _, e := range r.Events {
+			log.Printf("event #%d %v at %d", e.EventNumber, e.Path, e.Timestamp)
+		}
+	},
+	im.WithMaxInterval(time.Minute),
+	im.WithEvents(im.NewEventRequestPath(0, 0x0028, 0x0000)), // StartUp of Basic Information
+)
+if err != nil {
+	return err
+}
+defer sub.Close()
+```
+
+The events a node keeps are read with `EventReader`:
+
+```go
+events, err := node.(matter.EventReader).ReadEvents(
+	[]im.EventRequestPath{im.NewEventRequestPath(0, 0x0028, 0x0000)},
+)
+```
+
+### Reconnection
+
+A node from `Connect` lives until it is closed. When a request finds its session failed, it connects again before the request, resuming the last CASE session when the node still knows it (session resumption) and running a full CASE when not; the request itself is not sent again. `Reconnector` does the same on demand:
+
+```go
+if r, ok := node.(matter.Reconnector); ok {
+	if err := r.Reconnect(ctx); err != nil {
+		return err
+	}
+	log.Printf("session resumed: %v", r.Resumed())
+}
+```
+
+### Key store
+
+By default, the fabric's root CA key and the commissioner's operational key are kept in the fabric record of the store. `WithCommissionerKeyStore` keeps them in a `keystore.KeyStore` instead: encrypted files, or an HSM, a cloud KMS or a TPM through `crypto.Signer`.
+
+```go
+ks, err := keystore.NewFileKeyStore(dir, keystore.WithPassphrase(passphrase))
+if err != nil {
+	return err
+}
+commissioner := matter.NewCommissioner(matter.WithCommissionerKeyStore(ks))
+```
+
+`Start` moves the keys an existing fabric record holds into the key store. See [Commissioner Persistent Store](doc/commissioner-store.md#key-store).
+
 ## Command
 
 `matterctl` commissions and operates a device from a terminal. See the [command reference](doc/matterctl.md).
@@ -158,8 +233,23 @@ $ matterctl pairing code-wifi 1 MT:-24J0AFN00KA0648G00 <ssid> <password>
 $ matterctl basicinformation read 1 0
 $ matterctl onoff on 1 1
 $ matterctl any read 0x0006 0x0000 1 1
+$ matterctl any subscribe 0x0006 '*' 1 1
+$ matterctl any read-events 0x0028 '*' 1 0
+$ matterctl any subscribe-events 0x0028 '*' 1 0
 $ matterctl reset
 ```
+
+`matterctl pairing` takes `--attestation development|production|none`, and `--paa-trust-store` / `--cd-trust-store` for trust anchors of your own. The fabric's private keys are kept in an encrypted file key store when the environment variable `MATTER_CTL_KEY_STORE` names its directory and `MATTER_CTL_KEY_STORE_PASSPHRASE` is set; both are read from the environment only.
+
+### Full-screen controller
+
+Run `make tui` for the fictional offline `matterctl tui` dashboard. Live mode
+requires an explicit `--live` option and a valid commissioner fabric, restored
+from the selected store or explicitly created in the UI. Network operations
+require UI confirmation. This initial draft supports saved-device
+menus, manual/QR pairing forms, Descriptor inspection and selected read/On-Off
+controls. See [scope, keys, screenshots and verification](doc/matterctl-tui.md).
+No physical device was commissioned or operated for this implementation.
 
 # User Guides
 
