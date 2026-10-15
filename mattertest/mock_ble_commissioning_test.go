@@ -22,6 +22,7 @@ import (
 
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter"
+	matterble "github.com/cybergarage/go-matter/matter/ble"
 	"github.com/cybergarage/go-matter/matter/config"
 	"github.com/cybergarage/go-matter/matter/encoding"
 	"github.com/cybergarage/go-matter/mattertest/mockdevice"
@@ -53,41 +54,9 @@ func TestMockBLECommissioning(t *testing.T) {
 	log.EnableStdoutDebug(true)
 	defer log.EnableStdoutDebug(false)
 
-	dev, err := mockdevice.New(
-		mockdevice.WithDiscriminator(mockBLECommissioningDiscriminator),
-		mockdevice.WithPasscode(mockBLECommissioningPasscode),
-		mockdevice.WithVendorID(mockBLECommissioningVendorID),
-		mockdevice.WithProductID(mockBLECommissioningProductID),
-	)
-	if err != nil {
-		t.Fatalf("mockdevice.New() error = %v", err)
-	}
-
-	central, handshakeObserver, err := mockdevice.NewFakeBLECentral(dev)
-	if err != nil {
-		t.Fatalf("mockdevice.NewFakeBLECentral() error = %v", err)
-	}
-	defer func() {
-		if err := dev.Stop(); err != nil {
-			t.Errorf("Device.Stop() error = %v", err)
-		}
-	}()
-
-	mpc := buildManualPairingCodeForTest(t, mockBLECommissioningDiscriminator, mockBLECommissioningPasscode, mockBLECommissioningVendorID, mockBLECommissioningProductID)
-	pairingCode, err := encoding.NewPairingCodeFromString(mpc)
-	if err != nil {
-		t.Fatalf("encoding.NewPairingCodeFromString(%q) error = %v", mpc, err)
-	}
-
-	adminCfg, err := NewAdministratorConfig()
-	if err != nil {
-		t.Fatalf("NewAdministratorConfig() error = %v", err)
-	}
-	opCfg := config.NewOperationalCredentialConfig(
-		config.WithIPK(defaultOperationalIPK),
-		config.WithCASEAdminNodeID(testAdministratorNodeID),
-		config.WithAdminVendorID(defaultAdminVendorID),
-	)
+	f := newMockBLECommissioningFixture(t)
+	dev, handshakeObserver := f.dev, f.observer
+	pairingCode, adminCfg, opCfg := f.pairingCode, f.adminCfg, f.opCfg
 	// The BLE transport unconditionally requires Wi-Fi network config
 	// (matter/device_ble.go's Commission passes requireNetwork=true to
 	// commissionNetwork) — mockdevice's registerNetworkCommissioningHandlers
@@ -98,23 +67,7 @@ func TestMockBLECommissioning(t *testing.T) {
 		config.WithCredentials([]byte("mock-password")),
 	)
 
-	storeDir := t.TempDir()
-	cmr := matter.NewCommissioner(
-		matter.WithCommissionerCentral(central),
-		matter.WithCommissionerDiscoverer(mockdevice.NewFakeOperationalDiscoverer(dev)),
-		matter.WithCommissionerStoreDir(storeDir),
-		// The mock device attests with a self-signed DAC which no PAA
-		// issued, so only its signature can be verified.
-		matter.WithCommissionerAttestationMode(matter.AttestationNone),
-	)
-	if err := cmr.Start(); err != nil {
-		t.Fatalf("Commissioner.Start() error = %v", err)
-	}
-	defer func() {
-		if err := cmr.Stop(); err != nil {
-			t.Errorf("Commissioner.Stop() error = %v", err)
-		}
-	}()
+	cmr := f.startCommissioner(t)
 
 	// See mock_commissioning_test.go's matching comment: the fake central
 	// answers Scan immediately, so a short deadline is enough for
@@ -150,6 +103,35 @@ func TestMockBLECommissioning(t *testing.T) {
 // not commissioned without the Wi-Fi credentials to give it, and that the
 // commissioner refuses before connecting to it, not after AddNOC.
 func TestMockBLECommissioningRequiresWiFi(t *testing.T) {
+	f := newMockBLECommissioningFixture(t)
+	dev := f.dev
+	cmr := f.startCommissioner(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if _, err := cmr.Commission(ctx, f.pairingCode, f.adminCfg, f.opCfg); !errors.Is(err, matter.ErrWiFiNetworkRequired) {
+		t.Fatalf("Commission() without Wi-Fi credentials error = %v, want %v", err, matter.ErrWiFiNetworkRequired)
+	}
+	select {
+	case <-dev.CommissioningCompleted():
+		t.Error("the device was commissioned without Wi-Fi credentials")
+	default:
+	}
+}
+
+// mockBLECommissioningFixture is a simulated BLE device and what a
+// commissioner needs to commission it, but for the Wi-Fi credentials.
+type mockBLECommissioningFixture struct {
+	dev         *mockdevice.Device
+	central     matterble.Central
+	observer    mockdevice.BLEHandshakeObserver
+	pairingCode encoding.PairingCode
+	adminCfg    config.AdministratorConfig
+	opCfg       config.OperationalCredentialsConfig
+}
+
+func newMockBLECommissioningFixture(t *testing.T) mockBLECommissioningFixture {
+	t.Helper()
 	dev, err := mockdevice.New(
 		mockdevice.WithDiscriminator(mockBLECommissioningDiscriminator),
 		mockdevice.WithPasscode(mockBLECommissioningPasscode),
@@ -159,16 +141,15 @@ func TestMockBLECommissioningRequiresWiFi(t *testing.T) {
 	if err != nil {
 		t.Fatalf("mockdevice.New() error = %v", err)
 	}
-	central, _, err := mockdevice.NewFakeBLECentral(dev)
+	central, observer, err := mockdevice.NewFakeBLECentral(dev)
 	if err != nil {
 		t.Fatalf("mockdevice.NewFakeBLECentral() error = %v", err)
 	}
-	defer func() {
+	t.Cleanup(func() {
 		if err := dev.Stop(); err != nil {
 			t.Errorf("Device.Stop() error = %v", err)
 		}
-	}()
-
+	})
 	mpc := buildManualPairingCodeForTest(t, mockBLECommissioningDiscriminator, mockBLECommissioningPasscode, mockBLECommissioningVendorID, mockBLECommissioningProductID)
 	pairingCode, err := encoding.NewPairingCodeFromString(mpc)
 	if err != nil {
@@ -183,30 +164,28 @@ func TestMockBLECommissioningRequiresWiFi(t *testing.T) {
 		config.WithCASEAdminNodeID(testAdministratorNodeID),
 		config.WithAdminVendorID(defaultAdminVendorID),
 	)
+	return mockBLECommissioningFixture{dev: dev, central: central, observer: observer, pairingCode: pairingCode, adminCfg: adminCfg, opCfg: opCfg}
+}
 
+// startCommissioner starts a commissioner which reaches the device through
+// the simulated BLE central, stopped when the test ends.
+func (f mockBLECommissioningFixture) startCommissioner(t *testing.T) matter.Commissioner {
+	t.Helper()
 	cmr := matter.NewCommissioner(
-		matter.WithCommissionerCentral(central),
-		matter.WithCommissionerDiscoverer(mockdevice.NewFakeOperationalDiscoverer(dev)),
+		matter.WithCommissionerCentral(f.central),
+		matter.WithCommissionerDiscoverer(mockdevice.NewFakeOperationalDiscoverer(f.dev)),
 		matter.WithCommissionerStoreDir(t.TempDir()),
+		// The mock device attests with a self-signed DAC which no PAA
+		// issued, so only its signature can be verified.
 		matter.WithCommissionerAttestationMode(matter.AttestationNone),
 	)
 	if err := cmr.Start(); err != nil {
 		t.Fatalf("Commissioner.Start() error = %v", err)
 	}
-	defer func() {
+	t.Cleanup(func() {
 		if err := cmr.Stop(); err != nil {
 			t.Errorf("Commissioner.Stop() error = %v", err)
 		}
-	}()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	if _, err := cmr.Commission(ctx, pairingCode, adminCfg, opCfg); !errors.Is(err, matter.ErrWiFiNetworkRequired) {
-		t.Fatalf("Commission() without Wi-Fi credentials error = %v, want %v", err, matter.ErrWiFiNetworkRequired)
-	}
-	select {
-	case <-dev.CommissioningCompleted():
-		t.Error("the device was commissioned without Wi-Fi credentials")
-	default:
-	}
+	})
+	return cmr
 }

@@ -27,7 +27,7 @@ func TestParseWiFi(t *testing.T) {
 	if err != nil || string(w.SSID) != "home-ap" || string(w.Password) != fixturePassword {
 		t.Fatalf("valid Wi-Fi rejected: %v", err)
 	}
-	if _, err := ParseWiFi("home-ap", strings.Repeat("a", 64)); err == nil {
+	if _, err := ParseWiFi("home-ap", strings.Repeat("z", 64)); err == nil {
 		t.Fatal("a 64-character passphrase which is no hexadecimal PSK accepted")
 	}
 	if _, err := ParseWiFi("home-ap", strings.Repeat("ab", 32)); err != nil {
