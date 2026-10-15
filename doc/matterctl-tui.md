@@ -67,8 +67,9 @@ GOWORK=off go run ./cmd/matterctl tui --live --log-level debug --log-file pairin
 
 The log is written to `matterctl-YYYYMMDD-HHMMSS.log` in the directory
 `matterctl tui` was started from, unless `--log-file` names another file, with
-mode `0600`; an existing file is appended to. Turning the log off and on again
-keeps writing to the same file. The last lines are shown in a panel under the
+mode `0600`; an existing file is appended to and set to `0600`. Each line starts
+with a timestamp in milliseconds. Turning the log off and on again keeps writing
+to the same file. The last lines are shown in a panel under the
 other panels; `l` shows the log full screen, where the arrows and PgUp/PgDn
 scroll and End follows the end again. On exit, the file's path is printed.
 

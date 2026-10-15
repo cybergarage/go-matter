@@ -49,7 +49,7 @@ func Command() *cobra.Command {
 				}
 			}
 			defer func() {
-				sink.Disable()
+				_ = sink.Close()
 				if path := sink.Path(); path != "" {
 					fmt.Fprintln(os.Stderr, "matterctl tui: log written to "+path)
 				}

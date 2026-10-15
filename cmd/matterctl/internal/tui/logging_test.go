@@ -6,6 +6,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -37,6 +38,7 @@ func TestLogSinkWritesFileAndReadsItBack(t *testing.T) {
 	t.Cleanup(func() { log.SetDefault(nil) })
 	path := filepath.Join(t.TempDir(), DefaultLogFileName(time.Now()))
 	sink := &logSink{}
+	t.Cleanup(func() { _ = sink.Close() })
 	if err := sink.Enable(LogInfo, path); err != nil {
 		t.Fatal(err)
 	}
@@ -73,6 +75,70 @@ func TestLogSinkWritesFileAndReadsItBack(t *testing.T) {
 	if sink.Path() != path {
 		t.Fatal("Disable must keep the file for the panel")
 	}
+	if err := sink.Close(); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The file has every line, with millisecond timestamps.
+	if !regexp.MustCompile(`(?m)^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} \[INFO\] tui: first line$`).Match(b) ||
+		!strings.Contains(string(b), "[ERROR] tui: second line") || !strings.Contains(string(b), "log level OFF") {
+		t.Fatalf("unexpected log file: %q", b)
+	}
+}
+
+func TestLogSinkChangesLevelOnTheSameFile(t *testing.T) {
+	t.Cleanup(func() { log.SetDefault(nil) })
+	path := filepath.Join(t.TempDir(), "level.log")
+	sink := &logSink{}
+	t.Cleanup(func() { _ = sink.Close() })
+	if err := sink.Enable(LogInfo, path); err != nil {
+		t.Fatal(err)
+	}
+	log.Debugf("hidden debug line")
+	if err := sink.Enable(LogDebug, path); err != nil {
+		t.Fatal(err)
+	}
+	log.Debugf("shown debug line")
+	sink.Disable()
+	log.Infof("line while off")
+	if err := sink.Enable(LogInfo, path); err != nil {
+		t.Fatal(err)
+	}
+	log.Infof("line after on again")
+	if err := sink.Close(); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(b)
+	if strings.Contains(text, "hidden debug line") || !strings.Contains(text, "shown debug line") ||
+		strings.Contains(text, "line while off") || !strings.Contains(text, "line after on again") {
+		t.Fatalf("unexpected log file: %q", text)
+	}
+	if strings.Count(text, "log level INFO") != 2 || strings.Count(text, "log level DEBUG") != 1 {
+		t.Fatalf("level changes not logged: %q", text)
+	}
+}
+
+func TestLogPanelBufferIsBounded(t *testing.T) {
+	sink := &logSink{}
+	w := panelWriter{sink}
+	line := []byte(strings.Repeat("x", 1023) + "\n")
+	for range 3 * logPendingMax / len(line) {
+		_, _ = w.Write(line)
+	}
+	text, _ := sink.ReadNew()
+	if len(text) != logPendingMax {
+		t.Fatalf("panel buffer %d bytes, want %d", len(text), logPendingMax)
+	}
+	if text, _ := sink.ReadNew(); text != "" {
+		t.Fatal("ReadNew must return what is new only")
+	}
 }
 
 func TestLogFileKeepsItsModeWhenItExists(t *testing.T) {
@@ -88,7 +154,7 @@ func TestLogFileKeepsItsModeWhenItExists(t *testing.T) {
 	if err := sink.Enable(LogDebug, path); err != nil {
 		t.Fatal(err)
 	}
-	sink.Disable()
+	_ = sink.Close()
 	info, err := os.Stat(path)
 	if err != nil {
 		t.Fatal(err)
@@ -106,8 +172,9 @@ func TestLogFromMenuShowsPanelAndOperations(t *testing.T) {
 	}
 	s.SetSize(110, 32)
 	dir := t.TempDir()
-	u := newUIWithLog(&Demo{}, "OFFLINE FIXTURE — fictional devices / no network", s, &logSink{}, dir)
-	t.Cleanup(func() { u.rootCancel(); s.Fini() })
+	sink := &logSink{}
+	u := newUIWithLog(&Demo{}, "OFFLINE FIXTURE — fictional devices / no network", s, sink, dir)
+	t.Cleanup(func() { u.rootCancel(); s.Fini(); _ = sink.Close() })
 	if u.root.GetItemCount() != 3 {
 		t.Fatal("no log panel is shown before the log is turned on")
 	}

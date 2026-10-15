@@ -76,6 +76,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- go-logger v1.4.0. The log of `matterctl tui` has millisecond timestamps, and is written to its file and its panel at once through `log.NewWriterLogger`, instead of the panel reading the file back.
 - In the forms and dialogs of `matterctl tui`, the action (Validate, Send, Confirm) comes first, with the focus, and Cancel last. The pairing field shows the code as typed instead of masking it.
 - `config.AdministratorConfig` has `Signer` and `RootSigner`, which an implementation of its own must add; they return false when the keys are bytes. `store.FabricRecord` omits `rootPrivateKey` and `privateKey` when they are empty, as they are when a key store keeps the keys.
 - A node from `Commissioner.Connect` lives until it is closed: its session is read by an `im.ExchangeMux`, which times each response out after `DefaultResponseTimeout`, instead of failing every request once the connect deadline passed. `Node.Session()` returns the mux.
