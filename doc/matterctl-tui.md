@@ -1,4 +1,4 @@
-# matterctl full-screen controller (initial draft)
+# matterctl full-screen controller
 
 This first stage adds `matterctl tui`, with tview/tcell code confined to
 `cmd/matterctl/internal/tui`. Existing CLI commands remain available. Library changes add explicit local identity generation/validation and exclusive initial
@@ -326,8 +326,8 @@ previous value; failed reloads keep no previously saved-node routes.
 These are actual tcell SimulationScreen captures rendered from cells with a
 monospace font. Both layouts remain scrollable via focus and arrow keys; a small
 terminal cannot show every metadata line simultaneously. Tests use only Demo,
-fake nodes and read-only fake inventory sources. No physical device, discovery,
-Fabric, permission or signing operation was performed for this stage. SET and
+fake nodes and read-only fake inventory sources. The tests perform no discovery,
+Fabric, permission or signing operation on a physical device. SET and
 new Invoke forms remain stage 3; existing confirmed On/Off Invoke is unchanged.
 
 Stage-1 PR #14 and stage-2 PR #15 are merged into main. Their combined
