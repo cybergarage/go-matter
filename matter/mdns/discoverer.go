@@ -24,6 +24,13 @@ const (
 )
 
 // Discoverer represents a discoverer for commissionable Nodes.
+// UntilSearcher is implemented by a Discoverer which can end a search at
+// the first response that gives the node it looks for, as the Discoverer of
+// NewDiscoverer does. A caller falls back to Search otherwise.
+type UntilSearcher interface {
+	SearchUntil(ctx context.Context, query Query, accept func(CommissionableNode) bool) ([]CommissionableNode, error)
+}
+
 type Discoverer interface {
 	// Search searches commissionable Nodes.
 	// 4.3. Discovery

@@ -15,6 +15,7 @@
 package matter
 
 import (
+	"context"
 	"net"
 	"testing"
 
@@ -69,5 +70,51 @@ func TestSelectOperationalNode(t *testing.T) {
 	}
 	if _, ok := selectOperationalNode(nil, instance); ok {
 		t.Fatal("no node selected from no responses")
+	}
+}
+
+// untilDiscoverer answers a SearchUntil with its responses, stopping at the
+// first one accept takes, and fails a Search.
+type untilDiscoverer struct {
+	mdnspkg.Discoverer
+	t         *testing.T
+	responses []mdnspkg.CommissionableNode
+	offered   int
+}
+
+func (d *untilDiscoverer) Search(context.Context, mdnspkg.Query) ([]mdnspkg.CommissionableNode, error) {
+	d.t.Fatal("Search used although the discoverer can end a search early")
+	return nil, nil
+}
+
+func (d *untilDiscoverer) SearchUntil(_ context.Context, _ mdnspkg.Query, accept func(mdnspkg.CommissionableNode) bool) ([]mdnspkg.CommissionableNode, error) {
+	var seen []mdnspkg.CommissionableNode
+	for _, node := range d.responses {
+		d.offered++
+		seen = append(seen, node)
+		if accept(node) {
+			break
+		}
+	}
+	return seen, nil
+}
+
+func TestSearchOperationalNodesEndsAtTheFirstUsableResponse(t *testing.T) {
+	const instance = "743205D875DE5E8E-B6C144BE822A44BA"
+	addr := []net.IP{net.ParseIP("192.168.100.49")}
+	noAddress := &namedOperationalNode{stubOperationalNode{port: 5540, addrs: []net.IP{net.IPv4zero}}, instance + "._matter._tcp"}
+	usable := &namedOperationalNode{stubOperationalNode{port: 5540, addrs: addr}, instance + "._matter._tcp"}
+	later := &namedOperationalNode{stubOperationalNode{port: 5540, addrs: addr}, instance + "._matter._tcp"}
+	d := &untilDiscoverer{t: t, responses: []mdnspkg.CommissionableNode{noAddress, usable, later}}
+
+	nodes, err := searchOperationalNodes(context.Background(), d, instance)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.offered != 2 {
+		t.Fatalf("the search went on after a usable response: %d responses offered", d.offered)
+	}
+	if node, ok := selectOperationalNode(nodes, instance); !ok || node != usable {
+		t.Fatal("the usable response was not selected")
 	}
 }

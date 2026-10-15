@@ -497,7 +497,7 @@ func discoverOperationalNode(
 	// commissioning ctx is exhausted instead of giving up after the first.
 	for {
 		searchCtx, cancel := context.WithTimeout(ctx, DefaultDiscoveryTimeout)
-		nodes, err := discoverer.Search(searchCtx, mdnspkg.NewOperationalNodeQuery(peer.serviceInstance))
+		nodes, err := searchOperationalNodes(searchCtx, discoverer, peer.serviceInstance)
 		cancel()
 		if err != nil {
 			return nil, fmt.Errorf("commissioning: operational discovery failed: %w", err)
@@ -512,6 +512,22 @@ func discoverOperationalNode(
 			return nil, fmt.Errorf("commissioning: operational discovery timeout: no operational node found")
 		}
 	}
+}
+
+// searchOperationalNodes searches for the operational service instance,
+// ending the search at the first response which selectOperationalNode
+// takes when the discoverer can (mdnspkg.UntilSearcher): a node answers
+// in milliseconds, and a search otherwise lasts for its whole timeout,
+// which every Commissioner.Connect waited for.
+func searchOperationalNodes(ctx context.Context, discoverer mdnspkg.Discoverer, serviceInstance string) ([]mdnspkg.CommissionableNode, error) {
+	query := mdnspkg.NewOperationalNodeQuery(serviceInstance)
+	if until, ok := discoverer.(mdnspkg.UntilSearcher); ok {
+		return until.SearchUntil(ctx, query, func(node mdnspkg.CommissionableNode) bool {
+			_, ok := selectOperationalNode([]mdnspkg.CommissionableNode{node}, serviceInstance)
+			return ok
+		})
+	}
+	return discoverer.Search(ctx, query)
 }
 
 // selectOperationalNode picks the node to run CASE with among the responses
