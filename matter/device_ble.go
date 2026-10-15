@@ -103,6 +103,15 @@ func (dev *bleDevice) Commission(ctx context.Context, payload OnboardingPayload,
 		return CommissionedIdentity{}, err
 	}
 
+	// A device found over BLE has no operational network yet, and the
+	// Network Commissioning step needs the credentials to give it one.
+	// Refuse before connecting, rather than after AddNOC has written the
+	// fabric to the device under the fail-safe.
+	if _, ok := dev.WiFiNetworkConfig(); !ok {
+		log.Errorf("Not commissioning device (%s): %v", dev.String(), ErrWiFiNetworkRequired)
+		return CommissionedIdentity{}, ErrWiFiNetworkRequired
+	}
+
 	if err := dev.Connect(ctx); err != nil {
 		log.Errorf("Failed to connect to device (%s): %v", dev.String(), err)
 		return CommissionedIdentity{}, err

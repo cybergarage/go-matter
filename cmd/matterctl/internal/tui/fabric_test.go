@@ -136,3 +136,20 @@ func TestRestoredReservedVendorBlocksStartup(t *testing.T) {
 		}
 	}
 }
+
+func TestParseVendorReadsHexadecimal(t *testing.T) {
+	for _, s := range []string{"0xFFF1", "0XFFF1", "FFF1", "fff1", " 0xFFF1 ", "\tFFF1\n"} {
+		v, err := parseVendor(s)
+		if err != nil || v != 0xFFF1 {
+			t.Fatalf("parseVendor(%q) = 0x%04X, %v; want 0xFFF1", s, v, err)
+		}
+	}
+	if v, err := parseVendor("1234"); err != nil || v != 0x1234 {
+		t.Fatalf("parseVendor(\"1234\") = 0x%04X, %v; want hexadecimal 0x1234", v, err)
+	}
+	for _, s := range []string{"", " ", "0x", "0", "0x0000", "FFF5", "FFFF", "65521", "10000", "0xFF_F1", "-1", "+FFF1", "0xFFF1x"} {
+		if v, err := parseVendor(s); err == nil {
+			t.Fatalf("parseVendor(%q) = 0x%04X accepted", s, v)
+		}
+	}
+}

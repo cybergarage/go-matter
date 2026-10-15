@@ -329,10 +329,19 @@ func (cmr *commissioner) Commission(ctx context.Context, payload OnboardingPaylo
 func (cmr *commissioner) commissionMatchingDevice(ctx context.Context, payload OnboardingPayload, devs []CommissionableDevice, opts ...CommissionOption) (Commissionee, error) {
 	opts = cmr.commissionOptions(opts...)
 	adminCfg, operationalCfg := effectiveConfigOptions(opts)
-	for _, dev := range devs {
+	hasWiFi := hasWiFiNetworkConfig(opts)
+	skippedBLE := false
+	for _, dev := range orderCommissionableDevices(devs, hasWiFi) {
 		isMatched := dev.MatchesOnboardingPayload(payload)
 		if !isMatched {
 			log.Infof("Skipping device (does not match payload): %s", dev.String())
+			continue
+		}
+		// A device found over BLE joins no operational network without
+		// Wi-Fi credentials; one found over mDNS is on one already.
+		if _, isBLE := dev.(*bleDevice); isBLE && !hasWiFi {
+			log.Infof("Skipping device found over BLE (no Wi-Fi credentials to give it): %s", dev.String())
+			skippedBLE = true
 			continue
 		}
 		log.Infof("Trying to commission device: %s", dev.String())
@@ -350,7 +359,41 @@ func (cmr *commissioner) commissionMatchingDevice(ctx context.Context, payload O
 		return newCommissioneeWithIdentity(dev, identity), nil
 	}
 
+	if skippedBLE {
+		return nil, fmt.Errorf("%w: the device was found over BLE only: %w", ErrNotFound, ErrWiFiNetworkRequired)
+	}
 	return nil, fmt.Errorf("%w: no matching commissionable device found", ErrNotFound)
+}
+
+// hasWiFiNetworkConfig reports whether opts give Wi-Fi network credentials.
+func hasWiFiNetworkConfig(opts []CommissionOption) bool {
+	for _, opt := range opts {
+		if cfg, ok := opt.(config.WiFiNetworkConfig); ok && cfg != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// orderCommissionableDevices puts the devices found over BLE first when
+// Wi-Fi credentials are given, since they are for a device which is not on
+// the network yet, and keeps the order of discovery otherwise.
+func orderCommissionableDevices(devs []CommissionableDevice, hasWiFi bool) []CommissionableDevice {
+	if !hasWiFi {
+		return devs
+	}
+	ordered := make([]CommissionableDevice, 0, len(devs))
+	for _, dev := range devs {
+		if _, isBLE := dev.(*bleDevice); isBLE {
+			ordered = append(ordered, dev)
+		}
+	}
+	for _, dev := range devs {
+		if _, isBLE := dev.(*bleDevice); !isBLE {
+			ordered = append(ordered, dev)
+		}
+	}
+	return ordered
 }
 
 // Connect reconnects to an already-commissioned node via a CASE handshake,

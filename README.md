@@ -42,7 +42,7 @@ go-matter is a **commissioner (controller)**. It discovers a commissionable devi
 ### What is not supported yet
 
 - **Certificate revocation is not checked.** Device attestation is verified against a bundled snapshot of the Distributed Compliance Ledger's PAAs and CD signing keys, refreshed monthly; a PAA approved since the snapshot can be added with `WithCommissionerAttestationTrustStore` (`matterctl pairing --paa-trust-store`). `credentials.RevocationChecker` is a hook for a revocation check, which go-matter does not implement yet.
-- Thread commissioning: only the Wi-Fi credentials of a device can be set, with `pairing code-wifi`
+- Thread commissioning: only the Wi-Fi credentials of a device can be set, with `pairing code-wifi` or the Wi-Fi fields of the TUI's Pair device
 - Multi-admin: opening a commissioning window on a commissioned node (sending OpenCommissioningWindow) so that another ecosystem can join it
 - Timed writes
 - User-directed commissioning (UDC), NFC and Wi-Fi PAF commissioning, Joint Fabric (JCM), ICD (intermittently connected device) clients and an OTA provider

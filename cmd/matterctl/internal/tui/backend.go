@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/cybergarage/go-matter/matter"
+	"github.com/cybergarage/go-matter/matter/config"
 	"github.com/cybergarage/go-matter/matter/credentials"
 	"github.com/cybergarage/go-matter/matter/encoding"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
@@ -59,8 +60,56 @@ type Backend interface {
 	Inspect(context.Context, uint64) (Result, error)
 	Read(context.Context, uint64, Path) (Result, error)
 	Invoke(context.Context, uint64, Path, im.CommandID) (Result, error)
-	Pair(context.Context, encoding.OnboardingPayload) (Result, error)
+	// Pair commissions the device of the payload; wifi, when not nil, is
+	// given to a device found over BLE to join the network.
+	Pair(context.Context, encoding.OnboardingPayload, *WiFiCredentials) (Result, error)
 	Close() error
+}
+
+// WiFiCredentials are the network a device found over BLE joins
+// (11.8.7.3. AddOrUpdateWiFiNetwork).
+type WiFiCredentials struct {
+	SSID     []byte
+	Password []byte
+}
+
+// Wi-Fi limits of the Network Commissioning cluster (11.8.7.3): an SSID of
+// up to 32 octets, and a passphrase of 8 to 63 characters or a 64-hex-digit
+// PSK. Open networks are not supported by the commissioner.
+const (
+	maxWiFiSSIDLen     = 32
+	minWiFiPasswordLen = 8
+	maxWiFiPasswordLen = 64
+)
+
+func isHex(s string) bool {
+	for _, r := range s {
+		if !strings.ContainsRune("0123456789abcdefABCDEF", r) {
+			return false
+		}
+	}
+	return true
+}
+
+// ParseWiFi checks the optional Wi-Fi fields of the pairing form: both
+// empty for a device already on the network, both set for one found over
+// BLE. The errors never echo the password.
+func ParseWiFi(ssid, password string) (*WiFiCredentials, error) {
+	switch {
+	case ssid == "" && password == "":
+		return nil, nil
+	case ssid == "":
+		return nil, errors.New("enter the Wi-Fi SSID too, or leave both Wi-Fi fields empty")
+	case password == "":
+		return nil, errors.New("enter the Wi-Fi password too (open networks are not supported), or leave both Wi-Fi fields empty")
+	case len(ssid) > maxWiFiSSIDLen:
+		return nil, fmt.Errorf("the Wi-Fi SSID is %d bytes; at most %d", len(ssid), maxWiFiSSIDLen)
+	case len(password) < minWiFiPasswordLen || len(password) > maxWiFiPasswordLen:
+		return nil, fmt.Errorf("the Wi-Fi password must be %d to %d characters", minWiFiPasswordLen, maxWiFiPasswordLen)
+	case len(password) == maxWiFiPasswordLen && !isHex(password):
+		return nil, errors.New("a 64-character Wi-Fi password must be a hexadecimal PSK; a passphrase has at most 63 characters")
+	}
+	return &WiFiCredentials{SSID: []byte(ssid), Password: []byte(password)}, nil
 }
 
 // ParsePayload deliberately rejects arbitrary characters, hides decoder errors, and
@@ -496,7 +545,7 @@ func invokeNode(n matter.Node, p Path, c im.CommandID) (Result, error) {
 func (b *Live) Invoke(ctx context.Context, id uint64, p Path, c im.CommandID) (Result, error) {
 	return b.withNode(ctx, id, func(n matter.Node) (Result, error) { return invokeNode(n, p, c) })
 }
-func (b *Live) Pair(ctx context.Context, p encoding.OnboardingPayload) (Result, error) {
+func (b *Live) Pair(ctx context.Context, p encoding.OnboardingPayload, wifi *WiFiCredentials) (Result, error) {
 	rec, ok, err := b.st.LoadFabric()
 	if err != nil || !ok || validFabric(rec, b.ks) != nil {
 		return Result{}, errors.New("pairing requires a valid fabric in this store; choose Create new fabric when absent")
@@ -508,10 +557,17 @@ func (b *Live) Pair(ctx context.Context, p encoding.OnboardingPayload) (Result, 
 		return Result{}, err
 	}
 	b.st.reset()
-	c, err := b.cmr.Commission(ctx, p)
+	var opts []matter.CommissionOption
+	if wifi != nil {
+		opts = append(opts, config.NewWiFiNetworkConfig(config.WithSSID(wifi.SSID), config.WithCredentials(wifi.Password)))
+	}
+	c, err := b.cmr.Commission(ctx, p, opts...)
 	if err != nil {
 		if ctx.Err() != nil {
 			return Result{}, ctx.Err()
+		}
+		if errors.Is(err, matter.ErrWiFiNetworkRequired) {
+			return Result{}, errors.New("the device was found over Bluetooth only, so it is not on the network yet: enter the Wi-Fi SSID and password it is to join. Nothing was sent to the device")
 		}
 		// The cause names the stage which failed (discovery, PASE,
 		// attestation, CSR, AddNOC, CASE); it holds no passcode.
@@ -621,7 +677,7 @@ func (b *Demo) Invoke(ctx context.Context, id uint64, p Path, c im.CommandID) (R
 	r.Message = "OFFLINE FIXTURE / INVOKE ACKNOWLEDGED\n" + r.Message
 	return r, e
 }
-func (b *Demo) Pair(ctx context.Context, _ encoding.OnboardingPayload) (Result, error) {
+func (b *Demo) Pair(ctx context.Context, _ encoding.OnboardingPayload, _ *WiFiCredentials) (Result, error) {
 	if err := ctx.Err(); err != nil {
 		return Result{}, err
 	}

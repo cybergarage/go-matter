@@ -15,6 +15,8 @@
 package matter
 
 import (
+	stderrors "errors"
+
 	"github.com/cybergarage/go-matter/matter/errors"
 )
 
@@ -23,4 +25,9 @@ var (
 	ErrNotFound = errors.ErrNotFound
 	// ErrFailed is returned when an operation fails.
 	ErrFailed = errors.ErrFailed
+	// ErrWiFiNetworkRequired is returned when a device found over BLE is
+	// commissioned without the Wi-Fi network credentials to give it: it
+	// joins no operational network otherwise (5.5. Commissioning Flows,
+	// steps 12-13).
+	ErrWiFiNetworkRequired = stderrors.New("commissioning over BLE requires the Wi-Fi network credentials")
 )

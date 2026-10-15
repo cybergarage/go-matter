@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/cybergarage/go-matter/matter"
 	"github.com/cybergarage/go-matter/matter/credentials"
@@ -60,10 +61,17 @@ func validFabric(r store.FabricRecord, ks keystore.KeyStore) error {
 	}
 	return credentials.ValidateControllerIdentity(identityFromRecord(r, ks))
 }
+
+// parseVendor reads a vendor ID in hexadecimal, as Matter writes them
+// (2.5.2. Vendor Identifier), with or without 0x and surrounding spaces:
+// "0xFFF1", "FFF1" and " fff1 " are all 0xFFF1. Decimal is not accepted,
+// since "1234" could be either.
 func parseVendor(s string) (uint16, error) {
-	n, err := strconv.ParseUint(s, 0, 16)
-	if err != nil || n == 0 || n > 0xFFF4 {
-		return 0, errors.New("enter a nonzero assigned vendor ID, or a Matter test vendor ID (0xFFF1–0xFFF4) for development")
+	s = strings.TrimSpace(s)
+	digits := strings.TrimPrefix(strings.TrimPrefix(s, "0x"), "0X")
+	n, err := strconv.ParseUint(digits, 16, 16)
+	if digits == "" || err != nil || n == 0 || n > 0xFFF4 {
+		return 0, errors.New("enter a nonzero hexadecimal vendor ID (0x optional), such as your assigned one, or a Matter test vendor ID 0xFFF1–0xFFF4 for development")
 	}
 	return uint16(n), nil
 }

@@ -471,25 +471,45 @@ func (u *UI) pairForm() {
 	if u.busy {
 		return
 	}
-	field := tview.NewInputField().SetLabel("Code / MT: ").SetFieldWidth(30)
-	note := tview.NewTextView().SetText("Manual 11/21 digits or MT: QR text. The code is not written to the log.\nExisting fabric required in LIVE mode; no Wi-Fi provisioning.\nPairing changes persistent device access. Cancel may leave an uncertain outcome.")
-	form := tview.NewForm().AddFormItem(field)
+	field := tview.NewInputField().SetLabel("Code / MT:     ").SetFieldWidth(30)
+	ssidField := tview.NewInputField().SetLabel("Wi-Fi SSID:    ").SetFieldWidth(32)
+	passwordField := tview.NewInputField().SetLabel("Wi-Fi password: ").SetFieldWidth(32).SetMaskCharacter('*')
+	note := tview.NewTextView().SetText("Code: manual 11/21 digits or MT: QR text (required).\nWi-Fi: leave both empty for a device on the network (IP); enter both for a new device found over Bluetooth.\nThe code and the password are not written to the log. Cancel may leave an uncertain outcome.")
+	form := tview.NewForm().AddFormItem(field).AddFormItem(ssidField).AddFormItem(passwordField)
+	clearFields := func() {
+		field.SetText("")
+		ssidField.SetText("")
+		passwordField.SetText("")
+	}
 	validate := func() {
+		// Neither error echoes the code or the password, so both can be logged.
 		p, err := ParsePayload(field.GetText())
 		if err != nil {
+			tuiLogf("pair device: code not accepted: %v", err)
 			note.SetText(err.Error())
 			return
 		}
-		field.SetText("")
+		wifi, err := ParseWiFi(ssidField.GetText(), passwordField.GetText())
+		if err != nil {
+			tuiLogf("pair device: Wi-Fi not accepted: %v", err)
+			note.SetText(err.Error())
+			return
+		}
+		clearFields()
 		u.closeDialog()
-		u.confirm("Valid standard onboarding payload. Commission into this controller's fabric?\nDo not repeat after an uncertain outcome. No credential is shown.", func() {
-			u.startOp("pair device", false, 120*time.Second, func(ctx context.Context) (Result, error) { return u.backend.Pair(ctx, p) })
+		label, how := "pair device over IP", "over the IP network (no Wi-Fi given)"
+		if wifi != nil {
+			label = fmt.Sprintf("pair device with Wi-Fi SSID %q", wifi.SSID)
+			how = fmt.Sprintf("over Bluetooth first, giving it Wi-Fi SSID %q", wifi.SSID)
+		}
+		u.confirm("Valid standard onboarding payload. Commission into this controller's fabric "+how+"?\nDo not repeat after an uncertain outcome. No credential is shown.", func() {
+			u.startOp(label, false, 120*time.Second, func(ctx context.Context) (Result, error) { return u.backend.Pair(ctx, p, wifi) })
 		})
 	}
-	form.AddButton("Validate", validate).AddButton("Cancel", func() { field.SetText(""); u.closeDialog() })
+	form.AddButton("Validate", validate).AddButton("Cancel", func() { clearFields(); u.closeDialog() })
 	// Enter in the field moves to Validate, which Enter then presses.
 	form.SetFocus(0)
-	box := tview.NewFlex().SetDirection(tview.FlexRow).AddItem(note, 5, 0, false).AddItem(form, 0, 1, true)
+	box := tview.NewFlex().SetDirection(tview.FlexRow).AddItem(note, 6, 0, false).AddItem(form, 0, 1, true)
 	box.SetBorder(true).SetTitle(" Pair device ")
 	// Flex auto-resizes forms with the terminal and preserves widget state.
 	u.dialog = true
@@ -652,16 +672,17 @@ func (u *UI) fabricForm() {
 		return
 	}
 	field := tview.NewInputField().SetLabel("Admin vendor ID: ").SetFieldWidth(12)
-	note := tview.NewTextView().SetText("Create a local controller identity; no network operation.\nIDs are automatic. Existing identity is never replaced.\nEnter your assigned vendor ID; 0xFFF1–0xFFF4 are development test IDs.\nKeys/IPK are stored locally, never displayed. Keep the store private.")
+	note := tview.NewTextView().SetText("Create a local controller identity; no network operation.\nIDs are automatic. Existing identity is never replaced.\nEnter your assigned vendor ID in hexadecimal (FFF1 or 0xFFF1); 0xFFF1–0xFFF4 are development test IDs.\nKeys/IPK are stored locally, never displayed. Keep the store private.")
 	form := tview.NewForm().AddFormItem(field)
 	validate := func() {
 		vendor, err := parseVendor(field.GetText())
 		if err != nil {
+			tuiLogf("create fabric: vendor ID %q not accepted: %v", field.GetText(), err)
 			note.SetText(err.Error())
 			return
 		}
 		u.closeDialog()
-		u.confirm("Generate and save a NEW local fabric identity?\nNo existing identity will be overwritten. No device is registered.\nThe store contains private keys in plaintext (0600 files).", func() {
+		u.confirm(fmt.Sprintf("Generate and save a NEW local fabric identity with administrator vendor ID 0x%04X (%d)?\nNo existing", vendor, vendor)+" identity will be overwritten. No device is registered.\nThe store contains private keys in plaintext (0600 files).", func() {
 			u.startOp(fmt.Sprintf("create fabric (vendor 0x%04X)", vendor), false, 30*time.Second, func(ctx context.Context) (Result, error) { return backend.CreateFabric(ctx, vendor) })
 		})
 	}
