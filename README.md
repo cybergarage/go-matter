@@ -243,9 +243,11 @@ $ matterctl reset
 
 ### Full-screen controller
 
-Run `make tui` for the fictional offline `matterctl tui` dashboard. Live mode
-requires an explicit `--live` option and a valid commissioner fabric, restored
-from the selected store or explicitly created in the UI. Network operations
+Run `make tui` for the `matterctl tui` dashboard on real devices, with the
+store `~/.matterctl`, or `make tui-debug` for the same with a debug log;
+`make tui TUI_LIVE=` runs the fictional offline fixture. `matterctl tui` itself
+is offline unless given `--live`. Live mode requires a valid commissioner
+fabric, restored from the selected store or explicitly created in the UI. Network operations
 require UI confirmation. This initial draft supports saved-device
 menus, manual/QR pairing forms, Descriptor inspection and selected read/On-Off
 controls. See [scope, keys, screenshots and verification](doc/matterctl-tui.md).

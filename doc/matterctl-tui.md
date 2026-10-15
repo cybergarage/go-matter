@@ -10,13 +10,15 @@ and preserve caller cancellation through commissioning.
 Use Go 1.25+ and a real terminal:
 
 ```sh
-make tui
-# Equivalent, explicitly fictional and offline:
+make tui              # live: real devices, the store ~/.matterctl
+make tui-debug        # live, with a debug log
+make tui TUI_LIVE=    # the fictional offline fixture
+# matterctl tui itself is offline unless given --live:
 GOWORK=off go run ./cmd/matterctl tui
 GOWORK=off go run ./cmd/matterctl tui --help
 ```
 
-The default uses fictional lights in memory. It creates no fabric, writes no
+`matterctl tui` without `--live` uses fictional lights in memory. It creates no fabric, writes no
 credentials, starts no BLE/mDNS transport and performs no device operations.
 The pairing form still validates public test payloads and exercises a fixture
 success/failure flow. Fixture state is discarded on exit.
@@ -57,8 +59,8 @@ screen. Choose **Log: OFF (change level)** in the menu, or start with
 `make tui-debug` starts at `debug`:
 
 ```sh
-make tui-debug TUI_ARGS=--live
-make tui TUI_ARGS="--live --log-level info"
+make tui-debug
+make tui TUI_ARGS="--log-level info"
 GOWORK=off go run ./cmd/matterctl tui --live --log-level info
 GOWORK=off go run ./cmd/matterctl tui --live --log-level debug --log-file pairing.log
 ```

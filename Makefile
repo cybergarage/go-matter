@@ -137,15 +137,18 @@ clean:
 check-datamodel:
 	./scripts/check-datamodel.sh
 
-# Offline TUI fixture; set TUI_ARGS='--live --store-dir ...' only for deliberate live use.
+# The TUI on real devices with the store ~/.matterctl (TUI_LIVE=--live);
+# `make tui TUI_LIVE=` runs the offline fixture instead. Other options, such
+# as --store-dir, go in TUI_ARGS.
+TUI_LIVE ?= --live
 .PHONY: tui tui-debug check-tui
 tui:
-	GOWORK=off go run ./cmd/matterctl tui $(TUI_ARGS)
+	GOWORK=off go run ./cmd/matterctl tui $(TUI_LIVE) $(TUI_ARGS)
 
 # The same, with its log at debug level in matterctl-YYYYMMDD-HHMMSS.log here.
 # A debug log holds decrypted messages, the fabric's IPK included.
 tui-debug:
-	GOWORK=off go run ./cmd/matterctl tui --log-level debug $(TUI_ARGS)
+	GOWORK=off go run ./cmd/matterctl tui $(TUI_LIVE) --log-level debug $(TUI_ARGS)
 
 check-tui:
 	./scripts/check-tui.sh
