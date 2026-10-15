@@ -17,7 +17,12 @@ import (
 )
 
 func TestParseLogLevel(t *testing.T) {
-	for s, want := range map[string]LogLevel{"": LogOff, "off": LogOff, "INFO": LogInfo, " debug ": LogDebug} {
+	cases := []struct {
+		in   string
+		want LogLevel
+	}{{"", LogOff}, {"off", LogOff}, {"INFO", LogInfo}, {" debug ", LogDebug}}
+	for _, c := range cases {
+		s, want := c.in, c.want
 		got, err := ParseLogLevel(s)
 		if err != nil || got != want {
 			t.Fatalf("ParseLogLevel(%q) = %v, %v; want %v", s, got, err, want)
