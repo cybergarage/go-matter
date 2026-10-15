@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **A log in `matterctl tui`.** The menu's **Log** item, or `--log-level info|debug` and `--log-file`, writes the library's log and the TUI's own operations (start, duration, outcome) to `matterctl-YYYYMMDD-HHMMSS.log` in the start directory, with mode 0600. A panel under the others shows its last lines, and `l` shows it full screen. The pairing code is never logged; a debug log holds the decrypted messages, the fabric's IPK included.
 - The `MDNSAdvertiser` handles the name conflicts the go-mdns responder now probes for (RFC 6762, 8.1 and 9). On a conflict of the commissionable instance name, it publishes the service with a new random instance name, up to `MaxInstanceNameAttempts` times, and keeps it when the device advertises the same service again; `CommissionableInstanceName` returns the published name. An operational instance name, made of the fabric and the node ID, is not renamed: `AdvertiseOperational` returns an error which wraps the `*mdns.ConflictError`. A host name conflict is an error for both. `HandleConflict` handles a conflict found after a service is published; the advertiser's own responder calls it, and an application which shares its `mdns.Server` with `NewMDNSAdvertiserWithServer` passes it to `mdns.WithServerConflictHandler`.
 
 - **A pluggable storage backend** for the persistent store. `store.KVStore` holds byte values under slash-separated keys and `store.TxKVStore` adds atomic multi-key transactions, which a device will need for the fail-safe. `store.FileKVStore` (one file per key, written atomically, transactions journaled) and `store.MemKVStore` are provided, and `store.NewStoreWithKVStore` builds the typed `Store` on any backend.
@@ -65,6 +66,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- `matterctl tui` hid why a pairing failed: it now shows the cause the commissioner returned.
 - `Commissioner.Discover`, and so `Commission`, failed on a host without Bluetooth even when mDNS found the device, since a failing BLE scan aborted the discovery. A method which fails is now logged and the other's devices are returned; Discover fails only when both do. This also made `TestMockCommissioning`, and the GitHub Actions build job, fail wherever BlueZ is not running.
 - Operational discovery never found a node: `mdns.NewOperationalNodeQuery` for a service instance asked for its PTR records, which an instance does not have, since go-mdns sends the query's own type instead of ANY. It now asks for ANY, and `mdns.Query` carries the question type (`WithQueryType`).
 - `pbkdf.NewParamResponse` did not echo the initiator's random when the PBKDF parameters were given, so a responder with its own salt could not answer.
@@ -74,6 +76,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- In the forms and dialogs of `matterctl tui`, the action (Validate, Send, Confirm) comes first, with the focus, and Cancel last. The pairing field shows the code as typed instead of masking it.
 - `config.AdministratorConfig` has `Signer` and `RootSigner`, which an implementation of its own must add; they return false when the keys are bytes. `store.FabricRecord` omits `rootPrivateKey` and `privateKey` when they are empty, as they are when a key store keeps the keys.
 - A node from `Commissioner.Connect` lives until it is closed: its session is read by an `im.ExchangeMux`, which times each response out after `DefaultResponseTimeout`, instead of failing every request once the connect deadline passed. `Node.Session()` returns the mux.
 - The session package's helpers, such as `session.PeerMRPParameters`, see through a session wrapper which has `Unwrap() SecureSession`.

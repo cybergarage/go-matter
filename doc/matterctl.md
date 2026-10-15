@@ -1121,6 +1121,8 @@ matterctl tui [flags]
 ```
   -h, --help               help for tui
       --live               enable real operations after UI confirmation (never used in tests)
+      --log-file string    log file (default ./matterctl-YYYYMMDD-HHMMSS.log in the current directory, mode 0600)
+      --log-level string   log level from the start: off, info or debug (debug writes decrypted messages, the fabric's IPK included) (default "off")
       --store-dir string   commissioner store (default ~/.matterctl); explicit initialization; one process only
 ```
 

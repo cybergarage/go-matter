@@ -513,7 +513,9 @@ func (b *Live) Pair(ctx context.Context, p encoding.OnboardingPayload) (Result, 
 		if ctx.Err() != nil {
 			return Result{}, ctx.Err()
 		}
-		return Result{}, errors.New("pairing failed or canceled. Device outcome may be uncertain; do not automatically retry")
+		// The cause names the stage which failed (discovery, PASE,
+		// attestation, CSR, AddNOC, CASE); it holds no passcode.
+		return Result{}, fmt.Errorf("pairing failed. Device outcome may be uncertain; do not automatically retry.\nCause: %w", err)
 	}
 	id, ok := c.NodeID()
 	if !ok {

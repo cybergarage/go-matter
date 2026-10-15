@@ -38,15 +38,44 @@ locally; no network is started and no device is registered. Opening a file store
 recover its existing journal; use only one process per store. Opening the UI
 lists local records without calling `Commissioner.Start`. The first confirmed
 network operation starts the commissioner. Neither OS permissions nor existing
-key permissions are changed. Transport permission failures are shown without
-printing underlying logs. Only temporary isolated stores and fake commissioners were exercised for this work.
+key permissions are changed. The library's log is off unless turned on (see
+[Log](#log)). Only temporary isolated stores and fake commissioners were exercised for this work.
 
 ![Full-screen fictional controller](images/tui.png)
 
 [Pairing form](images/tui-pair.png) · [Compact layout](images/tui-compact.png) ·
 [First Fabric](images/tui-fabric.png) · [Create form](images/tui-fabric-create.png).
 Screenshots are actual tcell simulation-screen cell output rasterized with a
-monospace font, using fictional values and an empty masked pairing field.
+monospace font, using fictional values and an empty pairing field.
+
+## Log
+
+The library's log is off by default: it would otherwise be printed over the
+screen. Choose **Log: OFF (change level)** in the menu, or start with
+`--log-level`:
+
+```sh
+GOWORK=off go run ./cmd/matterctl tui --live --log-level info
+GOWORK=off go run ./cmd/matterctl tui --live --log-level debug --log-file pairing.log
+```
+
+| Level | Writes |
+| --- | --- |
+| `off` | Nothing (the default) |
+| `info` | The steps of each operation: discovery, PASE, attestation, CSR, AddNOC, CASE, and the start, duration and outcome of each TUI operation. No passcode |
+| `debug` | Also every message sent and received as hex, the decrypted ones included, such as the fabric's IPK in AddNOC |
+
+The log is written to `matterctl-YYYYMMDD-HHMMSS.log` in the directory
+`matterctl tui` was started from, unless `--log-file` names another file, with
+mode `0600`; an existing file is appended to. Turning the log off and on again
+keeps writing to the same file. The last lines are shown in a panel under the
+other panels; `l` shows the log full screen, where the arrows and PgUp/PgDn
+scroll and End follows the end again. On exit, the file's path is printed.
+
+The file is plain text, so it can be attached to an issue or handed to an
+assistant such as Claude for analysis. The pairing code is never written to
+it; a `debug` log holds the fabric's IPK, so share one only with people you
+trust, and prefer `info` when it shows enough.
 
 ## Keys and menus
 
@@ -55,7 +84,8 @@ monospace font, using fictional values and an empty masked pairing field.
 | Tab / Shift-Tab | Devices → Paths → Menu → Result |
 | Up / Down / Enter | Select a device/path/menu item; Enter on device/path focuses Menu |
 | `/` | Search saved name or hexadecimal node ID; Enter returns to Devices |
-| Esc | Clear search, cancel a form, or request in-flight operation cancellation |
+| Esc | Clear search, cancel a form, leave the full-screen log, or request in-flight operation cancellation |
+| `l` | Show the log full screen, and back (also while an operation runs) |
 | `?` | Show key help |
 | `q` / Ctrl-C | Cancel pending work and restore terminal (q remains text in input fields) |
 
@@ -63,16 +93,20 @@ Pairing input accepts a manual 11/21 digit code (spaces/hyphens allowed), or an
 `MT:` QR **text payload**, using the existing parsers. There is no camera/QR image
 reader. Existing QR decoding supports the mandatory 11-byte payload only; optional
 QR data is not supported. Only version 0 standard commissioning flow is accepted;
-reserved setup PINs are rejected. Errors do not echo input. The field is masked
-and cleared after validation. Tab/Shift-Tab moves through form fields/buttons;
-Cancel is initially focused. Validation precedes a separate confirmation.
+reserved setup PINs are rejected. Errors do not echo input. The field shows the
+code as typed, and is cleared after validation; the code is never logged.
+Tab/Shift-Tab moves through form fields/buttons; the field is initially focused,
+and Enter in it moves to Validate. In every form and
+dialog the action (Validate, Send, Confirm) comes first, with the focus, and
+Cancel last; Esc cancels too. Validation precedes a separate confirmation.
 
 Every read, inspect, invoke and pairing operation needs confirmation. Pairing
 adds persistent access to a device; invoke changes device state. There is no
 reset/unpair/factory-reset or batch action. Reload reads only local records.
 Selection/search is locked during work to keep a response attached to the selected
 node. Work runs outside the UI goroutine. A working indicator represents the whole
-exchange: the public API does not expose per-stage progress. Read/inspect/invoke
+exchange; turn the log on to follow its stages (discovery, PASE, attestation,
+CSR, AddNOC, CASE). A failed pairing shows the cause the commissioner returned. Read/inspect/invoke
 have a 30-second deadline; pairing has 120 seconds. Esc requests cancellation and
 waits for transport completion. Exit cancels work, restores the screen, then waits
 up to five seconds for shutdown; an unfinished shutdown is reported as uncertain.
@@ -186,7 +220,7 @@ make check-tui
 
 Checks use fictional backends, temporary/in-memory stores and ephemeral test
 identities. Test private keys/IPKs are never printed or committed. They are
-discarded with each test directory; no real controller store is initialized. They cover masked forms, invalid code/checksum, manual/QR parsing,
+discarded with each test directory; no real controller store is initialized. They cover forms and their button order, the log file and panel, invalid code/checksum, manual/QR parsing,
 confirmation cancellation, Tab/search/resize, async cancel/timeout, screen exit,
 command allowlisting, acknowledgement versus readback failure, persistence failure,
 identity replacement/restart listing, commissioning context cancellation, and
