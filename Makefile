@@ -138,9 +138,13 @@ check-datamodel:
 	./scripts/check-datamodel.sh
 
 # Offline TUI fixture; set TUI_ARGS='--live --store-dir ...' only for deliberate live use.
+# The log is written at TUI_LOG_LEVEL (off, info or debug) to
+# matterctl-YYYYMMDD-HHMMSS.log here; a --log-level in TUI_ARGS overrides it.
+# A debug log holds decrypted messages, the fabric's IPK included.
+TUI_LOG_LEVEL ?= debug
 .PHONY: tui check-tui
 tui:
-	GOWORK=off go run ./cmd/matterctl tui $(TUI_ARGS)
+	GOWORK=off go run ./cmd/matterctl tui --log-level $(TUI_LOG_LEVEL) $(TUI_ARGS)
 
 check-tui:
 	./scripts/check-tui.sh

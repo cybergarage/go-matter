@@ -31,3 +31,6 @@ codecov
 # Build/lint caches
 .gocache/
 .golangci-lint-cache/
+
+# Logs of matterctl tui
+matterctl-*.log
