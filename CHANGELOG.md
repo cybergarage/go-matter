@@ -68,6 +68,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- `matterctl tui` showed the node ID of a paired device as the hexadecimal of its decimal digits (`types.NodeID` formats itself in decimal), such as `3133…` for 0xB6C144BE822A44BA.
 - Commissioning a device over BLE could fail at CASE with "no operational addresses found" although the device advertised its operational service with an address: the operational discovery took the first response, which, from a device which has just joined its network, is its commissionable service or its operational service before it has an address. It now takes the last response for the operational service instance with a port and an address, and searches again until one comes.
 - Commissioning over BLE failed at once when BlueZ aborted the connection (`le-connection-abort-by-local`), as it does when the discovery's scan has not stopped yet. The connection is now tried up to 4 times, waiting longer each time, as connectedhomeip's Linux BLE layer does.
 - `matterctl tui` hid why a pairing failed: it now shows the cause the commissioner returned.

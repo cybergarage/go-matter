@@ -316,6 +316,10 @@ func TestPairPersistenceFailureAndReload(t *testing.T) {
 	if err != nil || !strings.Contains(r.Message, "SAVED") {
 		t.Fatal("pair save verification failed")
 	}
+	// types.NodeID is a Stringer in decimal: %X must format the number.
+	if !strings.Contains(r.Message, "node 000000000000002A") {
+		t.Fatalf("node ID not in hexadecimal: %q", r.Message)
+	}
 	ds, err := NewLive(st).List()
 	if err != nil || len(ds) != 1 || ds[0].ID != 42 {
 		t.Fatal("restart list")
@@ -333,7 +337,7 @@ func TestPairPersistenceFailureAndReload(t *testing.T) {
 	b = NewLive(failStore{Store: st})
 	b.cmr = &fakeCommissioner{st: b.st}
 	r, err = b.Pair(context.Background(), p, nil)
-	if err != nil || !strings.Contains(r.Message, "LOCAL SAVE FAILED") {
+	if err != nil || !strings.Contains(r.Message, "LOCAL SAVE FAILED") || !strings.Contains(r.Message, "000000000000002A") {
 		t.Fatal("save failure hidden")
 	}
 	b = NewLive(store.NewMemStore())
