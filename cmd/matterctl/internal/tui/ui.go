@@ -482,13 +482,16 @@ func (u *UI) pairForm() {
 		passwordField.SetText("")
 	}
 	validate := func() {
+		// Neither error echoes the code or the password, so both can be logged.
 		p, err := ParsePayload(field.GetText())
 		if err != nil {
+			tuiLogf("pair device: code not accepted: %v", err)
 			note.SetText(err.Error())
 			return
 		}
 		wifi, err := ParseWiFi(ssidField.GetText(), passwordField.GetText())
 		if err != nil {
+			tuiLogf("pair device: Wi-Fi not accepted: %v", err)
 			note.SetText(err.Error())
 			return
 		}
@@ -669,16 +672,17 @@ func (u *UI) fabricForm() {
 		return
 	}
 	field := tview.NewInputField().SetLabel("Admin vendor ID: ").SetFieldWidth(12)
-	note := tview.NewTextView().SetText("Create a local controller identity; no network operation.\nIDs are automatic. Existing identity is never replaced.\nEnter your assigned vendor ID; 0xFFF1–0xFFF4 are development test IDs.\nKeys/IPK are stored locally, never displayed. Keep the store private.")
+	note := tview.NewTextView().SetText("Create a local controller identity; no network operation.\nIDs are automatic. Existing identity is never replaced.\nEnter your assigned vendor ID in hexadecimal (FFF1 or 0xFFF1); 0xFFF1–0xFFF4 are development test IDs.\nKeys/IPK are stored locally, never displayed. Keep the store private.")
 	form := tview.NewForm().AddFormItem(field)
 	validate := func() {
 		vendor, err := parseVendor(field.GetText())
 		if err != nil {
+			tuiLogf("create fabric: vendor ID %q not accepted: %v", field.GetText(), err)
 			note.SetText(err.Error())
 			return
 		}
 		u.closeDialog()
-		u.confirm("Generate and save a NEW local fabric identity?\nNo existing identity will be overwritten. No device is registered.\nThe store contains private keys in plaintext (0600 files).", func() {
+		u.confirm(fmt.Sprintf("Generate and save a NEW local fabric identity with administrator vendor ID 0x%04X (%d)?\nNo existing", vendor, vendor)+" identity will be overwritten. No device is registered.\nThe store contains private keys in plaintext (0600 files).", func() {
 			u.startOp(fmt.Sprintf("create fabric (vendor 0x%04X)", vendor), false, 30*time.Second, func(ctx context.Context) (Result, error) { return backend.CreateFabric(ctx, vendor) })
 		})
 	}

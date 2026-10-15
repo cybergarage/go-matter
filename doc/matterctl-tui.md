@@ -32,8 +32,11 @@ GOWORK=off go run ./cmd/matterctl tui --store-dir /path/to/controller/store
 
 The default live store is `~/.matterctl`,
 matching the CLI. An absent directory stays absent at startup. Choose **Create new
-fabric** and enter an administrator vendor ID (assigned ID, or 0xFFF1–0xFFF4 for
-development). Validate, then explicitly confirm. Fabric/controller Node IDs,
+fabric** and enter an administrator vendor ID in hexadecimal, with or without
+`0x` (`FFF1` or `0xFFF1`; surrounding spaces are ignored, decimal is not
+accepted): your assigned ID, or 0xFFF1–0xFFF4 for development. The
+confirmation shows the ID in hexadecimal and decimal, and a rejected ID is
+logged. Validate, then explicitly confirm. Fabric/controller Node IDs,
 P-256 keys, a self-signed root, controller NOC and 16-byte IPK are generated
 locally; no network is started and no device is registered. Opening a file store can
 recover its existing journal; use only one process per store. Opening the UI

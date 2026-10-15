@@ -78,6 +78,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- The TUI's Create new fabric reads the vendor ID in hexadecimal, with or without `0x` and surrounding spaces (`FFF1`, `0xFFF1`), and no longer in decimal; the confirmation shows it in both. The TUI logs the inputs its forms reject, without the pairing code or the Wi-Fi password.
 - `matterctl tui` is live by default: it opens the commissioner store and operates real devices, each operation still after a confirmation. `--offline` runs the fictional fixture, which was the default, and `--live` is gone.
 - `make tui-debug` starts the TUI with its log at debug level, and `.gitignore` leaves the log files out.
 - go-logger v1.4.0. The log of `matterctl tui` has millisecond timestamps, and is written to its file and its panel at once through `log.NewWriterLogger`, instead of the panel reading the file back.
