@@ -69,6 +69,13 @@ func WithFakeBLECentralWriteWithoutResponseOnly() FakeBLECentralOption {
 	return func(ch *bleChannel) { ch.rejectFirstWriteWithResponse = true }
 }
 
+// WithFakeBLECentralConnectFailures makes the first n connection attempts
+// to the simulated peripheral fail, as BlueZ's "le-connection-abort-by-local"
+// does when a connection starts while the adapter still scans.
+func WithFakeBLECentralConnectFailures(n int) FakeBLECentralOption {
+	return func(ch *bleChannel) { ch.connectFailures = n }
+}
+
 // NewFakeBLECentral wires dev up to a simulated BLE peripheral and starts it
 // (via Device.StartBLE), then returns a matter/ble.Central that only ever
 // discovers and connects to that one simulated peripheral, for injection via
@@ -132,6 +139,11 @@ type bleChannel struct {
 	// see WithFakeBLECentralWriteWithoutResponseOnly.
 	rejectFirstWriteWithResponse bool
 	writeWithResponseSeen        bool
+
+	// connectFailures is how many connection attempts fail before one
+	// succeeds, as BlueZ aborts one it starts while it still scans.
+	connectFailures int
+	connectAttempts int
 }
 
 func newBLEChannel() *bleChannel {
@@ -657,11 +669,23 @@ func (d *fakeBLEDevice) ModifiedAt() time.Time             { return time.Time{} 
 func (d *fakeBLEDevice) LastSeenAt() time.Time             { return time.Time{} }
 
 func (d *fakeBLEDevice) Connect(context.Context) error {
+	ch := d.service.ch
+	ch.orderMu.Lock()
+	ch.connectAttempts++
+	fail := ch.connectAttempts <= ch.connectFailures
+	ch.orderMu.Unlock()
+	if fail {
+		return errSimulatedConnectionAbort
+	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.connected = true
 	return nil
 }
+
+// errSimulatedConnectionAbort is the error of a connection attempt
+// WithFakeBLECentralConnectFailures makes fail.
+var errSimulatedConnectionAbort = errors.New("bluetooth: failed to connect: le-connection-abort-by-local (simulated)")
 
 func (d *fakeBLEDevice) Disconnect() error {
 	d.mu.Lock()

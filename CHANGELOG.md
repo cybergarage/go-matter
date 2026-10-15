@@ -68,6 +68,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Commissioning over BLE failed at once when BlueZ aborted the connection (`le-connection-abort-by-local`), as it does when the discovery's scan has not stopped yet. The connection is now tried up to 4 times, waiting longer each time, as connectedhomeip's Linux BLE layer does.
 - `matterctl tui` hid why a pairing failed: it now shows the cause the commissioner returned.
 - `Commissioner.Discover`, and so `Commission`, failed on a host without Bluetooth even when mDNS found the device, since a failing BLE scan aborted the discovery. A method which fails is now logged and the other's devices are returned; Discover fails only when both do. This also made `TestMockCommissioning`, and the GitHub Actions build job, fail wherever BlueZ is not running.
 - Operational discovery never found a node: `mdns.NewOperationalNodeQuery` for a service instance asked for its PTR records, which an instance does not have, since go-mdns sends the query's own type instead of ANY. It now asks for ANY, and `mdns.Query` carries the question type (`WithQueryType`).
