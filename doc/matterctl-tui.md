@@ -101,8 +101,24 @@ reader. Existing QR decoding supports the mandatory 11-byte payload only; option
 QR data is not supported. Only version 0 standard commissioning flow is accepted;
 reserved setup PINs are rejected. Errors do not echo input. The field shows the
 code as typed, and is cleared after validation; the code is never logged.
-Tab/Shift-Tab moves through form fields/buttons; the field is initially focused,
-and Enter in it moves to Validate. In every form and
+
+The form has two optional fields under the code, **Wi-Fi SSID** and **Wi-Fi
+password**:
+
+| Wi-Fi fields | Pairs |
+| --- | --- |
+| Both empty | A device already on the network, found over IP (mDNS). A device found over Bluetooth only is refused before anything is sent to it, asking for Wi-Fi |
+| Both set | A new device, found over Bluetooth first (over IP otherwise), which is given the network with AddOrUpdateWiFiNetwork and ConnectNetwork |
+
+The SSID has at most 32 bytes; the password 8 to 63 characters, or a
+64-hex-digit PSK. Open networks are not supported. The password is masked, is
+cleared after validation, and is never logged; the confirmation and the log
+name the SSID only. Bluetooth commissioning is known to work on Linux (BlueZ);
+on macOS, Core Bluetooth has refused the Matter service of a real device
+(`uuidNotAllowed`), so commission over IP there, or from Linux.
+
+Tab/Shift-Tab moves through form fields/buttons; the code field is initially
+focused, and Enter moves to the next field, and from the last one to Validate. In every form and
 dialog the action (Validate, Send, Confirm) comes first, with the focus, and
 Cancel last; Esc cancels too. Validation precedes a separate confirmation.
 
@@ -147,16 +163,16 @@ can clip labels. Arrow keys scroll lists/results. Mouse is disabled.
   cluster controls are implemented in the initial TUI. The existing CLI retains
   its numeric read/write/invoke functionality.
 - Pairing: the existing commissioner PASE → attestation → AddNOC → CASE flow with
-  a validated local fabric. The TUI does not provision Wi-Fi/Thread or ask for
-  a requested device Node ID. The commissioner automatically assigns an unused
+  a validated local fabric. The TUI provisions Wi-Fi when the optional Wi-Fi
+  fields are filled in, not Thread, and does not ask for a requested device
+  Node ID. The commissioner automatically assigns an unused
   operational ID, avoiding the administrator and saved IDs. The existing CLI
   keeps `pairing code <node ID|auto> <pairing code>`: decimal or explicit `0x`
   numeric IDs are honored, `auto` requests allocation, and reserved/duplicate IDs
   are rejected. Numeric arguments were previously silently ignored; callers
   relying on that defect should use `auto`. The code-wifi node argument has the
-  same validation/forwarding contract; no Wi-Fi implementation was added. Devices must already have an
-  operational IP network path; BLE may be used for the commissioning exchange,
-  subject to the library and OS support. Unsupported transport/cluster failures
+  same validation/forwarding contract. Without the Wi-Fi fields, devices must
+  already have an operational IP network path. Unsupported transport/cluster failures
   remain failures. Library attestation limitations still apply.
 
 ## Persistence, cancellation and duplicates

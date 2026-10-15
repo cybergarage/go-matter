@@ -100,7 +100,7 @@ func TestKeysFormsSearchAndResize(t *testing.T) {
 		t.Fatal("Validate must come before Cancel")
 	}
 	field.SetText("invalid")
-	form.SetFocus(1)
+	form.SetFocus(3) // Validate, after the code and the two Wi-Fi fields.
 	u.app.SetFocus(form)
 	press(u, tcell.KeyEnter, 0)
 	if !u.dialog || u.busy {
@@ -118,7 +118,8 @@ func TestKeysFormsSearchAndResize(t *testing.T) {
 	if u.busy || u.dialog {
 		t.Fatal("Esc must cancel a confirmation")
 	}
-	// Enter in the field moves to Validate; a second Enter validates.
+	// Enter moves from the code through the two optional Wi-Fi fields to
+	// Validate; one more Enter validates.
 	u.pairForm()
 	_, front = u.pages.GetFrontPage()
 	form = front.(*tview.Flex).GetItem(1).(*tview.Form)
@@ -127,9 +128,15 @@ func TestKeysFormsSearchAndResize(t *testing.T) {
 		t.Fatal("the pairing field must have the focus")
 	}
 	field.SetText(fixtureCode)
+	for i := 1; i <= 2; i++ {
+		press(u, tcell.KeyEnter, 0)
+		if u.app.GetFocus() != form.GetFormItem(i) {
+			t.Fatalf("Enter must move to form item %d", i)
+		}
+	}
 	press(u, tcell.KeyEnter, 0)
 	if u.app.GetFocus() != form.GetButton(0) {
-		t.Fatal("Enter in the field must move to Validate")
+		t.Fatal("Enter in the last field must move to Validate")
 	}
 	press(u, tcell.KeyEnter, 0)
 	if _, front = u.pages.GetFrontPage(); !u.dialog || u.busy {
@@ -255,12 +262,18 @@ type fakeCommissioner struct {
 	matter.Commissioner
 	st     store.Store
 	fail   bool
+	err    error
 	starts int
+	opts   []matter.CommissionOption
 }
 
 func (c *fakeCommissioner) Start() error { c.starts++; return nil }
 func (*fakeCommissioner) Stop() error    { return nil }
-func (c *fakeCommissioner) Commission(_ context.Context, _ matter.OnboardingPayload, _ ...matter.CommissionOption) (matter.Commissionee, error) {
+func (c *fakeCommissioner) Commission(_ context.Context, _ matter.OnboardingPayload, opts ...matter.CommissionOption) (matter.Commissionee, error) {
+	c.opts = opts
+	if c.err != nil {
+		return nil, c.err
+	}
 	if c.fail {
 		return nil, errors.New("fixture failure")
 	}
@@ -299,7 +312,7 @@ func TestPairPersistenceFailureAndReload(t *testing.T) {
 	f := &fakeCommissioner{st: b.st}
 	b.cmr = f
 	p, _ := ParsePayload(fixtureCode)
-	r, err := b.Pair(context.Background(), p)
+	r, err := b.Pair(context.Background(), p, nil)
 	if err != nil || !strings.Contains(r.Message, "SAVED") {
 		t.Fatal("pair save verification failed")
 	}
@@ -319,14 +332,14 @@ func TestPairPersistenceFailureAndReload(t *testing.T) {
 	}
 	b = NewLive(failStore{Store: st})
 	b.cmr = &fakeCommissioner{st: b.st}
-	r, err = b.Pair(context.Background(), p)
+	r, err = b.Pair(context.Background(), p, nil)
 	if err != nil || !strings.Contains(r.Message, "LOCAL SAVE FAILED") {
 		t.Fatal("save failure hidden")
 	}
 	b = NewLive(store.NewMemStore())
 	f = &fakeCommissioner{st: b.st}
 	b.cmr = f
-	if _, err = b.Pair(context.Background(), p); err == nil || f.starts != 0 {
+	if _, err = b.Pair(context.Background(), p, nil); err == nil || f.starts != 0 {
 		t.Fatal("empty fabric started transport")
 	}
 }
@@ -469,7 +482,7 @@ func TestFailedPairPreservesExistingRecords(t *testing.T) {
 	b := NewLive(st)
 	b.cmr = &fakeCommissioner{st: b.st, fail: true}
 	p, _ := ParsePayload(fixtureCode)
-	if _, err := b.Pair(context.Background(), p); err == nil {
+	if _, err := b.Pair(context.Background(), p, nil); err == nil {
 		t.Fatal("failure hidden")
 	}
 	ds, _ := b.List()
@@ -481,7 +494,7 @@ func TestFixturePairRequiresConfirmationAndRejectsDuplicate(t *testing.T) {
 	u, _ := newTestUI(t)
 	p, _ := ParsePayload(fixtureCode)
 	u.confirm("Fixture pair", func() {
-		u.start(false, time.Second, func(ctx context.Context) (Result, error) { return u.backend.Pair(ctx, p) })
+		u.start(false, time.Second, func(ctx context.Context) (Result, error) { return u.backend.Pair(ctx, p, nil) })
 	})
 	// Confirm has the focus: Enter, and no command-line string is involved.
 	press(u, tcell.KeyEnter, 0)
@@ -493,7 +506,7 @@ func TestFixturePairRequiresConfirmationAndRejectsDuplicate(t *testing.T) {
 	if len(u.records) != 2 {
 		t.Fatal("fixture success missing from menu")
 	}
-	u.start(false, time.Second, func(ctx context.Context) (Result, error) { return u.backend.Pair(ctx, p) })
+	u.start(false, time.Second, func(ctx context.Context) (Result, error) { return u.backend.Pair(ctx, p, nil) })
 	waitWork(t, u)
 	if !strings.Contains(u.detail.GetText(false), "duplicate") {
 		t.Fatal("duplicate fixture accepted")

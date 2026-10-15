@@ -471,25 +471,42 @@ func (u *UI) pairForm() {
 	if u.busy {
 		return
 	}
-	field := tview.NewInputField().SetLabel("Code / MT: ").SetFieldWidth(30)
-	note := tview.NewTextView().SetText("Manual 11/21 digits or MT: QR text. The code is not written to the log.\nExisting fabric required in LIVE mode; no Wi-Fi provisioning.\nPairing changes persistent device access. Cancel may leave an uncertain outcome.")
-	form := tview.NewForm().AddFormItem(field)
+	field := tview.NewInputField().SetLabel("Code / MT:     ").SetFieldWidth(30)
+	ssidField := tview.NewInputField().SetLabel("Wi-Fi SSID:    ").SetFieldWidth(32)
+	passwordField := tview.NewInputField().SetLabel("Wi-Fi password: ").SetFieldWidth(32).SetMaskCharacter('*')
+	note := tview.NewTextView().SetText("Code: manual 11/21 digits or MT: QR text (required).\nWi-Fi: leave both empty for a device on the network (IP); enter both for a new device found over Bluetooth.\nThe code and the password are not written to the log. Cancel may leave an uncertain outcome.")
+	form := tview.NewForm().AddFormItem(field).AddFormItem(ssidField).AddFormItem(passwordField)
+	clearFields := func() {
+		field.SetText("")
+		ssidField.SetText("")
+		passwordField.SetText("")
+	}
 	validate := func() {
 		p, err := ParsePayload(field.GetText())
 		if err != nil {
 			note.SetText(err.Error())
 			return
 		}
-		field.SetText("")
+		wifi, err := ParseWiFi(ssidField.GetText(), passwordField.GetText())
+		if err != nil {
+			note.SetText(err.Error())
+			return
+		}
+		clearFields()
 		u.closeDialog()
-		u.confirm("Valid standard onboarding payload. Commission into this controller's fabric?\nDo not repeat after an uncertain outcome. No credential is shown.", func() {
-			u.startOp("pair device", false, 120*time.Second, func(ctx context.Context) (Result, error) { return u.backend.Pair(ctx, p) })
+		label, how := "pair device over IP", "over the IP network (no Wi-Fi given)"
+		if wifi != nil {
+			label = fmt.Sprintf("pair device with Wi-Fi SSID %q", wifi.SSID)
+			how = fmt.Sprintf("over Bluetooth first, giving it Wi-Fi SSID %q", wifi.SSID)
+		}
+		u.confirm("Valid standard onboarding payload. Commission into this controller's fabric "+how+"?\nDo not repeat after an uncertain outcome. No credential is shown.", func() {
+			u.startOp(label, false, 120*time.Second, func(ctx context.Context) (Result, error) { return u.backend.Pair(ctx, p, wifi) })
 		})
 	}
-	form.AddButton("Validate", validate).AddButton("Cancel", func() { field.SetText(""); u.closeDialog() })
+	form.AddButton("Validate", validate).AddButton("Cancel", func() { clearFields(); u.closeDialog() })
 	// Enter in the field moves to Validate, which Enter then presses.
 	form.SetFocus(0)
-	box := tview.NewFlex().SetDirection(tview.FlexRow).AddItem(note, 5, 0, false).AddItem(form, 0, 1, true)
+	box := tview.NewFlex().SetDirection(tview.FlexRow).AddItem(note, 6, 0, false).AddItem(form, 0, 1, true)
 	box.SetBorder(true).SetTitle(" Pair device ")
 	// Flex auto-resizes forms with the terminal and preserves widget state.
 	u.dialog = true

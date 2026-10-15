@@ -16,6 +16,7 @@ package mattertest
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -142,5 +143,70 @@ func TestMockBLECommissioning(t *testing.T) {
 	if !orderOK {
 		t.Error("HandshakeOrderOK() = false: the BTP handshake request was written after Subscribe was called, " +
 			"not before it — matter/ble/transport.go's Handshake regressed to the order a real device never responds to")
+	}
+}
+
+// TestMockBLECommissioningRequiresWiFi checks that a device found over BLE is
+// not commissioned without the Wi-Fi credentials to give it, and that the
+// commissioner refuses before connecting to it, not after AddNOC.
+func TestMockBLECommissioningRequiresWiFi(t *testing.T) {
+	dev, err := mockdevice.New(
+		mockdevice.WithDiscriminator(mockBLECommissioningDiscriminator),
+		mockdevice.WithPasscode(mockBLECommissioningPasscode),
+		mockdevice.WithVendorID(mockBLECommissioningVendorID),
+		mockdevice.WithProductID(mockBLECommissioningProductID),
+	)
+	if err != nil {
+		t.Fatalf("mockdevice.New() error = %v", err)
+	}
+	central, _, err := mockdevice.NewFakeBLECentral(dev)
+	if err != nil {
+		t.Fatalf("mockdevice.NewFakeBLECentral() error = %v", err)
+	}
+	defer func() {
+		if err := dev.Stop(); err != nil {
+			t.Errorf("Device.Stop() error = %v", err)
+		}
+	}()
+
+	mpc := buildManualPairingCodeForTest(t, mockBLECommissioningDiscriminator, mockBLECommissioningPasscode, mockBLECommissioningVendorID, mockBLECommissioningProductID)
+	pairingCode, err := encoding.NewPairingCodeFromString(mpc)
+	if err != nil {
+		t.Fatalf("encoding.NewPairingCodeFromString(%q) error = %v", mpc, err)
+	}
+	adminCfg, err := NewAdministratorConfig()
+	if err != nil {
+		t.Fatalf("NewAdministratorConfig() error = %v", err)
+	}
+	opCfg := config.NewOperationalCredentialConfig(
+		config.WithIPK(defaultOperationalIPK),
+		config.WithCASEAdminNodeID(testAdministratorNodeID),
+		config.WithAdminVendorID(defaultAdminVendorID),
+	)
+
+	cmr := matter.NewCommissioner(
+		matter.WithCommissionerCentral(central),
+		matter.WithCommissionerDiscoverer(mockdevice.NewFakeOperationalDiscoverer(dev)),
+		matter.WithCommissionerStoreDir(t.TempDir()),
+		matter.WithCommissionerAttestationMode(matter.AttestationNone),
+	)
+	if err := cmr.Start(); err != nil {
+		t.Fatalf("Commissioner.Start() error = %v", err)
+	}
+	defer func() {
+		if err := cmr.Stop(); err != nil {
+			t.Errorf("Commissioner.Stop() error = %v", err)
+		}
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if _, err := cmr.Commission(ctx, pairingCode, adminCfg, opCfg); !errors.Is(err, matter.ErrWiFiNetworkRequired) {
+		t.Fatalf("Commission() without Wi-Fi credentials error = %v, want %v", err, matter.ErrWiFiNetworkRequired)
+	}
+	select {
+	case <-dev.CommissioningCompleted():
+		t.Error("the device was commissioned without Wi-Fi credentials")
+	default:
 	}
 }
