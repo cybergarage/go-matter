@@ -68,6 +68,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Every `Commissioner.Connect`, and so every `matterctl` command and TUI operation on a node, waited for the whole 5 s of the operational discovery although the node answered within milliseconds. The discovery now ends at the first response which gives the node's operational service with a port and an address (`mdns.UntilSearcher`, implemented by `NewDiscoverer`'s discoverer).
 - After an inspect, `matterctl tui` showed the details of the first inventory row instead of the result of the inspect, since adding that row selected it.
 - `matterctl tui` showed the node ID of a paired device as the hexadecimal of its decimal digits (`types.NodeID` formats itself in decimal), such as `3133…` for 0xB6C144BE822A44BA.
 - Commissioning a device over BLE could fail at CASE with "no operational addresses found" although the device advertised its operational service with an address: the operational discovery took the first response, which, from a device which has just joined its network, is its commissionable service or its operational service before it has an address. It now takes the last response for the operational service instance with a port and an address, and searches again until one comes.
