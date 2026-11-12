@@ -27,6 +27,7 @@ var auditedInputs = [...]string{
 	"descriptor-cluster.xml", "basic-information-cluster.xml", "zcl.json", licenseFile, "access-control-definitions.xml", "chip-types.xml",
 	"door-lock-cluster.xml", "global-attributes.xml", "onoff-cluster.xml",
 	"temperature-measurement-cluster.xml", "matter-devices.xml",
+	"level-control-cluster.xml", "color-control-cluster.xml",
 }
 
 func validateInputSet(p datamodel.Provenance) error {

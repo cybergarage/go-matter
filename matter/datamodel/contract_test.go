@@ -83,7 +83,7 @@ func TestCombinedSchemaAndInventoryCoverage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.SchemaVersion != 1 || len(c.Clusters) != 5 || len(c.Types) != 126 || len(c.DeviceTypes) != 98 || len(c.Globals) != 5 {
+	if c.SchemaVersion != 1 || len(c.Clusters) != 7 || len(c.Types) != 140 || len(c.DeviceTypes) != 98 || len(c.Globals) != 5 {
 		t.Fatal("combined contract or inventory coverage lost")
 	}
 	for _, id := range []im.ClusterID{0x1D, 0x28} {

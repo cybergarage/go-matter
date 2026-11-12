@@ -28,4 +28,9 @@ Additional audited SDK ZAP inputs for TUI inventory display:
 - `descriptor-cluster.xml`: Copyright (c) 2021-2025 Project CHIP Authors
 - `basic-information-cluster.xml`: Copyright (c) 2021-2026 Project CHIP Authors
 
+Additional audited SDK ZAP inputs for lighting (dimming and color):
+
+- `level-control-cluster.xml`: Copyright (c) 2023-2025 Project CHIP Authors
+- `color-control-cluster.xml`: Copyright (c) 2023-2026 Project CHIP Authors
+
 Original Apache-2.0 headers and source bytes are retained at the same SDK tag/SHA.
