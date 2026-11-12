@@ -164,15 +164,42 @@ matterctl any help [command] [flags]
 
 Invoke a command by numeric cluster/command ID.
 
+### Synopsis
+
+Invoke a command by numeric cluster/command ID.
+
+The command fields are given in one of two ways:
+
+  --field name=value   One field of the command, repeatable. The fields are
+                       checked against the definition of the cluster in the
+                       datamodel catalog and encoded from it. A value is a
+                       number (decimal or 0x-hex), true or false, null, the
+                       name of an enumeration value, names of bitmap bits
+                       joined with "|", text, or hex for an octet string.
+  --fields <hex>       The TLV-encoded command fields, sent as they are.
+
+Only the clusters of the catalog can take --field; see
+doc/matter-definition-db.md for the list.
+
 ```
 matterctl any invoke <cluster-id> <command-id> <node ID> <endpoint ID> [flags]
+```
+
+### Examples
+
+```
+  # Level Control (0x0008) MoveToLevel (0x00): half brightness in one second
+  matterctl any invoke 0x0008 0x00 <node ID> 1 \
+    --field Level=127 --field TransitionTime=10 \
+    --field OptionsMask=0 --field OptionsOverride=0
 ```
 
 ### Options
 
 ```
-      --fields string   raw hex-encoded TLV command-fields blob; omitted means no command fields
-  -h, --help            help for invoke
+      --field stringArray   command field as name=value, checked against the cluster definition (repeatable); e.g. --field Level=128
+      --fields string       raw hex-encoded TLV command-fields blob; omitted means no command fields
+  -h, --help                help for invoke
 ```
 
 ### Options inherited from parent commands

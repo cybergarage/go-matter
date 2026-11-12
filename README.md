@@ -233,6 +233,7 @@ $ matterctl pairing code-wifi 1 MT:-24J0AFN00KA0648G00 <ssid> <password>
 $ matterctl basicinformation read 1 0
 $ matterctl onoff on 1 1
 $ matterctl any read 0x0006 0x0000 1 1
+$ matterctl any invoke 0x0008 0x00 1 1 --field Level=127 --field TransitionTime=10 --field OptionsMask=0 --field OptionsOverride=0
 $ matterctl any subscribe 0x0006 '*' 1 1
 $ matterctl any read-events 0x0028 '*' 1 0
 $ matterctl any subscribe-events 0x0028 '*' 1 0
