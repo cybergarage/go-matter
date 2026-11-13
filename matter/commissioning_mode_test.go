@@ -18,10 +18,13 @@ import (
 	"context"
 	"errors"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/cybergarage/go-matter/matter/ble"
 	mdnspkg "github.com/cybergarage/go-matter/matter/mdns"
+	"github.com/cybergarage/go-mdns/mdns/dns"
 )
 
 // commissionableNode is an mdns.CommissionableNode which advertises a
@@ -114,5 +117,107 @@ func TestCommissionMovesOnFromADeviceNotInCommissioningMode(t *testing.T) {
 	}
 	if open.gotCalls != 1 {
 		t.Fatalf("the device in commissioning mode was tried %d times", open.gotCalls)
+	}
+}
+
+// matchingBLEService is a Matter BLE service which advertises the
+// payload's vendor, product and discriminator.
+type matchingBLEService struct {
+	ble.Service
+	payload OnboardingPayload
+}
+
+func (s *matchingBLEService) VendorID() ble.VendorID   { return s.payload.VendorID() }
+func (s *matchingBLEService) ProductID() ble.ProductID { return s.payload.ProductID() }
+func (s *matchingBLEService) Discriminator() ble.Discriminator {
+	return s.payload.Discriminator()
+}
+
+// When the device was found both on the network with CM=0 and over BLE
+// without Wi-Fi credentials, the error gives both causes, and does not say
+// that the device was found over BLE only.
+func TestCommissionReportsBothSkippedDevices(t *testing.T) {
+	payload := testPairingCode(t)
+	closed := networkDevice(t, payload, modeOf(mdnspkg.CommissioningModeAbsence))
+	overBLE := newBLEDevice(nil, &matchingBLEService{payload: payload}, &stubDiscoverer{})
+	if !overBLE.MatchesOnboardingPayload(payload) {
+		t.Fatal("the test BLE device does not match the payload")
+	}
+
+	for _, devs := range [][]CommissionableDevice{{overBLE, closed}, {closed, overBLE}} {
+		_, err := (&commissioner{}).commissionMatchingDevice(context.Background(), payload, devs)
+		if !errors.Is(err, ErrNotFound) || !errors.Is(err, ErrNotInCommissioningMode) || !errors.Is(err, ErrWiFiNetworkRequired) {
+			t.Fatalf("commissionMatchingDevice() error = %v", err)
+		}
+		if strings.Contains(err.Error(), "only") {
+			t.Errorf("commissionMatchingDevice() error = %q, says the device was found one way only", err)
+		}
+	}
+}
+
+// commissionableResponse returns a _matterc._udp response, as a device
+// sends it, carrying subtypes and TXT entries, parsed back from its bytes.
+func commissionableResponse(t *testing.T, subtypes []string, txt []string) dns.Message {
+	t.Helper()
+	const (
+		instance = "665F6E75B5D3A9C2._matterc._udp.local"
+		host     = "B75AFB458ECD6D6F.local"
+		ttl      = 120
+	)
+	must := func(rr dns.ResourceRecord, err error) dns.ResourceRecord {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return rr
+	}
+	answers := []dns.Answer{must(dns.NewPTRResourceRecord("_matterc._udp.local", instance, ttl))}
+	for _, st := range subtypes {
+		answers = append(answers, must(dns.NewPTRResourceRecord(st+"._sub._matterc._udp.local", instance, ttl)))
+	}
+	answers = append(answers,
+		must(dns.NewSRVResourceRecord(instance, 0, 0, 5540, host, ttl)),
+		must(dns.NewTXTResourceRecord(instance, txt, ttl)),
+		must(dns.NewAResourceRecord(host, net.IPv4(192, 168, 0, 10), ttl)),
+	)
+	msg := dns.NewResponseMessage(dns.WithMessageAnswers(answers...))
+	parsed, err := dns.NewMessageWithBytes(msg.Bytes())
+	if err != nil {
+		t.Fatalf("dns.NewMessageWithBytes(...) error = %v", err)
+	}
+	return parsed
+}
+
+// The commissioning mode comes from the TXT key CM of a real
+// advertisement. A device in commissioning mode advertises the bare _CM
+// subtype, which must not read as CM=0, so a device which gives it without
+// a CM key is tried. 4.3.1.3, 4.3.1.7.
+func TestCommissioningModeOfAnAdvertisement(t *testing.T) {
+	base := []string{"D=3840", "VP=65521+32769"}
+	for _, tc := range []struct {
+		name     string
+		subtypes []string
+		txt      []string
+		mode     mdnspkg.CommissioningMode
+		ok       bool
+		skipped  bool
+	}{
+		{"_CM without CM", []string{"_L3840", "_CM"}, base, mdnspkg.CommissioningModeAbsence, false, false},
+		{"_CM with CM=1", []string{"_L3840", "_CM"}, append([]string{"CM=1"}, base...), mdnspkg.CommissioningModePasscode, true, false},
+		{"_CM with CM=2", []string{"_L3840", "_CM"}, append([]string{"CM=2"}, base...), mdnspkg.CommissioningModeDynamicPasscode, true, false},
+		{"CM=0", []string{"_L3840"}, append([]string{"CM=0"}, base...), mdnspkg.CommissioningModeAbsence, true, true},
+		{"empty CM", []string{"_L3840"}, append([]string{"CM="}, base...), mdnspkg.CommissioningModeAbsence, false, false},
+		{"neither", []string{"_L3840"}, base, mdnspkg.CommissioningModeAbsence, false, false},
+	} {
+		node, err := mdnspkg.NewCommissioningNodeWithMessage(commissionableResponse(t, tc.subtypes, tc.txt))
+		if err != nil {
+			t.Fatalf("%s: NewCommissioningNodeWithMessage(...) error = %v", tc.name, err)
+		}
+		if mode, ok := node.CommissioningMode(); mode != tc.mode || ok != tc.ok {
+			t.Errorf("%s: CommissioningMode() = (%v, %v), want (%v, %v)", tc.name, mode, ok, tc.mode, tc.ok)
+		}
+		if got := notInCommissioningMode(newMDNSDevice(node, &stubDiscoverer{})); got != tc.skipped {
+			t.Errorf("%s: notInCommissioningMode() = %v, want %v", tc.name, got, tc.skipped)
+		}
 	}
 }

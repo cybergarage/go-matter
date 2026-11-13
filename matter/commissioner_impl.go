@@ -368,11 +368,15 @@ func (cmr *commissioner) commissionMatchingDevice(ctx context.Context, payload O
 		return newCommissioneeWithIdentity(dev, identity), nil
 	}
 
-	if skippedBLE {
+	// A device on the network which is not in commissioning mode is the
+	// likelier cause, so its diagnosis comes first when both apply.
+	switch {
+	case skippedClosed && skippedBLE:
+		return nil, fmt.Errorf("%w: on the network: %w; over BLE: %w", ErrNotFound, ErrNotInCommissioningMode, ErrWiFiNetworkRequired)
+	case skippedClosed:
+		return nil, fmt.Errorf("%w: %w", ErrNotFound, ErrNotInCommissioningMode)
+	case skippedBLE:
 		return nil, fmt.Errorf("%w: the device was found over BLE only: %w", ErrNotFound, ErrWiFiNetworkRequired)
-	}
-	if skippedClosed {
-		return nil, fmt.Errorf("%w: the device was found on the network only: %w", ErrNotFound, ErrNotInCommissioningMode)
 	}
 	return nil, fmt.Errorf("%w: no matching commissionable device found", ErrNotFound)
 }
