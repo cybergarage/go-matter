@@ -54,7 +54,8 @@ go-matter is a **commissioner (controller)**. It discovers a commissionable devi
 | Version | Scope |
 | --- | --- |
 | v0.8.0 | The first commissioner release |
-| **v0.9.0** | The commissioner completed: attestation validation, subscriptions and events, CASE session resumption, a key store, and the `matterctl tui` controller, verified against a real device |
+| v0.9.0 | The commissioner completed: attestation validation, subscriptions and events, CASE session resumption, a key store, and the `matterctl tui` controller, verified against a real device |
+| **v0.9.1** | Command fields built from the data model catalog (`matterctl any invoke --field`), and the Level Control and Color Control clusters in the catalog |
 | v0.9.x | Fixes found against more real devices, and multi-admin alongside Google Home and Amazon Alexa verified |
 | v1.0.0 | The device role, and a stable API |
 
