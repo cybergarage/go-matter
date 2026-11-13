@@ -226,33 +226,21 @@ func (node *commissioningNode) ProductID() (ProductID, bool) {
 	return productID, true
 }
 
-// CommissioningMode returns a commissioning mode.
+// CommissioningMode returns the commissioning mode the TXT key CM gives.
+// The _CM subtype only says that a commissioning window is open, not which
+// mode it is in, so a node which gives no valid CM value reports none.
 // 4.3.1.3. Commissioning Subtypes (_CM)
 // 4.3.1.7. TXT key for commissioning mode (CM).
 func (node *commissioningNode) CommissioningMode() (CommissioningMode, bool) {
-	cmFrom := func(cms string) (CommissioningMode, bool) {
-		if len(cms) == 0 {
-			return CommissioningModeAbsence, true
-		}
-		cm, err := NewCommissioningModeFrom(cms)
-		if err != nil {
-			return CommissioningModeAbsence, false
-		}
-		return cm, true
+	cms, ok := node.LookupTxtAttribute(TxtRecordCommissioningMode)
+	if !ok || len(cms) == 0 {
+		return CommissioningModeAbsence, false
 	}
-
-	var records []string
-	records = node.appendLookupTxtAttribute(records, TxtRecordCommissioningMode)
-	records = node.appendLookupSubtype(records, SubtypeCommissioningMode)
-
-	for _, cms := range records {
-		cm, ok := cmFrom(cms)
-		if ok {
-			return cm, true
-		}
+	cm, err := NewCommissioningModeFrom(cms)
+	if err != nil {
+		return CommissioningModeAbsence, false
 	}
-
-	return CommissioningModeAbsence, false
+	return cm, true
 }
 
 // DeviceType returns a device type.
