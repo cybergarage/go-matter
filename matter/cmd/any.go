@@ -21,17 +21,22 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cybergarage/go-matter/matter/datamodel"
+	"github.com/cybergarage/go-matter/matter/datamodel/command"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
+	"github.com/cybergarage/go-matter/matter/protocol/im"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 const anyWriteTypeFlag = "type"
 const anyInvokeFieldsFlag = "fields"
+const anyInvokeFieldFlag = "field"
 
 func init() {
 	anyWriteCmd.Flags().String(anyWriteTypeFlag, "uint", "value encoding: bool|uint|int|string|hex")
 	anyInvokeCmd.Flags().String(anyInvokeFieldsFlag, "", "raw hex-encoded TLV command-fields blob; omitted means no command fields")
+	anyInvokeCmd.Flags().StringArray(anyInvokeFieldFlag, nil, "command field as name=value, checked against the cluster definition (repeatable); e.g. --field Level=128")
 
 	anyCmd.AddCommand(anyReadCmd)
 	anyCmd.AddCommand(anyWriteCmd)
@@ -61,8 +66,74 @@ var anyWriteCmd = &cobra.Command{ // nolint:exhaustruct
 var anyInvokeCmd = &cobra.Command{ // nolint:exhaustruct
 	Use:   "invoke <cluster-id> <command-id> <node ID> <endpoint ID>",
 	Short: "Invoke a command by numeric cluster/command ID.",
-	Args:  cobra.ExactArgs(4),
-	RunE:  runAnyInvoke,
+	Long: `Invoke a command by numeric cluster/command ID.
+
+The command fields are given in one of two ways:
+
+  --field name=value   One field of the command, repeatable. The fields are
+                       checked against the definition of the cluster in the
+                       datamodel catalog and encoded from it. A value is a
+                       number (decimal or 0x-hex), true or false, null, the
+                       name of an enumeration value, names of bitmap bits
+                       joined with "|", text, or hex for an octet string.
+  --fields <hex>       The TLV-encoded command fields, sent as they are.
+
+Only the clusters of the catalog can take --field; see
+doc/matter-definition-db.md for the list.`,
+	Example: `  # Level Control (0x0008) MoveToLevel (0x00): half brightness in one second
+  matterctl any invoke 0x0008 0x00 <node ID> 1 \
+    --field Level=127 --field TransitionTime=10 \
+    --field OptionsMask=0 --field OptionsOverride=0`,
+	Args: cobra.ExactArgs(4),
+	RunE: runAnyInvoke,
+}
+
+// invokeFields returns the command fields of an invoke: the raw blob of
+// --fields, or the fields of --field encoded from the datamodel catalog.
+func invokeFields(clusterID im.ClusterID, commandID im.CommandID, rawHex string, fieldArgs []string) ([]byte, error) {
+	if len(fieldArgs) == 0 {
+		if rawHex == "" {
+			return nil, nil
+		}
+		fields, err := hex.DecodeString(strings.TrimPrefix(rawHex, "0x"))
+		if err != nil {
+			return nil, fmt.Errorf("invalid --%s %q: %w", anyInvokeFieldsFlag, rawHex, err)
+		}
+		return fields, nil
+	}
+	if rawHex != "" {
+		return nil, fmt.Errorf("--%s and --%s cannot be used together", anyInvokeFieldFlag, anyInvokeFieldsFlag)
+	}
+	catalog, err := datamodel.Load()
+	if err != nil {
+		return nil, err
+	}
+	schema, err := command.New(catalog, clusterID, commandID)
+	if err != nil {
+		return nil, err
+	}
+	// A command which requires a timed interaction is refused by the node
+	// when it is sent as a plain invoke. 8.7.2. Timed Interaction.
+	if schema.Timed {
+		return nil, fmt.Errorf("%s %s requires a timed invoke, which matterctl does not send yet", schema.ClusterName, schema.CommandName)
+	}
+	values := map[string]any{}
+	for _, arg := range fieldArgs {
+		name, value, ok := strings.Cut(arg, "=")
+		name = strings.TrimSpace(name)
+		if !ok || name == "" {
+			return nil, fmt.Errorf("invalid --%s %q: expected name=value", anyInvokeFieldFlag, arg)
+		}
+		f, known := schema.Field(name)
+		if !known {
+			return nil, fmt.Errorf("%w: %s %s has no field %q", command.ErrUnknownField, schema.ClusterName, schema.CommandName, name)
+		}
+		if _, dup := values[f.Name]; dup {
+			return nil, fmt.Errorf("--%s %s given more than once", anyInvokeFieldFlag, f.Name)
+		}
+		values[f.Name] = value
+	}
+	return schema.Encode(values)
 }
 
 func runAnyRead(cmd *cobra.Command, args []string) error {
@@ -214,12 +285,13 @@ func runAnyInvoke(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	var fields []byte
-	if fieldsArg != "" {
-		fields, err = hex.DecodeString(strings.TrimPrefix(fieldsArg, "0x"))
-		if err != nil {
-			return fmt.Errorf("invalid --%s %q: %w", anyInvokeFieldsFlag, fieldsArg, err)
-		}
+	fieldArgs, err := cmd.Flags().GetStringArray(anyInvokeFieldFlag)
+	if err != nil {
+		return err
+	}
+	fields, err := invokeFields(clusterID, commandID, fieldsArg, fieldArgs)
+	if err != nil {
+		return err
 	}
 
 	node, _, err := connectNode(context.Background(), nodeIDArg)

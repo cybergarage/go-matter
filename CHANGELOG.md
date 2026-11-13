@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **Command fields from the catalog.** The new `matter/datamodel/command` package describes the fields of a request command from its definition in the catalog, validates values (type width, `min`/`max`, enumeration values, bitmap bits, nullability, mandatory fields) and encodes the CommandFields structure for `Node.Invoke`. Lists, structures and floating point fields are not encoded yet.
+- `matterctl any invoke --field name=value` (repeatable) builds the command fields that way, for the clusters of the catalog, e.g. `matterctl any invoke 0x0008 0x00 <node ID> 1 --field Level=127 --field TransitionTime=10 --field OptionsMask=0 --field OptionsOverride=0`. A command which requires a timed invoke is refused, as `matterctl` does not send one yet. `--fields` still takes a raw TLV blob.
 - The Level Control (0x0008, revision 6) and Color Control (0x0300, revision 9) cluster definitions in the `matter/datamodel` catalog, from the same SDK tag as the others, so that `matterctl tui` names the attributes and commands of a dimmable or color light. The catalog describes them only; no new operation is enabled.
 
 ## [0.9.0] - 2026-10-16

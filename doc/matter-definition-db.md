@@ -84,6 +84,31 @@ StartUpOnOff is a writable nullable enum with Manage write privilege and Lightin
 feature conformance. Door Lock timed invoke and Temperature Measurement nullable
 bounds are fixture-tested. There is no automatic permission decision.
 
+## Command fields from the catalog
+
+[`matter/datamodel/command`](../matter/datamodel/command) turns the definition of a
+request command into a typed list of fields, validates values against it and
+encodes the CommandFields structure to pass to `Node.Invoke`:
+
+```go
+schema, err := command.New(catalog, 0x0008, 0x00) // Level Control MoveToLevel
+if err != nil { /* command.ErrUnknownCommand: not in the catalog */ }
+fields, err := schema.Encode(map[string]any{
+    "Level": 127, "TransitionTime": 10, "OptionsMask": 0, "OptionsOverride": 0,
+})
+if err != nil { /* ErrMissingField, ErrUnknownField, ErrInvalidValue, ... */ }
+resp, err := node.Invoke(endpoint, schema.ClusterID, schema.CommandID, fields)
+```
+
+A value is given in its Go type or as text, so the same call serves a command line
+(`matterctl any invoke --field Level=127`) and a decoded JSON body. Checked are the
+width of the type, the declared `min`/`max` and length bounds, the values of an
+enumeration, the bits of a bitmap, nullability and mandatory fields. Lists,
+structures and floating point fields are described as unsupported and refuse a
+value. `Schema.Timed` says that the command needs a timed invoke; conformance and
+access privileges are not evaluated, and a command which encodes may still be
+absent from a node's AcceptedCommandList.
+
 ## Deterministic generation and verification
 
 ```sh
