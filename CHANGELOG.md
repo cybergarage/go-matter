@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-11-13
+
+Commands with fields are built from the data model catalog. The catalog gains the Level Control and Color Control clusters, so a dimmable or color light can be operated with `matterctl any invoke --field`. Not yet verified against a real dimmable or color light.
+
 ### Added
 
 - **Command fields from the catalog.** The new `matter/datamodel/command` package describes the fields of a request command from its definition in the catalog, validates values (type width, `min`/`max`, enumeration values, bitmap bits, nullability, mandatory fields) and encodes the CommandFields structure for `Node.Invoke`. Lists, structures and floating point fields are not encoded yet.
