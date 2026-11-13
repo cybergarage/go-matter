@@ -35,10 +35,12 @@ type ScanHandler = ble.ScanHandler
 
 // Scanner represents a BLE scanner.
 type Scanner interface {
-	// DiscoveredDevices returns the list of discovered devices.
+	// DiscoveredDevices returns the devices discovered by the latest scan.
 	DiscoveredDevices() []Device
-	// LookupDeviceByDiscriminator looks up a scanned device by a discriminator.
+	// LookupDeviceByDiscriminator looks up a device of the latest scan by a
+	// discriminator.
 	LookupDeviceByDiscriminator(v any) (Device, error)
-	// Scan starts scanning for Bluetooth devices.
+	// Scan starts scanning for Bluetooth devices. It forgets the devices of
+	// an earlier scan first.
 	Scan(ctx context.Context, opts ...ScannerOption) error
 }
