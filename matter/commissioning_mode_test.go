@@ -171,7 +171,8 @@ func commissionableResponse(t *testing.T, subtypes []string, txt []string) dns.M
 		}
 		return rr
 	}
-	answers := []dns.Answer{must(dns.NewPTRResourceRecord("_matterc._udp.local", instance, ttl))}
+	answers := make([]dns.Answer, 0, 1+len(subtypes)+3)
+	answers = append(answers, must(dns.NewPTRResourceRecord("_matterc._udp.local", instance, ttl)))
 	for _, st := range subtypes {
 		answers = append(answers, must(dns.NewPTRResourceRecord(st+"._sub._matterc._udp.local", instance, ttl)))
 	}
