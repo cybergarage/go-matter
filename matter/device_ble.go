@@ -210,12 +210,23 @@ const (
 	bleConnectRetryInterval = 500 * time.Millisecond
 )
 
+// bleConnectAttemptTimeout bounds one BLE connection attempt. A device out
+// of range, or one which stopped advertising, never answers a connection
+// request, and BlueZ waits for it without a limit of its own; without this
+// bound the first attempt would use up the whole commissioning timeout and
+// leave no time for a retry.
+var bleConnectAttemptTimeout = 20 * time.Second
+
 // connectWithRetry connects to the device, trying again after a failed
-// attempt, with a longer wait each time, up to bleConnectAttempts.
+// attempt, with a longer wait each time, up to bleConnectAttempts. Each
+// attempt ends after bleConnectAttemptTimeout at the latest.
 func (dev *bleDevice) connectWithRetry(ctx context.Context) error {
 	var err error
 	for attempt := 1; attempt <= bleConnectAttempts; attempt++ {
-		if err = dev.Connect(ctx); err == nil {
+		attemptCtx, cancel := context.WithTimeout(ctx, bleConnectAttemptTimeout)
+		err = dev.Connect(attemptCtx)
+		cancel()
+		if err == nil {
 			if attempt > 1 {
 				log.Infof("Connected to device (%s) at attempt %d", dev.String(), attempt)
 			}
