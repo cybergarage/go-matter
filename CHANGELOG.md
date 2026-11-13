@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- The Level Control (0x0008, revision 6) and Color Control (0x0300, revision 9) cluster definitions in the `matter/datamodel` catalog, from the same SDK tag as the others, so that `matterctl tui` names the attributes and commands of a dimmable or color light. The catalog describes them only; no new operation is enabled.
+
 ## [0.9.0] - 2026-10-16
 
 The commissioner completed. Device attestation is verified against the DCL's production trust anchors, attributes and events are subscribed to, CASE sessions are resumed, and the fabric's private keys can be kept in a key store. `matterctl tui` commissions a device over BLE with Wi-Fi credentials, or over IP, and operates it. Commissioning, On/Off, subscriptions, events and resubscription after a power cycle were verified against a real device.

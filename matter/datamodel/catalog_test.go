@@ -13,10 +13,10 @@ func TestCatalogCoverageAndProvenance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.Provenance.SDKTag != "v1.6.1.0" || c.Provenance.SourceSHA != "3bcdd56ba54fb88b2afb4bfef575014671df7aa7" || len(c.Provenance.Inputs) != 11 {
+	if c.Provenance.SDKTag != "v1.6.1.0" || c.Provenance.SourceSHA != "3bcdd56ba54fb88b2afb4bfef575014671df7aa7" || len(c.Provenance.Inputs) != 13 {
 		t.Fatal("unexpected provenance")
 	}
-	if len(c.Clusters) != 5 || len(c.DeviceTypes) != 98 || len(c.Types) != 126 || len(c.Globals) != 5 {
+	if len(c.Clusters) != 7 || len(c.DeviceTypes) != 98 || len(c.Types) != 140 || len(c.Globals) != 5 {
 		t.Fatal("coverage changed without fixture review")
 	}
 	if _, ok := c.Cluster(0x9999); ok {
@@ -171,5 +171,51 @@ func TestInventoryClusterDefinitionsAndConformanceRetention(t *testing.T) {
 	}
 	if _, ok := mandatory.Child("greaterOrEqualTerm"); !ok {
 		t.Fatal("revision comparison lost")
+	}
+}
+
+func TestLightingSchemasKeepScopedTypesAndCommandFields(t *testing.T) {
+	c, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	level, ok := c.Cluster(0x0008)
+	if !ok || level.Name != "Level Control" || level.Revision != 6 {
+		t.Fatal("Level Control definition missing")
+	}
+	current, ok := level.Attribute(0)
+	if !ok || current.Name != "CurrentLevel" || current.Type != "int8u" || !current.Nullable || current.Writable {
+		t.Fatal("CurrentLevel schema lost")
+	}
+	move, ok := level.Command(0, "client")
+	if !ok || move.Name != "MoveToLevel" || move.Timed {
+		t.Fatal("MoveToLevel request missing")
+	}
+	args := move.Definition.NamedChildren("arg")
+	if len(args) != 4 || args[0].Property("name") != "Level" || args[0].Property("type") != "int8u" || args[1].Property("isNullable") != "true" {
+		t.Fatal("MoveToLevel fields lost")
+	}
+	color, ok := c.Cluster(0x0300)
+	if !ok || color.Name != "Color Control" || color.Revision != 9 {
+		t.Fatal("Color Control definition missing")
+	}
+	hue, ok := color.Command(0, "client")
+	if !ok || hue.Name != "MoveToHue" {
+		t.Fatal("MoveToHue request missing")
+	}
+	if fields := hue.Definition.NamedChildren("arg"); len(fields) == 0 || fields[0].Property("fieldId") != "0" || fields[1].Property("type") != "DirectionEnum" {
+		t.Fatal("MoveToHue fields lost")
+	}
+	// Both clusters define MoveModeEnum; the cluster scope selects the definition.
+	levelMode, ok := c.Type("MoveModeEnum", 0x0008)
+	if !ok || len(levelMode.Definition.NamedChildren("item")) != 2 {
+		t.Fatal("Level Control MoveModeEnum lost")
+	}
+	colorMode, ok := c.Type("MoveModeEnum", 0x0300)
+	if !ok || len(colorMode.Definition.NamedChildren("item")) != 3 {
+		t.Fatal("Color Control MoveModeEnum lost")
+	}
+	if _, ok := color.Definition.Child("features"); !ok {
+		t.Fatal("Color Control features lost")
 	}
 }

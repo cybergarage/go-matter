@@ -68,6 +68,18 @@
       "path": "src/app/zap-templates/zcl/data-model/chip/basic-information-cluster.xml",
       "sha256": "9c8c85b265ccddeccc14c3fbb8a5627f4ba8c832e49c97ff9cd42e2a163cc635",
       "license": "Apache-2.0"
+    },
+    {
+      "file": "level-control-cluster.xml",
+      "path": "src/app/zap-templates/zcl/data-model/chip/level-control-cluster.xml",
+      "sha256": "243ff9dfe51ab9ffac38800cee8c5e33b93c2df1e15f93b08a51fcbd366ea99f",
+      "license": "Apache-2.0"
+    },
+    {
+      "file": "color-control-cluster.xml",
+      "path": "src/app/zap-templates/zcl/data-model/chip/color-control-cluster.xml",
+      "sha256": "840237ec440daf06c8713bdeb9bc2fd9eb54a2964675d8e6706a3fc7e5599f12",
+      "license": "Apache-2.0"
     }
   ]
 }

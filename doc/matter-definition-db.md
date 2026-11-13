@@ -14,7 +14,7 @@ is separate from SDK code generation. Individual files, e.g.
 carry CSA internal-use-only and publication/modification/derivative restrictions.
 That tree is **not** an input to this public catalog.
 
-This catalog imports only nine individually Apache-2.0-marked XML files from the
+This catalog imports only eleven individually Apache-2.0-marked XML files from the
 SDK ZAP tree and its input manifest. The pinned source is SDK `v1.6.1.0`, commit
 `3bcdd56ba54fb88b2afb4bfef575014671df7aa7`:
 
@@ -41,9 +41,9 @@ The catalog contains exactly:
 
 | Metadata | Coverage |
 | --- | --- |
-| Cluster schemas | On/Off (0x0006, revision 6), Door Lock (0x0101, revision 10), Temperature Measurement (0x0402, revision 4), Descriptor (0x001D, revision 3), Basic Information (0x0028, revision 6) |
+| Cluster schemas | On/Off (0x0006, revision 6), Door Lock (0x0101, revision 10), Temperature Measurement (0x0402, revision 4), Descriptor (0x001D, revision 3), Basic Information (0x0028, revision 6), Level Control (0x0008, revision 6), Color Control (0x0300, revision 9) |
 | Application device profiles | 98 SDK entries, including SDK test/vendor entries; references to unloaded clusters remain names and are unresolved |
-| Types | 126 atomic/enum/bitmap/struct definitions across the audited inputs |
+| Types | 140 atomic/enum/bitmap/struct definitions across the audited inputs |
 | Global attributes | ClusterRevision, FeatureMap, AttributeList, AcceptedCommandList, GeneratedCommandList |
 
 Atomic SDK type IDs are **not** Matter TLV type codes. Type names, widths, signedness,
