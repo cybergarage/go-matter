@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-11-14
+
+Fixes found while commissioning a real Wi-Fi color light over BLE from a long-running controller (`matterctl tui`, go-matter-hub): stale BLE scan results, a device not in commissioning mode, and a BLE connection which never ends.
+
 ### Fixed
 
 - **A device on the network which is not in commissioning mode is no longer tried.** A device which has joined a network advertises itself over mDNS with `CM=0` while no commissioning window is open (Extended Discovery), and does not answer PASE. Commissioning sent it a PBKDFParamRequest anyway and waited until the commissioning timeout, 2 minutes in `matterctl tui`. Such a device is now skipped at once; when nothing else matches, the error wraps the new `ErrNotInCommissioningMode` and says to open a commissioning window on the device or reset it. A device which advertises no `CM` key is still tried.
