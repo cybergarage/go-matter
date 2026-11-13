@@ -331,6 +331,7 @@ func (cmr *commissioner) commissionMatchingDevice(ctx context.Context, payload O
 	adminCfg, operationalCfg := effectiveConfigOptions(opts)
 	hasWiFi := hasWiFiNetworkConfig(opts)
 	skippedBLE := false
+	skippedClosed := false
 	for _, dev := range orderCommissionableDevices(devs, hasWiFi) {
 		isMatched := dev.MatchesOnboardingPayload(payload)
 		if !isMatched {
@@ -342,6 +343,14 @@ func (cmr *commissioner) commissionMatchingDevice(ctx context.Context, payload O
 		if _, isBLE := dev.(*bleDevice); isBLE && !hasWiFi {
 			log.Infof("Skipping device found over BLE (no Wi-Fi credentials to give it): %s", dev.String())
 			skippedBLE = true
+			continue
+		}
+		// A device found on the network which says it is not in
+		// commissioning mode would not answer PASE; trying it only waits
+		// for the commissioning timeout.
+		if notInCommissioningMode(dev) {
+			log.Infof("Skipping device (not in commissioning mode, CM=0): %s", dev.String())
+			skippedClosed = true
 			continue
 		}
 		log.Infof("Trying to commission device: %s", dev.String())
@@ -362,7 +371,24 @@ func (cmr *commissioner) commissionMatchingDevice(ctx context.Context, payload O
 	if skippedBLE {
 		return nil, fmt.Errorf("%w: the device was found over BLE only: %w", ErrNotFound, ErrWiFiNetworkRequired)
 	}
+	if skippedClosed {
+		return nil, fmt.Errorf("%w: the device was found on the network only: %w", ErrNotFound, ErrNotInCommissioningMode)
+	}
 	return nil, fmt.Errorf("%w: no matching commissionable device found", ErrNotFound)
+}
+
+// notInCommissioningMode reports whether a device found over mDNS says that
+// it is not in commissioning mode. Such a device advertises itself for
+// Extended Discovery, with CM=0, while no commissioning window is open. A
+// device which does not say is tried. 4.3.1.7. TXT key for commissioning
+// mode (CM).
+func notInCommissioningMode(dev CommissionableDevice) bool {
+	node, ok := dev.(*mDNSDevice)
+	if !ok {
+		return false
+	}
+	mode, ok := node.CommissioningMode()
+	return ok && mode == mdns.CommissioningModeAbsence
 }
 
 // hasWiFiNetworkConfig reports whether opts give Wi-Fi network credentials.

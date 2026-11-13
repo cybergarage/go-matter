@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- **A device on the network which is not in commissioning mode is no longer tried.** A device which has joined a network advertises itself over mDNS with `CM=0` while no commissioning window is open (Extended Discovery), and does not answer PASE. Commissioning sent it a PBKDFParamRequest anyway and waited until the commissioning timeout, 2 minutes in `matterctl tui`. Such a device is now skipped at once; when nothing else matches, the error wraps the new `ErrNotInCommissioningMode` and says to open a commissioning window on the device or reset it. A device which advertises no `CM` key is still tried.
 - **BLE commissioning from a long-running process** (`matterctl tui`). The BLE scanner kept every device it had seen since the process started, and commissioning could pick one which no longer advertised there: a device whose commissioning window had closed, or which advertised from another random address by then. BlueZ has no device under that address any more, and every connection attempt failed with `Method "Get" with signature "ss" on interface "org.freedesktop.DBus.Properties" doesn't exist`. A scan now forgets the devices of earlier scans, so discovery and commissioning see only devices advertising now.
 
 ## [0.9.1] - 2026-11-13

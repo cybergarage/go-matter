@@ -30,4 +30,11 @@ var (
 	// joins no operational network otherwise (5.5. Commissioning Flows,
 	// steps 12-13).
 	ErrWiFiNetworkRequired = stderrors.New("commissioning over BLE requires the Wi-Fi network credentials")
+	// ErrNotInCommissioningMode is returned when the device was found on the
+	// network, but advertises that it is not in commissioning mode (CM=0):
+	// it has no commissioning window open, and would not answer PASE. A
+	// window is opened on the device itself (a power cycle or a factory
+	// reset, by its maker's instructions), or by an administrator of a fabric
+	// it is already in. 4.3.1.7. TXT key for commissioning mode (CM).
+	ErrNotInCommissioningMode = stderrors.New("the device is not in commissioning mode (CM=0): open a commissioning window on it, or reset it to factory defaults")
 )
