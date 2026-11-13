@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- **BLE commissioning from a long-running process** (`matterctl tui`). The BLE scanner kept every device it had seen since the process started, and commissioning could pick one which no longer advertised there: a device whose commissioning window had closed, or which advertised from another random address by then. BlueZ has no device under that address any more, and every connection attempt failed with `Method "Get" with signature "ss" on interface "org.freedesktop.DBus.Properties" doesn't exist`. A scan now forgets the devices of earlier scans, so discovery and commissioning see only devices advertising now.
+
 ## [0.9.1] - 2026-11-13
 
 Commands with fields are built from the data model catalog. The catalog gains the Level Control and Color Control clusters, so a dimmable or color light can be operated with `matterctl any invoke --field`. Not yet verified against a real dimmable or color light.

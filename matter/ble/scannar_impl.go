@@ -48,8 +48,19 @@ func (scn *scanner) onScanResult(bleDev ble.Device) {
 	scn.deviceMap.Store(dev.Address().String(), dev)
 }
 
-// Scan starts scanning for Bluetooth devices.
+// Scan starts scanning for Bluetooth devices. The devices of an earlier
+// scan are forgotten first, so that DiscoveredDevices returns only devices
+// which advertised during this scan.
+//
+// A device seen by an earlier scan may be gone: it may have closed its
+// commissioning window, or advertise from another random address now. On
+// Linux, BlueZ also drops a device it is not connected to soon after the
+// scan which found it has stopped; connecting to such an address fails at
+// once ("Method "Get" with signature "ss" on interface
+// "org.freedesktop.DBus.Properties" doesn't exist"), however often it is
+// tried.
 func (scn *scanner) Scan(ctx context.Context, opts ...ble.ScannerOption) error {
+	scn.deviceMap.Clear()
 	// The underlying ble.Scanner invokes every ScanHandler option passed to
 	// Scan, so this handler must always be appended to keep populating
 	// deviceMap, even when the caller supplies its own ScanHandler (e.g. for
@@ -61,7 +72,7 @@ func (scn *scanner) Scan(ctx context.Context, opts ...ble.ScannerOption) error {
 	return scn.Scanner.Scan(ctx, opts...)
 }
 
-// DiscoveredDevices returns the list of discovered devices.
+// DiscoveredDevices returns the devices discovered by the latest scan.
 func (scn *scanner) DiscoveredDevices() []Device {
 	var devices []Device
 	scn.deviceMap.Range(func(key, value any) bool {
