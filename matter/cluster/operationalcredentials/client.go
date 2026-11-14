@@ -56,13 +56,30 @@ const (
 	AddNOCCommandID im.CommandID = 0x06
 	// UpdateNOCCommandID replaces the device's NOC on the accessing fabric.
 	UpdateNOCCommandID im.CommandID = 0x07
+	// RemoveFabricCommandID removes a fabric from the device.
+	RemoveFabricCommandID im.CommandID = 0x0A
 	// AddTrustedRootCertificateCommandID adds a trusted root certificate to the device.
 	AddTrustedRootCertificateCommandID im.CommandID = 0x0B
 )
 
+// Attribute IDs for the Operational Credentials cluster.
+// 11.18.6. Attributes.
+const (
+	// CurrentFabricIndexAttributeID is the fabric index of the fabric the
+	// reading session belongs to.
+	CurrentFabricIndexAttributeID im.AttributeID = 0x0005
+)
+
 // NOCStatus values returned in a NOCResponse's StatusCode field.
 // 11.18.5.6. NodeOperationalCertStatusEnum.
-const nocStatusOK uint8 = 0
+const (
+	nocStatusOK                 uint8 = 0
+	nocStatusInvalidFabricIndex uint8 = 11
+)
+
+// ErrInvalidFabricIndex is returned by RemoveFabric when the device has no
+// fabric of that index: it was removed already. 11.18.6.12.
+var ErrInvalidFabricIndex = errors.New("operationalcredentials: no fabric of that index (InvalidFabricIndex)")
 
 // ErrNotImplemented is returned by operations this package does not support
 // (Thread-only flows and vendor-reserved fields are out of scope).
@@ -216,14 +233,7 @@ func AddNOC(sess session.SecureSession, ep im.EndpointID, nocDER, icacDER, ipk [
 	if err != nil {
 		return fmt.Errorf("operationalcredentials: AddNOC: %w", err)
 	}
-	if !resp.IsSuccess() {
-		return invokeStatusError("AddNOC", resp)
-	}
-	if status, ok := fieldUnsigned1(resp, 0); ok && status != nocStatusOK {
-		debugText, _ := fieldUTF8(resp, 2)
-		return fmt.Errorf("operationalcredentials: AddNOC failed: NOCResponse status=%d %s", status, debugText)
-	}
-	return nil
+	return nocResponseError("AddNOC", resp, false)
 }
 
 // UpdateNOC replaces the device's NOC (and ICAC, both DER-encoded) on the
@@ -257,14 +267,59 @@ func UpdateNOC(sess session.SecureSession, ep im.EndpointID, nocDER, icacDER []b
 	if err != nil {
 		return fmt.Errorf("operationalcredentials: UpdateNOC: %w", err)
 	}
-	if !resp.IsSuccess() {
-		return invokeStatusError("UpdateNOC", resp)
+	return nocResponseError("UpdateNOC", resp, false)
+}
+
+// CurrentFabricIndex reads the CurrentFabricIndex attribute: the index of
+// the fabric the session belongs to on the device, or 0 over a PASE
+// session.
+// 11.18.6.7. CurrentFabricIndex Attribute.
+func CurrentFabricIndex(sess session.SecureSession, ep im.EndpointID) (uint8, error) {
+	resp, err := im.ReadAttribute(sess, ep, ClusterID, CurrentFabricIndexAttributeID)
+	if err != nil {
+		return 0, fmt.Errorf("operationalcredentials: CurrentFabricIndex: %w", err)
 	}
-	if status, ok := fieldUnsigned1(resp, 0); ok && status != nocStatusOK {
-		debugText, _ := fieldUTF8(resp, 2)
-		return fmt.Errorf("operationalcredentials: UpdateNOC failed: NOCResponse status=%d %s", status, debugText)
+	if resp.Status != nil {
+		return 0, fmt.Errorf("operationalcredentials: CurrentFabricIndex failed: IM status 0x%02X, cluster status 0x%02X",
+			resp.Status.IMStatus, resp.Status.ClusterStatus)
 	}
-	return nil
+	if resp.Value == nil {
+		return 0, errors.New("operationalcredentials: CurrentFabricIndex: ReadResponse missing attribute value")
+	}
+	v, ok := resp.Value.Unsigned1()
+	if !ok {
+		return 0, errors.New("operationalcredentials: CurrentFabricIndex: attribute value is not a fabric index")
+	}
+	return v, nil
+}
+
+// RemoveFabric removes the fabric of fabricIndex from the device, with its
+// NOC, its trusted root and the data scoped to it. When the fabric is the
+// one of the session, the device ends the session once it has answered.
+// A device which has no fabric of that index answers InvalidFabricIndex,
+// returned as ErrInvalidFabricIndex.
+// 11.18.6.12. RemoveFabric Command.
+func RemoveFabric(sess session.SecureSession, ep im.EndpointID, fabricIndex uint8) error {
+	if fabricIndex == 0 {
+		return errors.New("operationalcredentials: RemoveFabric: fabric index 0 is not a fabric")
+	}
+	enc := tlv.NewEncoder()
+	enc.BeginStructure(tlv.NewContextTag(1))
+	enc.PutUnsigned1(tlv.NewContextTag(0), fabricIndex)
+	if err := enc.EndContainer(); err != nil {
+		return err
+	}
+	resp, err := im.Invoke(sess, ep, ClusterID, RemoveFabricCommandID, enc.Bytes())
+	if err != nil {
+		return fmt.Errorf("operationalcredentials: RemoveFabric: %w", err)
+	}
+	// RemoveFabric is answered with a NOCResponse only, whose StatusCode
+	// is mandatory: an answer without one did not remove anything.
+	err = nocResponseError("RemoveFabric", resp, true)
+	if errors.Is(err, errNOCStatusInvalidFabricIndex) {
+		return ErrInvalidFabricIndex
+	}
+	return err
 }
 
 func buildAttestationRequestFields(nonce []byte) ([]byte, error) {
@@ -362,6 +417,36 @@ func fieldUTF8(resp *im.InvokeResponse, tag uint8) (string, bool) {
 		return "", false
 	}
 	return elem.UTF8()
+}
+
+// errNOCStatusInvalidFabricIndex is the error of a NOCResponse with the
+// InvalidFabricIndex status.
+var errNOCStatusInvalidFabricIndex = errors.New("InvalidFabricIndex")
+
+// nocResponseError returns the error a NOCResponse answer carries: an IM
+// status which is not success, or a StatusCode which is not OK. A
+// StatusCode which is missing, or not a uint8, is an error only when
+// required. 11.18.6.8. NOCResponse Command.
+func nocResponseError(command string, resp *im.InvokeResponse, requireStatus bool) error {
+	if !resp.IsSuccess() {
+		return invokeStatusError(command, resp)
+	}
+	status, ok := fieldUnsigned1(resp, 0)
+	if !ok {
+		if requireStatus {
+			return fmt.Errorf("operationalcredentials: %s: the answer is not a NOCResponse with a StatusCode", command)
+		}
+		return nil
+	}
+	if status == nocStatusOK {
+		return nil
+	}
+	debugText, _ := fieldUTF8(resp, 2)
+	cause := fmt.Errorf("NOCResponse status=%d %s", status, debugText)
+	if status == nocStatusInvalidFabricIndex {
+		cause = fmt.Errorf("%w: %w", errNOCStatusInvalidFabricIndex, cause)
+	}
+	return fmt.Errorf("operationalcredentials: %s failed: %w", command, cause)
 }
 
 func invokeStatusError(command string, resp *im.InvokeResponse) error {

@@ -22,6 +22,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
+	"errors"
 	"math/big"
 	"testing"
 	"time"
@@ -345,4 +346,80 @@ func generateSelfSignedCert(t *testing.T) []byte {
 		t.Fatal(err)
 	}
 	return der
+}
+
+func TestRemoveFabricEncodesTheFabricIndex(t *testing.T) {
+	sess := &fakeSession{
+		nextReceive: buildSuccessInvokeResponse(t, func(enc tlv.Encoder) {
+			enc.PutUnsigned1(tlv.NewContextTag(0), 0)
+			enc.PutUnsigned1(tlv.NewContextTag(1), 3)
+		}),
+	}
+	if err := RemoveFabric(sess, 0, 3); err != nil {
+		t.Fatalf("RemoveFabric() error = %v", err)
+	}
+	fields := decodeTransmittedCommandFields(t, sess.lastTransmit)
+	if v, ok := fields[0].Unsigned1(); !ok || v != 3 {
+		t.Errorf("transmitted FabricIndex = %v, %v; want 3, true", v, ok)
+	}
+}
+
+func TestRemoveFabricFailures(t *testing.T) {
+	invalid := &fakeSession{
+		nextReceive: buildSuccessInvokeResponse(t, func(enc tlv.Encoder) {
+			enc.PutUnsigned1(tlv.NewContextTag(0), 11) // InvalidFabricIndex
+		}),
+	}
+	if err := RemoveFabric(invalid, 0, 3); !errors.Is(err, ErrInvalidFabricIndex) {
+		t.Errorf("RemoveFabric() of a removed fabric: error = %v, want ErrInvalidFabricIndex", err)
+	}
+	other := &fakeSession{
+		nextReceive: buildSuccessInvokeResponse(t, func(enc tlv.Encoder) {
+			enc.PutUnsigned1(tlv.NewContextTag(0), 2)
+		}),
+	}
+	if err := RemoveFabric(other, 0, 3); err == nil || errors.Is(err, ErrInvalidFabricIndex) {
+		t.Errorf("RemoveFabric() with NOCResponse status 2: error = %v", err)
+	}
+	if err := RemoveFabric(&fakeSession{}, 0, 0); err == nil {
+		t.Error("RemoveFabric(0) error = nil, want an error")
+	}
+	// A success without a NOCResponse StatusCode removed nothing.
+	statusless := &fakeSession{nextReceive: buildSuccessInvokeResponse(t, nil)}
+	if err := RemoveFabric(statusless, 0, 3); err == nil {
+		t.Error("RemoveFabric() answered without a StatusCode: error = nil")
+	}
+}
+
+// reportData returns a ReportData message with one attribute report
+// whose Data element (context tag 2) is the TLV data.
+func reportData(t *testing.T, data ...byte) []byte {
+	t.Helper()
+	hdr, err := message.NewProtocolHeader(
+		message.WithHeaderOpcode(message.ReportDataMessage),
+		message.WithHeaderExchangeID(message.NewFirstExchangeID()),
+		message.WithHeaderProtocolID(message.InteractionModel),
+	).Bytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// {1: [{1: {1: [2: 0], 2: data}}], 4: false}: AttributeReportIBs >
+	// AttributeReportIB > AttributeDataIB with an AttributePathIB of
+	// endpoint 0. 10.6.4. AttributeReportIB.
+	hdr = append(hdr, 0x15, 0x36, 0x01, 0x15, 0x35, 0x01, 0x37, 0x01, 0x24, 0x02, 0x00, 0x18)
+	hdr = append(hdr, data...)
+	return append(hdr, 0x18, 0x18, 0x18, 0x28, 0x04, 0x18)
+}
+
+func TestCurrentFabricIndex(t *testing.T) {
+	sess := &fakeSession{nextReceive: reportData(t, 0x24, 0x02, 2)} // 2: uint8 2
+	got, err := CurrentFabricIndex(sess, 0)
+	if err != nil || got != 2 {
+		t.Fatalf("CurrentFabricIndex() = %d, %v; want 2", got, err)
+	}
+
+	notIndex := &fakeSession{nextReceive: reportData(t, 0x29, 0x02)} // 2: true
+	if _, err := CurrentFabricIndex(notIndex, 0); err == nil {
+		t.Error("CurrentFabricIndex() of a boolean: error = nil")
+	}
 }
