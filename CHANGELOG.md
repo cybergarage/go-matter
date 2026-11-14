@@ -15,6 +15,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - `im.ReadUnsigned1Attribute` and `networkcommissioning.ConnectMaxTimeSeconds`.
 
+### Fixed
+
+- **A refused ArmFailSafe, SetRegulatoryConfig or CommissioningComplete is an error.** Their clients checked only the IM status, not the ErrorCode of the response command, so a device which refused, such as with BusyWithOtherAdmin or NoFailSafe, was taken to have accepted. A non-OK ErrorCode is now `generalcommissioning.ErrCommissioning`, with its name and DebugText. 11.10.7.3, 11.10.7.5, 11.10.7.7.
+
 ## [0.9.4] - 2026-11-14
 
 A controller can remove a node from its fabric.
