@@ -233,14 +233,7 @@ func AddNOC(sess session.SecureSession, ep im.EndpointID, nocDER, icacDER, ipk [
 	if err != nil {
 		return fmt.Errorf("operationalcredentials: AddNOC: %w", err)
 	}
-	if !resp.IsSuccess() {
-		return invokeStatusError("AddNOC", resp)
-	}
-	if status, ok := fieldUnsigned1(resp, 0); ok && status != nocStatusOK {
-		debugText, _ := fieldUTF8(resp, 2)
-		return fmt.Errorf("operationalcredentials: AddNOC failed: NOCResponse status=%d %s", status, debugText)
-	}
-	return nil
+	return nocResponseError("AddNOC", resp, false)
 }
 
 // UpdateNOC replaces the device's NOC (and ICAC, both DER-encoded) on the
@@ -274,14 +267,7 @@ func UpdateNOC(sess session.SecureSession, ep im.EndpointID, nocDER, icacDER []b
 	if err != nil {
 		return fmt.Errorf("operationalcredentials: UpdateNOC: %w", err)
 	}
-	if !resp.IsSuccess() {
-		return invokeStatusError("UpdateNOC", resp)
-	}
-	if status, ok := fieldUnsigned1(resp, 0); ok && status != nocStatusOK {
-		debugText, _ := fieldUTF8(resp, 2)
-		return fmt.Errorf("operationalcredentials: UpdateNOC failed: NOCResponse status=%d %s", status, debugText)
-	}
-	return nil
+	return nocResponseError("UpdateNOC", resp, false)
 }
 
 // CurrentFabricIndex reads the CurrentFabricIndex attribute: the index of
@@ -327,17 +313,13 @@ func RemoveFabric(sess session.SecureSession, ep im.EndpointID, fabricIndex uint
 	if err != nil {
 		return fmt.Errorf("operationalcredentials: RemoveFabric: %w", err)
 	}
-	if !resp.IsSuccess() {
-		return invokeStatusError("RemoveFabric", resp)
+	// RemoveFabric is answered with a NOCResponse only, whose StatusCode
+	// is mandatory: an answer without one did not remove anything.
+	err = nocResponseError("RemoveFabric", resp, true)
+	if errors.Is(err, errNOCStatusInvalidFabricIndex) {
+		return ErrInvalidFabricIndex
 	}
-	if status, ok := fieldUnsigned1(resp, 0); ok && status != nocStatusOK {
-		if status == nocStatusInvalidFabricIndex {
-			return ErrInvalidFabricIndex
-		}
-		debugText, _ := fieldUTF8(resp, 2)
-		return fmt.Errorf("operationalcredentials: RemoveFabric failed: NOCResponse status=%d %s", status, debugText)
-	}
-	return nil
+	return err
 }
 
 func buildAttestationRequestFields(nonce []byte) ([]byte, error) {
@@ -435,6 +417,36 @@ func fieldUTF8(resp *im.InvokeResponse, tag uint8) (string, bool) {
 		return "", false
 	}
 	return elem.UTF8()
+}
+
+// errNOCStatusInvalidFabricIndex is the error of a NOCResponse with the
+// InvalidFabricIndex status.
+var errNOCStatusInvalidFabricIndex = errors.New("InvalidFabricIndex")
+
+// nocResponseError returns the error a NOCResponse answer carries: an IM
+// status which is not success, or a StatusCode which is not OK. A
+// StatusCode which is missing, or not a uint8, is an error only when
+// required. 11.18.6.8. NOCResponse Command.
+func nocResponseError(command string, resp *im.InvokeResponse, requireStatus bool) error {
+	if !resp.IsSuccess() {
+		return invokeStatusError(command, resp)
+	}
+	status, ok := fieldUnsigned1(resp, 0)
+	if !ok {
+		if requireStatus {
+			return fmt.Errorf("operationalcredentials: %s: the answer is not a NOCResponse with a StatusCode", command)
+		}
+		return nil
+	}
+	if status == nocStatusOK {
+		return nil
+	}
+	debugText, _ := fieldUTF8(resp, 2)
+	cause := fmt.Errorf("NOCResponse status=%d %s", status, debugText)
+	if status == nocStatusInvalidFabricIndex {
+		cause = fmt.Errorf("%w: %w", errNOCStatusInvalidFabricIndex, cause)
+	}
+	return fmt.Errorf("operationalcredentials: %s failed: %w", command, cause)
 }
 
 func invokeStatusError(command string, resp *im.InvokeResponse) error {

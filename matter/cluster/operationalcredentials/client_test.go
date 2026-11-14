@@ -384,55 +384,41 @@ func TestRemoveFabricFailures(t *testing.T) {
 	if err := RemoveFabric(&fakeSession{}, 0, 0); err == nil {
 		t.Error("RemoveFabric(0) error = nil, want an error")
 	}
+	// A success without a NOCResponse StatusCode removed nothing.
+	statusless := &fakeSession{nextReceive: buildSuccessInvokeResponse(t, nil)}
+	if err := RemoveFabric(statusless, 0, 3); err == nil {
+		t.Error("RemoveFabric() answered without a StatusCode: error = nil")
+	}
 }
 
-func buildReportDataMessage(t *testing.T, putData func(enc tlv.Encoder)) []byte {
+// reportData returns a ReportData message with one attribute report
+// whose Data element (context tag 2) is the TLV data.
+func reportData(t *testing.T, data ...byte) []byte {
 	t.Helper()
-	hdr := message.NewProtocolHeader(
-		message.WithHeaderExchangeFlags(message.ReliabilityFlag),
+	hdr, err := message.NewProtocolHeader(
 		message.WithHeaderOpcode(message.ReportDataMessage),
 		message.WithHeaderExchangeID(message.NewFirstExchangeID()),
 		message.WithHeaderProtocolID(message.InteractionModel),
-	)
-	hdrBytes, err := hdr.Bytes()
+	).Bytes()
 	if err != nil {
 		t.Fatal(err)
 	}
-	enc := tlv.NewEncoder()
-	enc.BeginStructure(tlv.NewAnonymousTag())
-	enc.BeginArray(tlv.NewContextTag(1))      // attribute-report-IBs
-	enc.BeginStructure(tlv.NewAnonymousTag()) // AttributeReportIB
-	enc.BeginStructure(tlv.NewContextTag(1))  // AttributeDataIB
-	enc.BeginList(tlv.NewContextTag(1))       // AttributePathIB
-	enc.PutUnsigned2(tlv.NewContextTag(2), 0)
-	if err := enc.EndContainer(); err != nil { // end AttributePathIB
-		t.Fatal(err)
-	}
-	putData(enc)
-	for range 3 { // AttributeDataIB, AttributeReportIB, attribute-report-IBs
-		if err := enc.EndContainer(); err != nil {
-			t.Fatal(err)
-		}
-	}
-	enc.PutBool(tlv.NewContextTag(4), false) // suppress-response
-	if err := enc.EndContainer(); err != nil {
-		t.Fatal(err)
-	}
-	return append(hdrBytes, enc.Bytes()...)
+	// {1: [{1: {1: [2: 0], 2: data}}], 4: false}: AttributeReportIBs >
+	// AttributeReportIB > AttributeDataIB with an AttributePathIB of
+	// endpoint 0. 10.6.4. AttributeReportIB.
+	msg := append(hdr, 0x15, 0x36, 0x01, 0x15, 0x35, 0x01, 0x37, 0x01, 0x24, 0x02, 0x00, 0x18)
+	msg = append(msg, data...)
+	return append(msg, 0x18, 0x18, 0x18, 0x28, 0x04, 0x18)
 }
 
 func TestCurrentFabricIndex(t *testing.T) {
-	sess := &fakeSession{nextReceive: buildReportDataMessage(t, func(enc tlv.Encoder) {
-		enc.PutUnsigned1(tlv.NewContextTag(2), 2)
-	})}
+	sess := &fakeSession{nextReceive: reportData(t, 0x24, 0x02, 2)} // 2: uint8 2
 	got, err := CurrentFabricIndex(sess, 0)
 	if err != nil || got != 2 {
 		t.Fatalf("CurrentFabricIndex() = %d, %v; want 2", got, err)
 	}
 
-	notIndex := &fakeSession{nextReceive: buildReportDataMessage(t, func(enc tlv.Encoder) {
-		enc.PutBool(tlv.NewContextTag(2), true)
-	})}
+	notIndex := &fakeSession{nextReceive: reportData(t, 0x29, 0x02)} // 2: true
 	if _, err := CurrentFabricIndex(notIndex, 0); err == nil {
 		t.Error("CurrentFabricIndex() of a boolean: error = nil")
 	}
