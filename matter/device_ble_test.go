@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/cybergarage/go-matter/matter/ble"
+	"github.com/cybergarage/go-matter/matter/ble/btp"
 )
 
 // hangingBLEDevice is a BLE device whose first connection attempts get no
@@ -97,5 +98,111 @@ func TestConnectWithRetryGivesUp(t *testing.T) {
 	}
 	if hanging.attempts != bleConnectAttempts {
 		t.Fatalf("attempts = %d, want %d", hanging.attempts, bleConnectAttempts)
+	}
+}
+
+// recordingTransport is a BLE transport which delivers one message, and
+// records the deadline of the context each read was given.
+type recordingTransport struct {
+	ble.Transport
+
+	segments  [][]byte
+	deadlines []time.Time
+	block     bool
+}
+
+func (tr *recordingTransport) Read(ctx context.Context) ([]byte, error) {
+	deadline, _ := ctx.Deadline()
+	tr.deadlines = append(tr.deadlines, deadline)
+	if tr.block {
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+	seg := tr.segments[0]
+	tr.segments = tr.segments[1:]
+	return seg, nil
+}
+
+func receivingDevice(t *testing.T, tr *recordingTransport) *bleDevice {
+	t.Helper()
+	dev := newBLEDevice(&hangingBLEDevice{}, &matchingBLEService{payload: testPairingCode(t)}, &stubDiscoverer{}).(*bleDevice)
+	dev.transport = tr
+	dev.segmenter = btp.NewSegmenter(64)
+	// The peer's first data segment after the handshake is number 1.
+	peer := btp.NewSegmenter(64)
+	peer.EncodeMessage(nil)
+	tr.segments = peer.EncodeMessage([]byte("response"))
+	return dev
+}
+
+// A secure session receives with a context without a deadline, and go-ble
+// then gives up after 5 seconds. During a commissioning, such a receive
+// waits as long as the commissioning instead: a device answers
+// ConnectNetwork only once it has joined the network (11.8.6.4).
+func TestBLEReceiveIsBoundedByTheCommissioning(t *testing.T) {
+	commissioning, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	want, _ := commissioning.Deadline()
+
+	cancellable, cancelCaller := context.WithCancel(context.Background())
+	defer cancelCaller()
+	own, cancelOwn := context.WithTimeout(context.Background(), time.Second)
+	defer cancelOwn()
+	ownDeadline, _ := own.Deadline()
+
+	for name, tc := range map[string]struct {
+		ctx  context.Context
+		want time.Time
+	}{
+		"background":  {context.Background(), want},
+		"cancellable": {cancellable, want},
+		"own":         {own, ownDeadline},
+	} {
+		tr := &recordingTransport{}
+		dev := receivingDevice(t, tr)
+		dev.commissioning = commissioning
+		msg, err := dev.Receive(tc.ctx)
+		if err != nil || string(msg) != "response" {
+			t.Fatalf("%s: Receive() = %q, %v", name, msg, err)
+		}
+		if len(tr.deadlines) != 1 || !tr.deadlines[0].Equal(tc.want) {
+			t.Errorf("%s: read deadline = %v, want %v", name, tr.deadlines, tc.want)
+		}
+	}
+
+	// Outside a commissioning the context is passed on as it is.
+	tr := &recordingTransport{}
+	if _, err := receivingDevice(t, tr).Receive(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if !tr.deadlines[0].IsZero() {
+		t.Errorf("read deadline outside a commissioning = %v, want none", tr.deadlines[0])
+	}
+}
+
+// A commissioning which ends, by its deadline or cancelled, ends a receive
+// the caller could still cancel itself.
+func TestBLEReceiveEndsWithTheCommissioning(t *testing.T) {
+	commissioning, cancel := context.WithCancel(context.Background())
+	tr := &recordingTransport{block: true}
+	dev := receivingDevice(t, tr)
+	dev.commissioning = commissioning
+
+	caller, cancelCaller := context.WithCancel(context.Background())
+	defer cancelCaller()
+	done := make(chan error, 1)
+	go func() {
+		_, err := dev.Receive(caller)
+		done <- err
+	}()
+	time.Sleep(20 * time.Millisecond)
+	cancel()
+	select {
+	case err := <-done:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("Receive() error = %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Receive() did not end with the commissioning")
 	}
 }

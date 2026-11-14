@@ -35,6 +35,10 @@ type bleDevice struct {
 	transport  ble.Transport
 	segmenter  *btp.Segmenter
 	discoverer mdns.Discoverer
+	// commissioning is the context of the commissioning in progress; it
+	// bounds a Transmit or Receive whose own context has no deadline. See
+	// callContext.
+	commissioning context.Context
 }
 
 func newBLEDevice(dev ble.Device, srv ble.Service, discoverer mdns.Discoverer) CommissionableDevice {
@@ -57,11 +61,46 @@ func (dev *bleDevice) Address() string {
 	return dev.Device.Address().String()
 }
 
+// callContext returns the context of one Transmit or Receive. A secure
+// session calls them with a context without a deadline, and go-ble then
+// gives up on a read after its DefaultTransportTimeout of 5 seconds. A
+// device may take far longer to answer a command than that: it answers
+// ConnectNetwork only once it has joined the network, which may take up to
+// its ConnectMaxTimeSeconds (11.8.6.4). So, during a commissioning, a call
+// without a deadline of its own is bounded by the commissioning instead, as
+// mDNSDevice bounds it by the deadline its connection was opened with.
+func (dev *bleDevice) callContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	// Commission clears the field when it returns, possibly while a
+	// callback below still runs, so they use this copy.
+	commissioning := dev.commissioning
+	if commissioning == nil {
+		return ctx, func() {}
+	}
+	if _, ok := ctx.Deadline(); ok {
+		return ctx, func() {}
+	}
+	if ctx.Done() == nil {
+		// Background or TODO: nothing of the caller's to keep.
+		return commissioning, func() {}
+	}
+	// The caller's cancellation, and the commissioning's deadline and
+	// cancellation.
+	bounded, cancel := context.WithCancelCause(ctx)
+	stop := context.AfterFunc(commissioning, func() { cancel(context.Cause(commissioning)) })
+	if deadline, ok := commissioning.Deadline(); ok {
+		withDeadline, cancelDeadline := context.WithDeadline(bounded, deadline)
+		return withDeadline, func() { cancelDeadline(); stop(); cancel(nil) }
+	}
+	return bounded, func() { stop(); cancel(nil) }
+}
+
 // Transmit writes data to the transport.
 func (dev *bleDevice) Transmit(ctx context.Context, b []byte) error {
 	if dev.transport == nil || dev.segmenter == nil {
 		return fmt.Errorf("transport is not opened")
 	}
+	ctx, cancel := dev.callContext(ctx)
+	defer cancel()
 	// 4.19.4.4. BTP Data Packet Header. Messages larger than the negotiated
 	// fragment size must be split into multiple segments written in order.
 	for _, seg := range dev.segmenter.EncodeMessage(b) {
@@ -77,6 +116,8 @@ func (dev *bleDevice) Receive(ctx context.Context) ([]byte, error) {
 	if dev.transport == nil || dev.segmenter == nil {
 		return nil, fmt.Errorf("transport is not opened")
 	}
+	ctx, cancel := dev.callContext(ctx)
+	defer cancel()
 	// A single Matter message may be split across multiple BTP segments;
 	// keep feeding received segments to the reassembler until it reports a
 	// complete message.
@@ -112,6 +153,9 @@ func (dev *bleDevice) Commission(ctx context.Context, payload OnboardingPayload,
 		log.Errorf("Not commissioning device (%s): %v", dev.String(), ErrWiFiNetworkRequired)
 		return CommissionedIdentity{}, ErrWiFiNetworkRequired
 	}
+
+	dev.commissioning = ctx
+	defer func() { dev.commissioning = nil }()
 
 	if err := dev.connectWithRetry(ctx); err != nil {
 		log.Errorf("Failed to connect to device (%s): %v", dev.String(), err)
