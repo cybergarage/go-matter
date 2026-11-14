@@ -70,7 +70,10 @@ func (dev *bleDevice) Address() string {
 // without a deadline of its own is bounded by the commissioning instead, as
 // mDNSDevice bounds it by the deadline its connection was opened with.
 func (dev *bleDevice) callContext(ctx context.Context) (context.Context, context.CancelFunc) {
-	if dev.commissioning == nil {
+	// Commission clears the field when it returns, possibly while a
+	// callback below still runs, so they use this copy.
+	commissioning := dev.commissioning
+	if commissioning == nil {
 		return ctx, func() {}
 	}
 	if _, ok := ctx.Deadline(); ok {
@@ -78,13 +81,13 @@ func (dev *bleDevice) callContext(ctx context.Context) (context.Context, context
 	}
 	if ctx.Done() == nil {
 		// Background or TODO: nothing of the caller's to keep.
-		return dev.commissioning, func() {}
+		return commissioning, func() {}
 	}
 	// The caller's cancellation, and the commissioning's deadline and
 	// cancellation.
 	bounded, cancel := context.WithCancelCause(ctx)
-	stop := context.AfterFunc(dev.commissioning, func() { cancel(context.Cause(dev.commissioning)) })
-	if deadline, ok := dev.commissioning.Deadline(); ok {
+	stop := context.AfterFunc(commissioning, func() { cancel(context.Cause(commissioning)) })
+	if deadline, ok := commissioning.Deadline(); ok {
 		withDeadline, cancelDeadline := context.WithDeadline(bounded, deadline)
 		return withDeadline, func() { cancelDeadline(); stop(); cancel(nil) }
 	}
