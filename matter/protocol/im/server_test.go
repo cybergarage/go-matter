@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -194,6 +195,17 @@ func TestServerRead(t *testing.T) {
 	v, err := ReadBoolAttribute(client, 0, 0x0030, 0x0004)
 	if err != nil || !v {
 		t.Fatalf("ReadBoolAttribute() = (%v, %v), want (true, nil)", v, err)
+	}
+
+	u, err := ReadUnsigned1Attribute(client, 0, 0x0030, 0x0000)
+	if err != nil || u != 7 {
+		t.Fatalf("ReadUnsigned1Attribute() = (%v, %v), want (7, nil)", u, err)
+	}
+	if _, err := ReadUnsigned1Attribute(client, 0, 0x0030, 0x0004); err == nil || !strings.Contains(err.Error(), "not a uint8") {
+		t.Errorf("ReadUnsigned1Attribute() of a boolean: error = %v", err)
+	}
+	if _, err := ReadBoolAttribute(client, 0, 0x0030, 0x0000); err == nil || !strings.Contains(err.Error(), "not a boolean") {
+		t.Errorf("ReadBoolAttribute() of a uint8: error = %v", err)
 	}
 
 	for _, tc := range []struct {

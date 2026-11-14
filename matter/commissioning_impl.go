@@ -56,6 +56,18 @@ const (
 
 	// 11.8.7.3 / 11.8.7.7. Optional breadcrumb field for Network Commissioning commands.
 	networkCommissioningBreadcrumb uint64 = 0
+
+	// afterNetworkFailSafeSeconds is how long the fail-safe has to last
+	// once the device has joined the operational network: operational
+	// discovery, which on a busy network was observed taking ~55s by
+	// itself, then CASE and CommissioningComplete.
+	afterNetworkFailSafeSeconds uint16 = 120
+	// defaultConnectMaxTimeSeconds stands for ConnectMaxTimeSeconds when
+	// the device does not tell it.
+	defaultConnectMaxTimeSeconds uint8 = 60
+	// failSafeBreadcrumb is the Breadcrumb ArmFailSafe sets.
+	// 11.10.6.1. Breadcrumb Attribute.
+	failSafeBreadcrumb uint64 = 1
 )
 
 var (
@@ -68,6 +80,7 @@ var (
 	addNOCCommand                         = operationalcredentials.AddNOC
 	addOrUpdateWiFiNetworkCommand         = networkcommissioning.AddOrUpdateWiFiNetwork
 	connectNetworkCommand                 = networkcommissioning.ConnectNetwork
+	connectMaxTimeSecondsAttribute        = networkcommissioning.ConnectMaxTimeSeconds
 	supportsConcurrentConnectionAttribute = readSupportsConcurrentConnection
 	operationalNodeDiscoverer             = discoverOperationalNode
 	establishOperationalCASESession       = establishCASESession
@@ -169,13 +182,12 @@ func commissionOverPASE(
 		// DefaultCommissioningTimeout in commissioner.go) before Sigma1 was
 		// ever transmitted.
 		armFailSafeExpiry uint16 = 120 // seconds
-		breadcrumb        uint64 = 1
 	)
 
 	// Step 1: ArmFailSafe
 	// 11.10.7.2. ArmFailSafe Command.
-	log.Infof("Commissioning: ArmFailSafe (expiry=%ds, breadcrumb=%d)", armFailSafeExpiry, breadcrumb)
-	if err := armFailSafeCommand(sess, defaultEndpointID, armFailSafeExpiry, breadcrumb); err != nil {
+	log.Infof("Commissioning: ArmFailSafe (expiry=%ds, breadcrumb=%d)", armFailSafeExpiry, failSafeBreadcrumb)
+	if err := armFailSafeCommand(sess, defaultEndpointID, armFailSafeExpiry, failSafeBreadcrumb); err != nil {
 		return deviceOperationalIdentity{}, err
 	}
 
@@ -452,6 +464,14 @@ func commissionNetwork(sess session.SecureSession, cfg config.WiFiNetworkConfig,
 		return fmt.Errorf("commissioning: AddOrUpdateWiFiNetwork: %w", err)
 	}
 
+	// The fail-safe was armed before attestation, which over BLE takes a
+	// good part of it; arm it again so that it lasts while the device
+	// joins the network and then until CommissioningComplete over CASE.
+	// 11.10.7.2. ArmFailSafe Command.
+	if err := armFailSafeBeforeConnectNetwork(sess); err != nil {
+		return err
+	}
+
 	if err := connectNetworkCommand(sess, defaultEndpointID, inputs.ssid, networkCommissioningBreadcrumb); err != nil {
 		if errors.Is(err, networkcommissioning.ErrNotImplemented) {
 			log.Infof("Commissioning: ConnectNetwork skipped: %v", err)
@@ -460,6 +480,24 @@ func commissionNetwork(sess session.SecureSession, cfg config.WiFiNetworkConfig,
 		return fmt.Errorf("commissioning: ConnectNetwork: %w", err)
 	}
 
+	return nil
+}
+
+// armFailSafeBeforeConnectNetwork arms the fail-safe again for the
+// longest the device may take to join the network, by its
+// ConnectMaxTimeSeconds, and afterNetworkFailSafeSeconds on top.
+// 11.8.6.4. ConnectMaxTimeSeconds Attribute.
+func armFailSafeBeforeConnectNetwork(sess session.SecureSession) error {
+	connectMax, err := connectMaxTimeSecondsAttribute(sess, defaultEndpointID)
+	if err != nil {
+		log.Warnf("Commissioning: ConnectMaxTimeSeconds unknown, assuming %ds: %v", defaultConnectMaxTimeSeconds, err)
+		connectMax = defaultConnectMaxTimeSeconds
+	}
+	expiry := uint16(connectMax) + afterNetworkFailSafeSeconds
+	log.Infof("Commissioning: ArmFailSafe before ConnectNetwork (expiry=%ds, ConnectMaxTimeSeconds=%d)", expiry, connectMax)
+	if err := armFailSafeCommand(sess, defaultEndpointID, expiry, failSafeBreadcrumb); err != nil {
+		return fmt.Errorf("commissioning: ArmFailSafe before ConnectNetwork: %w", err)
+	}
 	return nil
 }
 

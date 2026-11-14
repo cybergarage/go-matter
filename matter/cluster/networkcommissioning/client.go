@@ -47,6 +47,14 @@ const (
 	ReorderNetworkCommandID im.CommandID = 0x08
 )
 
+// Attribute IDs for the Network Commissioning cluster.
+// 11.8.6. Attributes.
+const (
+	// ConnectMaxTimeSecondsAttributeID is the longest the device may take
+	// to connect to a network before it answers ConnectNetwork.
+	ConnectMaxTimeSecondsAttributeID im.AttributeID = 0x0003
+)
+
 // NetworkingStatusSuccess is the success value of NetworkConfigResponse and
 // ConnectNetworkResponse's NetworkingStatus field.
 // 11.8.5.2. NetworkCommissioningStatusEnum.
@@ -56,6 +64,17 @@ const NetworkingStatusSuccess uint8 = 0
 // support (Thread and network scanning are out of scope for commissioning
 // over Wi-Fi, the only flow this codebase drives).
 var ErrNotImplemented = errors.New("networkcommissioning: not yet implemented")
+
+// ConnectMaxTimeSeconds reads the most seconds the device may take to
+// connect to a network, and so to answer ConnectNetwork.
+// 11.8.6.4. ConnectMaxTimeSeconds Attribute.
+func ConnectMaxTimeSeconds(sess session.SecureSession, ep im.EndpointID) (uint8, error) {
+	v, err := im.ReadUnsigned1Attribute(sess, ep, ClusterID, ConnectMaxTimeSecondsAttributeID)
+	if err != nil {
+		return 0, fmt.Errorf("networkcommissioning: ConnectMaxTimeSeconds: %w", err)
+	}
+	return v, nil
+}
 
 // AddOrUpdateWiFiNetwork provisions Wi-Fi credentials onto the device.
 //

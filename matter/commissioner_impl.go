@@ -355,7 +355,7 @@ func (cmr *commissioner) commissionMatchingDevice(ctx context.Context, payload O
 		}
 		log.Infof("Trying to commission device: %s", dev.String())
 
-		ctxCommission, cancel := context.WithTimeout(ctx, DefaultCommissioningTimeout)
+		ctxCommission, cancel := commissioningContext(ctx)
 		defer cancel()
 
 		identity, err := dev.Commission(ctxCommission, payload, opts...)
@@ -777,4 +777,14 @@ func hasAttestationVerifierOption(opts []CommissionOption) bool {
 		}
 	}
 	return false
+}
+
+// commissioningContext returns the context of commissioning one device:
+// ctx, when it has a deadline of its own, which the caller chose for the
+// whole commissioning; otherwise ctx bounded by DefaultCommissioningTimeout.
+func commissioningContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	if _, ok := ctx.Deadline(); ok {
+		return context.WithCancel(ctx)
+	}
+	return context.WithTimeout(ctx, DefaultCommissioningTimeout)
 }
