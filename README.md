@@ -57,7 +57,8 @@ go-matter is a **commissioner (controller)**. It discovers a commissionable devi
 | v0.9.0 | The commissioner completed: attestation validation, subscriptions and events, CASE session resumption, a key store, and the `matterctl tui` controller, verified against a real device |
 | v0.9.1 | Command fields built from the data model catalog (`matterctl any invoke --field`), and the Level Control and Color Control clusters in the catalog |
 | v0.9.2 | BLE commissioning fixes from a real device: fresh scan results, bounded connection attempts, and an immediate error for a device not in commissioning mode |
-| **v0.9.3** | ConnectNetwork over BLE waits for the device to join the network instead of 5 seconds |
+| v0.9.3 | ConnectNetwork over BLE waits for the device to join the network instead of 5 seconds |
+| **v0.9.4** | Removing a node from a fabric: `operationalcredentials.CurrentFabricIndex` and `RemoveFabric` |
 | v0.9.x | Fixes found against more real devices, and multi-admin alongside Google Home and Amazon Alexa verified |
 | v1.0.0 | The device role, and a stable API |
 

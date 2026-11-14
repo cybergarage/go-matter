@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.9.4] - 2026-11-14
+
+A controller can remove a node from its fabric.
+
 ### Added
 
 - **Removing a fabric from a device.** `operationalcredentials.CurrentFabricIndex` reads the index of the session's fabric on the device (11.18.6.7), and `operationalcredentials.RemoveFabric` removes a fabric (11.18.6.12), returning `ErrInvalidFabricIndex` for one the device does not have. A controller removes a node from its fabric with both, over the node's CASE session.
