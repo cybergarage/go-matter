@@ -17,6 +17,7 @@
 package generalcommissioning
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
@@ -83,11 +84,8 @@ func ArmFailSafe(sess session.SecureSession, endpointID im.EndpointID, expiryLen
 	if err != nil {
 		return fmt.Errorf("generalcommissioning: ArmFailSafe: %w", err)
 	}
-	if !resp.IsSuccess() {
-		return fmt.Errorf("generalcommissioning: ArmFailSafe failed: IM status 0x%02X, cluster status 0x%02X",
-			resp.Status.IMStatus, resp.Status.ClusterStatus)
-	}
-	return nil
+	// 11.10.7.3. ArmFailSafeResponse Command.
+	return commissioningResponseError("ArmFailSafe", resp)
 }
 
 // SetRegulatoryConfig sets the regulatory domain configuration on the device.
@@ -111,11 +109,8 @@ func SetRegulatoryConfig(sess session.SecureSession, endpointID im.EndpointID, l
 	if err != nil {
 		return fmt.Errorf("generalcommissioning: SetRegulatoryConfig: %w", err)
 	}
-	if !resp.IsSuccess() {
-		return fmt.Errorf("generalcommissioning: SetRegulatoryConfig failed: IM status 0x%02X, cluster status 0x%02X",
-			resp.Status.IMStatus, resp.Status.ClusterStatus)
-	}
-	return nil
+	// 11.10.7.5. SetRegulatoryConfigResponse Command.
+	return commissioningResponseError("SetRegulatoryConfig", resp)
 }
 
 // CommissioningComplete signals the end of the commissioning session, releasing the fail-safe.
@@ -127,11 +122,8 @@ func CommissioningComplete(sess session.SecureSession, endpointID im.EndpointID)
 	if err != nil {
 		return fmt.Errorf("generalcommissioning: CommissioningComplete: %w", err)
 	}
-	if !resp.IsSuccess() {
-		return fmt.Errorf("generalcommissioning: CommissioningComplete failed: IM status 0x%02X, cluster status 0x%02X",
-			resp.Status.IMStatus, resp.Status.ClusterStatus)
-	}
-	return nil
+	// 11.10.7.7. CommissioningCompleteResponse Command.
+	return commissioningResponseError("CommissioningComplete", resp)
 }
 
 // buildArmFailSafeFields encodes the ArmFailSafe command fields as TLV.
@@ -163,4 +155,51 @@ func buildSetRegulatoryConfigFields(locationType RegulatoryLocationType, country
 		return nil, err
 	}
 	return enc.Bytes(), nil
+}
+
+// ErrCommissioning is a General Commissioning command which the device
+// answered with an ErrorCode other than OK.
+var ErrCommissioning = errors.New("generalcommissioning: the device refused the command")
+
+// commissioningErrorNames are the names of the CommissioningErrorEnum
+// values. 11.10.5.1. CommissioningErrorEnum.
+var commissioningErrorNames = map[uint8]string{
+	1: "ValueOutsideRange",
+	2: "InvalidAuthentication",
+	3: "NoFailSafe",
+	4: "BusyWithOtherAdmin",
+}
+
+// commissioningResponseError returns the error an answer to a General
+// Commissioning command carries: an IM status which is not success, or,
+// in its response command, an ErrorCode which is not OK, with the
+// DebugText. An answer with no response command (a status only) is taken
+// as it is, as before. 11.10.7.3, 11.10.7.5, 11.10.7.7.
+func commissioningResponseError(command string, resp *im.InvokeResponse) error {
+	if !resp.IsSuccess() {
+		return fmt.Errorf("generalcommissioning: %s failed: IM status 0x%02X, cluster status 0x%02X",
+			command, resp.Status.IMStatus, resp.Status.ClusterStatus)
+	}
+	elem, ok := resp.Field(0)
+	if !ok {
+		return nil
+	}
+	code, ok := elem.Unsigned1()
+	if !ok {
+		return fmt.Errorf("generalcommissioning: %s: the response's ErrorCode is not a CommissioningErrorEnum", command)
+	}
+	if code == 0 {
+		return nil
+	}
+	name, known := commissioningErrorNames[code]
+	if !known {
+		name = "unknown"
+	}
+	debugText := ""
+	if text, ok := resp.Field(1); ok {
+		if v, ok := text.UTF8(); ok && v != "" {
+			debugText = ": " + v
+		}
+	}
+	return fmt.Errorf("%w: %s: ErrorCode=%d (%s)%s", ErrCommissioning, command, code, name, debugText)
 }

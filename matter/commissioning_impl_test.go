@@ -24,6 +24,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -713,5 +714,86 @@ func stubBasicInformationIDs(t *testing.T) {
 	t.Cleanup(func() { readBasicInformationIDs = prev })
 	readBasicInformationIDs = func(session.SecureSession) (uint16, uint16, error) {
 		return 0xFFF1, 0x8000, nil
+	}
+}
+
+// stubNetworkCommissioning replaces the commands of network commissioning
+// with stubs which record their order, and the fail-safe expiry armed.
+func stubNetworkCommissioning(t *testing.T, connectMax uint8, connectMaxErr error) (*[]string, *[]uint16) {
+	t.Helper()
+	prevAdd, prevArm, prevMax, prevConnect := addOrUpdateWiFiNetworkCommand, armFailSafeCommand, connectMaxTimeSecondsAttribute, connectNetworkCommand
+	t.Cleanup(func() {
+		addOrUpdateWiFiNetworkCommand, armFailSafeCommand, connectMaxTimeSecondsAttribute, connectNetworkCommand = prevAdd, prevArm, prevMax, prevConnect
+	})
+	var calls []string
+	var expiries []uint16
+	addOrUpdateWiFiNetworkCommand = func(session.SecureSession, im.EndpointID, []byte, []byte, uint64) error {
+		calls = append(calls, "AddOrUpdateWiFiNetwork")
+		return nil
+	}
+	armFailSafeCommand = func(_ session.SecureSession, _ im.EndpointID, expiry uint16, _ uint64) error {
+		calls = append(calls, "ArmFailSafe")
+		expiries = append(expiries, expiry)
+		return nil
+	}
+	connectMaxTimeSecondsAttribute = func(session.SecureSession, im.EndpointID) (uint8, error) {
+		calls = append(calls, "ConnectMaxTimeSeconds")
+		return connectMax, connectMaxErr
+	}
+	connectNetworkCommand = func(session.SecureSession, im.EndpointID, []byte, uint64) error {
+		calls = append(calls, "ConnectNetwork")
+		return nil
+	}
+	return &calls, &expiries
+}
+
+func testWiFiConfig() config.WiFiNetworkConfig {
+	return config.NewWiFiNetworkConfig(config.WithSSID([]byte("home")), config.WithCredentials([]byte("correct horse")))
+}
+
+// The fail-safe, armed before attestation, is armed again just before
+// ConnectNetwork, for the device's ConnectMaxTimeSeconds and the operational
+// discovery and CASE which follow. 11.10.7.2, 11.8.6.4.
+func TestCommissionNetworkArmsTheFailSafeBeforeConnectNetwork(t *testing.T) {
+	calls, expiries := stubNetworkCommissioning(t, 40, nil)
+	if err := commissionNetwork(nil, testWiFiConfig(), true); err != nil {
+		t.Fatalf("commissionNetwork() error = %v", err)
+	}
+	want := []string{"AddOrUpdateWiFiNetwork", "ConnectMaxTimeSeconds", "ArmFailSafe", "ConnectNetwork"}
+	if strings.Join(*calls, ",") != strings.Join(want, ",") {
+		t.Fatalf("calls = %v, want %v", *calls, want)
+	}
+	if len(*expiries) != 1 || (*expiries)[0] != 40+afterNetworkFailSafeSeconds {
+		t.Errorf("fail-safe expiry = %v, want %d", *expiries, 40+afterNetworkFailSafeSeconds)
+	}
+}
+
+// A device which does not tell its ConnectMaxTimeSeconds is given the
+// default.
+func TestCommissionNetworkWithoutConnectMaxTimeSeconds(t *testing.T) {
+	_, expiries := stubNetworkCommissioning(t, 0, errors.New("unsupported attribute"))
+	if err := commissionNetwork(nil, testWiFiConfig(), true); err != nil {
+		t.Fatalf("commissionNetwork() error = %v", err)
+	}
+	if len(*expiries) != 1 || (*expiries)[0] != uint16(defaultConnectMaxTimeSeconds)+afterNetworkFailSafeSeconds {
+		t.Errorf("fail-safe expiry = %v", *expiries)
+	}
+}
+
+// A fail-safe which cannot be armed again stops before ConnectNetwork.
+func TestCommissionNetworkStopsWhenTheFailSafeIsNotArmed(t *testing.T) {
+	calls, _ := stubNetworkCommissioning(t, 40, nil)
+	armFailSafeCommand = func(session.SecureSession, im.EndpointID, uint16, uint64) error {
+		*calls = append(*calls, "ArmFailSafe")
+		return errors.New("BusyWithOtherAdmin")
+	}
+	err := commissionNetwork(nil, testWiFiConfig(), true)
+	if err == nil || !strings.Contains(err.Error(), "ArmFailSafe before ConnectNetwork") {
+		t.Fatalf("commissionNetwork() error = %v", err)
+	}
+	for _, c := range *calls {
+		if c == "ConnectNetwork" {
+			t.Fatal("ConnectNetwork was sent without the fail-safe")
+		}
 	}
 }

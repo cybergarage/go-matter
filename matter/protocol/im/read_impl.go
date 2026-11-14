@@ -38,19 +38,33 @@ func ReadAttribute(sess SecureSession, endpointID EndpointID, clusterID ClusterI
 
 // ReadBoolAttribute reads a single boolean attribute over the Interaction Model.
 func ReadBoolAttribute(sess SecureSession, endpointID EndpointID, clusterID ClusterID, attributeID AttributeID) (bool, error) {
+	return readScalarAttribute(sess, endpointID, clusterID, attributeID, "a boolean", tlv.Element.Bool)
+}
+
+// ReadUnsigned1Attribute reads a single uint8 attribute over the
+// Interaction Model.
+func ReadUnsigned1Attribute(sess SecureSession, endpointID EndpointID, clusterID ClusterID, attributeID AttributeID) (uint8, error) {
+	return readScalarAttribute(sess, endpointID, clusterID, attributeID, "a uint8", tlv.Element.Unsigned1)
+}
+
+// readScalarAttribute reads a single attribute and converts its value
+// with as; kind names the expected type in the error for a value of
+// another type.
+func readScalarAttribute[T any](sess SecureSession, endpointID EndpointID, clusterID ClusterID, attributeID AttributeID, kind string, as func(tlv.Element) (T, bool)) (T, error) {
+	var zero T
 	resp, err := ReadAttribute(sess, endpointID, clusterID, attributeID)
 	if err != nil {
-		return false, err
+		return zero, err
 	}
 	if resp.Status != nil {
-		return false, fmt.Errorf("im: ReadResponse: attribute status IMStatus=%d ClusterStatus=%d", resp.Status.IMStatus, resp.Status.ClusterStatus)
+		return zero, fmt.Errorf("im: ReadResponse: attribute status IMStatus=%d ClusterStatus=%d", resp.Status.IMStatus, resp.Status.ClusterStatus)
 	}
 	if resp.Value == nil {
-		return false, fmt.Errorf("im: ReadResponse missing attribute value")
+		return zero, fmt.Errorf("im: ReadResponse missing attribute value")
 	}
-	v, ok := resp.Value.Bool()
+	v, ok := as(resp.Value)
 	if !ok {
-		return false, fmt.Errorf("im: ReadResponse attribute value is not a boolean")
+		return zero, fmt.Errorf("im: ReadResponse attribute value is not %s", kind)
 	}
 	return v, nil
 }

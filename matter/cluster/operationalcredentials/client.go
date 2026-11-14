@@ -275,20 +275,9 @@ func UpdateNOC(sess session.SecureSession, ep im.EndpointID, nocDER, icacDER []b
 // session.
 // 11.18.6.7. CurrentFabricIndex Attribute.
 func CurrentFabricIndex(sess session.SecureSession, ep im.EndpointID) (uint8, error) {
-	resp, err := im.ReadAttribute(sess, ep, ClusterID, CurrentFabricIndexAttributeID)
+	v, err := im.ReadUnsigned1Attribute(sess, ep, ClusterID, CurrentFabricIndexAttributeID)
 	if err != nil {
 		return 0, fmt.Errorf("operationalcredentials: CurrentFabricIndex: %w", err)
-	}
-	if resp.Status != nil {
-		return 0, fmt.Errorf("operationalcredentials: CurrentFabricIndex failed: IM status 0x%02X, cluster status 0x%02X",
-			resp.Status.IMStatus, resp.Status.ClusterStatus)
-	}
-	if resp.Value == nil {
-		return 0, errors.New("operationalcredentials: CurrentFabricIndex: ReadResponse missing attribute value")
-	}
-	v, ok := resp.Value.Unsigned1()
-	if !ok {
-		return 0, errors.New("operationalcredentials: CurrentFabricIndex: attribute value is not a fabric index")
 	}
 	return v, nil
 }

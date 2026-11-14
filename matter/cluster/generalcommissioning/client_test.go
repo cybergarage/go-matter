@@ -15,6 +15,8 @@
 package generalcommissioning
 
 import (
+	"errors"
+	"strings"
 	"testing"
 
 	"github.com/cybergarage/go-matter/matter/encoding/message"
@@ -51,6 +53,14 @@ func (s *fakeSession) SessionKeys() session.SessionKeys { return nil }
 
 func buildSuccessInvokeResponse(t *testing.T) []byte {
 	t.Helper()
+	return buildInvokeResponse(t, nil)
+}
+
+// buildInvokeResponse returns an InvokeResponse with a success status
+// only, when fields is nil, or with a response command whose fields
+// writes.
+func buildInvokeResponse(t *testing.T, fields func(enc tlv.Encoder)) []byte {
+	t.Helper()
 	hdr := message.NewProtocolHeader(
 		message.WithHeaderExchangeFlags(message.ReliabilityFlag),
 		message.WithHeaderOpcode(message.InvokeResponseMessage),
@@ -61,12 +71,17 @@ func buildSuccessInvokeResponse(t *testing.T) []byte {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// InvokeResponseIB: CommandDataIB (0) or CommandStatusIB (1).
+	ib := uint8(1)
+	if fields != nil {
+		ib = 0
+	}
 	enc := tlv.NewEncoder()
 	enc.BeginStructure(tlv.NewAnonymousTag())
 	enc.PutBool(tlv.NewContextTag(0), false)
 	enc.BeginList(tlv.NewContextTag(1))
 	enc.BeginStructure(tlv.NewAnonymousTag()) // InvokeResponseIB
-	enc.BeginStructure(tlv.NewContextTag(1))  // CommandStatusIB
+	enc.BeginStructure(tlv.NewContextTag(ib)) // CommandDataIB or CommandStatusIB
 	enc.BeginStructure(tlv.NewContextTag(0))  // CommandPathIB
 	enc.PutUnsigned2(tlv.NewContextTag(0), 0)
 	if err := enc.PutUnsigned(tlv.NewContextTag(1), uint64(ClusterID)); err != nil {
@@ -78,22 +93,16 @@ func buildSuccessInvokeResponse(t *testing.T) []byte {
 	if err := enc.EndContainer(); err != nil { // end CommandPathIB
 		t.Fatal(err)
 	}
-	enc.BeginStructure(tlv.NewContextTag(1)) // StatusIB
-	enc.PutUnsigned1(tlv.NewContextTag(0), 0)
-	if err := enc.EndContainer(); err != nil { // end StatusIB
-		t.Fatal(err)
+	enc.BeginStructure(tlv.NewContextTag(1)) // CommandFields, or StatusIB
+	if fields != nil {
+		fields(enc)
+	} else {
+		enc.PutUnsigned1(tlv.NewContextTag(0), 0)
 	}
-	if err := enc.EndContainer(); err != nil { // end CommandStatusIB
-		t.Fatal(err)
-	}
-	if err := enc.EndContainer(); err != nil { // end InvokeResponseIB
-		t.Fatal(err)
-	}
-	if err := enc.EndContainer(); err != nil { // end invoke-responses
-		t.Fatal(err)
-	}
-	if err := enc.EndContainer(); err != nil { // end top-level
-		t.Fatal(err)
+	for range 5 { // CommandFields or StatusIB, the IB, InvokeResponseIB, the list, the message
+		if err := enc.EndContainer(); err != nil {
+			t.Fatal(err)
+		}
 	}
 	return append(hdrBytes, enc.Bytes()...)
 }
@@ -147,5 +156,49 @@ func TestArmFailSafeEncodesCommandFieldsAsStructure(t *testing.T) {
 	}
 	if !sawExpiry {
 		t.Error("transmitted request did not contain the expected ExpiryLengthSeconds field")
+	}
+}
+
+func commissioningResponse(t *testing.T, code uint8, debugText string) []byte {
+	t.Helper()
+	return buildInvokeResponse(t, func(enc tlv.Encoder) {
+		enc.PutUnsigned1(tlv.NewContextTag(0), code)
+		if err := enc.PutUTF8(tlv.NewContextTag(1), debugText); err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
+// A device which refuses ArmFailSafe answers with an ArmFailSafeResponse
+// whose ErrorCode is not OK, under a success IM status; the refusal is an
+// error, so that commissioning does not go on without a fail-safe.
+// 11.10.7.3. ArmFailSafeResponse Command.
+func TestArmFailSafeRefused(t *testing.T) {
+	sess := &fakeSession{nextReceive: commissioningResponse(t, 4, "armed by another fabric")}
+	err := ArmFailSafe(sess, 0, 180, 1)
+	if !errors.Is(err, ErrCommissioning) || !strings.Contains(err.Error(), "BusyWithOtherAdmin") || !strings.Contains(err.Error(), "armed by another fabric") {
+		t.Fatalf("ArmFailSafe() error = %v", err)
+	}
+
+	sess = &fakeSession{nextReceive: commissioningResponse(t, 0, "")}
+	if err := ArmFailSafe(sess, 0, 180, 1); err != nil {
+		t.Fatalf("ArmFailSafe() answered OK: error = %v", err)
+	}
+}
+
+func TestCommissioningResponsesAreChecked(t *testing.T) {
+	sess := &fakeSession{nextReceive: commissioningResponse(t, 3, "")}
+	if err := CommissioningComplete(sess, 0); !errors.Is(err, ErrCommissioning) || !strings.Contains(err.Error(), "NoFailSafe") {
+		t.Errorf("CommissioningComplete() error = %v", err)
+	}
+	sess = &fakeSession{nextReceive: commissioningResponse(t, 1, "")}
+	if err := SetRegulatoryConfig(sess, 0, RegulatoryLocationTypeIndoorOutdoor, "JP", 1); !errors.Is(err, ErrCommissioning) || !strings.Contains(err.Error(), "ValueOutsideRange") {
+		t.Errorf("SetRegulatoryConfig() error = %v", err)
+	}
+	notEnum := &fakeSession{nextReceive: buildInvokeResponse(t, func(enc tlv.Encoder) {
+		enc.PutBool(tlv.NewContextTag(0), true)
+	})}
+	if err := CommissioningComplete(notEnum, 0); err == nil {
+		t.Error("CommissioningComplete() with a boolean ErrorCode: error = nil")
 	}
 }

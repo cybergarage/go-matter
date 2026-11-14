@@ -366,3 +366,25 @@ func TestCommissionDiscoveryHasSeparateDeadline(t *testing.T) {
 		t.Fatal("discovery did not use a separate phase budget")
 	}
 }
+
+// A deadline the caller chose for the commissioning is kept, longer or
+// shorter than the default; without one, the default applies.
+func TestCommissioningContext(t *testing.T) {
+	long, cancelLong := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancelLong()
+	want, _ := long.Deadline()
+	ctx, cancel := commissioningContext(long)
+	got, ok := ctx.Deadline()
+	cancel()
+	if !ok || !got.Equal(want) {
+		t.Errorf("deadline with the caller's 3 minutes = %v, want %v", got, want)
+	}
+
+	before := time.Now()
+	ctx, cancel = commissioningContext(context.Background())
+	defer cancel()
+	got, ok = ctx.Deadline()
+	if !ok || got.Before(before.Add(DefaultCommissioningTimeout)) || got.After(time.Now().Add(DefaultCommissioningTimeout)) {
+		t.Errorf("deadline without one = %v, want about %v from now", got, DefaultCommissioningTimeout)
+	}
+}

@@ -25,7 +25,9 @@ import (
 const (
 	// DefaultDiscoveryTimeout is the default discovery timeout.
 	DefaultDiscoveryTimeout = time.Duration(5 * time.Second)
-	// DefaultCommissioningTimeout is the default commissioning timeout,
+	// DefaultCommissioningTimeout is the default commissioning timeout of
+	// one device, applied when the caller's context has no deadline of its
+	// own (a deadline the caller set is kept, longer or shorter),
 	// bounding the entire PASE-through-CASE commissioning exchange (dozens
 	// of round trips: PASE handshake, ArmFailSafe, device attestation,
 	// CSR/NOC issuance, AddTrustedRootCertificate, AddNOC, operational mDNS

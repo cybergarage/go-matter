@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- **A commissioning keeps the caller's deadline.** Each device was given `DefaultCommissioningTimeout` (120 seconds) even when the caller's context had a deadline of its own, so a longer one set by an application was cut short. That timeout now applies only to a context without a deadline.
+- **The fail-safe is armed again before ConnectNetwork.** The fail-safe armed before attestation could be mostly spent over BLE by the time the device was told to join Wi-Fi. It is now armed again just before ConnectNetwork, for the device's ConnectMaxTimeSeconds (11.8.6.4, 60 seconds when the device does not tell it) plus 120 seconds for operational discovery, CASE and CommissioningComplete.
+
+### Added
+
+- `im.ReadUnsigned1Attribute` and `networkcommissioning.ConnectMaxTimeSeconds`.
+
+### Fixed
+
+- **A refused ArmFailSafe, SetRegulatoryConfig or CommissioningComplete is an error.** Their clients checked only the IM status, not the ErrorCode of the response command, so a device which refused, such as with BusyWithOtherAdmin or NoFailSafe, was taken to have accepted. A non-OK ErrorCode is now `generalcommissioning.ErrCommissioning`, with its name and DebugText. 11.10.7.3, 11.10.7.5, 11.10.7.7.
+
 ## [0.9.4] - 2026-11-14
 
 A controller can remove a node from its fabric.
