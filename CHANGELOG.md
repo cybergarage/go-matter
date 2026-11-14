@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-11-14
+
+Commissioning a Wi-Fi light over BLE now waits for its answer to ConnectNetwork. Verified on a real Wi-Fi color light commissioned from go-matter-hub over BLE.
+
 ### Fixed
 
 - **ConnectNetwork over BLE no longer fails after 5 seconds.** The secure session over BLE read each message with a context without a deadline, and go-ble then gives up after its default of 5 seconds. A device answers ConnectNetwork only once it has joined the Wi-Fi network, which can take longer, so commissioning failed with `ConnectNetwork: im: receive InvokeResponse: context deadline exceeded` and the device reverted when its fail-safe expired. During a commissioning, such a read is now bounded by the commissioning instead, as it already was over IP.
