@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.9.5] - 2026-11-14
+
+Commissioning time limits: the caller's deadline is kept, and the fail-safe is armed again before ConnectNetwork.
+
 ### Changed
 
 - **A commissioning keeps the caller's deadline.** Each device was given `DefaultCommissioningTimeout` (120 seconds) even when the caller's context had a deadline of its own, so a longer one set by an application was cut short. That timeout now applies only to a context without a deadline.
