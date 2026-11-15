@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 
 	"github.com/cybergarage/go-logger/log"
 	"github.com/cybergarage/go-matter/matter/cluster/basicinformation"
@@ -114,6 +115,11 @@ type deviceOperationalIdentity struct {
 	nodeID uint64
 	noc    []byte // DER
 	icac   []byte // DER, nil for this minimal CA (no intermediate).
+	// failSafeExpiresBy is when the fail-safe armed last expires at the
+	// latest, measured from before the ArmFailSafe command was sent. The
+	// device removes the credentials of this commissioning then, so CASE
+	// with it fails after that. Zero when unknown.
+	failSafeExpiresBy time.Time
 }
 
 // commissionWithSession executes the post-PASE commissioning flow over the given SecureSession.
@@ -187,6 +193,7 @@ func commissionOverPASE(
 	// Step 1: ArmFailSafe
 	// 11.10.7.2. ArmFailSafe Command.
 	log.Infof("Commissioning: ArmFailSafe (expiry=%ds, breadcrumb=%d)", armFailSafeExpiry, failSafeBreadcrumb)
+	failSafeExpiresBy := time.Now().Add(time.Duration(armFailSafeExpiry) * time.Second)
 	if err := armFailSafeCommand(sess, defaultEndpointID, armFailSafeExpiry, failSafeBreadcrumb); err != nil {
 		return deviceOperationalIdentity{}, err
 	}
@@ -216,9 +223,14 @@ func commissionOverPASE(
 	// configure the operational network only if the Commissionee supports it and requires it,
 	// then invoke ConnectNetwork unless the Commissionee is already on the desired operational network.
 	log.Infof("Commissioning: Network Commissioning")
-	if err := commissionNetwork(sess, wifiCfg, requireNetwork); err != nil {
+	rearmedExpiresBy, err := commissionNetworkFailSafe(sess, wifiCfg, requireNetwork)
+	if err != nil {
 		return deviceOperationalIdentity{}, err
 	}
+	if !rearmedExpiresBy.IsZero() {
+		failSafeExpiresBy = rearmedExpiresBy
+	}
+	identity.failSafeExpiresBy = failSafeExpiresBy
 
 	return identity, nil
 }
@@ -252,16 +264,18 @@ func finalizeCommissioningOverCASE(
 		len(peer.ipk),
 	)
 
-	log.Infof("Commissioning: Operational Discovery")
-	node, err := operationalNodeDiscoverer(ctx, discoverer, peer)
-	if err != nil {
-		return err
+	// The device takes back the credentials of this commissioning when the
+	// fail-safe expires, and refuses CASE after that; discovery and CASE
+	// end with it.
+	if !identity.failSafeExpiresBy.IsZero() {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithDeadline(ctx, identity.failSafeExpiresBy)
+		defer cancel()
 	}
 
-	log.Infof("Commissioning: CASE")
-	caseSess, err := establishOperationalCASESession(ctx, node, peer, adminCfg, paseTransport)
+	caseSess, err := reachOperationalNode(ctx, discoverer, peer, adminCfg, paseTransport)
 	if err != nil {
-		return err
+		return failSafeExpiryError(identity, err)
 	}
 	if closer, ok := caseSess.Transport().(interface{ Close() error }); ok {
 		defer func() {
@@ -277,6 +291,53 @@ func finalizeCommissioningOverCASE(
 	}
 
 	return nil
+}
+
+// reachOperationalNode discovers the operational node and establishes CASE
+// with it. A device which has just joined its network may advertise an
+// address it does not have, one from before it was given one, and correct
+// it later; when Sigma1 gets no answer, the node is discovered again and
+// CASE tried again, until ctx ends.
+func reachOperationalNode(
+	ctx context.Context,
+	discoverer mdnspkg.Discoverer,
+	peer operationalCASEPeer,
+	adminCfg config.AdministratorConfig,
+	paseTransport caseprotocol.Transport,
+) (session.SecureSession, error) {
+	for attempt := 1; ; attempt++ {
+		log.Infof("Commissioning: Operational Discovery")
+		node, err := operationalNodeDiscoverer(ctx, discoverer, peer)
+		if err != nil {
+			return nil, err
+		}
+
+		log.Infof("Commissioning: CASE")
+		caseSess, err := establishOperationalCASESession(ctx, node, peer, adminCfg, paseTransport)
+		if err == nil {
+			return caseSess, nil
+		}
+		if !isNetworkTimeout(err) || ctx.Err() != nil {
+			return nil, err
+		}
+		log.Warnf("Commissioning: CASE attempt %d got no answer (%v); discovering the node again", attempt, err)
+	}
+}
+
+// isNetworkTimeout reports whether err is a timeout of the network, as
+// opposed to a refusal by the device.
+func isNetworkTimeout(err error) bool {
+	var netErr net.Error
+	return errors.As(err, &netErr) && netErr.Timeout()
+}
+
+// failSafeExpiryError tells, of an error which came after the fail-safe of
+// the commissioning expired, that it did.
+func failSafeExpiryError(identity deviceOperationalIdentity, err error) error {
+	if identity.failSafeExpiresBy.IsZero() || time.Now().Before(identity.failSafeExpiresBy) {
+		return err
+	}
+	return fmt.Errorf("commissioning: the fail-safe expired before the device could be reached on its network, and the device has dropped this commissioning: %w", err)
 }
 
 // commissionDeviceAttestation runs the AttestationRequest / CertificateChainRequest
@@ -437,17 +498,25 @@ func commissionOperationalCredentials(
 }
 
 func commissionNetwork(sess session.SecureSession, cfg config.WiFiNetworkConfig, requireNetwork bool) error {
+	_, err := commissionNetworkFailSafe(sess, cfg, requireNetwork)
+	return err
+}
+
+// commissionNetworkFailSafe runs the network commissioning step, and returns
+// when the fail-safe it armed again before ConnectNetwork expires at the
+// latest, or the zero time when it did not arm it.
+func commissionNetworkFailSafe(sess session.SecureSession, cfg config.WiFiNetworkConfig, requireNetwork bool) (time.Time, error) {
 	if cfg == nil {
 		if requireNetwork {
-			return fmt.Errorf("commissioning: Wi-Fi network config is required for this commissioning flow")
+			return time.Time{}, fmt.Errorf("commissioning: Wi-Fi network config is required for this commissioning flow")
 		}
 		log.Infof("Commissioning: Network Commissioning skipped: device is assumed to already be on the desired operational network")
-		return nil
+		return time.Time{}, nil
 	}
 
 	inputs, err := loadNetworkCommissioningInputs(cfg)
 	if err != nil {
-		return err
+		return time.Time{}, err
 	}
 
 	if err := addOrUpdateWiFiNetworkCommand(
@@ -459,35 +528,36 @@ func commissionNetwork(sess session.SecureSession, cfg config.WiFiNetworkConfig,
 	); err != nil {
 		if errors.Is(err, networkcommissioning.ErrNotImplemented) {
 			log.Infof("Commissioning: AddOrUpdateWiFiNetwork skipped: %v", err)
-			return nil
+			return time.Time{}, nil
 		}
-		return fmt.Errorf("commissioning: AddOrUpdateWiFiNetwork: %w", err)
+		return time.Time{}, fmt.Errorf("commissioning: AddOrUpdateWiFiNetwork: %w", err)
 	}
 
 	// The fail-safe was armed before attestation, which over BLE takes a
 	// good part of it; arm it again so that it lasts while the device
 	// joins the network and then until CommissioningComplete over CASE.
 	// 11.10.7.2. ArmFailSafe Command.
-	if err := armFailSafeBeforeConnectNetwork(sess); err != nil {
-		return err
+	expiresBy, err := armFailSafeBeforeConnectNetwork(sess)
+	if err != nil {
+		return time.Time{}, err
 	}
 
 	if err := connectNetworkCommand(sess, defaultEndpointID, inputs.ssid, networkCommissioningBreadcrumb); err != nil {
 		if errors.Is(err, networkcommissioning.ErrNotImplemented) {
 			log.Infof("Commissioning: ConnectNetwork skipped: %v", err)
-			return nil
+			return expiresBy, nil
 		}
-		return fmt.Errorf("commissioning: ConnectNetwork: %w", err)
+		return time.Time{}, fmt.Errorf("commissioning: ConnectNetwork: %w", err)
 	}
 
-	return nil
+	return expiresBy, nil
 }
 
 // armFailSafeBeforeConnectNetwork arms the fail-safe again for the
 // longest the device may take to join the network, by its
 // ConnectMaxTimeSeconds, and afterNetworkFailSafeSeconds on top.
 // 11.8.6.4. ConnectMaxTimeSeconds Attribute.
-func armFailSafeBeforeConnectNetwork(sess session.SecureSession) error {
+func armFailSafeBeforeConnectNetwork(sess session.SecureSession) (time.Time, error) {
 	connectMax, err := connectMaxTimeSecondsAttribute(sess, defaultEndpointID)
 	if err != nil {
 		log.Warnf("Commissioning: ConnectMaxTimeSeconds unknown, assuming %ds: %v", defaultConnectMaxTimeSeconds, err)
@@ -495,10 +565,11 @@ func armFailSafeBeforeConnectNetwork(sess session.SecureSession) error {
 	}
 	expiry := uint16(connectMax) + afterNetworkFailSafeSeconds
 	log.Infof("Commissioning: ArmFailSafe before ConnectNetwork (expiry=%ds, ConnectMaxTimeSeconds=%d)", expiry, connectMax)
+	expiresBy := time.Now().Add(time.Duration(expiry) * time.Second)
 	if err := armFailSafeCommand(sess, defaultEndpointID, expiry, failSafeBreadcrumb); err != nil {
-		return fmt.Errorf("commissioning: ArmFailSafe before ConnectNetwork: %w", err)
+		return time.Time{}, fmt.Errorf("commissioning: ArmFailSafe before ConnectNetwork: %w", err)
 	}
-	return nil
+	return expiresBy, nil
 }
 
 func readSupportsConcurrentConnection(sess session.SecureSession) (bool, error) {
@@ -540,7 +611,11 @@ func discoverOperationalNode(
 		if err != nil {
 			return nil, fmt.Errorf("commissioning: operational discovery failed: %w", err)
 		}
+		if node, ok := selectReachableOperationalNode(nodes, peer.serviceInstance); ok {
+			return node, nil
+		}
 		if node, ok := selectOperationalNode(nodes, peer.serviceInstance); ok {
+			log.Infof("Commissioning: Operational Discovery: %s answered with no address on a network of this host; trying it", peer.serviceInstance)
 			return node, nil
 		}
 		if len(nodes) > 0 {
@@ -561,7 +636,7 @@ func searchOperationalNodes(ctx context.Context, discoverer mdnspkg.Discoverer, 
 	query := mdnspkg.NewOperationalNodeQuery(serviceInstance)
 	if until, ok := discoverer.(mdnspkg.UntilSearcher); ok {
 		return until.SearchUntil(ctx, query, func(node mdnspkg.CommissionableNode) bool {
-			_, ok := selectOperationalNode([]mdnspkg.CommissionableNode{node}, serviceInstance)
+			_, ok := selectReachableOperationalNode([]mdnspkg.CommissionableNode{node}, serviceInstance)
 			return ok
 		})
 	}
@@ -576,6 +651,19 @@ func searchOperationalNodes(ctx context.Context, discoverer mdnspkg.Discoverer, 
 // responses are kept apart, in the order they arrived, so the last one
 // which qualifies is taken.
 func selectOperationalNode(nodes []mdnspkg.CommissionableNode, serviceInstance string) (mdnspkg.CommissionableNode, bool) {
+	return selectOperationalNodeWith(nodes, serviceInstance, usableAddresses)
+}
+
+// selectReachableOperationalNode picks a node as selectOperationalNode does,
+// among those with an address this host reaches directly: an IPv6 address,
+// or an IPv4 address on a network of one of its interfaces. A device which
+// has just joined its network was seen to answer first with an IPv4
+// address of another network, and with its own addresses later.
+func selectReachableOperationalNode(nodes []mdnspkg.CommissionableNode, serviceInstance string) (mdnspkg.CommissionableNode, bool) {
+	return selectOperationalNodeWith(nodes, serviceInstance, reachableAddresses)
+}
+
+func selectOperationalNodeWith(nodes []mdnspkg.CommissionableNode, serviceInstance string, addresses func(mdnspkg.CommissionableNode) []net.IP) (mdnspkg.CommissionableNode, bool) {
 	for i := len(nodes) - 1; i >= 0; i-- {
 		node := nodes[i]
 		if named, ok := node.(interface{ Name() string }); ok && serviceInstance != "" {
@@ -586,7 +674,7 @@ func selectOperationalNode(nodes []mdnspkg.CommissionableNode, serviceInstance s
 		if port, ok := node.Port(); !ok || port <= 0 {
 			continue
 		}
-		if len(usableAddresses(node)) == 0 {
+		if len(addresses(node)) == 0 {
 			continue
 		}
 		return node, true
@@ -604,6 +692,55 @@ func isOperationalServiceName(name string, serviceInstance string) bool {
 
 // usableAddresses returns the addresses of node which can be connected to:
 // a response without address records reports the unspecified address.
+// reachableAddresses returns the usable addresses of node which this host
+// reaches directly: its IPv6 addresses, and its IPv4 addresses on a
+// network of one of the interfaces of this host.
+func reachableAddresses(node mdnspkg.CommissionableNode) []net.IP {
+	var reachable []net.IP
+	for _, addr := range usableAddresses(node) {
+		if addr.To4() == nil || onLocalIPv4Network(addr) {
+			reachable = append(reachable, addr)
+		}
+	}
+	return reachable
+}
+
+// localIPv4Networks returns the IPv4 networks of the interfaces of this
+// host which are up; tests replace it.
+var localIPv4Networks = func() []*net.IPNet {
+	var networks []*net.IPNet
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return nil
+	}
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			if ipNet, ok := addr.(*net.IPNet); ok && ipNet.IP.To4() != nil {
+				networks = append(networks, ipNet)
+			}
+		}
+	}
+	return networks
+}
+
+// onLocalIPv4Network reports whether addr is on an IPv4 network of an
+// interface of this host.
+func onLocalIPv4Network(addr net.IP) bool {
+	for _, network := range localIPv4Networks() {
+		if network.Contains(addr) {
+			return true
+		}
+	}
+	return false
+}
+
 func usableAddresses(node mdnspkg.CommissionableNode) []net.IP {
 	addrs, ok := node.Addresses()
 	if !ok {
