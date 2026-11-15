@@ -154,9 +154,11 @@ func (dev *bleDevice) Commission(ctx context.Context, payload OnboardingPayload,
 		return CommissionedIdentity{}, ErrWiFiNetworkRequired
 	}
 
+	ctx = contextWithCommissioningProgress(ctx, opts)
 	dev.commissioning = ctx
 	defer func() { dev.commissioning = nil }()
 
+	reportCommissioningProgress(ctx, CommissioningStageConnecting, 1, "Bluetooth: "+dev.String())
 	if err := dev.connectWithRetry(ctx); err != nil {
 		log.Errorf("Failed to connect to device (%s): %v", dev.String(), err)
 		return CommissionedIdentity{}, err
@@ -203,6 +205,7 @@ func (dev *bleDevice) Commission(ctx context.Context, payload OnboardingPayload,
 	log.Infof("Handshake response: %s", res.String())
 	dev.segmenter = btp.NewSegmenter(res.FragmentSize())
 
+	reportCommissioningProgress(ctx, CommissioningStagePASE, 1, "")
 	paseClient := pase.NewInitiator(dev, payload.Passcode())
 	sessionKeys, err := paseClient.EstablishSession(ctx)
 	if err != nil {

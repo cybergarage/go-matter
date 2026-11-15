@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Commissioning progress.** `WithCommissioningProgress(fn)`, a commission option, tells `fn` each stage a commissioning reaches: `discovering` (each round), `connecting`, `pase`, `attestation`, `credentials`, `network`, `operationalDiscovery` and `case` (each attempt, with the addresses tried), and `complete`. An application can show where a commissioning is, and where it failed.
+
+### Fixed
+
+- **A device which advertises a wrong address at first is reached.** Right after joining its network, a real bulb answered the operational discovery first with `0.0.0.0`, or with an IPv4 address of another network, and with its own addresses later. Operational discovery now prefers an address this host reaches directly (IPv6, or IPv4 on a network of one of its interfaces), and when Sigma1 gets no answer, the node is discovered again and CASE tried again.
+- **Discovery and CASE end with the fail-safe.** They ran on after the fail-safe armed before ConnectNetwork had expired, and the device then refused CASE with `NO_SHARED_TRUST_ROOTS`. They now end when the time the fail-safe gives runs out (capped by the device's `MaxCumulativeFailsafeSeconds`, read with the new `generalcommissioning.MaxCumulativeFailsafeSeconds`), with an error which says so.
+
 ## [0.9.6] - 2026-11-16
 
 Discovery for commissioning no longer gives up after one round of 5 seconds.
