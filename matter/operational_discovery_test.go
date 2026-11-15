@@ -73,6 +73,50 @@ func TestSelectOperationalNode(t *testing.T) {
 	}
 }
 
+// withLocalIPv4Network makes network the only IPv4 network of this host for
+// the test.
+func withLocalIPv4Network(t *testing.T, network string) {
+	t.Helper()
+	_, ipNet, err := net.ParseCIDR(network)
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved := localIPv4Networks
+	t.Cleanup(func() { localIPv4Networks = saved })
+	localIPv4Networks = func() []*net.IPNet { return []*net.IPNet{ipNet} }
+}
+
+// A device which has just joined its network was seen to answer first with
+// an IPv4 address of another network; an address this host reaches
+// directly is preferred, and the other one is the last resort.
+func TestSelectReachableOperationalNode(t *testing.T) {
+	withLocalIPv4Network(t, "192.168.100.0/24")
+	const instance = "946BFED976896707-505F1216F48F85B2"
+	name := instance + "._matter._tcp"
+	stale := &namedOperationalNode{stubOperationalNode{port: 5540, addrs: []net.IP{net.ParseIP("192.168.1.80")}}, name}
+	onLink := &namedOperationalNode{stubOperationalNode{port: 5540, addrs: []net.IP{net.ParseIP("192.168.100.62")}}, name}
+	ipv6 := &namedOperationalNode{stubOperationalNode{port: 5540, addrs: []net.IP{net.ParseIP("fe80::8e90:2dff:fe7d:baf4")}}, name}
+
+	if _, ok := selectReachableOperationalNode([]mdnspkg.CommissionableNode{stale}, instance); ok {
+		t.Fatal("a node with an IPv4 address of another network taken as reachable")
+	}
+	if node, ok := selectOperationalNode([]mdnspkg.CommissionableNode{stale}, instance); !ok || node != stale {
+		t.Fatal("a node with an IPv4 address of another network not taken as the last resort")
+	}
+	if node, ok := selectReachableOperationalNode([]mdnspkg.CommissionableNode{onLink, stale}, instance); !ok || node != onLink {
+		t.Fatal("the node on this network not preferred")
+	}
+	if node, ok := selectReachableOperationalNode([]mdnspkg.CommissionableNode{stale, ipv6}, instance); !ok || node != ipv6 {
+		t.Fatal("the node with an IPv6 address not taken as reachable")
+	}
+
+	mixed := &stubOperationalNode{port: 5540, addrs: []net.IP{net.ParseIP("192.168.1.80"), net.ParseIP("192.168.100.62")}}
+	addr, _, _, err := lookupOperationalAddrPort(mixed)
+	if err != nil || !addr.Equal(net.ParseIP("192.168.100.62")) {
+		t.Fatalf("lookupOperationalAddrPort() = %v, %v; want the address on this network", addr, err)
+	}
+}
+
 // untilDiscoverer answers a SearchUntil with its responses, stopping at the
 // first one accept takes, and fails a Search.
 type untilDiscoverer struct {
@@ -100,6 +144,7 @@ func (d *untilDiscoverer) SearchUntil(_ context.Context, _ mdnspkg.Query, accept
 }
 
 func TestSearchOperationalNodesEndsAtTheFirstUsableResponse(t *testing.T) {
+	withLocalIPv4Network(t, "192.168.100.0/24")
 	const instance = "743205D875DE5E8E-B6C144BE822A44BA"
 	addr := []net.IP{net.ParseIP("192.168.100.49")}
 	noAddress := &namedOperationalNode{stubOperationalNode{port: 5540, addrs: []net.IP{net.IPv4zero}}, instance + "._matter._tcp"}

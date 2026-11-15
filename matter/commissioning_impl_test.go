@@ -27,6 +27,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"net"
 	"strings"
 	"testing"
 	"time"
@@ -342,6 +343,125 @@ func TestFinalizeCommissioningOverCASEPropagatesOperationalDiscoveryFailure(t *t
 	}
 	if !strings.Contains(err.Error(), "operational discovery timeout") {
 		t.Fatalf("finalizeCommissioningOverCASE(...) error = %q, want discovery timeout", err)
+	}
+}
+
+// The fail-safe armed again before ConnectNetwork ends at the device's
+// MaxCumulativeFailsafeSeconds from the first arming when that is earlier.
+func TestArmFailSafeBeforeConnectNetworkCumulativeLimit(t *testing.T) {
+	stubNetworkCommissioning(t, 20, nil)
+	prevMaxCumulative := maxCumulativeFailsafeSecondsAttribute
+	t.Cleanup(func() { maxCumulativeFailsafeSecondsAttribute = prevMaxCumulative })
+	maxCumulativeFailsafeSecondsAttribute = func(session.SecureSession, im.EndpointID) (uint16, error) { return 60, nil }
+
+	firstArmedAt := time.Now().Add(-30 * time.Second)
+	expiresBy, err := armFailSafeBeforeConnectNetwork(nil, firstArmedAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := firstArmedAt.Add(60 * time.Second); !expiresBy.Equal(want) {
+		t.Fatalf("expiry = %v, want the cumulative limit %v", expiresBy, want)
+	}
+
+	maxCumulativeFailsafeSecondsAttribute = func(session.SecureSession, im.EndpointID) (uint16, error) { return 0, errors.New("unsupported") }
+	before := time.Now()
+	expiresBy, err = armFailSafeBeforeConnectNetwork(nil, firstArmedAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if expiresBy.Before(before.Add(140*time.Second)) || expiresBy.After(time.Now().Add(140*time.Second)) {
+		t.Fatalf("expiry = %v without the limit, want 140s from now", expiresBy)
+	}
+}
+
+// timeoutError is a network timeout, as a UDP read gives.
+type timeoutError struct{}
+
+func (timeoutError) Error() string   { return "i/o timeout" }
+func (timeoutError) Timeout() bool   { return true }
+func (timeoutError) Temporary() bool { return true }
+
+// stubOperationalCASE replaces the discovery and the CASE of the operational
+// node for a test.
+func stubOperationalCASE(t *testing.T, discover func(context.Context) (mdnspkg.CommissionableNode, error), establish func(context.Context, mdnspkg.CommissionableNode) (session.SecureSession, error)) {
+	t.Helper()
+	prevDiscoverOperational := operationalNodeDiscoverer
+	prevEstablishCASE := establishOperationalCASESession
+	t.Cleanup(func() {
+		operationalNodeDiscoverer = prevDiscoverOperational
+		establishOperationalCASESession = prevEstablishCASE
+	})
+	operationalNodeDiscoverer = func(ctx context.Context, _ mdnspkg.Discoverer, _ operationalCASEPeer) (mdnspkg.CommissionableNode, error) {
+		return discover(ctx)
+	}
+	establishOperationalCASESession = func(ctx context.Context, node mdnspkg.CommissionableNode, _ operationalCASEPeer, _ config.AdministratorConfig, _ caseprotocol.Transport) (session.SecureSession, error) {
+		return establish(ctx, node)
+	}
+}
+
+// When Sigma1 gets no answer, the node is discovered again and CASE tried
+// with what the discovery finds then: a device which has just joined its
+// network was seen to advertise an address of another network first.
+func TestReachOperationalNodeRetriesAfterTimeout(t *testing.T) {
+	stale := &stubOperationalNode{port: 5540, addrs: []net.IP{net.ParseIP("192.168.1.80")}}
+	fresh := &stubOperationalNode{port: 5540, addrs: []net.IP{net.ParseIP("192.168.100.62")}}
+	discoveries := 0
+	var tried []mdnspkg.CommissionableNode
+	stubOperationalCASE(t, func(context.Context) (mdnspkg.CommissionableNode, error) {
+		discoveries++
+		if discoveries == 1 {
+			return stale, nil
+		}
+		return fresh, nil
+	}, func(_ context.Context, node mdnspkg.CommissionableNode) (session.SecureSession, error) {
+		tried = append(tried, node)
+		if node == stale {
+			return nil, fmt.Errorf("case: transmit Sigma1 / receive Sigma2: %w", timeoutError{})
+		}
+		return nil, errors.New("established")
+	})
+
+	_, err := reachOperationalNode(context.Background(), &stubDiscoverer{}, operationalCASEPeer{}, nil, nil)
+	if err == nil || err.Error() != "established" {
+		t.Fatalf("reachOperationalNode() error = %v, want the result of the second CASE", err)
+	}
+	if discoveries != 2 || len(tried) != 2 || tried[0] != stale || tried[1] != fresh {
+		t.Fatalf("discoveries = %d, CASE tried with %v; want 2, the stale node then the fresh one", discoveries, tried)
+	}
+
+	// A refusal by the device is not retried.
+	discoveries = 0
+	refusal := errors.New("case: expected Sigma2, got StatusReport")
+	stubOperationalCASE(t, func(context.Context) (mdnspkg.CommissionableNode, error) {
+		discoveries++
+		return fresh, nil
+	}, func(context.Context, mdnspkg.CommissionableNode) (session.SecureSession, error) {
+		return nil, refusal
+	})
+	if _, err := reachOperationalNode(context.Background(), &stubDiscoverer{}, operationalCASEPeer{}, nil, nil); !errors.Is(err, refusal) || discoveries != 1 {
+		t.Fatalf("reachOperationalNode() = %v after %d discoveries; want the refusal after 1", err, discoveries)
+	}
+}
+
+// Discovery and CASE end when the fail-safe of the commissioning expires,
+// and the error says that it did.
+func TestFinalizeCommissioningOverCASEEndsWithTheFailSafe(t *testing.T) {
+	stubOperationalCASE(t, func(ctx context.Context) (mdnspkg.CommissionableNode, error) {
+		<-ctx.Done()
+		return nil, fmt.Errorf("commissioning: operational discovery timeout: no operational node found")
+	}, func(context.Context, mdnspkg.CommissionableNode) (session.SecureSession, error) {
+		t.Fatal("CASE established without a node")
+		return nil, nil
+	})
+
+	identity := deviceOperationalIdentity{nodeID: 1, failSafeExpiresBy: time.Now().Add(50 * time.Millisecond)}
+	start := time.Now()
+	err := finalizeCommissioningOverCASE(context.Background(), &stubDiscoverer{}, validOperationalCredentialsConfig(), validAdministratorConfig(), identity, nil)
+	if err == nil || !strings.Contains(err.Error(), "fail-safe gives ran out") {
+		t.Fatalf("finalizeCommissioningOverCASE() error = %v, want the fail-safe expiry", err)
+	}
+	if elapsed := time.Since(start); elapsed > 5*time.Second {
+		t.Fatalf("finalizeCommissioningOverCASE() took %v, want it to end with the fail-safe", elapsed)
 	}
 }
 

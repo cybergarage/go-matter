@@ -21,6 +21,7 @@ import (
 
 	"github.com/cybergarage/go-matter/matter/encoding/message"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
+	"github.com/cybergarage/go-matter/matter/protocol/im"
 	"github.com/cybergarage/go-matter/matter/protocol/session"
 )
 
@@ -200,5 +201,44 @@ func TestCommissioningResponsesAreChecked(t *testing.T) {
 	})}
 	if err := CommissioningComplete(notEnum, 0); err == nil {
 		t.Error("CommissioningComplete() with a boolean ErrorCode: error = nil")
+	}
+}
+
+// basicCommissioningInfo is a value of the BasicCommissioningInfo attribute.
+func basicCommissioningInfo(t *testing.T, fields map[uint8]uint16) *im.ValueReadResponse {
+	t.Helper()
+	enc := tlv.NewEncoder()
+	enc.BeginStructure(tlv.NewAnonymousTag())
+	for tag, v := range fields {
+		enc.PutUnsigned2(tlv.NewContextTag(tag), v)
+	}
+	if err := enc.EndContainer(); err != nil {
+		t.Fatal(err)
+	}
+	dec := tlv.NewDecoderWithBytes(enc.Bytes())
+	if !dec.Next() {
+		t.Fatal("no structure")
+	}
+	value := &im.AttributeValue{Element: dec.Element()}
+	for dec.Next() {
+		elem := dec.Element()
+		if elem.Type().IsEndOfContainer() {
+			break
+		}
+		value.Children = append(value.Children, &im.AttributeValue{Element: elem})
+	}
+	return &im.ValueReadResponse{Value: value}
+}
+
+func TestMaxCumulativeFailsafeSeconds(t *testing.T) {
+	got, err := maxCumulativeFailsafeSeconds(basicCommissioningInfo(t, map[uint8]uint16{0: 60, 1: 900}))
+	if err != nil || got != 900 {
+		t.Fatalf("maxCumulativeFailsafeSeconds() = %d, %v; want 900", got, err)
+	}
+	if _, err := maxCumulativeFailsafeSeconds(basicCommissioningInfo(t, map[uint8]uint16{0: 60})); err == nil {
+		t.Fatal("a BasicCommissioningInfo without MaxCumulativeFailsafeSeconds accepted")
+	}
+	if _, err := maxCumulativeFailsafeSeconds(&im.ValueReadResponse{}); err == nil {
+		t.Fatal("a response without a value accepted")
 	}
 }

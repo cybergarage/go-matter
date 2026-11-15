@@ -43,6 +43,9 @@ const (
 // Attribute IDs for the General Commissioning cluster.
 // 11.10.5. Attributes.
 const (
+	// BasicCommissioningInfoAttributeID holds the fail-safe lengths the
+	// device supports. 11.10.5.2. BasicCommissioningInfo Attribute.
+	BasicCommissioningInfoAttributeID im.AttributeID = 0x0001
 	// SupportsConcurrentConnectionAttributeID reports whether the Commissionee can
 	// maintain the commissioning channel while also connecting to the operational network.
 	SupportsConcurrentConnectionAttributeID im.AttributeID = 0x0004
@@ -202,4 +205,32 @@ func commissioningResponseError(command string, resp *im.InvokeResponse) error {
 		}
 	}
 	return fmt.Errorf("%w: %s: ErrorCode=%d (%s)%s", ErrCommissioning, command, code, name, debugText)
+}
+
+// MaxCumulativeFailsafeSeconds reads the longest the device keeps a
+// fail-safe armed, counted from its first arming however often it is armed
+// again: the MaxCumulativeFailsafeSeconds field of BasicCommissioningInfo.
+// 11.10.4.2. BasicCommissioningInfo Type.
+func MaxCumulativeFailsafeSeconds(sess session.SecureSession, ep im.EndpointID) (uint16, error) {
+	res, err := im.ReadValueAttribute(sess, ep, ClusterID, BasicCommissioningInfoAttributeID)
+	if err != nil {
+		return 0, fmt.Errorf("generalcommissioning: BasicCommissioningInfo: %w", err)
+	}
+	return maxCumulativeFailsafeSeconds(res)
+}
+
+func maxCumulativeFailsafeSeconds(res *im.ValueReadResponse) (uint16, error) {
+	if res == nil || res.Value == nil || !res.Value.Element.Type().IsStructure() {
+		return 0, fmt.Errorf("generalcommissioning: BasicCommissioningInfo: not a structure")
+	}
+	for _, field := range res.Value.Children {
+		tag, ok := field.Element.Tag().(tlv.ContextTag)
+		if !ok || tag.ContextNumber() != 1 {
+			continue
+		}
+		if v, ok := field.Element.Unsigned(); ok && v <= 0xFFFF {
+			return uint16(v), nil
+		}
+	}
+	return 0, fmt.Errorf("generalcommissioning: BasicCommissioningInfo: no MaxCumulativeFailsafeSeconds")
 }
