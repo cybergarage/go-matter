@@ -309,11 +309,9 @@ func (cmr *commissioner) Commission(ctx context.Context, payload OnboardingPaylo
 	query := NewQuery(
 		WithQueryOnboardingPayload(payload),
 	)
-	// Discovery may collect advertisements until its deadline. Keep that
-	// phase deadline separate from the caller's whole-operation deadline.
-	discoveryCtx, cancelDiscovery := context.WithTimeout(ctx, DefaultDiscoveryTimeout)
-	defer cancelDiscovery()
-	devs, err := cmr.Discover(discoveryCtx, query)
+	devs, err := discoverMatching(ctx, payload, DefaultDiscoveryTimeout, commissionDiscoveryBudget, func(ctx context.Context) ([]CommissionableDevice, error) {
+		return cmr.Discover(ctx, query)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -324,6 +322,57 @@ func (cmr *commissioner) Commission(ctx context.Context, payload OnboardingPaylo
 	}
 
 	return cmr.commissionMatchingDevice(ctx, payload, devs, opts...)
+}
+
+// commissionDiscoveryBudget bounds the discovery rounds of Commission; tests
+// shorten it.
+var commissionDiscoveryBudget = DefaultCommissionDiscoveryTimeout
+
+// discoverMatching runs discovery rounds of length round each until a
+// device which matches payload is found, for up to budget or the deadline of
+// ctx, whichever comes first. Each round keeps its own deadline, separate
+// from the caller's whole-operation deadline. A device advertises at a slow
+// interval once its first 30 seconds of advertising are over, and some
+// devices interleave Matter advertisements with others of their own, so
+// that one round can miss a device which is waiting to be commissioned. The
+// devices of the last round are returned, matching or not; the caller
+// reports why none could be commissioned. 5.4.2.5.3. Advertising Interval.
+func discoverMatching(ctx context.Context, payload OnboardingPayload, round, budget time.Duration, discover func(context.Context) ([]CommissionableDevice, error)) ([]CommissionableDevice, error) {
+	budgetCtx, cancelBudget := context.WithTimeout(ctx, budget)
+	defer cancelBudget()
+	for n := 1; ; n++ {
+		roundCtx, cancelRound := context.WithTimeout(budgetCtx, round)
+		devs, err := discover(roundCtx)
+		if err == nil && !anyMatches(devs, payload) {
+			// A round which ended early waits out its time, so that the
+			// rounds do not run back to back.
+			<-roundCtx.Done()
+		}
+		cancelRound()
+		if err != nil {
+			return nil, err
+		}
+		if anyMatches(devs, payload) {
+			return devs, nil
+		}
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		if budgetCtx.Err() != nil {
+			return devs, nil
+		}
+		log.Infof("No matching device found in discovery round %d; discovering again", n)
+	}
+}
+
+// anyMatches reports whether one of devs matches payload.
+func anyMatches(devs []CommissionableDevice, payload OnboardingPayload) bool {
+	for _, dev := range devs {
+		if dev.MatchesOnboardingPayload(payload) {
+			return true
+		}
+	}
+	return false
 }
 
 func (cmr *commissioner) commissionMatchingDevice(ctx context.Context, payload OnboardingPayload, devs []CommissionableDevice, opts ...CommissionOption) (Commissionee, error) {

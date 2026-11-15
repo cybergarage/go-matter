@@ -345,9 +345,17 @@ func (noScanCentral) DiscoveredDevices() []blepkg.Device                     { r
 func (noScanCentral) LookupDeviceByDiscriminator(any) (blepkg.Device, error) { return nil, ErrNotFound }
 func (noScanCentral) Scan(context.Context, ...blepkg.ScannerOption) error    { return nil }
 func TestCommissionDiscoveryHasSeparateDeadline(t *testing.T) {
+	saved := commissionDiscoveryBudget
+	t.Cleanup(func() { commissionDiscoveryBudget = saved })
+	commissionDiscoveryBudget = DefaultDiscoveryTimeout + 2*time.Second
+
 	var discoveryDeadline time.Time
+	rounds := 0
 	discoverer := &capturingDiscoverer{searchFunc: func(ctx context.Context, _ mdnspkg.Query) ([]mdnspkg.CommissionableNode, error) {
-		discoveryDeadline, _ = ctx.Deadline()
+		rounds++
+		if rounds == 1 {
+			discoveryDeadline, _ = ctx.Deadline()
+		}
 		return nil, nil
 	}}
 	cmr := NewCommissioner(WithCommissionerCentral(noScanCentral{}), WithCommissionerDiscoverer(discoverer), WithCommissionerStore(store.NewMemStore()))
@@ -364,6 +372,9 @@ func TestCommissionDiscoveryHasSeparateDeadline(t *testing.T) {
 	budget := discoveryDeadline.Sub(before)
 	if budget < DefaultDiscoveryTimeout-time.Second || budget > DefaultDiscoveryTimeout+time.Second {
 		t.Fatal("discovery did not use a separate phase budget")
+	}
+	if rounds != 2 {
+		t.Fatalf("discovery rounds = %d, want 2 within the budget", rounds)
 	}
 }
 
@@ -386,5 +397,60 @@ func TestCommissioningContext(t *testing.T) {
 	got, ok = ctx.Deadline()
 	if !ok || got.Before(before.Add(DefaultCommissioningTimeout)) || got.After(time.Now().Add(DefaultCommissioningTimeout)) {
 		t.Errorf("deadline without one = %v, want about %v from now", got, DefaultCommissioningTimeout)
+	}
+}
+
+// Commission discovers again, round after round, until the device of the
+// onboarding payload is found.
+func TestDiscoverMatchingRetries(t *testing.T) {
+	payload := testPairingCode(t)
+	other := &stubCommissionableDevice{match: false}
+	target := &stubCommissionableDevice{match: true}
+
+	rounds := 0
+	devs, err := discoverMatching(context.Background(), payload, 10*time.Millisecond, time.Second, func(context.Context) ([]CommissionableDevice, error) {
+		rounds++
+		if rounds < 3 {
+			return []CommissionableDevice{other}, nil
+		}
+		return []CommissionableDevice{other, target}, nil
+	})
+	if err != nil {
+		t.Fatalf("discoverMatching(...) error = %v", err)
+	}
+	if rounds != 3 || len(devs) != 2 {
+		t.Fatalf("rounds = %d, devices = %d; want 3 and 2", rounds, len(devs))
+	}
+}
+
+// Without a matching device, discovery ends at its budget with the devices
+// of the last round, and a cancelled caller gets its error.
+func TestDiscoverMatchingBudget(t *testing.T) {
+	payload := testPairingCode(t)
+	other := &stubCommissionableDevice{match: false}
+	discover := func(context.Context) ([]CommissionableDevice, error) {
+		return []CommissionableDevice{other}, nil
+	}
+
+	start := time.Now()
+	devs, err := discoverMatching(context.Background(), payload, 20*time.Millisecond, 100*time.Millisecond, discover)
+	if err != nil || len(devs) != 1 {
+		t.Fatalf("discoverMatching(...) = %d devices, %v; want 1, nil", len(devs), err)
+	}
+	if elapsed := time.Since(start); elapsed < 100*time.Millisecond || elapsed > time.Second {
+		t.Fatalf("discovery took %v; want about its budget of 100ms", elapsed)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := discoverMatching(ctx, payload, 20*time.Millisecond, time.Second, discover); !errors.Is(err, context.Canceled) {
+		t.Fatalf("discoverMatching(cancelled) error = %v, want context.Canceled", err)
+	}
+
+	fail := errors.New("no transport")
+	if _, err := discoverMatching(context.Background(), payload, 20*time.Millisecond, time.Second, func(context.Context) ([]CommissionableDevice, error) {
+		return nil, fail
+	}); !errors.Is(err, fail) {
+		t.Fatalf("discoverMatching(failing) error = %v, want %v", err, fail)
 	}
 }

@@ -23,8 +23,14 @@ import (
 )
 
 const (
-	// DefaultDiscoveryTimeout is the default discovery timeout.
+	// DefaultDiscoveryTimeout is the default discovery timeout, and the
+	// length of one discovery round of Commission.
 	DefaultDiscoveryTimeout = time.Duration(5 * time.Second)
+	// DefaultCommissionDiscoveryTimeout bounds the discovery rounds of
+	// Commission: it discovers again, round after round, until a device
+	// which matches the onboarding payload is found or this much time has
+	// passed.
+	DefaultCommissionDiscoveryTimeout = time.Duration(30 * time.Second)
 	// DefaultCommissioningTimeout is the default commissioning timeout of
 	// one device, applied when the caller's context has no deadline of its
 	// own (a deadline the caller set is kept, longer or shorter),
