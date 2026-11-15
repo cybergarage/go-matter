@@ -54,6 +54,8 @@ func (baseDev *baseDevice) parseCommissionOptions(opts ...CommissionOption) erro
 			baseDev.adminConfig = o
 		case AttestationVerifier:
 			baseDev.attestationVerifier = o
+		case CommissioningProgressFunc:
+		// Carried by the context of the commissioning.
 		default:
 			return fmt.Errorf("unsupported commission option type: %T", opt)
 		}

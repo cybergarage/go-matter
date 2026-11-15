@@ -230,7 +230,7 @@ func TestCommissionOverPASEDoesNotInvokeCommissioningComplete(t *testing.T) {
 		return nil
 	}
 
-	_, err := commissionOverPASE(nil, validOperationalCredentialsConfig(), validAdministratorConfig(), nil, nil, false)
+	_, err := commissionOverPASE(context.Background(), nil, validOperationalCredentialsConfig(), validAdministratorConfig(), nil, nil, false)
 	if err != nil {
 		t.Fatalf("commissionOverPASE(...) error = %v, want nil", err)
 	}

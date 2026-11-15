@@ -282,6 +282,8 @@ func (dev *mDNSDevice) Commission(ctx context.Context, payload OnboardingPayload
 		return CommissionedIdentity{}, err
 	}
 
+	ctx = contextWithCommissioningProgress(ctx, opts)
+	reportCommissioningProgress(ctx, CommissioningStageConnecting, 1, "network: "+dev.String())
 	var err error
 	dev.conn, err = dev.openConn(ctx)
 	if err != nil {
@@ -295,6 +297,7 @@ func (dev *mDNSDevice) Commission(ctx context.Context, payload OnboardingPayload
 		dev.conn = nil
 	}()
 
+	reportCommissioningProgress(ctx, CommissioningStagePASE, 1, "")
 	paseClient := pase.NewInitiator(dev, payload.Passcode())
 	sessionKeys, err := paseClient.EstablishSession(ctx)
 	if err != nil {

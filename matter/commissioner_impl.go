@@ -306,6 +306,7 @@ func (cmr *commissioner) Commission(ctx context.Context, payload OnboardingPaylo
 	if err != nil {
 		return nil, err
 	}
+	ctx = contextWithCommissioningProgress(ctx, opts)
 	query := NewQuery(
 		WithQueryOnboardingPayload(payload),
 	)
@@ -341,6 +342,7 @@ func discoverMatching(ctx context.Context, payload OnboardingPayload, round, bud
 	budgetCtx, cancelBudget := context.WithTimeout(ctx, budget)
 	defer cancelBudget()
 	for n := 1; ; n++ {
+		reportCommissioningProgress(ctx, CommissioningStageDiscovering, n, "")
 		roundCtx, cancelRound := context.WithTimeout(budgetCtx, round)
 		devs, err := discover(roundCtx)
 		if err == nil && !anyMatches(devs, payload) {

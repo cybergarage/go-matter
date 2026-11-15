@@ -153,7 +153,7 @@ func commissionWithSession(
 		return deviceOperationalIdentity{}, fmt.Errorf("commissioning: non-concurrent commissioning not yet supported")
 	}
 
-	identity, err := commissionOverPASE(sess, operationalCfg, adminCfg, wifiCfg, verifier, requireNetwork, requestedNodeID...)
+	identity, err := commissionOverPASE(ctx, sess, operationalCfg, adminCfg, wifiCfg, verifier, requireNetwork, requestedNodeID...)
 	if err != nil {
 		return deviceOperationalIdentity{}, err
 	}
@@ -170,6 +170,7 @@ func commissionWithSession(
 }
 
 func commissionOverPASE(
+	ctx context.Context,
 	sess session.SecureSession,
 	operationalCfg config.OperationalCredentialsConfig,
 	adminCfg config.AdministratorConfig,
@@ -194,6 +195,7 @@ func commissionOverPASE(
 
 	// Step 1: ArmFailSafe
 	// 11.10.7.2. ArmFailSafe Command.
+	reportCommissioningProgress(ctx, CommissioningStageAttestation, 1, "")
 	log.Infof("Commissioning: ArmFailSafe (expiry=%ds, breadcrumb=%d)", armFailSafeExpiry, failSafeBreadcrumb)
 	firstArmedAt := time.Now()
 	failSafeExpiresBy := firstArmedAt.Add(time.Duration(armFailSafeExpiry) * time.Second)
@@ -216,6 +218,7 @@ func commissionOverPASE(
 	// Matter 1.2 Core Spec 5.5 "Commissioning Flows", step 9:
 	// Commissioner SHALL install operational credentials using AddTrustedRootCertificate and AddNOC.
 	log.Infof("Commissioning: Operational Credentials")
+	reportCommissioningProgress(ctx, CommissioningStageCredentials, 1, "")
 	identity, err := commissionOperationalCredentials(sess, operationalCfg, adminCfg, attResult, requestedNodeID...)
 	if err != nil {
 		return deviceOperationalIdentity{}, err
@@ -226,6 +229,9 @@ func commissionOverPASE(
 	// configure the operational network only if the Commissionee supports it and requires it,
 	// then invoke ConnectNetwork unless the Commissionee is already on the desired operational network.
 	log.Infof("Commissioning: Network Commissioning")
+	if wifiCfg != nil {
+		reportCommissioningProgress(ctx, CommissioningStageNetwork, 1, "")
+	}
 	rearmedExpiresBy, err := commissionNetworkFailSafe(sess, wifiCfg, requireNetwork, firstArmedAt)
 	if err != nil {
 		return deviceOperationalIdentity{}, err
@@ -289,6 +295,7 @@ func finalizeCommissioningOverCASE(
 	}
 
 	log.Infof("Commissioning: CommissioningComplete")
+	reportCommissioningProgress(ctx, CommissioningStageComplete, 1, "")
 	if err := commissioningCompleteCommand(caseSess, defaultEndpointID); err != nil {
 		return err
 	}
@@ -310,12 +317,14 @@ func reachOperationalNode(
 ) (session.SecureSession, error) {
 	for attempt := 1; ; attempt++ {
 		log.Infof("Commissioning: Operational Discovery")
+		reportCommissioningProgress(ctx, CommissioningStageOperationalDiscovery, attempt, "")
 		node, err := operationalNodeDiscoverer(ctx, discoverer, peer)
 		if err != nil {
 			return nil, err
 		}
 
 		log.Infof("Commissioning: CASE")
+		reportCommissioningProgress(ctx, CommissioningStageCASE, attempt, operationalNodeAddresses(node))
 		caseSess, err := establishOperationalCASESession(ctx, node, peer, adminCfg, paseTransport)
 		if err == nil {
 			return caseSess, nil
@@ -325,6 +334,20 @@ func reachOperationalNode(
 		}
 		log.Warnf("Commissioning: CASE attempt %d got no answer (%v); discovering the node again", attempt, err)
 	}
+}
+
+// operationalNodeAddresses describes the usable addresses of node, as
+// "192.168.1.20, fe80::1"; empty when it has none.
+func operationalNodeAddresses(node mdnspkg.CommissionableNode) string {
+	if node == nil {
+		return ""
+	}
+	addrs := usableAddresses(node)
+	names := make([]string, 0, len(addrs))
+	for _, addr := range addrs {
+		names = append(names, addr.String())
+	}
+	return strings.Join(names, ", ")
 }
 
 // isNetworkTimeout reports whether err is a timeout of the network, as
