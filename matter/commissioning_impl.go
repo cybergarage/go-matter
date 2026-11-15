@@ -82,6 +82,7 @@ var (
 	addOrUpdateWiFiNetworkCommand         = networkcommissioning.AddOrUpdateWiFiNetwork
 	connectNetworkCommand                 = networkcommissioning.ConnectNetwork
 	connectMaxTimeSecondsAttribute        = networkcommissioning.ConnectMaxTimeSeconds
+	maxCumulativeFailsafeSecondsAttribute = generalcommissioning.MaxCumulativeFailsafeSeconds
 	supportsConcurrentConnectionAttribute = readSupportsConcurrentConnection
 	operationalNodeDiscoverer             = discoverOperationalNode
 	establishOperationalCASESession       = establishCASESession
@@ -116,9 +117,10 @@ type deviceOperationalIdentity struct {
 	noc    []byte // DER
 	icac   []byte // DER, nil for this minimal CA (no intermediate).
 	// failSafeExpiresBy is when the fail-safe armed last expires at the
-	// latest, measured from before the ArmFailSafe command was sent. The
-	// device removes the credentials of this commissioning then, so CASE
-	// with it fails after that. Zero when unknown.
+	// earliest, measured from before the ArmFailSafe command was sent and
+	// capped by the device's MaxCumulativeFailsafeSeconds. The device
+	// removes the credentials of this commissioning when it expires, so
+	// CASE with it fails after that. Zero when unknown.
 	failSafeExpiresBy time.Time
 }
 
@@ -193,7 +195,8 @@ func commissionOverPASE(
 	// Step 1: ArmFailSafe
 	// 11.10.7.2. ArmFailSafe Command.
 	log.Infof("Commissioning: ArmFailSafe (expiry=%ds, breadcrumb=%d)", armFailSafeExpiry, failSafeBreadcrumb)
-	failSafeExpiresBy := time.Now().Add(time.Duration(armFailSafeExpiry) * time.Second)
+	firstArmedAt := time.Now()
+	failSafeExpiresBy := firstArmedAt.Add(time.Duration(armFailSafeExpiry) * time.Second)
 	if err := armFailSafeCommand(sess, defaultEndpointID, armFailSafeExpiry, failSafeBreadcrumb); err != nil {
 		return deviceOperationalIdentity{}, err
 	}
@@ -223,7 +226,7 @@ func commissionOverPASE(
 	// configure the operational network only if the Commissionee supports it and requires it,
 	// then invoke ConnectNetwork unless the Commissionee is already on the desired operational network.
 	log.Infof("Commissioning: Network Commissioning")
-	rearmedExpiresBy, err := commissionNetworkFailSafe(sess, wifiCfg, requireNetwork)
+	rearmedExpiresBy, err := commissionNetworkFailSafe(sess, wifiCfg, requireNetwork, firstArmedAt)
 	if err != nil {
 		return deviceOperationalIdentity{}, err
 	}
@@ -331,13 +334,15 @@ func isNetworkTimeout(err error) bool {
 	return errors.As(err, &netErr) && netErr.Timeout()
 }
 
-// failSafeExpiryError tells, of an error which came after the fail-safe of
-// the commissioning expired, that it did.
+// failSafeExpiryError tells, of an error which came after the time the
+// fail-safe of the commissioning gives ran out, that it did. The time is
+// measured from before each ArmFailSafe was sent, so it runs out before the
+// device's fail-safe does.
 func failSafeExpiryError(identity deviceOperationalIdentity, err error) error {
 	if identity.failSafeExpiresBy.IsZero() || time.Now().Before(identity.failSafeExpiresBy) {
 		return err
 	}
-	return fmt.Errorf("commissioning: the fail-safe expired before the device could be reached on its network, and the device has dropped this commissioning: %w", err)
+	return fmt.Errorf("commissioning: the time the fail-safe gives ran out before the device could be reached on its network; the device drops this commissioning when its fail-safe expires: %w", err)
 }
 
 // commissionDeviceAttestation runs the AttestationRequest / CertificateChainRequest
@@ -498,14 +503,16 @@ func commissionOperationalCredentials(
 }
 
 func commissionNetwork(sess session.SecureSession, cfg config.WiFiNetworkConfig, requireNetwork bool) error {
-	_, err := commissionNetworkFailSafe(sess, cfg, requireNetwork)
+	_, err := commissionNetworkFailSafe(sess, cfg, requireNetwork, time.Time{})
 	return err
 }
 
 // commissionNetworkFailSafe runs the network commissioning step, and returns
 // when the fail-safe it armed again before ConnectNetwork expires at the
-// latest, or the zero time when it did not arm it.
-func commissionNetworkFailSafe(sess session.SecureSession, cfg config.WiFiNetworkConfig, requireNetwork bool) (time.Time, error) {
+// latest, or the zero time when it did not arm it. firstArmedAt, when not
+// zero, is when the fail-safe was first armed, before which its cumulative
+// limit is counted.
+func commissionNetworkFailSafe(sess session.SecureSession, cfg config.WiFiNetworkConfig, requireNetwork bool, firstArmedAt time.Time) (time.Time, error) {
 	if cfg == nil {
 		if requireNetwork {
 			return time.Time{}, fmt.Errorf("commissioning: Wi-Fi network config is required for this commissioning flow")
@@ -537,7 +544,7 @@ func commissionNetworkFailSafe(sess session.SecureSession, cfg config.WiFiNetwor
 	// good part of it; arm it again so that it lasts while the device
 	// joins the network and then until CommissioningComplete over CASE.
 	// 11.10.7.2. ArmFailSafe Command.
-	expiresBy, err := armFailSafeBeforeConnectNetwork(sess)
+	expiresBy, err := armFailSafeBeforeConnectNetwork(sess, firstArmedAt)
 	if err != nil {
 		return time.Time{}, err
 	}
@@ -557,7 +564,12 @@ func commissionNetworkFailSafe(sess session.SecureSession, cfg config.WiFiNetwor
 // longest the device may take to join the network, by its
 // ConnectMaxTimeSeconds, and afterNetworkFailSafeSeconds on top.
 // 11.8.6.4. ConnectMaxTimeSeconds Attribute.
-func armFailSafeBeforeConnectNetwork(sess session.SecureSession) (time.Time, error) {
+//
+// The device keeps a fail-safe armed for at most its
+// MaxCumulativeFailsafeSeconds from the first arming, however often it is
+// armed again (11.10.7.2); the returned expiry is capped by that limit,
+// counted from firstArmedAt when it is not zero.
+func armFailSafeBeforeConnectNetwork(sess session.SecureSession, firstArmedAt time.Time) (time.Time, error) {
 	connectMax, err := connectMaxTimeSecondsAttribute(sess, defaultEndpointID)
 	if err != nil {
 		log.Warnf("Commissioning: ConnectMaxTimeSeconds unknown, assuming %ds: %v", defaultConnectMaxTimeSeconds, err)
@@ -566,6 +578,15 @@ func armFailSafeBeforeConnectNetwork(sess session.SecureSession) (time.Time, err
 	expiry := uint16(connectMax) + afterNetworkFailSafeSeconds
 	log.Infof("Commissioning: ArmFailSafe before ConnectNetwork (expiry=%ds, ConnectMaxTimeSeconds=%d)", expiry, connectMax)
 	expiresBy := time.Now().Add(time.Duration(expiry) * time.Second)
+	if !firstArmedAt.IsZero() {
+		maxCumulative, err := maxCumulativeFailsafeSecondsAttribute(sess, defaultEndpointID)
+		if err != nil {
+			log.Warnf("Commissioning: MaxCumulativeFailsafeSeconds unknown: %v", err)
+		} else if limit := firstArmedAt.Add(time.Duration(maxCumulative) * time.Second); limit.Before(expiresBy) {
+			log.Infof("Commissioning: the fail-safe ends earlier, at the device's MaxCumulativeFailsafeSeconds=%d", maxCumulative)
+			expiresBy = limit
+		}
+	}
 	if err := armFailSafeCommand(sess, defaultEndpointID, expiry, failSafeBreadcrumb); err != nil {
 		return time.Time{}, fmt.Errorf("commissioning: ArmFailSafe before ConnectNetwork: %w", err)
 	}

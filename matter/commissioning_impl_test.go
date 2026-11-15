@@ -346,6 +346,34 @@ func TestFinalizeCommissioningOverCASEPropagatesOperationalDiscoveryFailure(t *t
 	}
 }
 
+// The fail-safe armed again before ConnectNetwork ends at the device's
+// MaxCumulativeFailsafeSeconds from the first arming when that is earlier.
+func TestArmFailSafeBeforeConnectNetworkCumulativeLimit(t *testing.T) {
+	stubNetworkCommissioning(t, 20, nil)
+	prevMaxCumulative := maxCumulativeFailsafeSecondsAttribute
+	t.Cleanup(func() { maxCumulativeFailsafeSecondsAttribute = prevMaxCumulative })
+	maxCumulativeFailsafeSecondsAttribute = func(session.SecureSession, im.EndpointID) (uint16, error) { return 60, nil }
+
+	firstArmedAt := time.Now().Add(-30 * time.Second)
+	expiresBy, err := armFailSafeBeforeConnectNetwork(nil, firstArmedAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := firstArmedAt.Add(60 * time.Second); !expiresBy.Equal(want) {
+		t.Fatalf("expiry = %v, want the cumulative limit %v", expiresBy, want)
+	}
+
+	maxCumulativeFailsafeSecondsAttribute = func(session.SecureSession, im.EndpointID) (uint16, error) { return 0, errors.New("unsupported") }
+	before := time.Now()
+	expiresBy, err = armFailSafeBeforeConnectNetwork(nil, firstArmedAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if expiresBy.Before(before.Add(140*time.Second)) || expiresBy.After(time.Now().Add(140*time.Second)) {
+		t.Fatalf("expiry = %v without the limit, want 140s from now", expiresBy)
+	}
+}
+
 // timeoutError is a network timeout, as a UDP read gives.
 type timeoutError struct{}
 
@@ -429,7 +457,7 @@ func TestFinalizeCommissioningOverCASEEndsWithTheFailSafe(t *testing.T) {
 	identity := deviceOperationalIdentity{nodeID: 1, failSafeExpiresBy: time.Now().Add(50 * time.Millisecond)}
 	start := time.Now()
 	err := finalizeCommissioningOverCASE(context.Background(), &stubDiscoverer{}, validOperationalCredentialsConfig(), validAdministratorConfig(), identity, nil)
-	if err == nil || !strings.Contains(err.Error(), "fail-safe expired") {
+	if err == nil || !strings.Contains(err.Error(), "fail-safe gives ran out") {
 		t.Fatalf("finalizeCommissioningOverCASE() error = %v, want the fail-safe expiry", err)
 	}
 	if elapsed := time.Since(start); elapsed > 5*time.Second {
