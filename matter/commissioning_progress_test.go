@@ -49,6 +49,17 @@ func TestCommissioningProgressContext(t *testing.T) {
 		t.Fatalf("progress = %v, want %v", *got, want)
 	}
 
+	// The last progress option wins, as with the other options.
+	var first, last int
+	ctx = contextWithCommissioningProgress(context.Background(), []CommissionOption{
+		WithCommissioningProgress(func(CommissioningProgress) { first++ }),
+		WithCommissioningProgress(func(CommissioningProgress) { last++ }),
+	})
+	reportCommissioningProgress(ctx, CommissioningStagePASE, 1, "")
+	if first != 0 || last != 1 {
+		t.Fatalf("first = %d, last = %d; want the last option told", first, last)
+	}
+
 	// Without a progress option, nothing is reported, and nothing fails.
 	plain := contextWithCommissioningProgress(context.Background(), nil)
 	reportCommissioningProgress(plain, CommissioningStagePASE, 1, "")

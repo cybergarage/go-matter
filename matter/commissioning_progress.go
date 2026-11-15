@@ -80,14 +80,19 @@ func WithCommissioningProgress(fn CommissioningProgressFunc) CommissionOption {
 type commissioningProgressKey struct{}
 
 // contextWithCommissioningProgress returns ctx carrying the progress
-// function of opts, or ctx itself when opts give none.
+// function of opts, the last one as with the other options, or ctx itself
+// when opts give none.
 func contextWithCommissioningProgress(ctx context.Context, opts []CommissionOption) context.Context {
+	var last CommissioningProgressFunc
 	for _, opt := range opts {
 		if fn, ok := opt.(CommissioningProgressFunc); ok && fn != nil {
-			return context.WithValue(ctx, commissioningProgressKey{}, fn)
+			last = fn
 		}
 	}
-	return ctx
+	if last == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, commissioningProgressKey{}, last)
 }
 
 // reportCommissioningProgress tells the progress function ctx carries, if
