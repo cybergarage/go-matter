@@ -352,13 +352,10 @@ func discoverMatching(ctx context.Context, payload OnboardingPayload, round, bud
 		if err != nil {
 			return nil, err
 		}
-		if anyMatches(devs, payload) {
-			return devs, nil
-		}
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		if budgetCtx.Err() != nil {
+		if anyMatches(devs, payload) || budgetCtx.Err() != nil {
 			return devs, nil
 		}
 		log.Infof("No matching device found in discovery round %d; discovering again", n)
