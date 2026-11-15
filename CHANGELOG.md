@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.9.6] - 2026-11-16
+
+Discovery for commissioning no longer gives up after one round of 5 seconds.
+
+### Fixed
+
+- **A device waiting to be commissioned was reported as not found.** `Commission` discovered for a single round of `DefaultDiscoveryTimeout` (5 seconds). Past its first 30 seconds of advertising, a device advertises at a slow interval (5.4.2.5.3), and some devices interleave their Matter advertisements with others of their own, so one round could miss the device. `Commission` now discovers round after round until a device which matches the onboarding payload is found, for up to the new `DefaultCommissionDiscoveryTimeout` (30 seconds) or the caller's deadline. Verified with a Wi-Fi bulb over BLE.
+
 ## [0.9.5] - 2026-11-14
 
 Commissioning time limits: the caller's deadline is kept, and the fail-safe is armed again before ConnectNetwork.
