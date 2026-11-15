@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.9.7] - 2026-11-16
+
+Commissioning progress for applications, and commissioning a device which advertises a wrong address right after joining its network.
+
 ### Added
 
 - **Commissioning progress.** `WithCommissioningProgress(fn)`, a commission option, tells `fn` each stage a commissioning reaches: `discovering` (each round), `connecting`, `pase`, `attestation`, `credentials`, `network`, `operationalDiscovery` and `case` (each attempt, with the addresses tried), and `complete`. An application can show where a commissioning is, and where it failed.

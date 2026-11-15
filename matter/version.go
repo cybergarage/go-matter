@@ -15,5 +15,5 @@
 package matter
 
 const (
-	Version = "v0.9.6"
+	Version = "v0.9.7"
 )
