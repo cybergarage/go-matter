@@ -122,6 +122,10 @@ type deviceOperationalIdentity struct {
 	// removes the credentials of this commissioning when it expires, so
 	// CASE with it fails after that. Zero when unknown.
 	failSafeExpiresBy time.Time
+	// connectNetworkUnanswered tells that the device did not answer
+	// ConnectNetwork in time, and that the commissioning went on to look
+	// for it on its network anyway.
+	connectNetworkUnanswered bool
 }
 
 // commissionWithSession executes the post-PASE commissioning flow over the given SecureSession.
@@ -232,10 +236,11 @@ func commissionOverPASE(
 	if wifiCfg != nil {
 		reportCommissioningProgress(ctx, CommissioningStageNetwork, 1, "")
 	}
-	rearmedExpiresBy, err := commissionNetworkFailSafe(sess, wifiCfg, requireNetwork, firstArmedAt)
+	rearmedExpiresBy, unanswered, err := commissionNetworkFailSafe(ctx, sess, wifiCfg, requireNetwork, firstArmedAt)
 	if err != nil {
 		return deviceOperationalIdentity{}, err
 	}
+	identity.connectNetworkUnanswered = unanswered
 	if !rearmedExpiresBy.IsZero() {
 		failSafeExpiresBy = rearmedExpiresBy
 	}
@@ -364,6 +369,9 @@ func isNetworkTimeout(err error) bool {
 func failSafeExpiryError(identity deviceOperationalIdentity, err error) error {
 	if identity.failSafeExpiresBy.IsZero() || time.Now().Before(identity.failSafeExpiresBy) {
 		return err
+	}
+	if identity.connectNetworkUnanswered {
+		return fmt.Errorf("commissioning: the device did not answer ConnectNetwork, and was not reached on its network before the time the fail-safe gives ran out; it may not have joined the network: check its name and password, and that the device supports its band (many devices use 2.4 GHz only): %w", err)
 	}
 	return fmt.Errorf("commissioning: the time the fail-safe gives ran out before the device could be reached on its network; the device drops this commissioning when its fail-safe expires: %w", err)
 }
@@ -526,7 +534,7 @@ func commissionOperationalCredentials(
 }
 
 func commissionNetwork(sess session.SecureSession, cfg config.WiFiNetworkConfig, requireNetwork bool) error {
-	_, err := commissionNetworkFailSafe(sess, cfg, requireNetwork, time.Time{})
+	_, _, err := commissionNetworkFailSafe(context.Background(), sess, cfg, requireNetwork, time.Time{})
 	return err
 }
 
@@ -534,19 +542,20 @@ func commissionNetwork(sess session.SecureSession, cfg config.WiFiNetworkConfig,
 // when the fail-safe it armed again before ConnectNetwork expires at the
 // latest, or the zero time when it did not arm it. firstArmedAt, when not
 // zero, is when the fail-safe was first armed, before which its cumulative
-// limit is counted.
-func commissionNetworkFailSafe(sess session.SecureSession, cfg config.WiFiNetworkConfig, requireNetwork bool, firstArmedAt time.Time) (time.Time, error) {
+// limit is counted. unanswered tells that the device did not answer
+// ConnectNetwork in time; see connectNetworkOrMoveOn.
+func commissionNetworkFailSafe(ctx context.Context, sess session.SecureSession, cfg config.WiFiNetworkConfig, requireNetwork bool, firstArmedAt time.Time) (expiresBy time.Time, unanswered bool, err error) {
 	if cfg == nil {
 		if requireNetwork {
-			return time.Time{}, fmt.Errorf("commissioning: Wi-Fi network config is required for this commissioning flow")
+			return time.Time{}, false, fmt.Errorf("commissioning: Wi-Fi network config is required for this commissioning flow")
 		}
 		log.Infof("Commissioning: Network Commissioning skipped: device is assumed to already be on the desired operational network")
-		return time.Time{}, nil
+		return time.Time{}, false, nil
 	}
 
 	inputs, err := loadNetworkCommissioningInputs(cfg)
 	if err != nil {
-		return time.Time{}, err
+		return time.Time{}, false, err
 	}
 
 	if err := addOrUpdateWiFiNetworkCommand(
@@ -558,29 +567,62 @@ func commissionNetworkFailSafe(sess session.SecureSession, cfg config.WiFiNetwor
 	); err != nil {
 		if errors.Is(err, networkcommissioning.ErrNotImplemented) {
 			log.Infof("Commissioning: AddOrUpdateWiFiNetwork skipped: %v", err)
-			return time.Time{}, nil
+			return time.Time{}, false, nil
 		}
-		return time.Time{}, fmt.Errorf("commissioning: AddOrUpdateWiFiNetwork: %w", err)
+		return time.Time{}, false, fmt.Errorf("commissioning: AddOrUpdateWiFiNetwork: %w", err)
 	}
 
 	// The fail-safe was armed before attestation, which over BLE takes a
 	// good part of it; arm it again so that it lasts while the device
 	// joins the network and then until CommissioningComplete over CASE.
 	// 11.10.7.2. ArmFailSafe Command.
-	expiresBy, err := armFailSafeBeforeConnectNetwork(sess, firstArmedAt)
+	expiresBy, connectMax, err := armFailSafeBeforeConnectNetwork(sess, firstArmedAt)
 	if err != nil {
-		return time.Time{}, err
+		return time.Time{}, false, err
 	}
 
-	if err := connectNetworkCommand(sess, defaultEndpointID, inputs.ssid, networkCommissioningBreadcrumb); err != nil {
+	unanswered, err = connectNetworkOrMoveOn(ctx, sess, inputs.ssid, connectMax)
+	if err != nil {
 		if errors.Is(err, networkcommissioning.ErrNotImplemented) {
 			log.Infof("Commissioning: ConnectNetwork skipped: %v", err)
-			return expiresBy, nil
+			return expiresBy, false, nil
 		}
-		return time.Time{}, fmt.Errorf("commissioning: ConnectNetwork: %w", err)
+		return time.Time{}, false, fmt.Errorf("commissioning: ConnectNetwork: %w", err)
 	}
 
-	return expiresBy, nil
+	return expiresBy, unanswered, nil
+}
+
+// connectNetworkAnswerMargin is how long, past its ConnectMaxTimeSeconds,
+// the answer of a device to ConnectNetwork is waited for; tests shorten it.
+var connectNetworkAnswerMargin = 30 * time.Second
+
+// connectNetworkOrMoveOn sends ConnectNetwork and waits for the answer for
+// the device's ConnectMaxTimeSeconds and connectNetworkAnswerMargin. A
+// device which reports SupportsConcurrentConnection answers over the
+// commissioning channel once it has joined the network (11.8.7.7), but real
+// devices were seen to join it without answering. Without an answer in that
+// time, the commissioning goes on, and looks for the device on its network;
+// unanswered tells so. An answer which is an error, in time, is returned.
+// The invoke left waiting ends with the commissioning channel.
+func connectNetworkOrMoveOn(ctx context.Context, sess session.SecureSession, ssid []byte, connectMax uint8) (unanswered bool, err error) {
+	answered := make(chan error, 1)
+	connect := connectNetworkCommand
+	go func() {
+		answered <- connect(sess, defaultEndpointID, ssid, networkCommissioningBreadcrumb)
+	}()
+	wait := time.Duration(connectMax)*time.Second + connectNetworkAnswerMargin
+	timer := time.NewTimer(wait)
+	defer timer.Stop()
+	select {
+	case err := <-answered:
+		return false, err
+	case <-timer.C:
+		log.Warnf("Commissioning: ConnectNetwork: no answer in %s; looking for the device on its network", wait)
+		return true, nil
+	case <-ctx.Done():
+		return false, ctx.Err()
+	}
 }
 
 // armFailSafeBeforeConnectNetwork arms the fail-safe again for the
@@ -592,7 +634,7 @@ func commissionNetworkFailSafe(sess session.SecureSession, cfg config.WiFiNetwor
 // MaxCumulativeFailsafeSeconds from the first arming, however often it is
 // armed again (11.10.7.2); the returned expiry is capped by that limit,
 // counted from firstArmedAt when it is not zero.
-func armFailSafeBeforeConnectNetwork(sess session.SecureSession, firstArmedAt time.Time) (time.Time, error) {
+func armFailSafeBeforeConnectNetwork(sess session.SecureSession, firstArmedAt time.Time) (time.Time, uint8, error) {
 	connectMax, err := connectMaxTimeSecondsAttribute(sess, defaultEndpointID)
 	if err != nil {
 		log.Warnf("Commissioning: ConnectMaxTimeSeconds unknown, assuming %ds: %v", defaultConnectMaxTimeSeconds, err)
@@ -611,9 +653,9 @@ func armFailSafeBeforeConnectNetwork(sess session.SecureSession, firstArmedAt ti
 		}
 	}
 	if err := armFailSafeCommand(sess, defaultEndpointID, expiry, failSafeBreadcrumb); err != nil {
-		return time.Time{}, fmt.Errorf("commissioning: ArmFailSafe before ConnectNetwork: %w", err)
+		return time.Time{}, 0, fmt.Errorf("commissioning: ArmFailSafe before ConnectNetwork: %w", err)
 	}
-	return expiresBy, nil
+	return expiresBy, connectMax, nil
 }
 
 func readSupportsConcurrentConnection(sess session.SecureSession) (bool, error) {

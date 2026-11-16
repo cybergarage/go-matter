@@ -355,7 +355,7 @@ func TestArmFailSafeBeforeConnectNetworkCumulativeLimit(t *testing.T) {
 	maxCumulativeFailsafeSecondsAttribute = func(session.SecureSession, im.EndpointID) (uint16, error) { return 60, nil }
 
 	firstArmedAt := time.Now().Add(-30 * time.Second)
-	expiresBy, err := armFailSafeBeforeConnectNetwork(nil, firstArmedAt)
+	expiresBy, _, err := armFailSafeBeforeConnectNetwork(nil, firstArmedAt)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -365,12 +365,70 @@ func TestArmFailSafeBeforeConnectNetworkCumulativeLimit(t *testing.T) {
 
 	maxCumulativeFailsafeSecondsAttribute = func(session.SecureSession, im.EndpointID) (uint16, error) { return 0, errors.New("unsupported") }
 	before := time.Now()
-	expiresBy, err = armFailSafeBeforeConnectNetwork(nil, firstArmedAt)
+	expiresBy, _, err = armFailSafeBeforeConnectNetwork(nil, firstArmedAt)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if expiresBy.Before(before.Add(140*time.Second)) || expiresBy.After(time.Now().Add(140*time.Second)) {
 		t.Fatalf("expiry = %v without the limit, want 140s from now", expiresBy)
+	}
+}
+
+// A device which does not answer ConnectNetwork in its
+// ConnectMaxTimeSeconds and the margin is looked for on its network anyway;
+// an answer in time, an error included, is taken.
+func TestConnectNetworkOrMoveOn(t *testing.T) {
+	prevConnect, prevMargin := connectNetworkCommand, connectNetworkAnswerMargin
+	t.Cleanup(func() { connectNetworkCommand, connectNetworkAnswerMargin = prevConnect, prevMargin })
+	connectNetworkAnswerMargin = 20 * time.Millisecond
+
+	release := make(chan struct{})
+	defer close(release)
+	connectNetworkCommand = func(session.SecureSession, im.EndpointID, []byte, uint64) error {
+		<-release
+		return nil
+	}
+	start := time.Now()
+	unanswered, err := connectNetworkOrMoveOn(context.Background(), nil, []byte("home"), 0)
+	if err != nil || !unanswered {
+		t.Fatalf("connectNetworkOrMoveOn() = %v, %v; want unanswered", unanswered, err)
+	}
+	if elapsed := time.Since(start); elapsed > 2*time.Second {
+		t.Fatalf("waited %v for the answer", elapsed)
+	}
+
+	refused := errors.New("NetworkConfigResponse: NetworkNotFound")
+	connectNetworkCommand = func(session.SecureSession, im.EndpointID, []byte, uint64) error { return refused }
+	connectNetworkAnswerMargin = time.Second
+	if unanswered, err := connectNetworkOrMoveOn(context.Background(), nil, []byte("home"), 0); unanswered || !errors.Is(err, refused) {
+		t.Fatalf("connectNetworkOrMoveOn() = %v, %v; want the refusal", unanswered, err)
+	}
+
+	connectNetworkCommand = func(session.SecureSession, im.EndpointID, []byte, uint64) error {
+		<-release
+		return nil
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := connectNetworkOrMoveOn(ctx, nil, []byte("home"), 0); !errors.Is(err, context.Canceled) {
+		t.Fatalf("connectNetworkOrMoveOn(cancelled) = %v", err)
+	}
+}
+
+// When the device did not answer ConnectNetwork and is not found before the
+// fail-safe time runs out, the error says it may not have joined the
+// network.
+func TestFailSafeExpiryErrorAfterUnansweredConnectNetwork(t *testing.T) {
+	cause := errors.New("operational discovery timeout")
+	past := time.Now().Add(-time.Second)
+	if err := failSafeExpiryError(deviceOperationalIdentity{failSafeExpiresBy: past, connectNetworkUnanswered: true}, cause); !errors.Is(err, cause) || !strings.Contains(err.Error(), "did not answer ConnectNetwork") {
+		t.Fatalf("failSafeExpiryError(unanswered) = %v", err)
+	}
+	if err := failSafeExpiryError(deviceOperationalIdentity{failSafeExpiresBy: past}, cause); strings.Contains(err.Error(), "ConnectNetwork") {
+		t.Fatalf("failSafeExpiryError(answered) = %v", err)
+	}
+	if err := failSafeExpiryError(deviceOperationalIdentity{failSafeExpiresBy: time.Now().Add(time.Minute), connectNetworkUnanswered: true}, cause); err != cause {
+		t.Fatalf("failSafeExpiryError(in time) = %v", err)
 	}
 }
 

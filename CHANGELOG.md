@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- **A device which does not answer ConnectNetwork.** A real device, reporting SupportsConcurrentConnection, got the Wi-Fi network over BLE and never answered ConnectNetwork; the commissioning waited for the answer until its own deadline, and failed. The answer is now waited for the device's ConnectMaxTimeSeconds and 30 seconds; without it, the commissioning goes on, and looks for the device on its network. When the device is not found there either, the error says that it may not have joined the network, and what to check.
+
 ## [0.9.7] - 2026-11-16
 
 Commissioning progress for applications, and commissioning a device which advertises a wrong address right after joining its network.
