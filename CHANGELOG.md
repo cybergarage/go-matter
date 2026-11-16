@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- **go-ble v0.9.2**: a BLE connection waits for a scan which is still stopping, which BlueZ otherwise aborts (`le-connection-abort-by-local`).
 - **Secrets are redacted in the `Map` and `String` of configurations.** `AdministratorConfig` shows its private keys, `OperationalCredentialsConfig` its IPK and `WiFiNetworkConfig` its credentials as `config.Redacted`, so that logging a configuration never writes a secret out. The accessors still return them.
 
 ## [0.9.7] - 2026-11-16
