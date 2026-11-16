@@ -139,6 +139,8 @@ func (c *operationalCredentialsConfig) AdminVendorID() (uint16, bool) {
 	return *c.adminVendorID, true
 }
 
+// Map returns the configuration for logs and diagnostics. The IPK, a
+// secret of the fabric, is shown as Redacted.
 func (c *operationalCredentialsConfig) Map() map[string]any {
 	m := make(map[string]any)
 	if c.rootCertificate != nil {
@@ -151,7 +153,7 @@ func (c *operationalCredentialsConfig) Map() map[string]any {
 		m["icac"] = c.icac
 	}
 	if c.ipk != nil {
-		m["ipk"] = c.ipk
+		m["ipk"] = Redacted
 	}
 	if c.caseAdminNodeID != nil {
 		m["caseAdminNodeID"] = *c.caseAdminNodeID

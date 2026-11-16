@@ -16,6 +16,11 @@ package config
 
 import "crypto"
 
+// Redacted stands for a secret in the Map and String of a configuration:
+// a private key, the IPK or network credentials. The secret itself is
+// read with its accessor.
+const Redacted = "(redacted)"
+
 // AdministratorConfigHelper defines the interface for map and string representations
 // of administrator credentials used for CASE finalization.
 type AdministratorConfigHelper interface {

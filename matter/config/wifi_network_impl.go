@@ -70,13 +70,15 @@ func (c *wifiNetworkConfig) Credentials() ([]byte, bool) {
 	return c.cred, true
 }
 
+// Map returns the configuration for logs and diagnostics. The network
+// credentials are shown as Redacted.
 func (c *wifiNetworkConfig) Map() map[string]any {
 	m := make(map[string]any)
 	if c.ssid != nil {
 		m["ssid"] = c.ssid
 	}
 	if c.cred != nil {
-		m["credentials"] = c.cred
+		m["credentials"] = Redacted
 	}
 	return m
 }

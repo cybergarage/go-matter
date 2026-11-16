@@ -184,6 +184,8 @@ func (c *administratorConfig) RootSigner() (crypto.Signer, bool) {
 	return c.rootSigner, c.rootSigner != nil
 }
 
+// Map returns the configuration for logs and diagnostics. The private keys
+// are shown as Redacted, so that they are never written out by mistake.
 func (c *administratorConfig) Map() map[string]any {
 	m := make(map[string]any)
 	if c.nodeID != nil {
@@ -202,10 +204,10 @@ func (c *administratorConfig) Map() map[string]any {
 		m["icac"] = c.icac
 	}
 	if c.privateKey != nil {
-		m["privateKey"] = c.privateKey
+		m["privateKey"] = Redacted
 	}
 	if c.rootPrivateKey != nil {
-		m["rootPrivateKey"] = c.rootPrivateKey
+		m["rootPrivateKey"] = Redacted
 	}
 	return m
 }
