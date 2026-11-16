@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Multi-admin: opening a commissioning window.** `cluster/administratorcommissioning` is the client of the Administrator Commissioning cluster. `NewWindow` draws a passcode, a discriminator and a salt, derives the verifier, and makes the window's manual pairing code and QR code; `OpenCommissioningWindow` opens the window on a commissioned node (a timed invoke), for another administrator, such as Google Home or Amazon Alexa, to add the node to its fabric. `OpenBasicCommissioningWindow`, `RevokeCommissioning` and `ReadWindowStatus` too; `ErrBusy`, `ErrPAKEParameterError` and `ErrWindowNotOpen` stand for the cluster's status codes. Tested against go-matter's own device.
+- `encoding.NewManualPairingCode`, `encoding.NewQRPayload` and `encoding.ValidatePasscode`, to make onboarding codes.
+
 ### Changed
 
 - **Secrets are redacted in the `Map` and `String` of configurations.** `AdministratorConfig` shows its private keys, `OperationalCredentialsConfig` its IPK and `WiFiNetworkConfig` its credentials as `config.Redacted`, so that logging a configuration never writes a secret out. The accessors still return them.
