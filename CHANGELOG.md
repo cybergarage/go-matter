@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added
 
 - **Multi-admin: opening a commissioning window.** `cluster/administratorcommissioning` is the client of the Administrator Commissioning cluster. `NewWindow` draws a passcode, a discriminator and a salt, derives the verifier, and makes the window's manual pairing code and QR code; `OpenCommissioningWindow` opens the window on a commissioned node (a timed invoke), for another administrator, such as Google Home or Amazon Alexa, to add the node to its fabric. `OpenBasicCommissioningWindow`, `RevokeCommissioning` and `ReadWindowStatus` too; `ErrBusy`, `ErrPAKEParameterError` and `ErrWindowNotOpen` stand for the cluster's status codes. Tested against go-matter's own device.
+- **Why a device could not join the network.** When a device does not answer ConnectNetwork over BLE, the commissioner reads what it keeps of its last connection attempt, LastNetworkingStatus and LastConnectErrorValue (`networkcommissioning.ReadLastConnectResult`), and fails at once with the reason, such as `AuthFailure` or `NetworkNotFound`, instead of looking for the device on its network until the fail-safe time runs out. A failed ConnectNetworkResponse and such a reason wrap `networkcommissioning.ErrConnectNetworkFailed`.
 - `encoding.NewManualPairingCode`, `encoding.NewQRPayload` and `encoding.ValidatePasscode`, to make onboarding codes.
 
 ### Changed

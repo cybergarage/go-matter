@@ -32,6 +32,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cybergarage/go-matter/matter/cluster/networkcommissioning"
 	"github.com/cybergarage/go-matter/matter/config"
 	"github.com/cybergarage/go-matter/matter/credentials"
 	mcrypto "github.com/cybergarage/go-matter/matter/crypto"
@@ -412,6 +413,49 @@ func TestConnectNetworkOrMoveOn(t *testing.T) {
 	cancel()
 	if _, err := connectNetworkOrMoveOn(ctx, nil, []byte("home"), 0); !errors.Is(err, context.Canceled) {
 		t.Fatalf("connectNetworkOrMoveOn(cancelled) = %v", err)
+	}
+}
+
+// What a device which did not answer ConnectNetwork keeps of its last
+// connection attempt fails the commissioning with the reason when it tells
+// of a failure, and lets it go on otherwise.
+func TestLastConnectFailure(t *testing.T) {
+	prevRead, prevTimeout := readLastConnectResult, lastConnectResultTimeout
+	t.Cleanup(func() { readLastConnectResult, lastConnectResultTimeout = prevRead, prevTimeout })
+	lastConnectResultTimeout = 50 * time.Millisecond
+
+	reads := map[string]func() (networkcommissioning.LastConnectResult, error){
+		"auth failure": func() (networkcommissioning.LastConnectResult, error) {
+			return networkcommissioning.LastConnectResult{Status: 7, HasStatus: true, ErrorValue: 15, HasErrorValue: true}, nil
+		},
+		"success": func() (networkcommissioning.LastConnectResult, error) {
+			return networkcommissioning.LastConnectResult{Status: 0, HasStatus: true}, nil
+		},
+		"null": func() (networkcommissioning.LastConnectResult, error) {
+			return networkcommissioning.LastConnectResult{}, nil
+		},
+		"read error": func() (networkcommissioning.LastConnectResult, error) {
+			return networkcommissioning.LastConnectResult{}, errors.New("unsupported")
+		},
+		"no answer": func() (networkcommissioning.LastConnectResult, error) {
+			time.Sleep(time.Second)
+			return networkcommissioning.LastConnectResult{}, nil
+		},
+	}
+	for name, read := range reads {
+		readLastConnectResult = func(session.SecureSession, im.EndpointID) (networkcommissioning.LastConnectResult, error) {
+			return read()
+		}
+		err := lastConnectFailure(nil)
+		if name == "auth failure" {
+			if !errors.Is(err, networkcommissioning.ErrConnectNetworkFailed) || !strings.Contains(err.Error(), "AuthFailure") || !strings.Contains(err.Error(), "15") {
+				t.Fatalf("%s: %v", name, err)
+			}
+			continue
+		}
+		if err != nil {
+			t.Fatalf("%s: %v, want nil", name, err)
+		}
 	}
 }
 
