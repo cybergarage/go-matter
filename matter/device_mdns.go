@@ -228,6 +228,16 @@ func (dev *mDNSDevice) effectiveDeadline(ctx context.Context) time.Time {
 	return deadline
 }
 
+// limitDeadline brings the deadline of the connection forward to
+// deadline, when that is earlier: a commissioning reusing the connection
+// for CASE must end with the fail-safe, which may expire before the
+// deadline the connection was opened with.
+func (dev *mDNSDevice) limitDeadline(deadline time.Time) {
+	if dev.maxDeadline.IsZero() || deadline.Before(dev.maxDeadline) {
+		dev.maxDeadline = deadline
+	}
+}
+
 // RemoteAddr returns the address of the peer this device's connection is
 // dialed to, so CASE finalization can tell whether it's safe to reuse this
 // same connection instead of opening a new one for the operational node —

@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- **CommissioningComplete over a reused connection ends with the fail-safe.** When the commissioning reuses the PASE connection of a device found on the network for CASE, the connection kept the deadline it was opened with, so CASE and CommissioningComplete over it could run past the fail-safe. It is now limited to the fail-safe's deadline.
+
 ### Added
 
 - **Multi-admin: opening a commissioning window.** `cluster/administratorcommissioning` is the client of the Administrator Commissioning cluster. `NewWindow` draws a passcode, a discriminator and a salt, derives the verifier, and makes the window's manual pairing code and QR code; `OpenCommissioningWindow` opens the window on a commissioned node (a timed invoke), for another administrator, such as Google Home or Amazon Alexa, to add the node to its fabric. `OpenBasicCommissioningWindow`, `RevokeCommissioning` and `ReadWindowStatus` too; `ErrBusy`, `ErrPAKEParameterError` and `ErrWindowNotOpen` stand for the cluster's status codes. Tested against go-matter's own device.
