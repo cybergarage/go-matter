@@ -15,7 +15,7 @@ Matter is an open-source connectivity standard for smart home and IoT (Internet 
 
 go-matter is a **commissioner (controller)**. It discovers a commissionable device over BLE and mDNS, commissions it onto a fabric, and reads, writes and invokes the clusters of the node afterwards.
 
-**Running as a Matter device is under development.** The `matter/device` package is commissioned over IP by another commissioner such as chip-tool: it advertises itself over mDNS, answers PASE and CASE, attests, and joins the fabric. It serves the clusters of the root node and an On/Off Light with Identify, Groups and Scenes, which chip-tool reads, operates and subscribes to; see [examples/onofflight](examples/onofflight). It has not been verified with Google Home or Amazon Alexa yet. The device role is planned for v1.0.0.
+**Running as a Matter device is under development.** The `matter/device` package is commissioned over IP by another commissioner such as chip-tool: it advertises itself over mDNS, answers PASE and CASE, attests, and joins the fabric. It serves the clusters of the root node and an On/Off Light with Identify, Groups and Scenes, which chip-tool reads, operates and subscribes to; see [examples/onofflight](examples/onofflight). It has not been verified with Google Home or Amazon Alexa yet. The device role is planned for v1.1.0 and later; v1.0.0 completes the commissioner.
 
 | | Status |
 | --- | --- |
@@ -63,7 +63,8 @@ go-matter is a **commissioner (controller)**. It discovers a commissionable devi
 | v0.9.6 | Discovery for commissioning goes on, round after round, until the device of the setup code is found, for up to 30 seconds |
 | **v0.9.7** | Commissioning progress (`WithCommissioningProgress`); a device which does not answer ConnectNetwork, or advertises a wrong address right after joining its network, is reached; discovery and CASE end with the fail-safe |
 | v0.9.x | Fixes found against more real devices, and multi-admin alongside Google Home and Amazon Alexa verified |
-| v1.0.0 | The device role, and a stable API |
+| v1.0.0 | The commissioner (controller) completed, with a stable API |
+| v1.1.0 and later | The device role |
 
 ### Progress Overview
 
