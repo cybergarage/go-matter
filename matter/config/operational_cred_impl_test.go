@@ -14,7 +14,11 @@
 
 package config
 
-import "testing"
+import (
+	"encoding/base64"
+	"strings"
+	"testing"
+)
 
 func TestNewOperationalCredentialConfigDefaults(t *testing.T) {
 	cfg := NewOperationalCredentialConfig()
@@ -88,8 +92,11 @@ func TestNewOperationalCredentialConfigWithOptions(t *testing.T) {
 	if got, ok := gotMap["icac"].([]byte); !ok || string(got) != string(icac) {
 		t.Fatalf("Map()[icac] = %#v, want %v", gotMap["icac"], icac)
 	}
-	if got, ok := gotMap["ipk"].([]byte); !ok || string(got) != string(ipk) {
-		t.Fatalf("Map()[ipk] = %#v, want %v", gotMap["ipk"], ipk)
+	if got := gotMap["ipk"]; got != Redacted {
+		t.Fatalf("Map()[ipk] = %#v, want it redacted", got)
+	}
+	if strings.Contains(cfg.String(), base64.StdEncoding.EncodeToString(ipk)) {
+		t.Fatalf("String() = %s, shows the IPK", cfg.String())
 	}
 	if got, ok := gotMap["caseAdminNodeID"].(uint64); !ok || got != caseAdminNodeID {
 		t.Fatalf("Map()[caseAdminNodeID] = %#v, want %v", gotMap["caseAdminNodeID"], caseAdminNodeID)
