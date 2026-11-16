@@ -6,13 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-### Fixed
-
-- **A device which does not answer ConnectNetwork.** A real device, reporting SupportsConcurrentConnection, got the Wi-Fi network over BLE and never answered ConnectNetwork; the commissioning waited for the answer until its own deadline, and failed. The answer is now waited for the device's ConnectMaxTimeSeconds and 30 seconds; without it, the commissioning goes on, and looks for the device on its network. When the device is not found there either, the error says that it may not have joined the network, and what to check.
-
 ## [0.9.7] - 2026-11-16
 
-Commissioning progress for applications, and commissioning a device which advertises a wrong address right after joining its network.
+Commissioning progress for applications, and commissioning devices which do not answer ConnectNetwork or advertise a wrong address right after joining their network.
 
 ### Added
 
@@ -21,6 +17,7 @@ Commissioning progress for applications, and commissioning a device which advert
 ### Fixed
 
 - **A device which advertises a wrong address at first is reached.** Right after joining its network, a real bulb answered the operational discovery first with `0.0.0.0`, or with an IPv4 address of another network, and with its own addresses later. Operational discovery now prefers an address this host reaches directly (IPv6, or IPv4 on a network of one of its interfaces), and when Sigma1 gets no answer, the node is discovered again and CASE tried again.
+- **A device which does not answer ConnectNetwork.** A real device, reporting SupportsConcurrentConnection, got the Wi-Fi network over BLE and never answered ConnectNetwork; the commissioning waited for the answer until its own deadline, and failed. The answer is now waited for the device's ConnectMaxTimeSeconds and 30 seconds; without it, the commissioning goes on, and looks for the device on its network. When the device is not found there either, the error says that it may not have joined the network, and what to check.
 - **Discovery and CASE end with the fail-safe.** They ran on after the fail-safe armed before ConnectNetwork had expired, and the device then refused CASE with `NO_SHARED_TRUST_ROOTS`. They now end when the time the fail-safe gives runs out (capped by the device's `MaxCumulativeFailsafeSeconds`, read with the new `generalcommissioning.MaxCumulativeFailsafeSeconds`), with an error which says so.
 
 ## [0.9.6] - 2026-11-16
