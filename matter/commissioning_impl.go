@@ -544,7 +544,7 @@ func commissionNetwork(sess session.SecureSession, cfg config.WiFiNetworkConfig,
 // zero, is when the fail-safe was first armed, before which its cumulative
 // limit is counted. unanswered tells that the device did not answer
 // ConnectNetwork in time; see connectNetworkOrMoveOn.
-func commissionNetworkFailSafe(ctx context.Context, sess session.SecureSession, cfg config.WiFiNetworkConfig, requireNetwork bool, firstArmedAt time.Time) (expiresBy time.Time, unanswered bool, err error) {
+func commissionNetworkFailSafe(ctx context.Context, sess session.SecureSession, cfg config.WiFiNetworkConfig, requireNetwork bool, firstArmedAt time.Time) (time.Time, bool, error) {
 	if cfg == nil {
 		if requireNetwork {
 			return time.Time{}, false, fmt.Errorf("commissioning: Wi-Fi network config is required for this commissioning flow")
@@ -581,7 +581,7 @@ func commissionNetworkFailSafe(ctx context.Context, sess session.SecureSession, 
 		return time.Time{}, false, err
 	}
 
-	unanswered, err = connectNetworkOrMoveOn(ctx, sess, inputs.ssid, connectMax)
+	unanswered, err := connectNetworkOrMoveOn(ctx, sess, inputs.ssid, connectMax)
 	if err != nil {
 		if errors.Is(err, networkcommissioning.ErrNotImplemented) {
 			log.Infof("Commissioning: ConnectNetwork skipped: %v", err)
@@ -605,7 +605,7 @@ var connectNetworkAnswerMargin = 30 * time.Second
 // time, the commissioning goes on, and looks for the device on its network;
 // unanswered tells so. An answer which is an error, in time, is returned.
 // The invoke left waiting ends with the commissioning channel.
-func connectNetworkOrMoveOn(ctx context.Context, sess session.SecureSession, ssid []byte, connectMax uint8) (unanswered bool, err error) {
+func connectNetworkOrMoveOn(ctx context.Context, sess session.SecureSession, ssid []byte, connectMax uint8) (bool, error) {
 	answered := make(chan error, 1)
 	connect := connectNetworkCommand
 	go func() {
