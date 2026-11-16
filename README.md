@@ -84,7 +84,8 @@ go-matter is a **commissioner (controller)**. It discovers a commissionable devi
 |               | `keystore` | ✅ Implemented | Key store for the fabric's private keys: encrypted files, or any `crypto.Signer` (HSM, KMS, TPM) |
 | Interaction Model | `protocol.im` | ✅ Implemented | Read/Write/Invoke transactions, incl. chunked list reassembly; attribute and event subscriptions; event reads; exchange multiplexing (`ExchangeMux`) |
 |                    | `protocol.mrp` | ✅ Implemented | Message Reliability Protocol (acknowledgement, counters) |
-| Clusters | `cluster` | ✅ Implemented | Basic Information, Descriptor, General Commissioning/Diagnostics, Network Commissioning, Operational Credentials, Access Control |
+| Clusters | `cluster` | ✅ Implemented | Basic Information, Descriptor, General Commissioning/Diagnostics, Network Commissioning, Operational Credentials, Access Control, Administrator Commissioning |
+|          | `cluster.administratorcommissioning` | ✅ Implemented | Multi-admin: open a commissioning window on a commissioned node with a fresh passcode (`NewWindow`, `OpenCommissioningWindow`), with its manual pairing code and QR code; basic windows and revocation |
 |          | `cluster.onoff` | ✅ Implemented | On/Off cluster client |
 | Operation | `cmd.matterctl` | ✅ Implemented | `matterctl` CLI (scan, pairing, per-cluster read/write/invoke, subscriptions, events) and the `matterctl tui` full-screen controller |
 | Encoding | `encoding.base38` | ✅ Implemented | Base38 encoding/decoding |

@@ -15,8 +15,11 @@
 package device
 
 import (
+	"errors"
 	"testing"
+	"time"
 
+	"github.com/cybergarage/go-matter/matter/cluster/administratorcommissioning"
 	"github.com/cybergarage/go-matter/matter/cluster/generalcommissioning"
 	"github.com/cybergarage/go-matter/matter/encoding/tlv"
 	"github.com/cybergarage/go-matter/matter/mdns"
@@ -205,3 +208,54 @@ func TestAdministratorCommissioningEnhancedWindow(t *testing.T) {
 		t.Fatalf("discriminator after the window = %d, want the device's 3840", got)
 	}
 }
+
+// TestAdministratorCommissioningClient opens a window on the device with
+// the commissioner's client, adds the device with the window's passcode,
+// and revokes it, as an administrator sharing a node with another one.
+func TestAdministratorCommissioningClient(t *testing.T) {
+	d, adv, _, _, admin := commissionedDevice(t)
+	window, err := administratorcommissioning.NewWindow(testVendorIDForWindow, testProductIDForWindow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := administratorcommissioning.OpenCommissioningWindow(admin, 0, window, 179*time.Second); err == nil {
+		t.Fatal("a window shorter than 3 minutes opened")
+	}
+	if err := administratorcommissioning.OpenCommissioningWindow(admin, 0, window, 3*time.Minute); err != nil {
+		t.Fatalf("OpenCommissioningWindow: %v", err)
+	}
+	if status, err := administratorcommissioning.ReadWindowStatus(admin, 0); err != nil || status != administratorcommissioning.EnhancedWindowOpen {
+		t.Fatalf("WindowStatus = %v, %v", status, err)
+	}
+	if err := administratorcommissioning.OpenCommissioningWindow(admin, 0, window, 3*time.Minute); !errors.Is(err, administratorcommissioning.ErrBusy) {
+		t.Fatalf("a second window: %v, want ErrBusy", err)
+	}
+	if got := d.CommissionableService().Discriminator; got != window.Discriminator || !adv.isCommissionable() {
+		t.Fatalf("advertised discriminator 0x%X, want the window's 0x%X", got, window.Discriminator)
+	}
+	if err := tryPASE(t, d, types.Passcode(window.Passcode)); err != nil {
+		t.Fatalf("PASE with the window's passcode: %v", err)
+	}
+	// The codes carry the window's passcode and discriminator.
+	if window.ManualPairingCode.Passcode() != types.Passcode(window.Passcode) || window.QRCode.Discriminator() != types.Discriminator(window.Discriminator) {
+		t.Fatalf("codes %s / %s do not carry the window", window.ManualPairingCode, window.QRCode)
+	}
+
+	if err := administratorcommissioning.RevokeCommissioning(admin, 0); err != nil {
+		t.Fatalf("RevokeCommissioning: %v", err)
+	}
+	if err := administratorcommissioning.RevokeCommissioning(admin, 0); !errors.Is(err, administratorcommissioning.ErrWindowNotOpen) {
+		t.Fatalf("RevokeCommissioning without a window: %v, want ErrWindowNotOpen", err)
+	}
+	if err := administratorcommissioning.OpenBasicCommissioningWindow(admin, 0, 3*time.Minute); err != nil {
+		t.Fatalf("OpenBasicCommissioningWindow: %v", err)
+	}
+	if status, _ := administratorcommissioning.ReadWindowStatus(admin, 0); status != administratorcommissioning.BasicWindowOpen {
+		t.Fatalf("WindowStatus = %v, want BasicWindowOpen", status)
+	}
+}
+
+const (
+	testVendorIDForWindow  = 0xFFF1
+	testProductIDForWindow = 0x8000
+)
