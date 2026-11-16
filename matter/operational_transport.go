@@ -186,6 +186,12 @@ type remoteAddrProvider interface {
 // entirely; a genuinely different operational address (e.g. BLE-to-WiFi
 // commissioning, where PASE never had a UDP connection at all) still falls
 // through to dialing a new one exactly as before.
+// deadlineLimiter is a reusable PASE transport whose connection deadline
+// can be brought forward.
+type deadlineLimiter interface {
+	limitDeadline(deadline time.Time)
+}
+
 func resolveOperationalTransport(ctx context.Context, node mdnspkg.CommissionableNode, paseTransport io.Transport) (io.Transport, error) {
 	if reusable, ok := paseTransport.(remoteAddrProvider); ok {
 		if paseAddr, ok := reusable.RemoteAddr().(*net.UDPAddr); ok && paseAddr != nil {
@@ -197,6 +203,15 @@ func resolveOperationalTransport(ctx context.Context, node mdnspkg.Commissionabl
 					}
 					if addr.Equal(paseAddr.IP) {
 						log.Infof("Commissioning: CASE reusing PASE connection (%s) for operational node", paseAddr)
+						// CASE and CommissioningComplete run until the
+						// deadline of ctx, the fail-safe's, which may be
+						// earlier than the one the connection was opened
+						// with.
+						if limiter, ok := paseTransport.(deadlineLimiter); ok {
+							if deadline, ok := ctx.Deadline(); ok {
+								limiter.limitDeadline(deadline)
+							}
+						}
 						return paseTransport, nil
 					}
 				}

@@ -18,6 +18,7 @@ import (
 	"context"
 	"net"
 	"testing"
+	"time"
 
 	"github.com/cybergarage/go-matter/matter/mdns"
 )
@@ -113,5 +114,43 @@ func TestResolveOperationalTransportDialsFreshWhenPASETransportUnavailable(t *te
 	}
 	if closer, ok := got.(interface{ Close() error }); ok {
 		_ = closer.Close()
+	}
+}
+
+// limitingTransport is a reusable PASE transport which records the deadline
+// it is limited to.
+type limitingTransport struct {
+	fakeRemoteAddrTransport
+	limited time.Time
+}
+
+func (t *limitingTransport) limitDeadline(deadline time.Time) { t.limited = deadline }
+
+// A reused PASE connection is limited to the deadline of the commissioning
+// step, the fail-safe's, so that CASE and CommissioningComplete over it end
+// with the fail-safe.
+func TestResolveOperationalTransportLimitsAReusedConnection(t *testing.T) {
+	pase := &limitingTransport{fakeRemoteAddrTransport: fakeRemoteAddrTransport{addr: &net.UDPAddr{IP: net.ParseIP("192.168.100.62"), Port: 5540}}}
+	node := &fakeOperationalNode{addrs: []net.IP{net.ParseIP("192.168.100.62")}, port: 5540}
+	deadline := time.Now().Add(42 * time.Second)
+	ctx, cancel := context.WithDeadline(context.Background(), deadline)
+	defer cancel()
+
+	got, err := resolveOperationalTransport(ctx, node, pase)
+	if err != nil || got != pase {
+		t.Fatalf("resolveOperationalTransport(...) = %v, %v; want the PASE transport", got, err)
+	}
+	if !pase.limited.Equal(deadline) {
+		t.Fatalf("limited to %v, want %v", pase.limited, deadline)
+	}
+
+	dev := &mDNSDevice{maxDeadline: time.Now().Add(time.Hour)}
+	dev.limitDeadline(deadline)
+	if !dev.maxDeadline.Equal(deadline) {
+		t.Fatalf("mDNSDevice deadline = %v, want %v", dev.maxDeadline, deadline)
+	}
+	dev.limitDeadline(deadline.Add(time.Hour))
+	if !dev.maxDeadline.Equal(deadline) {
+		t.Fatal("a later deadline extended the connection")
 	}
 }
