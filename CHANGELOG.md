@@ -6,9 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-### Fixed
+## [0.9.8] - 2026-11-17
 
-- **CommissioningComplete over a reused connection ends with the fail-safe.** When the commissioning reuses the PASE connection of a device found on the network for CASE, the connection kept the deadline it was opened with, so CASE and CommissioningComplete over it could run past the fail-safe. It is now limited to the fail-safe's deadline.
+Multi-admin: a commissioned node can be shared with another administrator. Why a device could not join its network is told at once.
 
 ### Added
 
@@ -20,6 +20,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - **go-ble v0.9.2**: a BLE connection waits for a scan which is still stopping, which BlueZ otherwise aborts (`le-connection-abort-by-local`).
 - **Secrets are redacted in the `Map` and `String` of configurations.** `AdministratorConfig` shows its private keys, `OperationalCredentialsConfig` its IPK and `WiFiNetworkConfig` its credentials as `config.Redacted`, so that logging a configuration never writes a secret out. The accessors still return them.
+
+### Fixed
+
+- **CommissioningComplete over a reused connection ends with the fail-safe.** When the commissioning reuses the PASE connection of a device found on the network for CASE, the connection kept the deadline it was opened with, so CASE and CommissioningComplete over it could run past the fail-safe. It is now limited to the fail-safe's deadline.
 
 ## [0.9.7] - 2026-11-16
 
