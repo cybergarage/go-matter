@@ -53,6 +53,13 @@ const (
 	// ConnectMaxTimeSecondsAttributeID is the longest the device may take
 	// to connect to a network before it answers ConnectNetwork.
 	ConnectMaxTimeSecondsAttributeID im.AttributeID = 0x0003
+	// LastNetworkingStatusAttributeID is the status of the last network
+	// operation, ConnectNetwork among them. 11.8.6.6.
+	LastNetworkingStatusAttributeID im.AttributeID = 0x0005
+	// LastConnectErrorValueAttributeID is the error the network stack gave
+	// for the last connection attempt, such as an IEEE 802.11 reason code.
+	// 11.8.6.8.
+	LastConnectErrorValueAttributeID im.AttributeID = 0x0007
 )
 
 // NetworkingStatusSuccess is the success value of NetworkConfigResponse and
@@ -187,10 +194,86 @@ func networkConfigResponseError(command string, resp *im.InvokeResponse) error {
 			debugText = s
 		}
 	}
-	return fmt.Errorf("networkcommissioning: %s failed: NetworkingStatus=%d %s", command, status, debugText)
+	err := fmt.Errorf("networkcommissioning: %s failed: NetworkingStatus=%d (%s) %s", command, status, NetworkingStatusName(status), debugText)
+	if command == "ConnectNetwork" {
+		return fmt.Errorf("%w: %w", ErrConnectNetworkFailed, err)
+	}
+	return err
 }
 
 func invokeStatusError(command string, resp *im.InvokeResponse) error {
 	return fmt.Errorf("networkcommissioning: %s failed: IM status 0x%02X, cluster status 0x%02X",
 		command, resp.Status.IMStatus, resp.Status.ClusterStatus)
+}
+
+// ErrConnectNetworkFailed is wrapped by the errors which tell that the
+// device could not join the network: a ConnectNetworkResponse whose
+// NetworkingStatus is not Success, or a failure kept in
+// LastNetworkingStatus.
+var ErrConnectNetworkFailed = errors.New("networkcommissioning: the device could not join the network")
+
+// LastConnectError returns the error of res when it tells of a failed
+// connection attempt, or nil when it tells of none (Success, or null).
+func LastConnectError(res LastConnectResult) error {
+	if !res.HasStatus || res.Status == NetworkingStatusSuccess {
+		return nil
+	}
+	detail := ""
+	if res.HasErrorValue {
+		detail = fmt.Sprintf(", LastConnectErrorValue=%d", res.ErrorValue)
+	}
+	return fmt.Errorf("%w: LastNetworkingStatus=%d (%s)%s", ErrConnectNetworkFailed, res.Status, NetworkingStatusName(res.Status), detail)
+}
+
+// NetworkingStatusName names the values of NetworkCommissioningStatusEnum.
+// 11.8.5.2. NetworkCommissioningStatusEnum.
+func NetworkingStatusName(status uint8) string {
+	names := []string{
+		"Success", "OutOfRange", "BoundsExceeded", "NetworkIDNotFound", "DuplicateNetworkID",
+		"NetworkNotFound", "RegulatoryError", "AuthFailure", "UnsupportedSecurity",
+		"OtherConnectionFailure", "IPV6Failed", "IPBindFailed", "UnknownError",
+	}
+	if int(status) < len(names) {
+		return names[status]
+	}
+	return fmt.Sprintf("NetworkingStatus(%d)", status)
+}
+
+// LastConnectResult is what a device keeps of its last connection
+// attempt: LastNetworkingStatus and LastConnectErrorValue, each absent
+// when null.
+type LastConnectResult struct {
+	// Status is LastNetworkingStatus; HasStatus is false when it is null.
+	Status    uint8
+	HasStatus bool
+	// ErrorValue is LastConnectErrorValue; HasErrorValue is false when it
+	// is null.
+	ErrorValue    int32
+	HasErrorValue bool
+}
+
+// ReadLastConnectResult reads LastNetworkingStatus and
+// LastConnectErrorValue. A device which did not answer ConnectNetwork
+// keeps there why it could not join the network. 11.8.6.6, 11.8.6.8.
+func ReadLastConnectResult(sess session.SecureSession, ep im.EndpointID) (LastConnectResult, error) {
+	var res LastConnectResult
+	status, err := im.ReadAttribute(sess, ep, ClusterID, LastNetworkingStatusAttributeID)
+	if err != nil {
+		return res, fmt.Errorf("networkcommissioning: LastNetworkingStatus: %w", err)
+	}
+	if status.Status == nil && status.Value != nil && !status.Value.Type().IsNull() {
+		if v, ok := status.Value.Unsigned1(); ok {
+			res.Status, res.HasStatus = v, true
+		}
+	}
+	value, err := im.ReadAttribute(sess, ep, ClusterID, LastConnectErrorValueAttributeID)
+	if err != nil {
+		return res, fmt.Errorf("networkcommissioning: LastConnectErrorValue: %w", err)
+	}
+	if value.Status == nil && value.Value != nil && !value.Value.Type().IsNull() {
+		if v, ok := value.Value.Signed(); ok {
+			res.ErrorValue, res.HasErrorValue = int32(v), true
+		}
+	}
+	return res, nil
 }

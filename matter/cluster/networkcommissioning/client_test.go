@@ -16,6 +16,8 @@ package networkcommissioning
 
 import (
 	"bytes"
+	"errors"
+	"strings"
 	"testing"
 
 	"github.com/cybergarage/go-matter/matter/encoding/message"
@@ -216,5 +218,21 @@ func TestConnectNetworkEncodesFieldsAndSucceeds(t *testing.T) {
 	}
 	if got, ok := idElem.Bytes(); !ok || !bytes.Equal(got, networkID) {
 		t.Errorf("transmitted NetworkID = %v, %v; want %v, true", got, ok, networkID)
+	}
+}
+
+func TestLastConnectError(t *testing.T) {
+	if err := LastConnectError(LastConnectResult{}); err != nil {
+		t.Fatalf("null: %v", err)
+	}
+	if err := LastConnectError(LastConnectResult{Status: NetworkingStatusSuccess, HasStatus: true}); err != nil {
+		t.Fatalf("success: %v", err)
+	}
+	err := LastConnectError(LastConnectResult{Status: 5, HasStatus: true})
+	if !errors.Is(err, ErrConnectNetworkFailed) || !strings.Contains(err.Error(), "NetworkNotFound") {
+		t.Fatalf("NetworkNotFound: %v", err)
+	}
+	if NetworkingStatusName(200) != "NetworkingStatus(200)" || NetworkingStatusName(7) != "AuthFailure" {
+		t.Fatal("NetworkingStatusName")
 	}
 }

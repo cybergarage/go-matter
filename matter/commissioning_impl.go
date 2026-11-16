@@ -84,6 +84,7 @@ var (
 	connectMaxTimeSecondsAttribute        = networkcommissioning.ConnectMaxTimeSeconds
 	maxCumulativeFailsafeSecondsAttribute = generalcommissioning.MaxCumulativeFailsafeSeconds
 	supportsConcurrentConnectionAttribute = readSupportsConcurrentConnection
+	readLastConnectResult                 = networkcommissioning.ReadLastConnectResult
 	operationalNodeDiscoverer             = discoverOperationalNode
 	establishOperationalCASESession       = establishCASESession
 	// commissionDeviceAttestationFn allows the whole device-attestation phase
@@ -606,10 +607,17 @@ var connectNetworkAnswerMargin = 30 * time.Second
 // unanswered tells so. An answer which is an error, in time, is returned.
 // The invoke left waiting ends with the commissioning channel.
 func connectNetworkOrMoveOn(ctx context.Context, sess session.SecureSession, ssid []byte, connectMax uint8) (bool, error) {
+	// Over BLE, the session is read through an ExchangeMux from here on,
+	// so that the reason a device keeps can be read while ConnectNetwork
+	// still waits for its answer.
+	conn := sess
+	if multiplexCommissioningSession(sess) {
+		conn = im.NewExchangeMux(sess, im.WithResponseTimeout(time.Duration(connectMax)*time.Second+connectNetworkAnswerMargin+lastConnectResultTimeout))
+	}
 	answered := make(chan error, 1)
 	connect := connectNetworkCommand
 	go func() {
-		answered <- connect(sess, defaultEndpointID, ssid, networkCommissioningBreadcrumb)
+		answered <- connect(conn, defaultEndpointID, ssid, networkCommissioningBreadcrumb)
 	}()
 	wait := time.Duration(connectMax)*time.Second + connectNetworkAnswerMargin
 	timer := time.NewTimer(wait)
@@ -618,10 +626,62 @@ func connectNetworkOrMoveOn(ctx context.Context, sess session.SecureSession, ssi
 	case err := <-answered:
 		return false, err
 	case <-timer.C:
-		log.Warnf("Commissioning: ConnectNetwork: no answer in %s; looking for the device on its network", wait)
-		return true, nil
 	case <-ctx.Done():
 		return false, ctx.Err()
+	}
+	if conn != sess {
+		if err := lastConnectFailure(conn); err != nil {
+			log.Warnf("Commissioning: ConnectNetwork: no answer in %s, and the device tells: %v", wait, err)
+			return false, err
+		}
+	}
+	log.Warnf("Commissioning: ConnectNetwork: no answer in %s; looking for the device on its network", wait)
+	return true, nil
+}
+
+// lastConnectResultTimeout bounds the read of the reason a device which
+// did not answer ConnectNetwork keeps; tests shorten it.
+var lastConnectResultTimeout = 5 * time.Second
+
+// multiplexCommissioningSession reports whether the commissioning session
+// can be read through an ExchangeMux while ConnectNetwork waits: over BLE,
+// which the commissioning stops using after the network step. A session
+// over UDP is not: its transport may be reused for CASE. Tests replace it.
+var multiplexCommissioningSession = func(sess session.SecureSession) bool {
+	if sess == nil {
+		return false
+	}
+	_, ok := sess.Transport().(*bleDevice)
+	return ok
+}
+
+// lastConnectFailure reads what the device keeps of its last connection
+// attempt (11.8.6.6, 11.8.6.8), within lastConnectResultTimeout, and
+// returns the failure it tells of, if any. A device which cannot be read,
+// or tells of none, may have joined the network: nil.
+func lastConnectFailure(sess session.SecureSession) error {
+	type result struct {
+		res networkcommissioning.LastConnectResult
+		err error
+	}
+	read := readLastConnectResult
+	done := make(chan result, 1)
+	go func() {
+		res, err := read(sess, defaultEndpointID)
+		done <- result{res, err}
+	}()
+	timer := time.NewTimer(lastConnectResultTimeout)
+	defer timer.Stop()
+	select {
+	case r := <-done:
+		if r.err != nil {
+			log.Infof("Commissioning: LastNetworkingStatus unknown: %v", r.err)
+			return nil
+		}
+		return networkcommissioning.LastConnectError(r.res)
+	case <-timer.C:
+		log.Infof("Commissioning: LastNetworkingStatus unknown: no answer in %s", lastConnectResultTimeout)
+		return nil
 	}
 }
 
