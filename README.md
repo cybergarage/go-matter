@@ -95,6 +95,24 @@ go-matter is a **commissioner (controller)**. It discovers a commissionable devi
 |          | `encoding.message` | ✅ Implemented | Message Frame Format encoding |
 |          | `encoding.tlv` | ✅ Implemented | TLV (Tag-Length-Value) encoding |
 
+#### API stability
+
+From v1.0.0, the API of these packages follows [semantic versioning](https://semver.org/spec/v2.0.0.html), and changes incompatibly only in a new major version:
+
+| Package | What is stable |
+|---------|----------------|
+| `matter` | The commissioner, the node and their options |
+| `config`, `types`, `errors` | Configurations, identifiers and errors |
+| `encoding`, `encoding/tlv` | Onboarding payloads and codes; TLV |
+| `store`, `keystore` | The fabric and node records; the keys of the fabric |
+| `credentials`, `credentials/testcreds` | Attestation, certificates and test credentials |
+| `cluster/...` | The cluster clients |
+| `datamodel`, `datamodel/command` | The data model catalog and command encoding |
+| `protocol/im` | As a client uses it: paths and identifiers, reads, writes and invokes, subscriptions, events, `WithContext` |
+| `ble`, `mdns` | As they are given to the commissioner |
+
+The other packages, such as `protocol/case`, `protocol/pase`, `protocol/mrp`, `protocol/session`, `protocol/group`, `encoding/message`, `ble/btp` and `crypto`, are the parts the commissioner is built of: they are public so that they can be tested and reused, and they may change in a minor version. `device` and `device/cluster`, the device side, are experimental until v1.1.0.
+
 #### Related Projects
 
 | Project | Status | Description |
