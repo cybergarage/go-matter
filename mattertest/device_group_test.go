@@ -124,13 +124,7 @@ func TestGroupSenderSwitchesDevice(t *testing.T) {
 		t.Fatalf("Commission() error = %v", err)
 	}
 	nodeID, _ := cme.NodeID()
-	connectCtx, cancelConnect := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancelConnect()
-	node, err := cmr.Connect(connectCtx, uint64(nodeID))
-	if err != nil {
-		t.Fatalf("Connect() error = %v", err)
-	}
-	defer node.Close()
+	node := connectNode(t, cmr, nodeID, 10*time.Second)
 	sess := node.Session()
 	// The session retransmits at the intervals the device announced in
 	// its Sigma2.

@@ -114,7 +114,7 @@ func TestSubscribeToDevice(t *testing.T) {
 	connectCtx, cancelConnect := context.WithTimeout(context.Background(), connectTimeout)
 	defer cancelConnect()
 	connectDeadline, _ := connectCtx.Deadline()
-	node, err := cmr.Connect(connectCtx, uint64(nodeID))
+	node, err := cmr.Connect(connectCtx, nodeID)
 	if err != nil {
 		t.Fatalf("Connect() error = %v", err)
 	}

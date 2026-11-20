@@ -449,7 +449,7 @@ type connectFixture struct {
 
 func (*connectFixture) Start() error { return nil }
 func (*connectFixture) Stop() error  { return nil }
-func (c *connectFixture) Connect(_ context.Context, _ uint64) (matter.Node, error) {
+func (c *connectFixture) Connect(_ context.Context, _ matter.NodeID) (matter.Node, error) {
 	c.calls++
 	return c.node, nil
 }

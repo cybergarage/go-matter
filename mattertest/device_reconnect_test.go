@@ -129,7 +129,7 @@ func TestConnectResumesTheSession(t *testing.T) {
 		t.Helper()
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		node, err := cmr.Connect(ctx, uint64(nodeID))
+		node, err := cmr.Connect(ctx, nodeID)
 		if err != nil {
 			t.Fatalf("Connect() error = %v", err)
 		}

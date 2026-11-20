@@ -112,7 +112,7 @@ func connectNode(ctx context.Context, nodeIDArg string) (matter.Node, uint64, er
 	if err != nil {
 		return nil, 0, fmt.Errorf("invalid node ID %q: %w", nodeIDArg, err)
 	}
-	node, err := SharedCommissioner().Connect(ctx, nodeID)
+	node, err := SharedCommissioner().Connect(ctx, matter.NodeID(nodeID))
 	if err != nil {
 		return nil, 0, err
 	}

@@ -63,8 +63,8 @@ const (
 
 // Commissioner represents a commissioner interface.
 type Commissioner interface {
-	// Scannar returns the BLE scanner.
-	Scannar() ble.Scanner
+	// Scanner returns the BLE scanner.
+	Scanner() ble.Scanner
 	// Discoverer returns the mDNS discoverer.
 	Discoverer() mdns.Discoverer
 	// Discover discovers commissionable devices with the given query.
@@ -77,7 +77,7 @@ type Commissioner interface {
 	// persisted fabric/commissionee store (no session resumption exists in
 	// this codebase — every reconnect is a full Sigma1-3 exchange).
 	// Requires Start() to have been called first.
-	Connect(ctx context.Context, nodeID uint64) (Node, error)
+	Connect(ctx context.Context, nodeID NodeID) (Node, error)
 	// Start starts the commissioner.
 	Start() error
 	// Stop stops the commissioner.
