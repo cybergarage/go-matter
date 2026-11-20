@@ -143,13 +143,15 @@ nodeID, _ := commissionee.NodeID()
 A commissioned node is reached again through the store, without commissioning it a second time:
 
 ```go
-node, err := commissioner.Connect(context.Background(), nodeID)
+node, err := commissioner.Connect(ctx, nodeID)
 if err != nil {
 	return err
 }
 
-res, err := node.ReadAttribute(endpointID, clusterID, attributeID)
+res, err := node.ReadAttribute(ctx, endpointID, clusterID, attributeID)
 ```
+
+Each request of a node takes a context: the wait for the response ends when it is done. Cluster functions which take a session get the node's session bound to a context with `im.WithContext(ctx, node.Session())`.
 
 Commissioning bounds the whole PASE-through-CASE exchange with a single deadline, which defaults to `DefaultCommissioningTimeout` (120 seconds): a device commits its new fabric to persistent storage and then re-advertises itself over mDNS before CASE can start, and a shorter deadline expires in the middle of that.
 
@@ -200,7 +202,7 @@ defer sub.Close()
 The events a node keeps are read with `EventReader`:
 
 ```go
-events, err := node.(matter.EventReader).ReadEvents(
+events, err := node.(matter.EventReader).ReadEvents(ctx,
 	[]im.EventRequestPath{im.NewEventRequestPath(0, 0x0028, 0x0000)},
 )
 ```

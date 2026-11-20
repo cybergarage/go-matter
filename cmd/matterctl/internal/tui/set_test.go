@@ -130,7 +130,7 @@ type writingNode struct {
 	encoded           tlv.Element
 }
 
-func (n *writingNode) WriteAttribute(_ im.EndpointID, _ im.ClusterID, _ im.AttributeID, put func(tlv.Encoder) error) (*im.WriteResponse, error) {
+func (n *writingNode) WriteAttribute(_ context.Context, _ im.EndpointID, _ im.ClusterID, _ im.AttributeID, put func(tlv.Encoder) error) (*im.WriteResponse, error) {
 	n.writes++
 	enc := tlv.NewEncoder()
 	if err := put(enc); err != nil {
@@ -147,7 +147,7 @@ func (n *writingNode) WriteAttribute(_ im.EndpointID, _ im.ClusterID, _ im.Attri
 	}
 	return &im.WriteResponse{Status: im.InvokeStatus{IMStatus: n.status}}, nil
 }
-func (n *writingNode) ReadAttribute(_ im.EndpointID, _ im.ClusterID, _ im.AttributeID) (*im.ReadResponse, error) {
+func (n *writingNode) ReadAttribute(_ context.Context, _ im.EndpointID, _ im.ClusterID, _ im.AttributeID) (*im.ReadResponse, error) {
 	n.reads++
 	if n.readErr {
 		return nil, errors.New("fixture GET failed")

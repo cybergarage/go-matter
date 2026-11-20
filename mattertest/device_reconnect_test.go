@@ -191,7 +191,7 @@ func TestConnectResumesTheSession(t *testing.T) {
 		t.Error("Reconnect() did not resume the session")
 	}
 	next("priming")
-	resp, err := node.Invoke(1, onoff.ClusterID, onoff.OnCommandID, nil)
+	resp, err := node.Invoke(context.Background(), 1, onoff.ClusterID, onoff.OnCommandID, nil)
 	if err != nil || !resp.IsSuccess() {
 		t.Fatalf("Invoke(On) after Reconnect() = %+v, %v", resp, err)
 	}

@@ -3,6 +3,7 @@
 package tui
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -46,11 +47,11 @@ type encodedReadNode struct {
 	session *encodedReadSession
 }
 
-func (n encodedReadNode) ReadAttribute(ep im.EndpointID, cl im.ClusterID, attr im.AttributeID) (*im.ReadResponse, error) {
+func (n encodedReadNode) ReadAttribute(_ context.Context, ep im.EndpointID, cl im.ClusterID, attr im.AttributeID) (*im.ReadResponse, error) {
 	return im.ReadAttribute(n.session, ep, cl, attr)
 }
 
-func (n encodedReadNode) ReadValueAttribute(ep im.EndpointID, cl im.ClusterID, attr im.AttributeID) (*im.ValueReadResponse, error) {
+func (n encodedReadNode) ReadValueAttribute(_ context.Context, ep im.EndpointID, cl im.ClusterID, attr im.AttributeID) (*im.ValueReadResponse, error) {
 	return im.ReadValueAttribute(n.session, ep, cl, attr)
 }
 
@@ -86,7 +87,7 @@ func capabilityPayload(t *testing.T, cluster uint32, attribute uint32) []byte {
 
 func TestEncodedStructureBecomesCompleteObservation(t *testing.T) {
 	node := encodedReadNode{session: &encodedReadSession{payload: capabilityPayload(t, 0x28, 19)}}
-	result, err := readNode(node, Path{Endpoint: 1, Cluster: 0x28, Attribute: 19})
+	result, err := readNode(context.Background(), node, Path{Endpoint: 1, Cluster: 0x28, Attribute: 19})
 	if err != nil || !strings.Contains(result.Message, "FRESH READ") || !strings.Contains(result.Message, "SimultaneousInvocationsSupported") || !strings.Contains(result.Message, "Structure") {
 		t.Fatalf("container misrepresented: result=%+v error=%v", result, err)
 	}
@@ -95,7 +96,7 @@ func TestEncodedStructureBecomesCompleteObservation(t *testing.T) {
 func TestEncodedMalformedStructureNeverFresh(t *testing.T) {
 	for _, payload := range [][]byte{{0x15}, {0x15, 0x36, 1, 0x15, 0x35, 1, 0x35, 2, 0x25, 2, 7}} {
 		n := encodedReadNode{session: &encodedReadSession{payload: payload}}
-		r, err := readNode(n, Path{Endpoint: 1, Cluster: 0x28, Attribute: 19})
+		r, err := readNode(context.Background(), n, Path{Endpoint: 1, Cluster: 0x28, Attribute: 19})
 		if err == nil || r.Message != "" {
 			t.Fatalf("partial became fresh: %+v %v", r, err)
 		}
@@ -104,7 +105,7 @@ func TestEncodedMalformedStructureNeverFresh(t *testing.T) {
 
 func TestEncodedUnknownStructureRetainsTagsAndTypes(t *testing.T) {
 	n := encodedReadNode{session: &encodedReadSession{payload: capabilityPayload(t, 0xdead, 0x1234)}}
-	r, err := readNode(n, Path{Endpoint: 1, Cluster: 0xdead, Attribute: 0x1234})
+	r, err := readNode(context.Background(), n, Path{Endpoint: 1, Cluster: 0xdead, Attribute: 0x1234})
 	if err != nil || !strings.Contains(r.Message, "FRESH READ") || !strings.Contains(r.Message, "Unknown field Context(2) (UnsignedInt2)=7") || strings.Contains(r.Message, "SimultaneousInvocationsSupported") {
 		t.Fatalf("unknown structure misrepresented: %+v %v", r, err)
 	}
@@ -134,7 +135,7 @@ func TestEncodedStatusNeverFresh(t *testing.T) {
 		t.Fatal(err)
 	}
 	n := encodedReadNode{session: &encodedReadSession{payload: e.Bytes()}}
-	r, err := readNode(n, Path{Endpoint: 1, Cluster: 0x28, Attribute: 19})
+	r, err := readNode(context.Background(), n, Path{Endpoint: 1, Cluster: 0x28, Attribute: 19})
 	if err == nil || !strings.Contains(err.Error(), "ACCESS DENIED") || r.Message != "" {
 		t.Fatalf("status became fresh: %+v %v", r, err)
 	}

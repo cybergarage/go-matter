@@ -429,9 +429,9 @@ func (b *Live) withNode(ctx context.Context, id uint64, fn func(matter.Node) (Re
 	}
 	return result, err
 }
-func listIDs(n matter.Node, ep im.EndpointID, cl im.ClusterID, attr im.AttributeID) ([]uint32, error) {
+func listIDs(ctx context.Context, n matter.Node, ep im.EndpointID, cl im.ClusterID, attr im.AttributeID) ([]uint32, error) {
 	var ids []uint32
-	status, err := im.ReadListAttribute(n.Session(), ep, cl, attr, func(_ tlv.Decoder, e tlv.Element) error {
+	status, err := im.ReadListAttribute(im.WithContext(ctx, n.Session()), ep, cl, attr, func(_ tlv.Decoder, e tlv.Element) error {
 		v, ok := e.Unsigned()
 		if !ok || v > 0xFFFFFFFF {
 			return errors.New("invalid descriptor list")
@@ -448,7 +448,7 @@ func listIDs(n matter.Node, ep im.EndpointID, cl im.ClusterID, attr im.Attribute
 	return ids, nil
 }
 func (b *Live) Inspect(ctx context.Context, id uint64) (Result, error) {
-	return b.withNode(ctx, id, func(n matter.Node) (Result, error) { return inspectInventory(nodeInventoryReader{n}) })
+	return b.withNode(ctx, id, func(n matter.Node) (Result, error) { return inspectInventory(nodeInventoryReader{ctx, n}) })
 }
 
 // addInventory retains readable paths even when command discovery fails.
@@ -475,12 +475,12 @@ func (out *Result) addInventory(ep im.EndpointID, cl im.ClusterID, attrs []uint3
 	}
 }
 func readable(p Path) bool { return p.Kind == "" }
-func readNode(n matter.Node, p Path) (Result, error) {
+func readNode(ctx context.Context, n matter.Node, p Path) (Result, error) {
 	if !readable(p) {
 		return Result{}, errors.New("selected row is metadata, not an attribute")
 	}
 	if reader, ok := n.(matter.ValueAttributeReader); ok {
-		r, err := reader.ReadValueAttribute(p.Endpoint, p.Cluster, p.Attribute)
+		r, err := reader.ReadValueAttribute(ctx, p.Endpoint, p.Cluster, p.Attribute)
 		if err != nil {
 			return Result{}, fmt.Errorf("ERROR: complete attribute read failed; value unknown: %w", err)
 		}
@@ -498,7 +498,7 @@ func readNode(n matter.Node, p Path) (Result, error) {
 		raw := structuredValue(r.Value, p.Cluster, "", "", false)
 		return Result{Message: observationMessage(p, value, raw, "FRESH READ", time.Now())}, nil
 	}
-	r, err := n.ReadAttribute(p.Endpoint, p.Cluster, p.Attribute)
+	r, err := n.ReadAttribute(ctx, p.Endpoint, p.Cluster, p.Attribute)
 	if errors.Is(err, im.ErrNonScalarAttribute) {
 		return Result{}, errors.New("UNSUPPORTED: container attribute requires a container-aware reader; value unknown")
 	}
@@ -519,9 +519,9 @@ func readNode(n matter.Node, p Path) (Result, error) {
 	return Result{Message: observationMessage(p, value, raw, status, time.Now())}, nil
 }
 func (b *Live) Read(ctx context.Context, id uint64, p Path) (Result, error) {
-	return b.withNode(ctx, id, func(n matter.Node) (Result, error) { return readNode(n, p) })
+	return b.withNode(ctx, id, func(n matter.Node) (Result, error) { return readNode(ctx, n, p) })
 }
-func invokeNode(n matter.Node, p Path, c im.CommandID) (Result, error) {
+func invokeNode(ctx context.Context, n matter.Node, p Path, c im.CommandID) (Result, error) {
 	if p.Cluster != 6 || p.Attribute != 0 || c > 2 {
 		return Result{}, errors.New("only advertised On/Off commands are supported")
 	}
@@ -534,11 +534,11 @@ func invokeNode(n matter.Node, p Path, c im.CommandID) (Result, error) {
 	if !allowed {
 		return Result{}, errors.New("command was not advertised by this device")
 	}
-	r, err := n.Invoke(p.Endpoint, p.Cluster, c, nil)
+	r, err := n.Invoke(ctx, p.Endpoint, p.Cluster, c, nil)
 	if err != nil || r == nil || !r.IsSuccess() {
 		return Result{}, errors.New("invoke failed; outcome uncertain, read before retrying")
 	}
-	read, err := readNode(n, p)
+	read, err := readNode(ctx, n, p)
 	if err != nil {
 		// The invocation succeeded; retain that outcome while labelling missing readback.
 		return Result{Message: "INVOKE ACKNOWLEDGED; fresh readback FAILED. Value unknown."}, nil //nolint:nilerr
@@ -546,7 +546,7 @@ func invokeNode(n matter.Node, p Path, c im.CommandID) (Result, error) {
 	return Result{Message: "INVOKE ACKNOWLEDGED\n" + read.Message}, nil
 }
 func (b *Live) Invoke(ctx context.Context, id uint64, p Path, c im.CommandID) (Result, error) {
-	return b.withNode(ctx, id, func(n matter.Node) (Result, error) { return invokeNode(n, p, c) })
+	return b.withNode(ctx, id, func(n matter.Node) (Result, error) { return invokeNode(ctx, n, p, c) })
 }
 func (b *Live) Pair(ctx context.Context, p encoding.OnboardingPayload, wifi *WiFiCredentials) (Result, error) {
 	rec, ok, err := b.st.LoadFabric()

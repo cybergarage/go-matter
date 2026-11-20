@@ -196,18 +196,18 @@ func (n *nodeImpl) Session() session.SecureSession {
 }
 
 // ReadAttribute reads a single attribute. 10.6.3. AttributeDataIB.
-func (n *nodeImpl) ReadAttribute(endpointID im.EndpointID, clusterID im.ClusterID, attributeID im.AttributeID) (*im.ReadResponse, error) {
-	return im.ReadAttribute(n.currentMux(), endpointID, clusterID, attributeID)
+func (n *nodeImpl) ReadAttribute(ctx context.Context, endpointID im.EndpointID, clusterID im.ClusterID, attributeID im.AttributeID) (*im.ReadResponse, error) {
+	return im.ReadAttribute(im.WithContext(ctx, n.currentMux()), endpointID, clusterID, attributeID)
 }
 
 // WriteAttribute writes a single attribute. 10.6.3. AttributeDataIB.
-func (n *nodeImpl) WriteAttribute(endpointID im.EndpointID, clusterID im.ClusterID, attributeID im.AttributeID, encodeData func(enc tlv.Encoder) error) (*im.WriteResponse, error) {
-	return im.WriteAttribute(n.currentMux(), endpointID, clusterID, attributeID, encodeData)
+func (n *nodeImpl) WriteAttribute(ctx context.Context, endpointID im.EndpointID, clusterID im.ClusterID, attributeID im.AttributeID, encodeData func(enc tlv.Encoder) error) (*im.WriteResponse, error) {
+	return im.WriteAttribute(im.WithContext(ctx, n.currentMux()), endpointID, clusterID, attributeID, encodeData)
 }
 
 // Invoke invokes a single command. 10.7.9. InvokeRequestMessage.
-func (n *nodeImpl) Invoke(endpointID im.EndpointID, clusterID im.ClusterID, commandID im.CommandID, commandFields []byte) (*im.InvokeResponse, error) {
-	return im.Invoke(n.currentMux(), endpointID, clusterID, commandID, commandFields)
+func (n *nodeImpl) Invoke(ctx context.Context, endpointID im.EndpointID, clusterID im.ClusterID, commandID im.CommandID, commandFields []byte) (*im.InvokeResponse, error) {
+	return im.Invoke(im.WithContext(ctx, n.currentMux()), endpointID, clusterID, commandID, commandFields)
 }
 
 // Close ends the node's subscriptions and closes its session's transport.
@@ -227,8 +227,8 @@ func (n *nodeImpl) Close() error {
 
 // ReadValueAttribute retains complete structured or scalar attribute Data.
 // 10.6.3 AttributeDataIB.
-func (n *nodeImpl) ReadValueAttribute(ep im.EndpointID, cl im.ClusterID, attr im.AttributeID) (*im.ValueReadResponse, error) {
-	return im.ReadValueAttribute(n.currentMux(), ep, cl, attr)
+func (n *nodeImpl) ReadValueAttribute(ctx context.Context, ep im.EndpointID, cl im.ClusterID, attr im.AttributeID) (*im.ValueReadResponse, error) {
+	return im.ReadValueAttribute(im.WithContext(ctx, n.currentMux()), ep, cl, attr)
 }
 
 var _ ValueAttributeReader = (*nodeImpl)(nil)
@@ -248,8 +248,8 @@ func (n *nodeImpl) Subscribe(ctx context.Context, paths []im.AttributeRequestPat
 var _ AttributeSubscriber = (*nodeImpl)(nil)
 
 // ReadEvents reads the events of paths the node keeps. 7.14. Event.
-func (n *nodeImpl) ReadEvents(paths []im.EventRequestPath, opts ...im.ReadEventsOption) ([]im.EventReport, error) {
-	return im.ReadEvents(n.currentMux(), paths, opts...)
+func (n *nodeImpl) ReadEvents(ctx context.Context, paths []im.EventRequestPath, opts ...im.ReadEventsOption) ([]im.EventReport, error) {
+	return im.ReadEvents(im.WithContext(ctx, n.currentMux()), paths, opts...)
 }
 
 var _ EventReader = (*nodeImpl)(nil)

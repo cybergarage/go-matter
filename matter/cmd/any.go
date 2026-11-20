@@ -162,7 +162,7 @@ func runAnyRead(cmd *cobra.Command, args []string) error {
 	}
 	defer node.Close()
 
-	resp, err := node.ReadAttribute(endpointID, clusterID, attributeID)
+	resp, err := node.ReadAttribute(context.Background(), endpointID, clusterID, attributeID)
 	if err != nil {
 		return err
 	}
@@ -205,7 +205,7 @@ func runAnyWrite(cmd *cobra.Command, args []string) error {
 	}
 	defer node.Close()
 
-	resp, err := node.WriteAttribute(endpointID, clusterID, attributeID, encodeData)
+	resp, err := node.WriteAttribute(context.Background(), endpointID, clusterID, attributeID, encodeData)
 	if err != nil {
 		return err
 	}
@@ -300,7 +300,7 @@ func runAnyInvoke(cmd *cobra.Command, args []string) error {
 	}
 	defer node.Close()
 
-	resp, err := node.Invoke(endpointID, clusterID, commandID, fields)
+	resp, err := node.Invoke(context.Background(), endpointID, clusterID, commandID, fields)
 	if err != nil {
 		return err
 	}

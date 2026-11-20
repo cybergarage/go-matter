@@ -97,7 +97,7 @@ fields, err := schema.Encode(map[string]any{
     "Level": 127, "TransitionTime": 10, "OptionsMask": 0, "OptionsOverride": 0,
 })
 if err != nil { /* ErrMissingField, ErrUnknownField, ErrInvalidValue, ... */ }
-resp, err := node.Invoke(endpoint, schema.ClusterID, schema.CommandID, fields)
+resp, err := node.Invoke(ctx, endpoint, schema.ClusterID, schema.CommandID, fields)
 ```
 
 A value is given in its Go type or as text, so the same call serves a command line

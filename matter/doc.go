@@ -82,7 +82,7 @@ again without being commissioned a second time.
 		return err
 	}
 
-	res, err := node.ReadAttribute(endpointID, clusterID, attributeID)
+	res, err := node.ReadAttribute(ctx, endpointID, clusterID, attributeID)
 
 Connect resumes the last CASE session with the node when the node still
 knows it (4.14.2.2. Session Resumption), and runs a full CASE handshake when

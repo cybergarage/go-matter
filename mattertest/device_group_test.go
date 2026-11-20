@@ -171,7 +171,7 @@ func TestGroupSenderSwitchesDevice(t *testing.T) {
 		t.Fatal(err)
 	}
 	waitUntil(t, "the group's write to set OnTime", func() bool {
-		resp, err := node.ReadAttribute(1, onoff.ClusterID, cluster.OnTimeAttributeID)
+		resp, err := node.ReadAttribute(context.Background(), 1, onoff.ClusterID, cluster.OnTimeAttributeID)
 		if err != nil || resp.Value == nil {
 			return false
 		}

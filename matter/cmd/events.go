@@ -123,7 +123,7 @@ func runAnyReadEvents(cmd *cobra.Command, args []string) error {
 	if !ok {
 		return errors.New("any read-events: the node does not read events")
 	}
-	events, err := reader.ReadEvents([]im.EventRequestPath{path}, opts...)
+	events, err := reader.ReadEvents(context.Background(), []im.EventRequestPath{path}, opts...)
 	if err != nil {
 		return err
 	}
