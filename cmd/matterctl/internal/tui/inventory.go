@@ -3,6 +3,7 @@
 package tui
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -24,25 +25,33 @@ type inventoryReader interface {
 	ids(im.EndpointID, im.ClusterID, im.AttributeID) ([]uint32, error)
 	scalar(im.EndpointID, im.ClusterID, im.AttributeID) (uint64, error)
 }
-type nodeInventoryReader struct{ matter.Node }
+type nodeInventoryReader struct {
+	ctx context.Context
+	matter.Node
+}
+
+// session is the node's session bound to the reader's context.
+func (n nodeInventoryReader) session() im.SecureSession {
+	return im.WithContext(n.ctx, n.Session())
+}
 
 func (n nodeInventoryReader) parts() ([]im.EndpointID, error) {
-	return descriptor.PartsList(n.Session(), 0)
+	return descriptor.PartsList(n.session(), 0)
 }
 func (n nodeInventoryReader) deviceTypes(ep im.EndpointID) ([]descriptor.DeviceType, error) {
-	return descriptor.DeviceTypeList(n.Session(), ep)
+	return descriptor.DeviceTypeList(n.session(), ep)
 }
 func (n nodeInventoryReader) clusters(ep im.EndpointID, server bool) ([]im.ClusterID, error) {
 	if server {
-		return descriptor.ServerList(n.Session(), ep)
+		return descriptor.ServerList(n.session(), ep)
 	}
-	return descriptor.ClientList(n.Session(), ep)
+	return descriptor.ClientList(n.session(), ep)
 }
 func (n nodeInventoryReader) ids(ep im.EndpointID, cl im.ClusterID, a im.AttributeID) ([]uint32, error) {
-	return listIDs(n.Node, ep, cl, a)
+	return listIDs(n.ctx, n.Node, ep, cl, a)
 }
 func (n nodeInventoryReader) scalar(ep im.EndpointID, cl im.ClusterID, a im.AttributeID) (uint64, error) {
-	r, e := n.ReadAttribute(ep, cl, a)
+	r, e := n.ReadAttribute(n.ctx, ep, cl, a)
 	if e != nil || r == nil || r.Value == nil || r.Status != nil {
 		return 0, errors.New("unavailable / read error")
 	}

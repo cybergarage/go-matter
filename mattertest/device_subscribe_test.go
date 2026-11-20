@@ -155,7 +155,7 @@ func TestSubscribeToDevice(t *testing.T) {
 	}
 
 	// Toggle on the node which holds the subscription.
-	resp, err := node.Invoke(1, onoff.ClusterID, onoff.ToggleCommandID, nil)
+	resp, err := node.Invoke(context.Background(), 1, onoff.ClusterID, onoff.ToggleCommandID, nil)
 	if err != nil || !resp.IsSuccess() {
 		t.Fatalf("Invoke(Toggle) = %+v, %v", resp, err)
 	}

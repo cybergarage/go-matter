@@ -70,7 +70,7 @@ type valueNode struct {
 	fail   bool
 }
 
-func (n valueNode) ReadAttribute(_ im.EndpointID, _ im.ClusterID, _ im.AttributeID) (*im.ReadResponse, error) {
+func (n valueNode) ReadAttribute(_ context.Context, _ im.EndpointID, _ im.ClusterID, _ im.AttributeID) (*im.ReadResponse, error) {
 	if n.fail {
 		return nil, errors.New("fictional read failure")
 	}
@@ -100,7 +100,7 @@ func TestTypedRawObservationsAndErrors(t *testing.T) {
 	}
 	for _, test := range tests {
 		p := Path{Endpoint: 1, Cluster: 0x402, Attribute: 0}
-		r, err := readNode(valueNode{value: scalar(t, test.put)}, p)
+		r, err := readNode(context.Background(), valueNode{value: scalar(t, test.put)}, p)
 		if err != nil || !strings.Contains(r.Message, test.want) || !strings.Contains(r.Message, "Raw decoded TLV value") || !strings.Contains(r.Message, "Received at:") || !strings.Contains(r.Message, "Type: temperature") {
 			t.Fatalf("observation: %v / %s", err, r.Message)
 		}
@@ -112,12 +112,12 @@ func TestTypedRawObservationsAndErrors(t *testing.T) {
 		code  im.Status
 		label string
 	}{{im.StatusUnsupportedAttribute, "UNSUPPORTED"}, {im.StatusUnsupportedAccess, "ACCESS DENIED"}} {
-		_, err := readNode(valueNode{status: &im.InvokeStatus{IMStatus: uint8(status.code)}}, Path{})
+		_, err := readNode(context.Background(), valueNode{status: &im.InvokeStatus{IMStatus: uint8(status.code)}}, Path{})
 		if err == nil || !strings.Contains(err.Error(), status.label) {
 			t.Fatalf("status lost: %v", err)
 		}
 	}
-	_, err := readNode(valueNode{fail: true}, Path{})
+	_, err := readNode(context.Background(), valueNode{fail: true}, Path{})
 	if err == nil || !strings.Contains(err.Error(), "ERROR") {
 		t.Fatal("error treated as value")
 	}

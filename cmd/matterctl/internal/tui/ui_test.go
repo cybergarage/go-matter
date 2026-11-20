@@ -226,11 +226,11 @@ type fakeNode struct {
 	readErr bool
 }
 
-func (n *fakeNode) Invoke(_ im.EndpointID, _ im.ClusterID, _ im.CommandID, _ []byte) (*im.InvokeResponse, error) {
+func (n *fakeNode) Invoke(_ context.Context, _ im.EndpointID, _ im.ClusterID, _ im.CommandID, _ []byte) (*im.InvokeResponse, error) {
 	n.invoked = true
 	return &im.InvokeResponse{}, nil
 }
-func (n *fakeNode) ReadAttribute(_ im.EndpointID, _ im.ClusterID, _ im.AttributeID) (*im.ReadResponse, error) {
+func (n *fakeNode) ReadAttribute(_ context.Context, _ im.EndpointID, _ im.ClusterID, _ im.AttributeID) (*im.ReadResponse, error) {
 	if n.readErr {
 		return nil, errors.New("fixture")
 	}
@@ -243,16 +243,16 @@ func (n *fakeNode) ReadAttribute(_ im.EndpointID, _ im.ClusterID, _ im.Attribute
 func TestInvokeRequiresAdvertisedCommandAndFreshRead(t *testing.T) {
 	p := Path{Endpoint: 1, Cluster: 6, Attribute: 0}
 	n := &fakeNode{}
-	if _, err := invokeNode(n, p, 1); err == nil || n.invoked {
+	if _, err := invokeNode(context.Background(), n, p, 1); err == nil || n.invoked {
 		t.Fatal("unadvertised command sent")
 	}
 	p.Commands = []im.CommandID{1}
-	r, err := invokeNode(n, p, 1)
+	r, err := invokeNode(context.Background(), n, p, 1)
 	if err != nil || !strings.Contains(r.Message, "FRESH READ") {
 		t.Fatal("fresh read missing")
 	}
 	n.readErr = true
-	r, err = invokeNode(n, p, 1)
+	r, err = invokeNode(context.Background(), n, p, 1)
 	if err != nil || !strings.Contains(r.Message, "readback FAILED") {
 		t.Fatal("ack reported as readback")
 	}
@@ -436,7 +436,7 @@ type blockingNode struct {
 }
 
 func (n *blockingNode) Close() error { n.once.Do(func() { close(n.closed) }); return nil }
-func (n *blockingNode) ReadAttribute(_ im.EndpointID, _ im.ClusterID, _ im.AttributeID) (*im.ReadResponse, error) {
+func (n *blockingNode) ReadAttribute(_ context.Context, _ im.EndpointID, _ im.ClusterID, _ im.AttributeID) (*im.ReadResponse, error) {
 	<-n.closed
 	return nil, errors.New("synthetic closed transport")
 }

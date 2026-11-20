@@ -33,9 +33,13 @@ type NodeID = types.NodeID
 // Node wraps the operational CASE SecureSession itself, so a caller can
 // issue Interaction Model Read/Write/Invoke requests directly. Callers
 // needing a specific cluster's client function (e.g. matter/cluster/descriptor,
-// matter/cluster/basicinformation) pass Session() to it directly, the same
-// way commissioning_impl.go already calls cluster functions with an
-// explicit session.SecureSession.
+// matter/cluster/basicinformation) pass Session() to it directly, bound to
+// a context with im.WithContext.
+//
+// Each request takes a context: the request is not sent once it is done,
+// and the wait for the response ends when it is done, with ctx.Err().
+// Without a deadline, the wait ends when the node does not answer within
+// the response timeout of the session.
 type Node interface {
 	// NodeID returns the operational node ID this session is connected to.
 	NodeID() NodeID
@@ -44,11 +48,11 @@ type Node interface {
 	// Session returns the underlying CASE secure session.
 	Session() session.SecureSession
 	// ReadAttribute reads a single attribute. 10.6.3. AttributeDataIB.
-	ReadAttribute(endpointID im.EndpointID, clusterID im.ClusterID, attributeID im.AttributeID) (*im.ReadResponse, error)
+	ReadAttribute(ctx context.Context, endpointID im.EndpointID, clusterID im.ClusterID, attributeID im.AttributeID) (*im.ReadResponse, error)
 	// WriteAttribute writes a single attribute. 10.6.3. AttributeDataIB.
-	WriteAttribute(endpointID im.EndpointID, clusterID im.ClusterID, attributeID im.AttributeID, encodeData func(enc tlv.Encoder) error) (*im.WriteResponse, error)
+	WriteAttribute(ctx context.Context, endpointID im.EndpointID, clusterID im.ClusterID, attributeID im.AttributeID, encodeData func(enc tlv.Encoder) error) (*im.WriteResponse, error)
 	// Invoke invokes a single command. 10.7.9. InvokeRequestMessage.
-	Invoke(endpointID im.EndpointID, clusterID im.ClusterID, commandID im.CommandID, commandFields []byte) (*im.InvokeResponse, error)
+	Invoke(ctx context.Context, endpointID im.EndpointID, clusterID im.ClusterID, commandID im.CommandID, commandFields []byte) (*im.InvokeResponse, error)
 	// Close closes the underlying CASE session's transport.
 	Close() error
 }
@@ -56,7 +60,7 @@ type Node interface {
 // ValueAttributeReader is an optional extension implemented by nodes returned
 // by this library. Keeping it separate preserves existing Node implementations.
 type ValueAttributeReader interface {
-	ReadValueAttribute(endpointID im.EndpointID, clusterID im.ClusterID, attributeID im.AttributeID) (*im.ValueReadResponse, error)
+	ReadValueAttribute(ctx context.Context, endpointID im.EndpointID, clusterID im.ClusterID, attributeID im.AttributeID) (*im.ValueReadResponse, error)
 }
 
 // AttributeSubscriber is an optional extension implemented by nodes returned
@@ -99,5 +103,5 @@ type Reconnector interface {
 // this library: it reads the events a node keeps (7.14. Event). To be told
 // of new events, subscribe with im.WithEvents.
 type EventReader interface {
-	ReadEvents(paths []im.EventRequestPath, opts ...im.ReadEventsOption) ([]im.EventReport, error)
+	ReadEvents(ctx context.Context, paths []im.EventRequestPath, opts ...im.ReadEventsOption) ([]im.EventReport, error)
 }

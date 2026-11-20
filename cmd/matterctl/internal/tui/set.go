@@ -333,7 +333,7 @@ func writeNode(ctx context.Context, n matter.Node, p Path, v editValue) (Result,
 	if err = ctx.Err(); err != nil {
 		return Result{}, err
 	}
-	ack, err := n.WriteAttribute(p.Endpoint, p.Cluster, p.Attribute, v.encode)
+	ack, err := n.WriteAttribute(ctx, p.Endpoint, p.Cluster, p.Attribute, v.encode)
 	if err != nil || ack == nil {
 		return Result{}, errors.New("WRITE outcome UNKNOWN; do not automatically retry or claim rollback")
 	}
@@ -345,7 +345,7 @@ func writeNode(ctx context.Context, n matter.Node, p Path, v editValue) (Result,
 		result.Message += "\nFresh GET UNKNOWN: canceled/timeout after ACK; no automatic retry or rollback"
 		return result, nil //nolint:nilerr // ACK is known; canceled readback is explicitly UNKNOWN.
 	}
-	read, err := n.ReadAttribute(p.Endpoint, p.Cluster, p.Attribute)
+	read, err := n.ReadAttribute(ctx, p.Endpoint, p.Cluster, p.Attribute)
 	at := time.Now()
 	if err != nil || read == nil || read.Status != nil || read.Value == nil || ctx.Err() != nil {
 		result.Message += "\nFresh GET UNKNOWN: failed/rejected/canceled; no verified value, no rollback"
@@ -398,7 +398,7 @@ func (b *Live) Set(ctx context.Context, id uint64, p Path, v editValue) (Result,
 		return Result{}, err
 	}
 	return b.withNode(ctx, id, func(n matter.Node) (Result, error) {
-		fresh, err := refreshSetPath(nodeInventoryReader{n}, p)
+		fresh, err := refreshSetPath(nodeInventoryReader{ctx, n}, p)
 		if err != nil {
 			return Result{}, err
 		}
