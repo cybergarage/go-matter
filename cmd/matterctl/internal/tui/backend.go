@@ -405,7 +405,7 @@ func (b *Live) withNode(ctx context.Context, id uint64, fn func(matter.Node) (Re
 	if err := b.start(); err != nil {
 		return Result{}, err
 	}
-	n, err := b.cmr.Connect(ctx, id)
+	n, err := b.cmr.Connect(ctx, matter.NodeID(id))
 	if err != nil {
 		if ctx.Err() != nil {
 			return Result{}, ctx.Err()

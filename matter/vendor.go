@@ -25,6 +25,6 @@ const (
 	MatterStandardVendorID VendorID = 0x0000
 	TestVendor01ID         VendorID = 0xFFF1
 	TestVendor02ID         VendorID = 0xFFF2
-	TestVender03ID         VendorID = 0xFFF3
-	TestVender04ID         VendorID = 0xFFF4
+	TestVendor03ID         VendorID = 0xFFF3
+	TestVendor04ID         VendorID = 0xFFF4
 )

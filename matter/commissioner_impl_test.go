@@ -231,7 +231,7 @@ func TestConnectSuccess(t *testing.T) {
 		return stubSecureSession{}, nil
 	}
 
-	node, err := cmr.Connect(context.Background(), nodeID)
+	node, err := cmr.Connect(context.Background(), NodeID(nodeID))
 	if err != nil {
 		t.Fatalf("Connect(...) error = %v", err)
 	}
@@ -293,7 +293,7 @@ func TestConnectAppliesDefaultTimeout(t *testing.T) {
 	}
 
 	before := time.Now()
-	_, _ = cmr.Connect(context.Background(), nodeID)
+	_, _ = cmr.Connect(context.Background(), NodeID(nodeID))
 
 	if !gotOK {
 		t.Fatal("Connect passed operationalNodeDiscoverer a context with no deadline, want one bounded to DefaultConnectTimeout")

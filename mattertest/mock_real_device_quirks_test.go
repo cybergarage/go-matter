@@ -153,7 +153,7 @@ func TestMockRealDeviceQuirks(t *testing.T) {
 	}
 	connectCtx, connectCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer connectCancel()
-	node, err := cmr.Connect(connectCtx, uint64(nodeID))
+	node, err := cmr.Connect(connectCtx, nodeID)
 	if err != nil {
 		t.Fatalf("Commissioner.Connect() error = %v", err)
 	}

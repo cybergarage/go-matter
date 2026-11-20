@@ -117,7 +117,7 @@ func verifyLiveBasicOperations(t *testing.T, cmr matter.Commissioner, nodeID mat
 
 	connectCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	node, err := cmr.Connect(connectCtx, uint64(nodeID))
+	node, err := cmr.Connect(connectCtx, nodeID)
 	if err != nil {
 		t.Errorf("Commissioner.Connect() error = %v", err)
 		return

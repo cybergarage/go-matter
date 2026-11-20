@@ -189,8 +189,8 @@ func NewCommissioner(opts ...CommissionerOption) Commissioner {
 	return com
 }
 
-// Scannar returns the BLE scanner.
-func (cmr *commissioner) Scannar() ble.Scanner {
+// Scanner returns the BLE scanner.
+func (cmr *commissioner) Scanner() ble.Scanner {
 	return cmr.Central
 }
 
@@ -213,7 +213,7 @@ func (cmr *commissioner) Discover(ctx context.Context, query Query) ([]Commissio
 			log.Debugf("BLE device responded: %s", bleDev.String())
 		})
 		var devs []CommissionableDevice
-		scanner := cmr.Scannar()
+		scanner := cmr.Scanner()
 		err := scanner.Scan(ctx, scanHandler)
 		if err != nil {
 			return nil, err
@@ -488,7 +488,7 @@ func orderCommissionableDevices(devs []CommissionableDevice, hasWiFi bool) []Com
 // the node falls back to a full CASE when it no longer knows the session.
 // The returned Node reconnects the same way when its session fails; see
 // Reconnector.
-func (cmr *commissioner) Connect(ctx context.Context, nodeID uint64) (Node, error) {
+func (cmr *commissioner) Connect(ctx context.Context, nodeID NodeID) (Node, error) {
 	if cmr.store == nil {
 		return nil, fmt.Errorf("%w: commissioner: Connect requires Start() to have opened a persistence store", ErrFailed)
 	}
@@ -502,7 +502,7 @@ func (cmr *commissioner) Connect(ctx context.Context, nodeID uint64) (Node, erro
 	if err != nil {
 		return nil, fmt.Errorf("commissioner: Connect: compute compressed fabric ID: %w", err)
 	}
-	rec, ok, err := cmr.store.LoadCommissionee(compressedFabricID, nodeID)
+	rec, ok, err := cmr.store.LoadCommissionee(compressedFabricID, uint64(nodeID))
 	if err != nil {
 		return nil, fmt.Errorf("commissioner: Connect: load commissionee record: %w", err)
 	}

@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking: names and types fixed before v1.0.** `Commissioner.Scannar()` is now `Scanner()`, `TestVender03ID` and `TestVender04ID` are now `TestVendor03ID` and `TestVendor04ID`, and `Commissioner.Connect` takes a `NodeID`, as `Node.NodeID()` returns, instead of a `uint64`.
+
 ## [0.9.8] - 2026-11-17
 
 Multi-admin: a commissioned node can be shared with another administrator. Why a device could not join its network is told at once.

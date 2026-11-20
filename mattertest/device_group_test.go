@@ -126,7 +126,7 @@ func TestGroupSenderSwitchesDevice(t *testing.T) {
 	nodeID, _ := cme.NodeID()
 	connectCtx, cancelConnect := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancelConnect()
-	node, err := cmr.Connect(connectCtx, uint64(nodeID))
+	node, err := cmr.Connect(connectCtx, nodeID)
 	if err != nil {
 		t.Fatalf("Connect() error = %v", err)
 	}

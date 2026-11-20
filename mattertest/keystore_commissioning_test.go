@@ -108,7 +108,7 @@ func TestCommissionWithAKeyStore(t *testing.T) {
 
 	connectCtx, cancelConnect := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancelConnect()
-	node, err := cmr.Connect(connectCtx, uint64(nodeID))
+	node, err := cmr.Connect(connectCtx, nodeID)
 	if err != nil {
 		t.Fatalf("Connect() error = %v", err)
 	}
