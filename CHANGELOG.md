@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.9.9] - 2026-11-21
+
+The public API reviewed before v1.0: which packages are stable, contexts for the requests of a node, typed commission options, and names fixed. Breaking for callers of `Node`, `Commission` and `Connect`.
+
 ### Added
 
 - **API stability.** The README and the package documentation say which packages follow semantic versioning from v1.0.0 (the commissioner and node, configurations, onboarding codes, stores, credentials, cluster clients, the data model and the client side of the Interaction Model) and which are internal parts that may change in a minor version; `device` is experimental until v1.1.0.
