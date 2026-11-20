@@ -93,5 +93,28 @@ subscriptions move over to the new session.
 
 The cluster packages under matter/cluster wrap the attributes and the commands
 of a cluster, so that an identifier does not have to be written out by hand.
+
+# API stability
+
+From v1.0.0, the API of these packages follows semantic versioning: it
+changes incompatibly only in a new major version.
+
+  - matter, the commissioner and the node
+  - matter/config, matter/types, matter/errors
+  - matter/encoding (onboarding payloads and codes) and matter/encoding/tlv
+  - matter/store and matter/keystore
+  - matter/credentials and matter/credentials/testcreds
+  - matter/cluster/... (the cluster clients)
+  - matter/datamodel and matter/datamodel/command
+  - matter/protocol/im, as a client uses it: the paths and identifiers, the
+    reads, writes and invokes, subscriptions, events and WithContext
+  - matter/ble and matter/mdns, as they are given to the commissioner
+
+The other packages are the parts the commissioner is built of, such as
+matter/protocol/case, matter/protocol/pase, matter/protocol/mrp,
+matter/protocol/session, matter/protocol/group, matter/encoding/message,
+matter/ble/btp and matter/crypto; they are public so that they can be
+tested and reused, and they may change in a minor version. matter/device
+and matter/device/cluster, the device side, are experimental until v1.1.0.
 */
 package matter

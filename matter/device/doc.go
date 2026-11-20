@@ -15,6 +15,7 @@
 // Package device is the device side of go-matter: the pieces a Matter node
 // needs to be commissioned, as opposed to commissioning others.
 //
+// It is experimental: its API may change in a minor version until v1.1.0.
 // It is at an early stage. A Device listens on UDP. While its
 // commissioning window is open it advertises itself as a commissionable
 // node (_matterc._udp) with the go-mdns responder and answers PASE with a

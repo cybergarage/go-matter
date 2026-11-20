@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **API stability.** The README and the package documentation say which packages follow semantic versioning from v1.0.0 (the commissioner and node, configurations, onboarding codes, stores, credentials, cluster clients, the data model and the client side of the Interaction Model) and which are internal parts that may change in a minor version; `device` is experimental until v1.1.0.
+
 ### Changed
 
 - **Breaking: commission options are typed.** `CommissionOption` was `any`, and `Commission` took configurations and values as they were; it is now made only by `WithCommissionNodeID`, `WithCommissionWiFiNetwork`, `WithCommissionAdministratorConfig`, `WithCommissionOperationalCredentialsConfig`, `WithCommissionAttestationVerifier` and `WithCommissioningProgress`, so that a value of another type is a compile error instead of a commissioning which fails. `CommissionNodeID` is replaced by `WithCommissionNodeID`.
