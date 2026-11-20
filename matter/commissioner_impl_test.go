@@ -59,8 +59,8 @@ func TestCommissionMatchingDeviceForwardsOptions(t *testing.T) {
 		stubCommissionableDevice: stubCommissionableDevice{match: true},
 	}
 	payload := testPairingCode(t)
-	opt1 := "hello"
-	opt2 := 42
+	opt1 := WithCommissionNodeID(0x1234)
+	opt2 := WithCommissionWiFiNetwork(nil)
 
 	_, err := cmr.commissionMatchingDevice(context.Background(), payload, []CommissionableDevice{dev}, opt1, opt2)
 	if err != nil {
@@ -87,7 +87,7 @@ func TestCommissionMatchingDeviceIncludesCommissionerAdministratorConfig(t *test
 		stubCommissionableDevice: stubCommissionableDevice{match: true},
 	}
 	payload := testPairingCode(t)
-	opt := "hello"
+	opt := WithCommissionNodeID(0x1234)
 
 	_, err := cmr.commissionMatchingDevice(context.Background(), payload, []CommissionableDevice{dev}, opt)
 	if err != nil {
@@ -96,7 +96,7 @@ func TestCommissionMatchingDeviceIncludesCommissionerAdministratorConfig(t *test
 	if len(dev.gotOpts) != 2 {
 		t.Fatalf("len(gotOpts) = %d, want 2", len(dev.gotOpts))
 	}
-	if got := dev.gotOpts[0]; got != adminCfg {
+	if got := dev.gotOpts[0]; got != WithCommissionAdministratorConfig(adminCfg) {
 		t.Fatalf("gotOpts[0] = %#v, want administrator config", got)
 	}
 	if got := dev.gotOpts[1]; got != opt {

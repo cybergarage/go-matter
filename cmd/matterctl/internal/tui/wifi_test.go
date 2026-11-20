@@ -60,6 +60,12 @@ func TestLivePairGivesWiFiToTheCommissioner(t *testing.T) {
 	f := &fakeCommissioner{st: b.st}
 	b.cmr = f
 	p, _ := ParsePayload(fixtureCode)
+	var wifi config.WiFiNetworkConfig
+	defer func(restore func(config.WiFiNetworkConfig) matter.CommissionOption) { wifiNetworkOption = restore }(wifiNetworkOption)
+	wifiNetworkOption = func(cfg config.WiFiNetworkConfig) matter.CommissionOption {
+		wifi = cfg
+		return matter.WithCommissionWiFiNetwork(cfg)
+	}
 
 	if _, err := b.Pair(context.Background(), p, nil); err != nil {
 		t.Fatal(err)
@@ -79,12 +85,6 @@ func TestLivePairGivesWiFiToTheCommissioner(t *testing.T) {
 	f.err = nil
 	if _, err := b.Pair(context.Background(), p, &WiFiCredentials{SSID: []byte("home-ap"), Password: []byte(fixturePassword)}); err != nil && !errors.Is(err, context.Canceled) {
 		t.Fatal(err)
-	}
-	var wifi config.WiFiNetworkConfig
-	for _, opt := range f.opts {
-		if w, ok := opt.(config.WiFiNetworkConfig); ok {
-			wifi = w
-		}
 	}
 	if wifi == nil {
 		t.Fatal("Wi-Fi credentials not given to the commissioner")

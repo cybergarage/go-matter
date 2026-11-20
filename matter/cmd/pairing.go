@@ -98,7 +98,7 @@ var pairingCodeCmd = &cobra.Command{ // nolint:exhaustruct
 		ctx, cancel := context.WithTimeout(context.Background(), matter.DefaultCommissioningTimeout)
 		defer cancel()
 
-		cme, err := cmr.Commission(ctx, pairingCode, verifier, matter.CommissionNodeID(nodeID))
+		cme, err := cmr.Commission(ctx, pairingCode, matter.WithCommissionAttestationVerifier(verifier), matter.WithCommissionNodeID(matter.NodeID(nodeID)))
 		if err != nil {
 			log.Error(err)
 			return err
@@ -143,7 +143,7 @@ var pairingCodeWifiCmd = &cobra.Command{ // nolint:exhaustruct
 			config.WithSSID([]byte(wifiSSID)),
 			config.WithCredentials([]byte(wifiPasswd)),
 		)
-		cme, err := cmr.Commission(ctx, pairingCode, wifiCfg, verifier, matter.CommissionNodeID(nodeID))
+		cme, err := cmr.Commission(ctx, pairingCode, matter.WithCommissionWiFiNetwork(wifiCfg), matter.WithCommissionAttestationVerifier(verifier), matter.WithCommissionNodeID(matter.NodeID(nodeID)))
 		if err != nil {
 			log.Error(err)
 			return err

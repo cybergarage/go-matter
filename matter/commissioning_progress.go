@@ -74,7 +74,7 @@ type CommissioningProgressFunc func(CommissioningProgress)
 // WithCommissioningProgress returns a commission option which tells fn
 // each stage the commissioning reaches.
 func WithCommissioningProgress(fn CommissioningProgressFunc) CommissionOption {
-	return fn
+	return progressOption(fn)
 }
 
 type commissioningProgressKey struct{}
@@ -85,8 +85,8 @@ type commissioningProgressKey struct{}
 func contextWithCommissioningProgress(ctx context.Context, opts []CommissionOption) context.Context {
 	var last CommissioningProgressFunc
 	for _, opt := range opts {
-		if fn, ok := opt.(CommissioningProgressFunc); ok && fn != nil {
-			last = fn
+		if fn, ok := opt.(progressOption); ok && fn != nil {
+			last = CommissioningProgressFunc(fn)
 		}
 	}
 	if last == nil {

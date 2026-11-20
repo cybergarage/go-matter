@@ -51,9 +51,6 @@ type DeviceType = types.DeviceType
 // Transport represents a transport.
 type Transport = io.Transport
 
-// CommissionOption represents a commissioning option.
-type CommissionOption any
-
 // CommissionedIdentity is the operational identity a device was assigned
 // during a successful commissioning: the operational Node ID the
 // commissioner issued during AddNOC, the fabric it joined, and the NOC/ICAC

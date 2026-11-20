@@ -44,17 +44,17 @@ func (baseDev *baseDevice) parseCommissionOptions(opts ...CommissionOption) erro
 	baseDev.nodeID = nodeID
 	for _, opt := range opts {
 		switch o := opt.(type) {
-		case CommissionNodeID:
+		case nodeIDOption:
 		// Validated above.
-		case config.WiFiNetworkConfig:
-			baseDev.wifiConfig = o
-		case config.OperationalCredentialsConfig:
-			baseDev.operationCredConfig = o
-		case config.AdministratorConfig:
-			baseDev.adminConfig = o
-		case AttestationVerifier:
-			baseDev.attestationVerifier = o
-		case CommissioningProgressFunc:
+		case wifiNetworkOption:
+			baseDev.wifiConfig = o.cfg
+		case operationalCredentialsOption:
+			baseDev.operationCredConfig = o.cfg
+		case administratorOption:
+			baseDev.adminConfig = o.cfg
+		case attestationVerifierOption:
+			baseDev.attestationVerifier = o.v
+		case progressOption:
 		// Carried by the context of the commissioning.
 		default:
 			return fmt.Errorf("unsupported commission option type: %T", opt)

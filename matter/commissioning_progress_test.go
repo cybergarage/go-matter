@@ -31,7 +31,7 @@ import (
 func recordProgress() (context.Context, *[]CommissioningProgress) {
 	var got []CommissioningProgress
 	ctx := contextWithCommissioningProgress(context.Background(), []CommissionOption{
-		"another option",
+		WithCommissionNodeID(0x1234),
 		WithCommissioningProgress(func(p CommissioningProgress) { got = append(got, p) }),
 	})
 	return ctx, &got

@@ -15,13 +15,13 @@ func TestCommissionNodeAllocationRejectsDuplicateBeforeDiscovery(t *testing.T) {
 	st := store.NewMemStore()
 	_ = st.SaveCommissionee(store.CommissioneeRecord{NodeID: 42})
 	c := &commissioner{store: st, adminConfig: config.NewAdministratorConfig(config.WithAdministratorNodeID(1))}
-	for _, id := range []CommissionNodeID{1, 42, 0xFFFFFFFFFFFFFFFF} {
+	for _, id := range []NodeID{1, 42, 0xFFFFFFFFFFFFFFFF} {
 		// No central/discoverer installed: reaching discovery would panic.
-		if _, err := c.Commission(context.Background(), nil, id); err == nil {
+		if _, err := c.Commission(context.Background(), nil, WithCommissionNodeID(id)); err == nil {
 			t.Fatal("reserved node accepted")
 		}
 	}
-	opts, err := c.allocateCommissionNode(c.commissionOptions(CommissionNodeID(0)))
+	opts, err := c.allocateCommissionNode(c.commissionOptions(WithCommissionNodeID(0)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,7 +29,7 @@ func TestCommissionNodeAllocationRejectsDuplicateBeforeDiscovery(t *testing.T) {
 	if err != nil || !types.NodeID(n).IsOperational() || n == 1 || n == 42 {
 		t.Fatal("invalid automatic ID")
 	}
-	opts, err = c.allocateCommissionNode(c.commissionOptions(CommissionNodeID(123)))
+	opts, err = c.allocateCommissionNode(c.commissionOptions(WithCommissionNodeID(123)))
 	if err != nil {
 		t.Fatal(err)
 	}

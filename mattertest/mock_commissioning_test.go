@@ -116,7 +116,7 @@ func TestMockCommissioning(t *testing.T) {
 	// parent deadline also bounds the complete commissioning exchange.
 	ctx, cancel := context.WithTimeout(context.Background(), matter.DefaultCommissioningTimeout)
 	defer cancel()
-	cme, err := cmr.Commission(ctx, pairingCode, adminCfg, opCfg)
+	cme, err := cmr.Commission(ctx, pairingCode, matter.WithCommissionAdministratorConfig(adminCfg), matter.WithCommissionOperationalCredentialsConfig(opCfg))
 	if err != nil {
 		t.Fatalf("Failed to commission mock device: %v", err)
 	}

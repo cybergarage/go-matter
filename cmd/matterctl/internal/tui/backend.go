@@ -548,6 +548,11 @@ func invokeNode(ctx context.Context, n matter.Node, p Path, c im.CommandID) (Res
 func (b *Live) Invoke(ctx context.Context, id uint64, p Path, c im.CommandID) (Result, error) {
 	return b.withNode(ctx, id, func(n matter.Node) (Result, error) { return invokeNode(ctx, n, p, c) })
 }
+
+// wifiNetworkOption is the commission option of the Wi-Fi network a device
+// found over BLE is to join; the tests see the network through it.
+var wifiNetworkOption = matter.WithCommissionWiFiNetwork
+
 func (b *Live) Pair(ctx context.Context, p encoding.OnboardingPayload, wifi *WiFiCredentials) (Result, error) {
 	rec, ok, err := b.st.LoadFabric()
 	if err != nil || !ok || validFabric(rec, b.ks) != nil {
@@ -562,7 +567,7 @@ func (b *Live) Pair(ctx context.Context, p encoding.OnboardingPayload, wifi *WiF
 	b.st.reset()
 	var opts []matter.CommissionOption
 	if wifi != nil {
-		opts = append(opts, config.NewWiFiNetworkConfig(config.WithSSID(wifi.SSID), config.WithCredentials(wifi.Password)))
+		opts = append(opts, wifiNetworkOption(config.NewWiFiNetworkConfig(config.WithSSID(wifi.SSID), config.WithCredentials(wifi.Password))))
 	}
 	c, err := b.cmr.Commission(ctx, p, opts...)
 	if err != nil {
