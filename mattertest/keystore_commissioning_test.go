@@ -106,13 +106,7 @@ func TestCommissionWithAKeyStore(t *testing.T) {
 	}
 	nodeID, _ := cme.NodeID()
 
-	connectCtx, cancelConnect := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancelConnect()
-	node, err := cmr.Connect(connectCtx, nodeID)
-	if err != nil {
-		t.Fatalf("Connect() error = %v", err)
-	}
-	defer node.Close()
+	node := connectNode(t, cmr, nodeID, 30*time.Second)
 	if _, err := onoff.OnOff(node.Session(), 1); err != nil {
 		t.Fatalf("read OnOff: %v", err)
 	}

@@ -151,17 +151,7 @@ func TestMockRealDeviceQuirks(t *testing.T) {
 	if !ok {
 		t.Fatal("Commissionee.NodeID() ok = false after successful commissioning")
 	}
-	connectCtx, connectCancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer connectCancel()
-	node, err := cmr.Connect(connectCtx, nodeID)
-	if err != nil {
-		t.Fatalf("Commissioner.Connect() error = %v", err)
-	}
-	defer func() {
-		if err := node.Close(); err != nil {
-			t.Errorf("Node.Close() error = %v", err)
-		}
-	}()
+	node := connectNode(t, cmr, nodeID, 5*time.Second)
 	sess := node.Session()
 
 	if vendorID, err := basicinformation.VendorID(sess, rootEndpointID); err != nil {
