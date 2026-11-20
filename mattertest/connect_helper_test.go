@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/cybergarage/go-matter/matter"
+	"github.com/cybergarage/go-matter/matter/config"
 )
 
 // connectNode connects to a commissioned node within timeout, failing the
@@ -38,4 +39,24 @@ func connectNode(t *testing.T, cmr matter.Commissioner, nodeID matter.NodeID, ti
 		}
 	})
 	return node
+}
+
+// fabricOptions are the commission options of the fabric of adminCfg and
+// opCfg, followed by extra.
+func fabricOptions(adminCfg config.AdministratorConfig, opCfg config.OperationalCredentialsConfig, extra ...matter.CommissionOption) []matter.CommissionOption {
+	return append([]matter.CommissionOption{
+		matter.WithCommissionAdministratorConfig(adminCfg),
+		matter.WithCommissionOperationalCredentialsConfig(opCfg),
+	}, extra...)
+}
+
+// commission commissions the device of payload into the fabric of adminCfg
+// and opCfg, failing the test when it cannot.
+func commission(ctx context.Context, t *testing.T, cmr matter.Commissioner, payload matter.OnboardingPayload, adminCfg config.AdministratorConfig, opCfg config.OperationalCredentialsConfig, extra ...matter.CommissionOption) matter.Commissionee {
+	t.Helper()
+	cme, err := cmr.Commission(ctx, payload, fabricOptions(adminCfg, opCfg, extra...)...)
+	if err != nil {
+		t.Fatalf("Commission() error = %v", err)
+	}
+	return cme
 }

@@ -9,14 +9,10 @@ import (
 	"github.com/cybergarage/go-matter/matter/types"
 )
 
-// CommissionNodeID requests a specific operational Node ID. Zero means automatic.
-// Pass as a CommissionOption. Existing numeric CLI node arguments now honor this option.
-type CommissionNodeID uint64
-
 func commissionNodeID(opts []CommissionOption) (uint64, error) {
 	var n uint64
 	for _, opt := range opts {
-		if id, ok := opt.(CommissionNodeID); ok {
+		if id, ok := opt.(nodeIDOption); ok {
 			n = uint64(id)
 		}
 	}
@@ -56,7 +52,7 @@ func (cmr *commissioner) allocateCommissionNode(opts []CommissionOption) ([]Comm
 			}
 		}
 		if !used[n] {
-			return append(opts, CommissionNodeID(n)), nil
+			return append(opts, nodeIDOption(n)), nil
 		}
 		if requested {
 			return nil, errors.New("node ID is already reserved or commissioned")

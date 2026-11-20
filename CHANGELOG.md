@@ -8,10 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- **Breaking: commission options are typed.** `CommissionOption` was `any`, and `Commission` took configurations and values as they were; it is now made only by `WithCommissionNodeID`, `WithCommissionWiFiNetwork`, `WithCommissionAdministratorConfig`, `WithCommissionOperationalCredentialsConfig`, `WithCommissionAttestationVerifier` and `WithCommissioningProgress`, so that a value of another type is a compile error instead of a commissioning which fails. `CommissionNodeID` is replaced by `WithCommissionNodeID`.
 - **Breaking: the requests of a node take a context.** `Node.ReadAttribute`, `WriteAttribute` and `Invoke`, `ValueAttributeReader.ReadValueAttribute` and `EventReader.ReadEvents` take a `context.Context` first: a request is not sent once it is done, and the wait for the response ends when it is done, with `ctx.Err()`. `im.WithContext(ctx, sess)` binds a session to a context for the functions of `protocol/im` and the cluster packages, such as `im.WithContext(ctx, node.Session())`.
-
-### Changed
-
 - **Breaking: names and types fixed before v1.0.** `Commissioner.Scannar()` is now `Scanner()`, `TestVender03ID` and `TestVender04ID` are now `TestVendor03ID` and `TestVendor04ID`, and `Commissioner.Connect` takes a `NodeID`, as `Node.NodeID()` returns, instead of a `uint64`.
 
 ## [0.9.8] - 2026-11-17

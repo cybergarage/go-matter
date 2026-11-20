@@ -153,10 +153,7 @@ func TestMockBasicOperations(t *testing.T) {
 	// bounds all commissioning exchanges, rather than discovery alone.
 	ctx, cancel := context.WithTimeout(context.Background(), matter.DefaultCommissioningTimeout)
 	defer cancel()
-	cme, err := cmr.Commission(ctx, pairingCode, adminCfg, opCfg)
-	if err != nil {
-		t.Fatalf("Failed to commission mock device: %v", err)
-	}
+	cme := commission(ctx, t, cmr, pairingCode, adminCfg, opCfg)
 	t.Logf("Successfully commissioned mock device: %s", cme.String())
 
 	nodeID, ok := cme.NodeID()

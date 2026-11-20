@@ -132,12 +132,22 @@ if err != nil {
 	return err
 }
 
-commissionee, err := commissioner.Commission(context.Background(), payload)
+commissionee, err := commissioner.Commission(ctx, payload)
 if err != nil {
 	return err
 }
 
 nodeID, _ := commissionee.NodeID()
+```
+
+A device which is not on the network yet is found over BLE, and needs the Wi-Fi network it is to join. Options of a commissioning are given with the `WithCommission…` functions and `WithCommissioningProgress`:
+
+```go
+wifi := config.NewWiFiNetworkConfig(config.WithSSID(ssid), config.WithCredentials(password))
+commissionee, err := commissioner.Commission(ctx, payload,
+	matter.WithCommissionWiFiNetwork(wifi),
+	matter.WithCommissioningProgress(func(p matter.CommissioningProgress) { … }),
+)
 ```
 
 A commissioned node is reached again through the store, without commissioning it a second time:

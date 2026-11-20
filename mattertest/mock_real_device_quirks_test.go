@@ -131,10 +131,7 @@ func TestMockRealDeviceQuirks(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	cme, err := cmr.Commission(ctx, pairingCode, adminCfg, opCfg, wifiCfg)
-	if err != nil {
-		t.Fatalf("Failed to commission simulated quirky device: %v", err)
-	}
+	cme := commission(ctx, t, cmr, pairingCode, adminCfg, opCfg, matter.WithCommissionWiFiNetwork(wifiCfg))
 	t.Logf("Successfully commissioned simulated quirky device: %s", cme.String())
 
 	orderCtx, orderCancel := context.WithTimeout(context.Background(), 1*time.Second)

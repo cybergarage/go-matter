@@ -112,8 +112,8 @@ func TestCommissionerUsesTheAttestationModeByDefault(t *testing.T) {
 			}
 			var verifier AttestationVerifier
 			for _, opt := range cmr.commissionOptions() {
-				if v, ok := opt.(AttestationVerifier); ok {
-					verifier = v
+				if o, ok := opt.(attestationVerifierOption); ok {
+					verifier = o.v
 				}
 			}
 			if verifier == nil {

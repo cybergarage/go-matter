@@ -60,16 +60,13 @@ func TestPairingCLIHonorsNodeArgument(t *testing.T) {
 			valid := input == "42" || input == "0x2A" || input == "auto"
 			if valid {
 				found := false
+				want := matter.WithCommissionNodeID(42)
+				if input == "auto" {
+					want = matter.WithCommissionNodeID(0)
+				}
 				for _, opt := range fake.opts {
-					if id, ok := opt.(matter.CommissionNodeID); ok {
+					if opt == want {
 						found = true
-						want := uint64(42)
-						if input == "auto" {
-							want = 0
-						}
-						if uint64(id) != want {
-							t.Fatal("node ID not forwarded")
-						}
 					}
 				}
 				if !found {

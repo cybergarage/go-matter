@@ -446,7 +446,7 @@ func notInCommissioningMode(dev CommissionableDevice) bool {
 // hasWiFiNetworkConfig reports whether opts give Wi-Fi network credentials.
 func hasWiFiNetworkConfig(opts []CommissionOption) bool {
 	for _, opt := range opts {
-		if cfg, ok := opt.(config.WiFiNetworkConfig); ok && cfg != nil {
+		if o, ok := opt.(wifiNetworkOption); ok && o.cfg != nil {
 			return true
 		}
 	}
@@ -580,10 +580,10 @@ func effectiveConfigOptions(opts []CommissionOption) (config.AdministratorConfig
 	var operationalCfg config.OperationalCredentialsConfig
 	for _, opt := range opts {
 		switch o := opt.(type) {
-		case config.AdministratorConfig:
-			adminCfg = o
-		case config.OperationalCredentialsConfig:
-			operationalCfg = o
+		case administratorOption:
+			adminCfg = o.cfg
+		case operationalCredentialsOption:
+			operationalCfg = o.cfg
 		}
 	}
 	return adminCfg, operationalCfg
@@ -678,13 +678,13 @@ func computeCompressedFabricID(adminCfg config.AdministratorConfig) (uint64, err
 func (cmr *commissioner) commissionOptions(opts ...CommissionOption) []CommissionOption {
 	var defaults []CommissionOption
 	if cmr.attestationVerifier != nil && !hasAttestationVerifierOption(opts) {
-		defaults = append(defaults, cmr.attestationVerifier)
+		defaults = append(defaults, WithCommissionAttestationVerifier(cmr.attestationVerifier))
 	}
 	if cmr.adminConfig != nil {
-		defaults = append(defaults, cmr.adminConfig)
+		defaults = append(defaults, WithCommissionAdministratorConfig(cmr.adminConfig))
 	}
 	if cmr.operationalConfig != nil {
-		defaults = append(defaults, cmr.operationalConfig)
+		defaults = append(defaults, WithCommissionOperationalCredentialsConfig(cmr.operationalConfig))
 	}
 	if len(defaults) == 0 {
 		return opts
@@ -820,7 +820,7 @@ func (cmr *commissioner) Stop() error {
 
 func hasAttestationVerifierOption(opts []CommissionOption) bool {
 	for _, opt := range opts {
-		if _, ok := opt.(AttestationVerifier); ok {
+		if _, ok := opt.(attestationVerifierOption); ok {
 			return true
 		}
 	}

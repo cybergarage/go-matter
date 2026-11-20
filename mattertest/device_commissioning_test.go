@@ -114,10 +114,7 @@ func TestCommissionerCommissionsDevice(t *testing.T) {
 	// The caller deadline bounds discovery and the complete PASE-through-CASE flow.
 	ctx, cancel := context.WithTimeout(context.Background(), matter.DefaultCommissioningTimeout)
 	defer cancel()
-	cme, err := cmr.Commission(ctx, pairingCode, adminCfg, opCfg)
-	if err != nil {
-		t.Fatalf("Commission() error = %v", err)
-	}
+	cme := commission(ctx, t, cmr, pairingCode, adminCfg, opCfg)
 	t.Logf("commissioned %s", cme.String())
 
 	// CommissioningComplete committed the fabric to the device's store.

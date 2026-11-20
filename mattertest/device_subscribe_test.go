@@ -104,10 +104,7 @@ func TestSubscribeToDevice(t *testing.T) {
 	}()
 	ctx, cancel := context.WithTimeout(context.Background(), matter.DefaultCommissioningTimeout)
 	defer cancel()
-	cme, err := cmr.Commission(ctx, pairingCode, adminCfg, opCfg)
-	if err != nil {
-		t.Fatalf("Commission() error = %v", err)
-	}
+	cme := commission(ctx, t, cmr, pairingCode, adminCfg, opCfg)
 	nodeID, _ := cme.NodeID()
 
 	const connectTimeout = 10 * time.Second

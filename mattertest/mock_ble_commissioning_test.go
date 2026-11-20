@@ -76,10 +76,7 @@ func TestMockBLECommissioning(t *testing.T) {
 	// matter.DefaultCommissioningTimeout, not this ctx.
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	cme, err := cmr.Commission(ctx, pairingCode, adminCfg, opCfg, wifiCfg)
-	if err != nil {
-		t.Fatalf("Failed to commission simulated BLE device: %v", err)
-	}
+	cme := commission(ctx, t, cmr, pairingCode, adminCfg, opCfg, matter.WithCommissionWiFiNetwork(wifiCfg))
 	t.Logf("Successfully commissioned simulated BLE device: %s", cme.String())
 
 	select {
@@ -110,7 +107,7 @@ func TestMockBLECommissioningRequiresWiFi(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	if _, err := cmr.Commission(ctx, f.pairingCode, f.adminCfg, f.opCfg); !errors.Is(err, matter.ErrWiFiNetworkRequired) {
+	if _, err := cmr.Commission(ctx, f.pairingCode, fabricOptions(f.adminCfg, f.opCfg)...); !errors.Is(err, matter.ErrWiFiNetworkRequired) {
 		t.Fatalf("Commission() without Wi-Fi credentials error = %v, want %v", err, matter.ErrWiFiNetworkRequired)
 	}
 	select {
@@ -207,7 +204,7 @@ func TestMockBLECommissioningRetriesConnect(t *testing.T) {
 		cmr := f.startCommissioner(t)
 		// Long enough for the waits between the attempts (3s for four).
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		_, err := cmr.Commission(ctx, f.pairingCode, f.adminCfg, f.opCfg, wifiCfg)
+		_, err := cmr.Commission(ctx, f.pairingCode, fabricOptions(f.adminCfg, f.opCfg, matter.WithCommissionWiFiNetwork(wifiCfg))...)
 		cancel()
 		if c.ok && err != nil {
 			t.Fatalf("%d failed connection attempts: Commission() error = %v", c.failures, err)

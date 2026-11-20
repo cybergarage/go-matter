@@ -49,9 +49,9 @@ type liveCommissioningScenario struct {
 }
 
 func (s liveCommissioningScenario) Options() []matter.CommissionOption {
-	opts := []matter.CommissionOption{s.Admin, s.Operational}
+	opts := []matter.CommissionOption{matter.WithCommissionAdministratorConfig(s.Admin), matter.WithCommissionOperationalCredentialsConfig(s.Operational)}
 	if s.WiFi != nil {
-		opts = append(opts, s.WiFi)
+		opts = append(opts, matter.WithCommissionWiFiNetwork(s.WiFi))
 	}
 	return opts
 }
