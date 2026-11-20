@@ -62,7 +62,8 @@ go-matter is a **commissioner (controller)**. It discovers a commissionable devi
 | v0.9.5 | Commissioning keeps the caller's deadline and arms the fail-safe again before ConnectNetwork; refused General Commissioning commands are errors |
 | v0.9.6 | Discovery for commissioning goes on, round after round, until the device of the setup code is found, for up to 30 seconds |
 | v0.9.7 | Commissioning progress (`WithCommissioningProgress`); a device which does not answer ConnectNetwork, or advertises a wrong address right after joining its network, is reached; discovery and CASE end with the fail-safe |
-| **v0.9.8** | Multi-admin: opening a commissioning window on a node for another administrator (`administratorcommissioning`); why a device could not join its network (`LastNetworkingStatus`); go-ble v0.9.2 |
+| v0.9.8 | Multi-admin: opening a commissioning window on a node for another administrator (`administratorcommissioning`); why a device could not join its network (`LastNetworkingStatus`); go-ble v0.9.2 |
+| **v0.9.9** | The public API reviewed for v1.0: the packages which are stable; the requests of a node take a context (`im.WithContext`); typed commission options (`WithCommission…`); `Scanner()`, `TestVendor03ID`/`04ID`, `Connect(ctx, NodeID)` |
 | v0.9.x | Fixes found against more real devices, and multi-admin alongside Google Home and Amazon Alexa verified |
 | v1.0.0 | The commissioner (controller) completed, with a stable API |
 | v1.1.0 and later | The device role |
