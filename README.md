@@ -118,8 +118,8 @@ The other packages, such as `protocol/case`, `protocol/pase`, `protocol/mrp`, `p
 
 | Project | Status | Description |
 |---------|--------|-------------|
-| [go-ble](https://github.com/cybergarage/go-ble) | v0.9.2 (central only) | Go package for Bluetooth Low Energy (BLE) communication |
-| [go-mdns](https://github.com/cybergarage/go-mdns) | v1.0.0 | Go package for mDNS (Multicast DNS) and DNS-SD: service discovery and publication |
+| [go-ble](https://github.com/cybergarage/go-ble) | v0.9.3 (central only) | Go package for Bluetooth Low Energy (BLE) communication |
+| [go-mdns](https://github.com/cybergarage/go-mdns) | v1.0.1 | Go package for mDNS (Multicast DNS) and DNS-SD: service discovery and publication |
 
 ## Install
 
