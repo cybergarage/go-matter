@@ -15,7 +15,7 @@ Matter is an open-source connectivity standard for smart home and IoT (Internet 
 
 go-matter is a **commissioner (controller)**. It discovers a commissionable device over BLE and mDNS, commissions it onto a fabric, and reads, writes and invokes the clusters of the node afterwards.
 
-**Running as a Matter device is under development.** The `matter/device` package is commissioned over IP by another commissioner such as chip-tool: it advertises itself over mDNS, answers PASE and CASE, attests, and joins the fabric. It serves the clusters of the root node and an On/Off Light with Identify, Groups and Scenes, which chip-tool reads, operates and subscribes to; see [examples/onofflight](examples/onofflight). It has not been verified with Google Home or Amazon Alexa yet. The device role is planned for v1.1.0 and later; v1.0.0 completes the commissioner.
+**Running as a Matter device is under development.** The `matter/device` package is commissioned over IP by another commissioner such as chip-tool: it advertises itself over mDNS, answers PASE and CASE, attests, and joins the fabric. It serves the clusters of the root node and an On/Off Light with Identify, Groups and Scenes, which chip-tool reads, operates and subscribes to; see [examples/onofflight](examples/onofflight). It has not been verified with Google Home or Amazon Alexa yet. The device role is planned for v1.1.0 and later; v1.0.0 completes the commissioner, with a stable API (see [API stability](#api-stability)).
 
 | | Status |
 | --- | --- |
@@ -35,18 +35,20 @@ go-matter is a **commissioner (controller)**. It discovers a commissionable devi
 - Events: reading the events a node keeps, and subscribing to them, with event number filters and timestamps resolved
 - The Message Reliability Protocol: acknowledgements and counters
 - The Basic Information, Descriptor, General Commissioning, General Diagnostics, Network Commissioning, Operational Credentials, Access Control and On/Off clusters, as a client
+- Multi-admin: opening a commissioning window on a commissioned node (Administrator Commissioning, with a fresh setup code, QR code and manual pairing code) so that another ecosystem adds it too, and commissioning a device another ecosystem shares; verified with Google Home
+- Commissioning progress, and why a device could not join its Wi-Fi network
 
 ### What is not supported yet
 
 - **Certificate revocation is not checked.** Device attestation is verified against a bundled snapshot of the Distributed Compliance Ledger's PAAs and CD signing keys, refreshed monthly; a PAA approved since the snapshot can be added with `WithCommissionerAttestationTrustStore` (`matterctl pairing --paa-trust-store`). `credentials.RevocationChecker` is a hook for a revocation check, which go-matter does not implement yet.
 - Thread commissioning: only the Wi-Fi credentials of a device can be set, with `pairing code-wifi` or the Wi-Fi fields of the TUI's Pair device
-- Multi-admin: opening a commissioning window on a commissioned node (sending OpenCommissioningWindow) so that another ecosystem can join it
 - Timed writes
 - User-directed commissioning (UDC), NFC and Wi-Fi PAF commissioning, Joint Fabric (JCM), ICD (intermittently connected device) clients and an OTA provider
 - Groups, bindings, scenes and OTA software update
 - The clusters which are not listed above
 - The session resumption state lives in memory only, so the first `Connect` after a restart, and the first after commissioning, run a full CASE
-- Only a few real devices have been commissioned and operated so far, and multi-admin alongside Google Home or Amazon Alexa has not been verified yet
+- Only a few real devices have been commissioned and operated so far; multi-admin has been verified with Google Home, not yet with Amazon Alexa or Apple Home
+- Devices which support only non-concurrent connection (BLE and Wi-Fi not at once) are not commissioned yet
 - On macOS, Core Bluetooth may refuse the Matter BLE service of a device (`uuidNotAllowed`); commission such a device over BLE from Linux (BlueZ), or over IP
 
 ### Releases
@@ -64,9 +66,9 @@ go-matter is a **commissioner (controller)**. It discovers a commissionable devi
 | v0.9.7 | Commissioning progress (`WithCommissioningProgress`); a device which does not answer ConnectNetwork, or advertises a wrong address right after joining its network, is reached; discovery and CASE end with the fail-safe |
 | v0.9.8 | Multi-admin: opening a commissioning window on a node for another administrator (`administratorcommissioning`); why a device could not join its network (`LastNetworkingStatus`); go-ble v0.9.2 |
 | v0.9.9 | The public API reviewed for v1.0: the packages which are stable; the requests of a node take a context (`im.WithContext`); typed commission options (`WithCommission…`); `Scanner()`, `TestVendor03ID`/`04ID`, `Connect(ctx, NodeID)` |
-| **v0.9.10** | Security updates: go-ble v0.9.3, go-mdns v1.0.1 |
-| v0.9.x | Fixes found against more real devices, and multi-admin alongside Google Home and Amazon Alexa verified |
-| v1.0.0 | The commissioner (controller) completed, with a stable API |
+| v0.9.10 | Security updates: go-ble v0.9.3, go-mdns v1.0.1 |
+| **v1.0.0** | The commissioner (controller) completed, with a stable API; multi-admin verified with Google Home |
+| v1.0.x | Non-concurrent devices, revocation checking, data-model forms in `matterctl` |
 | v1.1.0 and later | The device role |
 
 ### Progress Overview

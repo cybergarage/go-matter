@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-22
+
+The commissioner (controller) completed, with a stable API: the packages listed under API stability in the README follow semantic versioning from this release. Commissioning over BLE and IP, attestation, CASE with session resumption, subscriptions and events, and multi-admin, verified with real devices and alongside Google Home. The device role (`matter/device`) stays experimental until v1.1.0.
+
 ### Fixed
 
 - Reconnecting to a node no longer logs "Commissioning: CASE PASE transport does not support reuse": without a PASE transport, the operational connection is dialed without the commissioning messages.
