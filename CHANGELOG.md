@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- Uses go-ble v0.9.3 and go-mdns v1.0.1, which have security fixes.
+
 ## [0.9.9] - 2026-11-21
 
 The public API reviewed before v1.0: which packages are stable, contexts for the requests of a node, typed commission options, and names fixed. Breaking for callers of `Node`, `Commission` and `Connect`.
