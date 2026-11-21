@@ -45,6 +45,8 @@ network operation starts the commissioner. Neither OS permissions nor existing
 key permissions are changed. The library's log is off unless turned on (see
 [Log](#log)). Only temporary isolated stores and fake commissioners were exercised for this work.
 
+![matterctl tui on a real device: reading On/Off after a confirmation](images/matterctl-tui.jpg)
+
 ![Full-screen fictional controller](images/tui.png)
 
 [Pairing form](images/tui-pair.png) · [Compact layout](images/tui-compact.png) ·

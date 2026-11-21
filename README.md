@@ -84,7 +84,11 @@ $ matterctl onoff on 1 1
 $ matterctl any subscribe 0x0006 '*' 1 1
 ```
 
-`matterctl tui` is a full-screen controller (`make tui`). See the [command reference](doc/matterctl.md) and the [full-screen controller](doc/matterctl-tui.md).
+`matterctl tui` is a full-screen controller (`make tui`): saved devices, their endpoints, clusters and attributes, reads and commands after a confirmation, and the log.
+
+<img src="doc/images/matterctl-tui.jpg" alt="matterctl tui reading the On/Off attribute of a real device" width="720">
+
+See the [command reference](doc/matterctl.md) and the [full-screen controller](doc/matterctl-tui.md).
 
 ## API stability
 
