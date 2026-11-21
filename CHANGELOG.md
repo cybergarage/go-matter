@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- Reconnecting to a node no longer logs "Commissioning: CASE PASE transport does not support reuse": without a PASE transport, the operational connection is dialed without the commissioning messages.
+
 ## [0.9.10] - 2026-11-21
 
 Security updates of the BLE and mDNS packages.
