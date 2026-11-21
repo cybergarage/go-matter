@@ -8,7 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [1.0.0] - 2026-11-22
 
-The commissioner (controller) completed, with a stable API: the packages listed under API stability in the README follow semantic versioning from this release. Commissioning over BLE and IP, attestation, CASE with session resumption, subscriptions and events, and multi-admin, verified with real devices and alongside Google Home. The device role (`matter/device`) stays experimental until v1.1.0.
+The commissioner (controller) completed, with a stable API: the packages listed in [doc/packages.md](doc/packages.md) follow semantic versioning from this release. Commissioning over BLE and IP, attestation, CASE with session resumption, subscriptions and events, and multi-admin, verified with real devices and alongside Google Home. The device role (`matter/device`) stays experimental until v1.1.0.
+
+### Changed
+
+- The README is a short landing page: features, install, a quick start, `matterctl`, API stability and the documentation. The details moved to [doc/commissioner.md](doc/commissioner.md) (commissioning options, attestation, subscriptions and events, reconnection, the key store, multi-admin), [doc/features.md](doc/features.md) and [doc/packages.md](doc/packages.md); the release table is this changelog.
 
 ### Fixed
 

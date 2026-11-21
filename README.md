@@ -9,120 +9,20 @@
 Matter is an open-source connectivity standard for smart home and IoT (Internet of Things) devices.
 `go-matter` is a Go library for building a Matter controller, and `matterctl` is the command which drives it.
 
-> **Bundled third-party test credentials.** `matter/credentials/testcreds` contains the public test attestation credentials of the Matter SDK, [project-chip/connectedhomeip](https://github.com/project-chip/connectedhomeip) (Apache License 2.0): the development DAC and PAI for vendor ID 0xFFF1 and product ID 0x8000, the test PAA, and the example Certification Declaration. They are copied unmodified from commit `d305b0761957c960c26c0841e1b50add2365871d`, with the SDK's `LICENSE` and `NOTICE`. See [matter/credentials/testcreds/certs/README.md](matter/credentials/testcreds/certs/README.md) for the source of each file. They are for development and testing only: their private key is public, and commissioners accept them only in development mode.
+go-matter v1.0 completes the commissioner, with a stable API. Running as a Matter device is in development, for v1.1.
 
-## Status
+## Features
 
-go-matter is a **commissioner (controller)**. It discovers a commissionable device over BLE and mDNS, commissions it onto a fabric, and reads, writes and invokes the clusters of the node afterwards.
+- Commissioning over **BLE** (BTP) and **IP**: discovery from a QR code or manual pairing code, PASE, the fail-safe, CSR and NOC issuance, Wi-Fi network credentials, and CASE
+- **Device attestation**: the DAC → PAI → PAA chain and the Certification Declaration, against a bundled snapshot of the DCL
+- A persistent **store** of the fabric and its nodes, and a **key store** for the fabric's keys (encrypted files, or any `crypto.Signer`)
+- **Reconnection** with CASE session resumption
+- The **Interaction Model**: read, write, invoke, subscriptions to attributes and events, event reads
+- **Multi-admin**: opening a commissioning window to share a node with another ecosystem, verified with Google Home
+- Cluster clients, and a data model catalog to build command fields by name
+- **`matterctl`**, a CLI and a full-screen terminal controller
 
-**Running as a Matter device is under development.** The `matter/device` package is commissioned over IP by another commissioner such as chip-tool: it advertises itself over mDNS, answers PASE and CASE, attests, and joins the fabric. It serves the clusters of the root node and an On/Off Light with Identify, Groups and Scenes, which chip-tool reads, operates and subscribes to; see [examples/onofflight](examples/onofflight). It has not been verified with Google Home or Amazon Alexa yet. The device role is planned for v1.1.0 and later; v1.0.0 completes the commissioner, with a stable API (see [API stability](#api-stability)).
-
-| | Status |
-| --- | --- |
-| Commissioning and operating a device (commissioner) | Supported |
-| Being commissioned, and serving clusters (device) | **In development**: commissioned over IP by chip-tool; the root node clusters and an On/Off Light, with CASE session resumption. No events or Network Commissioning server yet |
-| `matterctl` command | Supported |
-
-### What the commissioner supports
-
-- Discovering a commissionable device over BLE and over mDNS, from a QR code payload or a manual pairing code
-- Commissioning over BLE (BTP) and over IP: PASE (SPAKE2+), the fail-safe and general commissioning flow, CSR and NOC issuance, and CASE
-- Device attestation verification: the DAC → PAI → PAA chain and the Certification Declaration, in a development mode (the default, which also trusts the test credentials of the Matter SDK), a production mode, or none
-- A persistent store of the fabric and of the commissioned nodes, so that a node is reachable again after a restart
-- A key store for the fabric's private keys, apart from that store: files encrypted with a passphrase, or an HSM, a KMS or a TPM through `crypto.Signer`
-- Reconnecting to a commissioned node with CASE, resuming the last session (session resumption) when the node still knows it; subscriptions move over to the new session when the old one fails
-- The Interaction Model: Read, Write and Invoke, including the reassembly of a chunked list, and subscriptions to attributes and events, which report changes to a callback and subscribe again when a report is overdue
-- Events: reading the events a node keeps, and subscribing to them, with event number filters and timestamps resolved
-- The Message Reliability Protocol: acknowledgements and counters
-- The Basic Information, Descriptor, General Commissioning, General Diagnostics, Network Commissioning, Operational Credentials, Access Control and On/Off clusters, as a client
-- Multi-admin: opening a commissioning window on a commissioned node (Administrator Commissioning, with a fresh setup code, QR code and manual pairing code) so that another ecosystem adds it too, and commissioning a device another ecosystem shares; verified with Google Home
-- Commissioning progress, and why a device could not join its Wi-Fi network
-
-### What is not supported yet
-
-- **Certificate revocation is not checked.** Device attestation is verified against a bundled snapshot of the Distributed Compliance Ledger's PAAs and CD signing keys, refreshed monthly; a PAA approved since the snapshot can be added with `WithCommissionerAttestationTrustStore` (`matterctl pairing --paa-trust-store`). `credentials.RevocationChecker` is a hook for a revocation check, which go-matter does not implement yet.
-- Thread commissioning: only the Wi-Fi credentials of a device can be set, with `pairing code-wifi` or the Wi-Fi fields of the TUI's Pair device
-- Timed writes
-- User-directed commissioning (UDC), NFC and Wi-Fi PAF commissioning, Joint Fabric (JCM), ICD (intermittently connected device) clients and an OTA provider
-- Groups, bindings, scenes and OTA software update
-- The clusters which are not listed above
-- The session resumption state lives in memory only, so the first `Connect` after a restart, and the first after commissioning, run a full CASE
-- Only a few real devices have been commissioned and operated so far; multi-admin has been verified with Google Home, not yet with Amazon Alexa or Apple Home
-- Devices which support only non-concurrent connection (BLE and Wi-Fi not at once) are not commissioned yet
-- On macOS, Core Bluetooth may refuse the Matter BLE service of a device (`uuidNotAllowed`); commission such a device over BLE from Linux (BlueZ), or over IP
-
-### Releases
-
-| Version | Scope |
-| --- | --- |
-| v0.8.0 | The first commissioner release |
-| v0.9.0 | The commissioner completed: attestation validation, subscriptions and events, CASE session resumption, a key store, and the `matterctl tui` controller, verified against a real device |
-| v0.9.1 | Command fields built from the data model catalog (`matterctl any invoke --field`), and the Level Control and Color Control clusters in the catalog |
-| v0.9.2 | BLE commissioning fixes from a real device: fresh scan results, bounded connection attempts, and an immediate error for a device not in commissioning mode |
-| v0.9.3 | ConnectNetwork over BLE waits for the device to join the network instead of 5 seconds |
-| v0.9.4 | Removing a node from a fabric: `operationalcredentials.CurrentFabricIndex` and `RemoveFabric` |
-| v0.9.5 | Commissioning keeps the caller's deadline and arms the fail-safe again before ConnectNetwork; refused General Commissioning commands are errors |
-| v0.9.6 | Discovery for commissioning goes on, round after round, until the device of the setup code is found, for up to 30 seconds |
-| v0.9.7 | Commissioning progress (`WithCommissioningProgress`); a device which does not answer ConnectNetwork, or advertises a wrong address right after joining its network, is reached; discovery and CASE end with the fail-safe |
-| v0.9.8 | Multi-admin: opening a commissioning window on a node for another administrator (`administratorcommissioning`); why a device could not join its network (`LastNetworkingStatus`); go-ble v0.9.2 |
-| v0.9.9 | The public API reviewed for v1.0: the packages which are stable; the requests of a node take a context (`im.WithContext`); typed commission options (`WithCommission…`); `Scanner()`, `TestVendor03ID`/`04ID`, `Connect(ctx, NodeID)` |
-| v0.9.10 | Security updates: go-ble v0.9.3, go-mdns v1.0.1 |
-| **v1.0.0** | The commissioner (controller) completed, with a stable API; multi-admin verified with Google Home |
-| v1.0.x | Non-concurrent devices, revocation checking, data-model forms in `matterctl` |
-| v1.1.0 and later | The device role |
-
-### Progress Overview
-
-#### Packages
-
-| Category | Package | Status | Description |
-|----------|---------|--------|-------------|
-| Discovery | `ble.btp` | ✅ Implemented | BLE transport protocol (BTP) implementation |
-|           | `mdns` | ✅ Implemented | mDNS (Multicast DNS) service discovery |
-| Commissioning | `protocol.pase` | ✅ Implemented | Passcode-Authenticated Session Establishment (PASE / SPAKE2+) |
-|               | `protocol.case` | ✅ Implemented | Certificate-Authenticated Session Establishment (CASE), with session resumption (Sigma2_Resume) |
-|               | `protocol.session` | ✅ Implemented | Secure session management |
-|               | `credentials` | ✅ Implemented | Device attestation verification (DAC → PAI → PAA, Certification Declaration), CSR, and CA/NOC chain handling |
-|               | `credentials.production` | ✅ Implemented | Bundled snapshot of the DCL's production PAAs and CD signing certificates |
-|               | `credentials.dcl` | ✅ Implemented | DCL REST client which refreshes that snapshot (`make update-production-certs`) |
-|               | `store` | ✅ Implemented | Persistent fabric and commissionee record store |
-|               | `keystore` | ✅ Implemented | Key store for the fabric's private keys: encrypted files, or any `crypto.Signer` (HSM, KMS, TPM) |
-| Interaction Model | `protocol.im` | ✅ Implemented | Read/Write/Invoke transactions, incl. chunked list reassembly; attribute and event subscriptions; event reads; exchange multiplexing (`ExchangeMux`) |
-|                    | `protocol.mrp` | ✅ Implemented | Message Reliability Protocol (acknowledgement, counters) |
-| Clusters | `cluster` | ✅ Implemented | Basic Information, Descriptor, General Commissioning/Diagnostics, Network Commissioning, Operational Credentials, Access Control, Administrator Commissioning |
-|          | `cluster.administratorcommissioning` | ✅ Implemented | Multi-admin: open a commissioning window on a commissioned node with a fresh passcode (`NewWindow`, `OpenCommissioningWindow`), with its manual pairing code and QR code; basic windows and revocation |
-|          | `cluster.onoff` | ✅ Implemented | On/Off cluster client |
-| Operation | `cmd.matterctl` | ✅ Implemented | `matterctl` CLI (scan, pairing, per-cluster read/write/invoke, subscriptions, events) and the `matterctl tui` full-screen controller |
-| Encoding | `encoding.base38` | ✅ Implemented | Base38 encoding/decoding |
-|          | `encoding.qr` | ✅ Implemented | QR code generation |
-|          | `encoding.pairing` | ✅ Implemented | Manual pairing code handling |
-|          | `encoding.message` | ✅ Implemented | Message Frame Format encoding |
-|          | `encoding.tlv` | ✅ Implemented | TLV (Tag-Length-Value) encoding |
-
-#### API stability
-
-From v1.0.0, the API of these packages follows [semantic versioning](https://semver.org/spec/v2.0.0.html), and changes incompatibly only in a new major version:
-
-| Package | What is stable |
-|---------|----------------|
-| `matter` | The commissioner, the node and their options |
-| `config`, `types`, `errors` | Configurations, identifiers and errors |
-| `encoding`, `encoding/tlv` | Onboarding payloads and codes; TLV |
-| `store`, `keystore` | The fabric and node records; the keys of the fabric |
-| `credentials`, `credentials/testcreds` | Attestation, certificates and test credentials |
-| `cluster/...` | The cluster clients |
-| `datamodel`, `datamodel/command` | The data model catalog and command encoding |
-| `protocol/im` | As a client uses it: paths and identifiers, reads, writes and invokes, subscriptions, events, `WithContext` |
-| `ble`, `mdns` | As they are given to the commissioner |
-
-The other packages, such as `protocol/case`, `protocol/pase`, `protocol/mrp`, `protocol/session`, `protocol/group`, `encoding/message`, `ble/btp` and `crypto`, are the parts the commissioner is built of: they are public so that they can be tested and reused, and they may change in a minor version. `device` and `device/cluster`, the device side, are experimental until v1.1.0.
-
-#### Related Projects
-
-| Project | Status | Description |
-|---------|--------|-------------|
-| [go-ble](https://github.com/cybergarage/go-ble) | v0.9.3 (central only) | Go package for Bluetooth Low Energy (BLE) communication |
-| [go-mdns](https://github.com/cybergarage/go-mdns) | v1.0.1 | Go package for mDNS (Multicast DNS) and DNS-SD: service discovery and publication |
+Not supported yet: Thread commissioning, revocation checking, devices which support only non-concurrent connection, groups, scenes and OTA. Running as a Matter **device** is in development, for v1.1.0. See [what go-matter supports](doc/features.md) for the details.
 
 ## Install
 
@@ -136,9 +36,9 @@ The `matterctl` command is installed with:
 go install github.com/cybergarage/go-matter/cmd/matterctl@latest
 ```
 
-## Usage
+## Quick start
 
-A commissioner is started once, and it then discovers, commissions and reaches the devices of its fabric.
+A commissioner is started once, and then commissions devices and reaches the nodes of its fabric.
 
 ```go
 commissioner := matter.NewCommissioner()
@@ -147,179 +47,76 @@ if err := commissioner.Start(); err != nil {
 }
 defer commissioner.Stop()
 
-// The payload comes from the manual pairing code, or from the QR code, of
-// the device.
+// The manual pairing code, or the QR code payload (MT:...), of the device.
 payload, err := encoding.NewPairingCodeFromString(code)
 if err != nil {
 	return err
 }
 
-commissionee, err := commissioner.Commission(ctx, payload)
+// A device found over BLE also needs the Wi-Fi network it is to join.
+wifi := config.NewWiFiNetworkConfig(config.WithSSID(ssid), config.WithCredentials(password))
+commissionee, err := commissioner.Commission(ctx, payload, matter.WithCommissionWiFiNetwork(wifi))
 if err != nil {
 	return err
 }
-
 nodeID, _ := commissionee.NodeID()
-```
 
-A device which is not on the network yet is found over BLE, and needs the Wi-Fi network it is to join. Options of a commissioning are given with the `WithCommission…` functions and `WithCommissioningProgress`:
-
-```go
-wifi := config.NewWiFiNetworkConfig(config.WithSSID(ssid), config.WithCredentials(password))
-commissionee, err := commissioner.Commission(ctx, payload,
-	matter.WithCommissionWiFiNetwork(wifi),
-	matter.WithCommissioningProgress(func(p matter.CommissioningProgress) { … }),
-)
-```
-
-A commissioned node is reached again through the store, without commissioning it a second time:
-
-```go
+// Later, or after a restart: the node is reached again through the store.
 node, err := commissioner.Connect(ctx, nodeID)
 if err != nil {
 	return err
 }
-
+defer node.Close()
 res, err := node.ReadAttribute(ctx, endpointID, clusterID, attributeID)
 ```
 
-Each request of a node takes a context: the wait for the response ends when it is done. Cluster functions which take a session get the node's session bound to a context with `im.WithContext(ctx, node.Session())`.
+The [commissioner guide](doc/commissioner.md) covers commissioning options and progress, device attestation, subscriptions and events, reconnection, the key store and sharing a node with another ecosystem.
 
-Commissioning bounds the whole PASE-through-CASE exchange with a single deadline, which defaults to `DefaultCommissioningTimeout` (120 seconds): a device commits its new fabric to persistent storage and then re-advertises itself over mDNS before CASE can start, and a shorter deadline expires in the middle of that.
+## matterctl
 
-### Device attestation
-
-A commissioner verifies the device attestation of every device it commissions, and refuses one which does not verify with a `credentials.AttestationError`. The mode is set with `WithCommissionerAttestationMode`:
-
-| Mode | Trusts |
-| --- | --- |
-| `matter.AttestationDevelopment` (default) | The production PAAs and CD signing keys of the DCL, bundled in `credentials/production`, and the test PAA and test CD signing key of the Matter SDK, so certified products and self-made test devices both commission |
-| `matter.AttestationProduction` | The production trust anchors only: the test vendor IDs (0xFFF1 to 0xFFF4), development and test Certification Declarations and the SDK's test anchors are rejected |
-| `matter.AttestationNone` | Nothing: only the DAC's signature over the attestation elements and the nonce are checked |
-
-```go
-commissioner := matter.NewCommissioner(
-	matter.WithCommissionerAttestationMode(matter.AttestationProduction),
-)
-```
-
-PAAs and CD signing certificates of your own are added with `WithCommissionerAttestationTrustStore` and `credentials.LoadAttestationTrustStore`. The library itself never reaches the network for them.
-
-### Subscriptions and events
-
-A node from `Connect` reports the attributes and the events it is subscribed to through a callback. The first report (`Priming`) holds every subscribed attribute; the subscription subscribes again when a report is overdue, and moves to a new session when the node's session fails.
-
-```go
-paths := []im.AttributeRequestPath{
-	im.NewAttributeRequestPath(1, 0x0006, 0x0000), // On/Off of endpoint 1
-}
-sub, err := node.(matter.AttributeSubscriber).Subscribe(ctx, paths,
-	func(r *im.Report) {
-		for _, a := range r.Attributes {
-			log.Printf("attribute %v: %v", a.Path, a.Value)
-		}
-		for _, e := range r.Events {
-			log.Printf("event #%d %v at %d", e.EventNumber, e.Path, e.Timestamp)
-		}
-	},
-	im.WithMaxInterval(time.Minute),
-	im.WithEvents(im.NewEventRequestPath(0, 0x0028, 0x0000)), // StartUp of Basic Information
-)
-if err != nil {
-	return err
-}
-defer sub.Close()
-```
-
-The events a node keeps are read with `EventReader`:
-
-```go
-events, err := node.(matter.EventReader).ReadEvents(ctx,
-	[]im.EventRequestPath{im.NewEventRequestPath(0, 0x0028, 0x0000)},
-)
-```
-
-### Reconnection
-
-A node from `Connect` lives until it is closed. When a request finds its session failed, it connects again before the request, resuming the last CASE session when the node still knows it (session resumption) and running a full CASE when not; the request itself is not sent again. `Reconnector` does the same on demand:
-
-```go
-if r, ok := node.(matter.Reconnector); ok {
-	if err := r.Reconnect(ctx); err != nil {
-		return err
-	}
-	log.Printf("session resumed: %v", r.Resumed())
-}
-```
-
-### Key store
-
-By default, the fabric's root CA key and the commissioner's operational key are kept in the fabric record of the store. `WithCommissionerKeyStore` keeps them in a `keystore.KeyStore` instead: encrypted files, or an HSM, a cloud KMS or a TPM through `crypto.Signer`.
-
-```go
-ks, err := keystore.NewFileKeyStore(dir, keystore.WithPassphrase(passphrase))
-if err != nil {
-	return err
-}
-commissioner := matter.NewCommissioner(matter.WithCommissionerKeyStore(ks))
-```
-
-`Start` moves the keys an existing fabric record holds into the key store. See [Commissioner Persistent Store](doc/commissioner-store.md#key-store).
-
-## Command
-
-`matterctl` commissions and operates a device from a terminal. See the [command reference](doc/matterctl.md).
+`matterctl` commissions and operates a device from a terminal.
 
 ```
 $ matterctl scan
 $ matterctl pairing code 1 MT:-24J0AFN00KA0648G00
 $ matterctl pairing code-wifi 1 MT:-24J0AFN00KA0648G00 <ssid> <password>
-$ matterctl basicinformation read 1 0
 $ matterctl onoff on 1 1
-$ matterctl any read 0x0006 0x0000 1 1
-$ matterctl any invoke 0x0008 0x00 1 1 --field Level=127 --field TransitionTime=10 --field OptionsMask=0 --field OptionsOverride=0
 $ matterctl any subscribe 0x0006 '*' 1 1
-$ matterctl any read-events 0x0028 '*' 1 0
-$ matterctl any subscribe-events 0x0028 '*' 1 0
-$ matterctl reset
 ```
 
-`matterctl pairing` takes `--attestation development|production|none`, and `--paa-trust-store` / `--cd-trust-store` for trust anchors of your own. The fabric's private keys are kept in an encrypted file key store when the environment variable `MATTER_CTL_KEY_STORE` names its directory and `MATTER_CTL_KEY_STORE_PASSPHRASE` is set; both are read from the environment only.
+`matterctl tui` is a full-screen controller (`make tui`). See the [command reference](doc/matterctl.md) and the [full-screen controller](doc/matterctl-tui.md).
 
-### Full-screen controller
+## API stability
 
-Run `make tui` for the `matterctl tui` dashboard on real devices, with the
-store `~/.matterctl`, or `make tui-debug` for the same with a debug log;
-`--offline` (`make tui TUI_ARGS=--offline`) runs a fictional fixture instead.
-Live use requires a valid commissioner fabric, restored from the selected
-store or explicitly created in the UI. Network operations
-require UI confirmation. It supports saved-device menus, manual/QR pairing
-forms with optional Wi-Fi credentials for a device found over BLE, an inspect
-of the node right after pairing, Descriptor inspection, selected read/On-Off
-controls and a log. See [scope, keys, screenshots and verification](doc/matterctl-tui.md).
+From v1.0.0, the commissioner's API follows [semantic versioning](https://semver.org/spec/v2.0.0.html): the `matter` package, configurations and identifiers, onboarding codes, stores, credentials, cluster clients, the data model and the client side of the Interaction Model change incompatibly only in a new major version. The protocol internals may change in a minor version, and the device role is experimental until v1.1.0. See [packages](doc/packages.md) for the list.
 
-# User Guides
+## Documentation
 
-- Operation
-  - [matterctl](doc/matterctl.md)
-- Commissioner
-  - [Commissioner Persistent Store](doc/commissioner-store.md)
-- Device
-  - [Device (in development)](doc/device.md)
-  - [Device Persistent Store](doc/device-store.md)
+| Guide | |
+| --- | --- |
+| [Commissioner guide](doc/commissioner.md) | Commissioning, attestation, subscriptions and events, reconnection, the key store, multi-admin |
+| [What go-matter supports](doc/features.md) | Roles, supported features and what is not supported yet |
+| [Packages](doc/packages.md) | Every package, and which follow semantic versioning |
+| [matterctl](doc/matterctl.md), [full-screen controller](doc/matterctl-tui.md) | The command |
+| [Commissioner persistent store](doc/commissioner-store.md) | The store of the fabric and its nodes, and the key store |
+| [Data model catalog](doc/matter-definition-db.md) | The version-pinned device and cluster metadata |
+| [Device (in development)](doc/device.md), [device persistent store](doc/device-store.md) | The device role |
+| [CHANGELOG](CHANGELOG.md) | The changes of each release |
+| [Go reference](https://pkg.go.dev/github.com/cybergarage/go-matter) | The API |
 
+The implementation follows the Matter 1.5 specifications ([Core, Application Cluster, Device Library and Standard Namespace](https://csa-iot.org/developer-resource/specifications-download-request/)) and the reference implementation, [project-chip/connectedhomeip](https://github.com/project-chip/connectedhomeip).
 
-## References
+## Related projects
 
-- [Matter](https://buildwithmatter.com/)
-    - [Matter 1.5 Standard Namespace Specification](https://csa-iot.org/developer-resource/specifications-download-request/)
-    - [Matter 1.5 Device Library Specification](https://csa-iot.org/developer-resource/specifications-download-request/)
-    - [Matter 1.5 Core Specification](https://csa-iot.org/developer-resource/specifications-download-request/)
-    - [Matter 1.5 Application Cluster Specification](https://csa-iot.org/developer-resource/specifications-download-request/)
+| Project | Status | Description |
+|---------|--------|-------------|
+| [go-ble](https://github.com/cybergarage/go-ble) | v0.9.3 (central only) | Go package for Bluetooth Low Energy (BLE) communication |
+| [go-mdns](https://github.com/cybergarage/go-mdns) | v1.0.1 | Go package for mDNS (Multicast DNS) and DNS-SD: service discovery and publication |
 
-### Versioned metadata catalog
+## Licenses and third-party files
 
-The initial offline [`matter/datamodel`](matter/datamodel) catalog provides
-version-pinned SDK device/cluster/attribute/command metadata. See
-[source licensing, coverage, regeneration and API](doc/matter-definition-db.md).
-It does not enable new device operations or change the library's protocol target.
+go-matter is licensed under the [Apache License 2.0](LICENSE).
+
+**Test credentials.** `matter/credentials/testcreds` contains the public test attestation credentials of the Matter SDK, [project-chip/connectedhomeip](https://github.com/project-chip/connectedhomeip) (Apache License 2.0): the development DAC and PAI for vendor ID 0xFFF1 and product ID 0x8000, the test PAA, and the example Certification Declaration. They are copied unmodified from commit `d305b0761957c960c26c0841e1b50add2365871d`, with the SDK's `LICENSE` and `NOTICE`. See [matter/credentials/testcreds/certs/README.md](matter/credentials/testcreds/certs/README.md) for the source of each file. They are for development and testing only: their private key is public, and commissioners accept them only in development mode.
+
+The data model catalog carries metadata of the Matter SDK; see [its source licensing](doc/matter-definition-db.md). The full-screen controller's third-party notices are in [doc/tui-third-party-notices.md](doc/tui-third-party-notices.md).
