@@ -14,6 +14,13 @@ and authenticated by a commissioner, but not yet commissioned all the way.
 | Interaction Model server | Invoke and Read (one message per report), on every PASE session |
 | Other clusters | Not implemented |
 
+**Uncertified.** A device built with this package attests with the test
+credentials of the Matter SDK (vendor ID 0xFFF1), so a commissioner accepts it
+only in development mode, and an ecosystem such as Google Home or Amazon Alexa
+shows it as an uncertified test device, or refuses it. A product needs its own
+attestation credentials and CSA certification; see
+[certification and trademarks](../README.md#certification-and-trademarks).
+
 The state a device persists, the fabrics, ACLs, group keys and counters,
 is already defined by the [Device Persistent Store](device-store.md).
 

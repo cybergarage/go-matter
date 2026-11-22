@@ -29,6 +29,12 @@ go-matter is a **commissioner (controller)**. It discovers a commissionable devi
 - Multi-admin: opening a commissioning window on a commissioned node (Administrator Commissioning, with a fresh setup code, QR code and manual pairing code) so that another ecosystem adds it too, and commissioning a device another ecosystem shares; verified with Google Home
 - Commissioning progress, and why a device could not join its Wi-Fi network
 
+## Verified with
+
+- **Ecosystems (multi-admin).** Google Home on iOS, in both directions: a node go-matter shared with a pairing window was added to Google Home, and a device Google Home shared (*Linked Matter apps & services*) was commissioned over IP; both controlled it. Amazon Alexa, Apple Home, SmartThings and Home Assistant are not verified yet.
+- **Devices.** Two Wi-Fi light bulbs of different vendors, commissioned over BLE with Wi-Fi credentials and over IP, and operated (on/off, level, color temperature, subscriptions). In CI, `chip-tool` of the Matter SDK commissions the device role (`matter/device`) over the network.
+- **Platforms.** Linux with BlueZ, for BLE and mDNS. macOS builds and runs, and CI tests the full-screen controller there; Core Bluetooth may refuse a device's Matter BLE service (see below).
+
 ## What is not supported yet
 
 - **Certificate revocation is not checked.** Device attestation is verified against a bundled snapshot of the Distributed Compliance Ledger's PAAs and CD signing keys, refreshed monthly; a PAA approved since the snapshot can be added with `WithCommissionerAttestationTrustStore` (`matterctl pairing --paa-trust-store`). `credentials.RevocationChecker` is a hook for a revocation check, which go-matter does not implement yet.

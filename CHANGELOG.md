@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Compatibility, certification and trademarks** in the README: which ecosystems, devices and platforms are verified; that go-matter is not affiliated with or certified by the CSA, and that a product needs CSA certification; test vendor IDs; and that a device built with `matter/device` is an uncertified test device.
+
 ## [1.0.0] - 2026-11-22
 
 The commissioner (controller) completed, with a stable API: the packages listed in [doc/packages.md](doc/packages.md) follow semantic versioning from this release. Commissioning over BLE and IP, attestation, CASE with session resumption, subscriptions and events, and multi-admin, verified with real devices and alongside Google Home. The device role (`matter/device`) stays experimental until v1.1.0.
