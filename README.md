@@ -110,6 +110,23 @@ From v1.0.0, the commissioner's API follows [semantic versioning](https://semver
 
 The implementation follows the Matter 1.5 specifications ([Core, Application Cluster, Device Library and Standard Namespace](https://csa-iot.org/developer-resource/specifications-download-request/)) and the reference implementation, [project-chip/connectedhomeip](https://github.com/project-chip/connectedhomeip).
 
+## Compatibility
+
+| | Verified |
+| --- | --- |
+| Ecosystems (multi-admin) | Google Home, in both directions: a node shared from go-matter, and a device Google Home shares. Amazon Alexa, Apple Home, SmartThings and Home Assistant are not verified yet |
+| Devices | Two Wi-Fi light bulbs of different vendors, commissioned over BLE and over IP. In CI, `chip-tool` of the Matter SDK commissions the device role (`matter/device`) |
+| Platforms | Linux with BlueZ for BLE and mDNS. macOS builds and runs IP commissioning, but Core Bluetooth may refuse a device's Matter BLE service |
+
+See [what go-matter supports](doc/features.md) for the details.
+
+## Certification and trademarks
+
+Matter is a trademark of the [Connectivity Standards Alliance](https://csa-iot.org/) (CSA). go-matter is an independent open-source project: it is not affiliated with, endorsed by or certified by the CSA. It is meant for development, testing and personal use. A product built with it needs CSA membership and certification to be sold as a Matter product or to use the Matter name and logo, whatever implementation it uses; certifying it is the product maker's responsibility.
+
+- **Vendor ID.** A fabric is created with the administrator vendor ID its application gives. 0xFFF1 to 0xFFF4 are test vendor IDs, for development only; a product uses the vendor ID the CSA assigned to its maker.
+- **Device role.** A device built with `matter/device` attests with the test credentials of the Matter SDK, so an ecosystem shows it as an uncertified test device, and some refuse to add it.
+
 ## Related projects
 
 | Project | Status | Description |
