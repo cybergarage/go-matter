@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **homewire** in the README: the Matter hub built on go-matter, with a screenshot of its web UI.
 - **Compatibility, certification and trademarks** in the README: which ecosystems, devices and platforms are verified; that go-matter is not affiliated with or certified by the CSA, and that a product needs CSA certification; test vendor IDs; and that a device built with `matter/device` is an uncertified test device.
 
 ## [1.0.0] - 2026-11-22

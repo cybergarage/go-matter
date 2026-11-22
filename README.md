@@ -90,6 +90,14 @@ $ matterctl any subscribe 0x0006 '*' 1 1
 
 See the [command reference](doc/matterctl.md) and the [full-screen controller](doc/matterctl-tui.md).
 
+## homewire
+
+[homewire](https://github.com/cybergarage/homewire) is a Matter hub built on go-matter: a daemon with a web UI and an HTTP API, which adds devices over Bluetooth or the network, follows them live, controls lights, and shares them with Google Home and other apps. It is installed from a .deb package and runs as a systemd service.
+
+<img src="doc/images/homewire.png" alt="homewire: the devices of the hub, with their controls" width="570">
+
+See [homewire](https://github.com/cybergarage/homewire) to install it.
+
 ## API stability
 
 From v1.0.0, the commissioner's API follows [semantic versioning](https://semver.org/spec/v2.0.0.html): the `matter` package, configurations and identifiers, onboarding codes, stores, credentials, cluster clients, the data model and the client side of the Interaction Model change incompatibly only in a new major version. The protocol internals may change in a minor version, and the device role is experimental until v1.1.0. See [packages](doc/packages.md) for the list.
@@ -132,6 +140,7 @@ Matter is a trademark of the [Connectivity Standards Alliance](https://csa-iot.o
 | Project | Status | Description |
 |---------|--------|-------------|
 | [go-ble](https://github.com/cybergarage/go-ble) | v0.9.3 (central only) | Go package for Bluetooth Low Energy (BLE) communication |
+| [homewire](https://github.com/cybergarage/homewire) | v1.0.0 | Matter hub with a web UI, built on go-matter |
 | [go-mdns](https://github.com/cybergarage/go-mdns) | v1.0.1 | Go package for mDNS (Multicast DNS) and DNS-SD: service discovery and publication |
 
 ## Licenses and third-party files
