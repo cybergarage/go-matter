@@ -41,5 +41,5 @@ var (
 	// of a commissioning whose BLE discovery failed, such as on a host whose
 	// Bluetooth adapter is missing, powered off or blocked (rfkill): a
 	// device not yet on the network can be found over BLE only.
-	ErrBluetoothUnavailable = stderrors.New("Bluetooth is unavailable")
+	ErrBluetoothUnavailable = stderrors.New("bluetooth is unavailable")
 )
