@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"time"
 
 	"github.com/cybergarage/go-logger/log"
@@ -163,6 +164,8 @@ type commissioner struct {
 	resumptions resumptionCache
 	// keyStore keeps the fabric's private keys when set.
 	keyStore keystore.KeyStore
+	// bleErr is why the last BLE discovery failed, or nil when it did not.
+	bleErr atomic.Pointer[error]
 }
 
 // NewCommissioner returns a new commissioner.
@@ -285,6 +288,9 @@ func (cmr *commissioner) Discover(ctx context.Context, query Query) ([]Commissio
 	// error.
 	for range 2 {
 		r := <-done
+		if r.method == "BLE" {
+			cmr.setBLEError(r.err)
+		}
 		if r.err != nil && !errors.Is(r.err, context.DeadlineExceeded) {
 			log.Warnf("%s discovery failed: %v", r.method, r.err)
 			errs = append(errs, fmt.Errorf("%s discovery: %w", r.method, r.err))
@@ -426,7 +432,28 @@ func (cmr *commissioner) commissionMatchingDevice(ctx context.Context, payload O
 	case skippedBLE:
 		return nil, fmt.Errorf("%w: the device was found over BLE only: %w", ErrNotFound, ErrWiFiNetworkRequired)
 	}
+	if bleErr := cmr.lastBLEError(); bleErr != nil {
+		return nil, fmt.Errorf("%w: no matching commissionable device found; %w: %w", ErrNotFound, ErrBluetoothUnavailable, bleErr)
+	}
 	return nil, fmt.Errorf("%w: no matching commissionable device found", ErrNotFound)
+}
+
+// setBLEError keeps why a BLE discovery failed; a discovery which ended
+// with its context, or found devices, clears it.
+func (cmr *commissioner) setBLEError(err error) {
+	if err == nil || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		cmr.bleErr.Store(nil)
+		return
+	}
+	cmr.bleErr.Store(&err)
+}
+
+// lastBLEError returns why the last BLE discovery failed, or nil.
+func (cmr *commissioner) lastBLEError() error {
+	if p := cmr.bleErr.Load(); p != nil {
+		return *p
+	}
+	return nil
 }
 
 // notInCommissioningMode reports whether a device found over mDNS says that

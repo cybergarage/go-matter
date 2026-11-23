@@ -454,3 +454,25 @@ func TestDiscoverMatchingBudget(t *testing.T) {
 		t.Fatalf("discoverMatching(failing) error = %v, want %v", err, fail)
 	}
 }
+
+// A device not found while BLE discovery failed is reported with why
+// Bluetooth was unavailable; a later discovery which works clears it.
+func TestCommissionNotFoundTellsWhyBluetoothIsUnavailable(t *testing.T) {
+	cmr := &commissioner{}
+	cmr.setBLEError(errors.New("bluetooth: adaptor is not powered"))
+	_, err := cmr.commissionMatchingDevice(context.Background(), testPairingCode(t), nil)
+	if !errors.Is(err, ErrNotFound) || !errors.Is(err, ErrBluetoothUnavailable) || !strings.Contains(err.Error(), "not powered") {
+		t.Fatalf("error = %v", err)
+	}
+
+	cmr.setBLEError(nil)
+	_, err = cmr.commissionMatchingDevice(context.Background(), testPairingCode(t), nil)
+	if !errors.Is(err, ErrNotFound) || errors.Is(err, ErrBluetoothUnavailable) {
+		t.Fatalf("error after BLE discovery worked = %v", err)
+	}
+
+	cmr.setBLEError(context.DeadlineExceeded)
+	if cmr.lastBLEError() != nil {
+		t.Fatal("a discovery which ended with its time kept an error")
+	}
+}
