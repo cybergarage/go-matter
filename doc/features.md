@@ -32,8 +32,8 @@ go-matter is a **commissioner (controller)**. It discovers a commissionable devi
 ## Verified with
 
 - **Ecosystems (multi-admin).** Google Home on iOS, in both directions: a node go-matter shared with a pairing window was added to Google Home, and a device Google Home shared (*Linked Matter apps & services*) was commissioned over IP; both controlled it. Amazon Alexa, Apple Home, SmartThings and Home Assistant are not verified yet.
-- **Devices.** Two Wi-Fi light bulbs of different vendors, commissioned over BLE with Wi-Fi credentials and over IP, and operated (on/off, level, color temperature, subscriptions). In CI, `chip-tool` of the Matter SDK commissions the device role (`matter/device`) over the network.
-- **Platforms.** Linux with BlueZ, for BLE and mDNS. macOS builds and runs, and CI tests the full-screen controller there; Core Bluetooth may refuse a device's Matter BLE service (see below).
+- **Hosts.** Ubuntu 26.04 on an Intel PC (amd64), and Raspberry Pi OS (64-bit) of 2026-10-06, Debian 13, on a Raspberry Pi 400 (arm64), with homewire: commissioning over BLE with Wi-Fi credentials and over IP, and operation (on/off, level, color temperature, subscriptions).
+- **Platforms.** Linux with BlueZ, for BLE and mDNS. macOS builds and runs, and CI tests the full-screen controller there; Core Bluetooth may refuse a device's Matter BLE service (see below). In CI, `chip-tool` of the Matter SDK commissions the device role (`matter/device`) over the network.
 
 ## What is not supported yet
 
