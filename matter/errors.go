@@ -37,4 +37,9 @@ var (
 	// reset, by its maker's instructions), or by an administrator of a fabric
 	// it is already in. 4.3.1.7. TXT key for commissioning mode (CM).
 	ErrNotInCommissioningMode = stderrors.New("the device is not in commissioning mode (CM=0): open a commissioning window on it, or reset it to factory defaults")
+	// ErrBluetoothUnavailable is wrapped, with the cause, in the ErrNotFound
+	// of a commissioning whose BLE discovery failed, such as on a host whose
+	// Bluetooth adapter is missing, powered off or blocked (rfkill): a
+	// device not yet on the network can be found over BLE only.
+	ErrBluetoothUnavailable = stderrors.New("Bluetooth is unavailable")
 )

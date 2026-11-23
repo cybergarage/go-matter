@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- A commissioning which finds no device while BLE discovery failed, such as on a host whose Bluetooth adapter is powered off or blocked (rfkill), now says so: its `ErrNotFound` also wraps the new `ErrBluetoothUnavailable`, with the cause. Before, the BLE failure was logged only, as a warning.
+
 ### Added
 
 - **homewire** in the README: the Matter hub built on go-matter, with a screenshot of its web UI.
