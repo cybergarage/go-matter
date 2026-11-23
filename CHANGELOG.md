@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-11-23
+
+Tells why a device could not be found when Bluetooth is unavailable; notices and homewire in the README.
+
 ### Fixed
 
 - A commissioning which finds no device while BLE discovery failed, such as on a host whose Bluetooth adapter is powered off or blocked (rfkill), now says so: its `ErrNotFound` also wraps the new `ErrBluetoothUnavailable`, with the cause. Before, the BLE failure was logged only, as a warning.
