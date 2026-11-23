@@ -24,6 +24,16 @@ go-matter v1.0 completes the commissioner, with a stable API. Running as a Matte
 
 Not supported yet: Thread commissioning, revocation checking, devices which support only non-concurrent connection, groups, scenes and OTA. Running as a Matter **device** is in development, for v1.1.0. See [what go-matter supports](doc/features.md) for the details.
 
+## Requirements
+
+| | |
+| --- | --- |
+| Go | 1.25 or later |
+| OS | Linux, with BlueZ for BLE; macOS builds and commissions over IP, but Core Bluetooth may refuse a device's Matter BLE service |
+| Bluetooth | A Bluetooth LE adapter, to commission a device not yet on the network |
+| Network | The same network as the devices, where mDNS and IPv6 link-local addresses reach them |
+| Devices | Matter devices on Wi-Fi or Ethernet; Thread devices are not supported |
+
 ## Install
 
 ```
@@ -118,13 +128,13 @@ From v1.0.0, the commissioner's API follows [semantic versioning](https://semver
 
 The implementation follows the Matter 1.5 specifications ([Core, Application Cluster, Device Library and Standard Namespace](https://csa-iot.org/developer-resource/specifications-download-request/)) and the reference implementation, [project-chip/connectedhomeip](https://github.com/project-chip/connectedhomeip).
 
-## Compatibility
+## Verified
 
-| | Verified |
+| | |
 | --- | --- |
+| Hosts | Ubuntu 26.04 on an Intel PC (amd64); Raspberry Pi OS (64-bit) of 2026-10-06, Debian 13, on a Raspberry Pi 400 (arm64), with homewire |
 | Ecosystems (multi-admin) | Google Home, in both directions: a node shared from go-matter, and a device Google Home shares. Amazon Alexa, Apple Home, SmartThings and Home Assistant are not verified yet |
-| Devices | Two Wi-Fi light bulbs of different vendors, commissioned over BLE and over IP. In CI, `chip-tool` of the Matter SDK commissions the device role (`matter/device`) |
-| Platforms | Linux with BlueZ for BLE and mDNS. macOS builds and runs IP commissioning, but Core Bluetooth may refuse a device's Matter BLE service |
+| CI | Linux and macOS; `chip-tool` of the Matter SDK commissions the device role (`matter/device`) |
 
 See [what go-matter supports](doc/features.md) for the details.
 

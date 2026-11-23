@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- The README tells the requirements (Go, OS, Bluetooth, network, devices) and, apart, what was verified (hosts, ecosystems, CI); the row of verified devices is removed.
+
 ## [1.0.1] - 2026-11-23
 
 Tells why a device could not be found when Bluetooth is unavailable; notices and homewire in the README.
